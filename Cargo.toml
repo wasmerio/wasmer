@@ -25,6 +25,7 @@ wasmer-wast = { version = "1.0.2", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.2", path = "lib/cache", optional = true }
 wasmer-types = { version = "1.0.2", path = "lib/types" }
 wasmer-middlewares = { version = "1.0.2", path = "lib/middlewares", optional = true }
+wasmer-lld-wrapper = { version = "0.0.1", path = "lib/lld-wrapper", optional = true }
 cfg-if = "1.0"
 
 [workspace]

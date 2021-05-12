@@ -1,0 +1,20 @@
+[package]
+name = "wasmer-lld-wrapper"
+version = "0.0.1"
+description = "Wasmer's wrapper around LLD"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT OR Apache-2.0 WITH LLVM-exception "
+edition = "2018"
+build = "build.rs"
+links = "lld-11"
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.0"
+regex = "1"
+pathsearch = "0.2"
+
+[features]
+strict-versioning = []
