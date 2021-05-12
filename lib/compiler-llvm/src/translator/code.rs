@@ -4395,7 +4395,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_select(cmp, v2, v1, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
-                // REVIEW: do we need to push extra about NaNs here?
             }
             Operator::F64x2Min => {
                 // a) check v1 and v2 for NaN
@@ -4504,7 +4503,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_select(cmp, v2, v1, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
-                // REVIEW: do we need to push extra about NaNs here?
             }
             Operator::F32Max => {
                 // This implements the same logic as LLVM's @llvm.maximum
@@ -4745,7 +4743,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_select(cmp, v2, v1, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
-                // REVIEW: do we need to push extra about NaNs here?
             }
             Operator::F64x2Max => {
                 // a) check v1 and v2 for NaN
@@ -4854,7 +4851,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_select(cmp, v2, v1, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
-                // REVIEW: do we need to push extra about NaNs here?
             }
             Operator::F32Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
