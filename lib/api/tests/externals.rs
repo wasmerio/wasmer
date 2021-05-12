@@ -144,7 +144,7 @@ fn memory_new() -> Result<()> {
     };
     let memory = Memory::new(&store, memory_type)?;
     assert_eq!(memory.size(), Pages(0));
-    assert_eq!(*memory.ty(), memory_type);
+    assert_eq!(memory.ty(), memory_type);
     Ok(())
 }
 
@@ -209,7 +209,7 @@ fn function_new() -> Result<()> {
 fn function_new_env() -> Result<()> {
     let store = Store::default();
     #[derive(Clone, WasmerEnv)]
-    struct MyEnv {};
+    struct MyEnv {}
 
     let my_env = MyEnv {};
     let function = Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| {});
@@ -281,7 +281,7 @@ fn function_new_dynamic() -> Result<()> {
 fn function_new_dynamic_env() -> Result<()> {
     let store = Store::default();
     #[derive(Clone, WasmerEnv)]
-    struct MyEnv {};
+    struct MyEnv {}
     let my_env = MyEnv {};
 
     // Using &FunctionType signature

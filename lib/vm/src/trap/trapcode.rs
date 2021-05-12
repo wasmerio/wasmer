@@ -27,61 +27,42 @@ pub enum TrapCode {
     /// stack guard page.
     StackOverflow = 0,
 
-    /// Memory data doesn't fit the memory size.
-    ///
-    /// This only can happen during instantiation.
-    HeapSetterOutOfBounds = 1,
-
     /// A `heap_addr` instruction detected an out-of-bounds error.
     ///
     /// Note that not all out-of-bounds heap accesses are reported this way;
     /// some are detected by a segmentation fault on the heap unmapped or
     /// offset-guard pages.
-    HeapAccessOutOfBounds = 2,
+    HeapAccessOutOfBounds = 1,
 
     /// A `heap_addr` instruction was misaligned.
-    HeapMisaligned = 3,
-
-    /// Table Elements doesn't fit the table size.
-    ///
-    /// This only can happen during instantiation.
-    TableSetterOutOfBounds = 4,
+    HeapMisaligned = 2,
 
     /// A `table_addr` instruction detected an out-of-bounds error.
-    TableAccessOutOfBounds = 5,
+    TableAccessOutOfBounds = 3,
 
     /// Other bounds checking error.
-    OutOfBounds = 6,
+    OutOfBounds = 4,
 
     /// Indirect call to a null table entry.
-    IndirectCallToNull = 7,
+    IndirectCallToNull = 5,
 
     /// Signature mismatch on indirect call.
-    BadSignature = 8,
+    BadSignature = 6,
 
     /// An integer arithmetic operation caused an overflow.
-    IntegerOverflow = 9,
+    IntegerOverflow = 7,
 
     /// An integer division by zero.
-    IntegerDivisionByZero = 10,
+    IntegerDivisionByZero = 8,
 
     /// Failed float-to-int conversion.
-    BadConversionToInteger = 11,
+    BadConversionToInteger = 9,
 
     /// Code that was supposed to have been unreachable was reached.
-    UnreachableCodeReached = 12,
-
-    /// Execution has potentially run too long and may be interrupted.
-    /// This trap is resumable.
-    Interrupt = 13,
+    UnreachableCodeReached = 10,
 
     /// An atomic memory access was attempted with an unaligned pointer.
-    UnalignedAtomic = 14,
-
-    /// A trap indicating that the runtime was unable to allocate sufficient memory.
-    VMOutOfMemory = 15,
-    // /// A user-defined trap code.
-    // User(u16),
+    UnalignedAtomic = 11,
 }
 
 impl TrapCode {
@@ -89,12 +70,8 @@ impl TrapCode {
     pub fn message(&self) -> &str {
         match self {
             Self::StackOverflow => "call stack exhausted",
-            Self::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
             Self::HeapAccessOutOfBounds => "out of bounds memory access",
             Self::HeapMisaligned => "misaligned heap",
-            Self::TableSetterOutOfBounds => {
-                "out of bounds table access: elements segment does not fit"
-            }
             Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
             Self::OutOfBounds => "out of bounds",
             Self::IndirectCallToNull => "uninitialized element",
@@ -103,10 +80,7 @@ impl TrapCode {
             Self::IntegerDivisionByZero => "integer divide by zero",
             Self::BadConversionToInteger => "invalid conversion to integer",
             Self::UnreachableCodeReached => "unreachable",
-            Self::Interrupt => "interrupt",
             Self::UnalignedAtomic => "unaligned atomic access",
-            Self::VMOutOfMemory => "out of memory",
-            // Self::User(_) => unreachable!(),
         }
     }
 }
@@ -115,10 +89,8 @@ impl Display for TrapCode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let identifier = match *self {
             Self::StackOverflow => "stk_ovf",
-            Self::HeapSetterOutOfBounds => "heap_set_oob",
             Self::HeapAccessOutOfBounds => "heap_get_oob",
             Self::HeapMisaligned => "heap_misaligned",
-            Self::TableSetterOutOfBounds => "table_set_oob",
             Self::TableAccessOutOfBounds => "table_get_oob",
             Self::OutOfBounds => "oob",
             Self::IndirectCallToNull => "icall_null",
@@ -127,10 +99,7 @@ impl Display for TrapCode {
             Self::IntegerDivisionByZero => "int_divz",
             Self::BadConversionToInteger => "bad_toint",
             Self::UnreachableCodeReached => "unreachable",
-            Self::Interrupt => "interrupt",
             Self::UnalignedAtomic => "unalign_atom",
-            Self::VMOutOfMemory => "oom",
-            // User(x) => return write!(f, "user{}", x),
         };
         f.write_str(identifier)
     }
@@ -140,25 +109,19 @@ impl FromStr for TrapCode {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use self::TrapCode::*;
         match s {
-            "stk_ovf" => Ok(StackOverflow),
-            "heap_set_oob" => Ok(HeapSetterOutOfBounds),
-            "heap_get_oob" => Ok(HeapAccessOutOfBounds),
-            "heap_misaligned" => Ok(HeapMisaligned),
-            "table_set_oob" => Ok(TableSetterOutOfBounds),
-            "table_get_oob" => Ok(TableAccessOutOfBounds),
-            "oob" => Ok(OutOfBounds),
-            "icall_null" => Ok(IndirectCallToNull),
-            "bad_sig" => Ok(BadSignature),
-            "int_ovf" => Ok(IntegerOverflow),
-            "int_divz" => Ok(IntegerDivisionByZero),
-            "bad_toint" => Ok(BadConversionToInteger),
-            "unreachable" => Ok(UnreachableCodeReached),
-            "interrupt" => Ok(Interrupt),
-            "unalign_atom" => Ok(UnalignedAtomic),
-            "oom" => Ok(VMOutOfMemory),
-            // _ if s.starts_with("user") => s[4..].parse().map(User).map_err(|_| ()),
+            "stk_ovf" => Ok(TrapCode::StackOverflow),
+            "heap_get_oob" => Ok(TrapCode::HeapAccessOutOfBounds),
+            "heap_misaligned" => Ok(TrapCode::HeapMisaligned),
+            "table_get_oob" => Ok(TrapCode::TableAccessOutOfBounds),
+            "oob" => Ok(TrapCode::OutOfBounds),
+            "icall_null" => Ok(TrapCode::IndirectCallToNull),
+            "bad_sig" => Ok(TrapCode::BadSignature),
+            "int_ovf" => Ok(TrapCode::IntegerOverflow),
+            "int_divz" => Ok(TrapCode::IntegerDivisionByZero),
+            "bad_toint" => Ok(TrapCode::BadConversionToInteger),
+            "unreachable" => Ok(TrapCode::UnreachableCodeReached),
+            "unalign_atom" => Ok(TrapCode::UnalignedAtomic),
             _ => Err(()),
         }
     }
@@ -169,12 +132,10 @@ mod tests {
     use super::*;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 15] = [
+    const CODES: [TrapCode; 12] = [
         TrapCode::StackOverflow,
-        TrapCode::HeapSetterOutOfBounds,
         TrapCode::HeapAccessOutOfBounds,
         TrapCode::HeapMisaligned,
-        TrapCode::TableSetterOutOfBounds,
         TrapCode::TableAccessOutOfBounds,
         TrapCode::OutOfBounds,
         TrapCode::IndirectCallToNull,
@@ -183,7 +144,6 @@ mod tests {
         TrapCode::IntegerDivisionByZero,
         TrapCode::BadConversionToInteger,
         TrapCode::UnreachableCodeReached,
-        TrapCode::Interrupt,
         TrapCode::UnalignedAtomic,
     ];
 

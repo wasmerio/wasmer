@@ -9390,6 +9390,88 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().left().unwrap());
             }
+            Operator::MemoryInit { segment, mem } => {
+                let (dest, src, len) = self.state.pop3()?;
+                let mem = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(mem.into(), false)
+                    .as_basic_value_enum();
+                let segment = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(segment.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    self.intrinsics.memory_init,
+                    &[vmctx.as_basic_value_enum(), mem, segment, dest, src, len],
+                    "",
+                );
+            }
+            Operator::DataDrop { segment } => {
+                let segment = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(segment.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    self.intrinsics.data_drop,
+                    &[vmctx.as_basic_value_enum(), segment],
+                    "",
+                );
+            }
+            Operator::MemoryCopy { src, dst } => {
+                // ignored until we support multiple memories
+                let _dst = dst;
+                let (memory_copy, src) = if let Some(local_memory_index) = self
+                    .wasm_module
+                    .local_memory_index(MemoryIndex::from_u32(src))
+                {
+                    (self.intrinsics.memory_copy, local_memory_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_memory_copy, src)
+                };
+
+                let (dest_pos, src_pos, len) = self.state.pop3()?;
+                let src_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(src.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    memory_copy,
+                    &[
+                        vmctx.as_basic_value_enum(),
+                        src_index,
+                        dest_pos,
+                        src_pos,
+                        len,
+                    ],
+                    "",
+                );
+            }
+            Operator::MemoryFill { mem } => {
+                let (memory_fill, mem) = if let Some(local_memory_index) = self
+                    .wasm_module
+                    .local_memory_index(MemoryIndex::from_u32(mem))
+                {
+                    (self.intrinsics.memory_fill, local_memory_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_memory_fill, mem)
+                };
+
+                let (dst, val, len) = self.state.pop3()?;
+                let mem_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(mem.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    memory_fill,
+                    &[vmctx.as_basic_value_enum(), mem_index, dst, val, len],
+                    "",
+                );
+            }
             /***************************
              * Reference types.
              * https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md

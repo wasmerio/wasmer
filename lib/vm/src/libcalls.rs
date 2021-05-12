@@ -339,7 +339,7 @@ pub unsafe extern "C" fn wasmer_vm_table_get(
     // TODO: type checking, maybe have specialized accessors
     match instance.table_get(table_index, elem_index) {
         Some(table_ref) => table_ref.into(),
-        None => raise_lib_trap(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds)),
+        None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
     }
 }
 
@@ -360,7 +360,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_get(
     // TODO: type checking, maybe have specialized accessors
     match instance.imported_table_get(table_index, elem_index) {
         Some(table_ref) => table_ref.into(),
-        None => raise_lib_trap(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds)),
+        None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
     }
 }
 
@@ -668,7 +668,7 @@ pub unsafe extern "C" fn wasmer_vm_data_drop(vmctx: *mut VMContext, data_index: 
 /// `wasmer_call_trampoline` must have been previously called.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
-    let trap = Trap::new_from_runtime(trap_code);
+    let trap = Trap::lib(trap_code);
     raise_lib_trap(trap)
 }
 

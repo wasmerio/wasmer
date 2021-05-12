@@ -148,6 +148,9 @@ test-jit = [
 # that raise signals because that interferes with tarpaulin.
 coverage = []
 
+[profile.dev]
+split-debuginfo = "unpacked"
+
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false

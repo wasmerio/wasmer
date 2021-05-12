@@ -71,9 +71,9 @@ impl Memory {
     /// let mt = MemoryType::new(1, None, false);
     /// let m = Memory::new(&store, mt).unwrap();
     ///
-    /// assert_eq!(m.ty(), &mt);
+    /// assert_eq!(m.ty(), mt);
     /// ```
-    pub fn ty(&self) -> &MemoryType {
+    pub fn ty(&self) -> MemoryType {
         self.vm_memory.from.ty()
     }
 

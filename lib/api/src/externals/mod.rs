@@ -41,7 +41,7 @@ impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Self::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Self::Memory(ft) => ExternType::Memory(ft.ty()),
             Self::Table(tt) => ExternType::Table(*tt.ty()),
             Self::Global(gt) => ExternType::Global(*gt.ty()),
         }

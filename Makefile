@@ -516,6 +516,8 @@ test-packages:
 	cargo test -p wasmer-engine-native --release --no-default-features
 	cargo test -p wasmer-engine-jit --release --no-default-features
 	cargo test -p wasmer-compiler --release
+	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release

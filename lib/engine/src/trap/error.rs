@@ -16,6 +16,7 @@ pub struct RuntimeError {
 #[derive(Debug)]
 enum RuntimeErrorSource {
     Generic(String),
+    OOM,
     User(Box<dyn Error + Send + Sync>),
     Trap(TrapCode),
 }
@@ -25,6 +26,7 @@ impl fmt::Display for RuntimeErrorSource {
         match self {
             Self::Generic(s) => write!(f, "{}", s),
             Self::User(s) => write!(f, "{}", s),
+            Self::OOM => write!(f, "Wasmer VM out of memory"),
             Self::Trap(s) => write!(f, "{}", s.message()),
         }
     }
@@ -66,6 +68,7 @@ impl RuntimeError {
     pub fn from_trap(trap: Trap) -> Self {
         let info = FRAME_INFO.read().unwrap();
         match trap {
+            // A user error
             Trap::User(error) => {
                 match error.downcast::<Self>() {
                     // The error is already a RuntimeError, we return it directly
@@ -77,6 +80,10 @@ impl RuntimeError {
                         Backtrace::new_unresolved(),
                     ),
                 }
+            }
+            // A trap caused by the VM being Out of Memory
+            Trap::OOM { backtrace } => {
+                Self::new_with_trace(&info, None, RuntimeErrorSource::OOM, backtrace)
             }
             // A trap caused by an error on the generated machine code for a Wasm function
             Trap::Wasm {
@@ -92,7 +99,7 @@ impl RuntimeError {
                 Self::new_with_trace(&info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
             }
             // A trap triggered manually from the Wasmer runtime
-            Trap::Runtime {
+            Trap::Lib {
                 trap_code,
                 backtrace,
             } => Self::new_with_trace(&info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
