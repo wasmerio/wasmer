@@ -44,6 +44,7 @@ members = [
     "lib/engine-jit",
     "lib/engine-native",
     "lib/engine-object-file",
+    "lib/lld-wrapper",
     "lib/object",
     "lib/vm",
     "lib/wasi",

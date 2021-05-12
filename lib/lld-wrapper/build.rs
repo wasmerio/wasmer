@@ -136,12 +136,7 @@ fn main() {
 
     let libs = run_llvm_config(
         &llvm_config,
-        &[
-            OsStr::new("--link-static"),
-            OsStr::new("--libnames"),
-            OsStr::new("core"),
-            OsStr::new("support"),
-        ],
+        &[OsStr::new("--link-static"), OsStr::new("--libnames")],
     );
     let libs = libs
         .split(|c| *c == b' ' || *c == b'\n')
