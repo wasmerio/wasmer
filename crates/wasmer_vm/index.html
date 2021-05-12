@@ -52,6 +52,8 @@ call must match. To implement this efficiently, keep a registry of all
 signatures, shared by all instances, so that call sites can just do an
 index comparison.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.TargetSharedSignatureIndex.html" title="wasmer_vm::TargetSharedSignatureIndex struct">TargetSharedSignatureIndex</a></td><td class="docblock-short"><p>Target specific type for shared signature index.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.TlsRestore.html" title="wasmer_vm::TlsRestore struct">TlsRestore</a></td><td class="docblock-short"><p>Opaque state used to help control TLS state across stack switches for
+async support.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMBuiltinFunctionIndex.html" title="wasmer_vm::VMBuiltinFunctionIndex struct">VMBuiltinFunctionIndex</a></td><td class="docblock-short"><p>An index type for builtin functions.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMCallerCheckedAnyfunc.html" title="wasmer_vm::VMCallerCheckedAnyfunc struct">VMCallerCheckedAnyfunc</a></td><td class="docblock-short"><p>The VM caller-checked &quot;anyfunc&quot; record, for caller-side signature checking.
 It consists of the actual function pointer and a signature id to be checked
@@ -109,13 +111,16 @@ imported from another instance.</p>
 </td></tr></table><h2 id="traits" class="section-header"><a href="#traits">Traits</a></h2>
 <table><tr class="module-item"><td><a class="trait" href="trait.Memory.html" title="wasmer_vm::Memory trait">Memory</a></td><td class="docblock-short"><p>Trait for implementing Wasm Memory used by Wasmer.</p>
 </td></tr><tr class="module-item"><td><a class="trait" href="trait.Table.html" title="wasmer_vm::Table trait">Table</a></td><td class="docblock-short"><p>Trait for implementing the interface of a Wasm table.</p>
+</td></tr><tr class="module-item"><td><a class="trait" href="trait.TrapHandler.html" title="wasmer_vm::TrapHandler trait">TrapHandler</a></td><td class="docblock-short"><p>A package of functionality needed by <code>catch_traps</code> to figure out what to do
+when handling a trap.</p>
 </td></tr></table><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>
 <table><tr class="module-item"><td><a class="fn" href="fn.catch_traps.html" title="wasmer_vm::catch_traps fn">catch_traps</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Catches any wasm traps that happen within the execution of <code>closure</code>,
 returning them as a <code>Result</code>.</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.catch_traps_with_result.html" title="wasmer_vm::catch_traps_with_result fn">catch_traps_with_result</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Catches any wasm traps that happen within the execution of <code>closure</code>,
 returning them as a <code>Result</code>, with the closure contents.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.init_traps.html" title="wasmer_vm::init_traps fn">init_traps</a></td><td class="docblock-short"><p>This function performs the low-overhead signal handler initialization that
-we want to do eagerly to ensure a more-deterministic global process state.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.init_traps.html" title="wasmer_vm::init_traps fn">init_traps</a></td><td class="docblock-short"><p>This function is required to be called before any WebAssembly is entered.
+This will configure global state such as signal handlers to prepare the
+process to receive wasm traps.</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.raise_lib_trap.html" title="wasmer_vm::raise_lib_trap fn">raise_lib_trap</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Raises a trap from inside library code immediately.</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.raise_user_trap.html" title="wasmer_vm::raise_user_trap fn">raise_user_trap</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Raises a user-defined trap immediately.</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.resume_panic.html" title="wasmer_vm::resume_panic fn">resume_panic</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Carries a Rust panic across wasm code and resumes the panic on the other
@@ -124,6 +129,7 @@ side.</p>
 </td></tr></table><h2 id="types" class="section-header"><a href="#types">Type Definitions</a></h2>
 <table><tr class="module-item"><td><a class="type" href="type.ImportInitializerFuncPtr.html" title="wasmer_vm::ImportInitializerFuncPtr type">ImportInitializerFuncPtr</a></td><td class="docblock-short"><p>The function pointer to call with data and an <a href="../wasmer_vm/instance/struct.Instance.html" title="Instance"><code>Instance</code></a> pointer to
 finish initializing the host env.</p>
+</td></tr><tr class="module-item"><td><a class="type" href="type.TrapHandlerFn.html" title="wasmer_vm::TrapHandlerFn type">TrapHandlerFn</a></td><td class="docblock-short"><p>Function which may handle custom signals while processing traps.</p>
 </td></tr><tr class="module-item"><td><a class="type" href="type.VMTrampoline.html" title="wasmer_vm::VMTrampoline type">VMTrampoline</a></td><td class="docblock-short"></td></tr></table><h2 id="unions" class="section-header"><a href="#unions">Unions</a></h2>
 <table><tr class="module-item"><td><a class="union" href="union.VMFunctionEnvironment.html" title="wasmer_vm::VMFunctionEnvironment union">VMFunctionEnvironment</a></td><td class="docblock-short"><p>Union representing the first parameter passed when calling a function.</p>
 </td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="wasmer_vm"></div>

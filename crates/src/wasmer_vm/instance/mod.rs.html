@@ -1474,41 +1474,6 @@
 <span id="1471">1471</span>
 <span id="1472">1472</span>
 <span id="1473">1473</span>
-<span id="1474">1474</span>
-<span id="1475">1475</span>
-<span id="1476">1476</span>
-<span id="1477">1477</span>
-<span id="1478">1478</span>
-<span id="1479">1479</span>
-<span id="1480">1480</span>
-<span id="1481">1481</span>
-<span id="1482">1482</span>
-<span id="1483">1483</span>
-<span id="1484">1484</span>
-<span id="1485">1485</span>
-<span id="1486">1486</span>
-<span id="1487">1487</span>
-<span id="1488">1488</span>
-<span id="1489">1489</span>
-<span id="1490">1490</span>
-<span id="1491">1491</span>
-<span id="1492">1492</span>
-<span id="1493">1493</span>
-<span id="1494">1494</span>
-<span id="1495">1495</span>
-<span id="1496">1496</span>
-<span id="1497">1497</span>
-<span id="1498">1498</span>
-<span id="1499">1499</span>
-<span id="1500">1500</span>
-<span id="1501">1501</span>
-<span id="1502">1502</span>
-<span id="1503">1503</span>
-<span id="1504">1504</span>
-<span id="1505">1505</span>
-<span id="1506">1506</span>
-<span id="1507">1507</span>
-<span id="1508">1508</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1531,7 +1496,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">imports</span>::<span class="ident">Imports</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryError</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">table</span>::{<span class="ident">Table</span>, <span class="ident">TableElement</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trap</span>::{<span class="ident">catch_traps</span>, <span class="ident">init_traps</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trap</span>::{<span class="ident">catch_traps</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>, <span class="ident">TrapHandler</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::{
     <span class="ident">VMBuiltinFunctionsArray</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMFunctionBody</span>,
     <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalDefinition</span>, <span class="ident">VMGlobalImport</span>,
@@ -1544,7 +1509,7 @@
 <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
 <span class="kw">use</span> <span class="ident">more_asserts</span>::<span class="ident">assert_lt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::{<span class="ident">Cell</span>, <span class="ident">RefCell</span>};
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">RefCell</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>;
@@ -1609,10 +1574,6 @@
 
     <span class="doccomment">/// Hosts can store arbitrary per-instance information here.</span>
     <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
-
-    <span class="doccomment">/// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.</span>
-    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">signal_handler</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">SignalHandler</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Functions to operate on host environments in the imports</span>
     <span class="doccomment">/// and pointers to the environments.</span>
@@ -1909,7 +1870,7 @@
     }
 
     <span class="doccomment">/// Invoke the WebAssembly start function of the instance, if one is present.</span>
-    <span class="kw">fn</span> <span class="ident">invoke_start_function</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">invoke_start_function</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TrapHandler</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">start_index</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">start_function</span> {
             <span class="prelude-val">Some</span>(<span class="ident">idx</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">idx</span>,
             <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Ok</span>(()),
@@ -1938,7 +1899,7 @@
 
         <span class="comment">// Make the call.</span>
         <span class="kw">unsafe</span> {
-            <span class="ident">catch_traps</span>(<span class="ident">callee_vmctx</span>, <span class="op">|</span><span class="op">|</span> {
+            <span class="ident">catch_traps</span>(<span class="ident">trap_handler</span>, <span class="op">|</span><span class="op">|</span> {
                 <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMFunctionBody</span>, <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(<span class="ident">VMFunctionEnvironment</span>)<span class="op">&gt;</span>(
                     <span class="ident">callee_address</span>,
                 )(<span class="ident">callee_vmctx</span>)
@@ -2181,7 +2142,7 @@
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">elem</span>.<span class="ident">len</span>())
             <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>.<span class="ident">checked_add</span>(<span class="ident">len</span>).<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="ident">table</span>.<span class="ident">size</span>())
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
         }
 
         <span class="kw">for</span> (<span class="ident">dst</span>, <span class="ident">src</span>) <span class="kw">in</span> (<span class="ident">dst</span>..<span class="ident">dst</span> <span class="op">+</span> <span class="ident">len</span>).<span class="ident">zip</span>(<span class="ident">src</span>..<span class="ident">src</span> <span class="op">+</span> <span class="ident">len</span>) {
@@ -2214,7 +2175,7 @@
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">table_size</span>)
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
         }
 
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="ident">start_index</span>..(<span class="ident">start_index</span> <span class="op">+</span> <span class="ident">len</span>) {
@@ -2333,7 +2294,7 @@
                 .<span class="ident">checked_add</span>(<span class="ident">len</span>)
                 .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>)
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">HeapAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">HeapAccessOutOfBounds</span>));
         }
 
         <span class="kw">let</span> <span class="ident">src_slice</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">data</span>[<span class="ident">src</span> <span class="kw">as</span> <span class="ident">usize</span>..(<span class="ident">src</span> <span class="op">+</span> <span class="ident">len</span>) <span class="kw">as</span> <span class="ident">usize</span>];
@@ -2447,7 +2408,6 @@
                 <span class="ident">passive_data</span>,
                 <span class="ident">host_state</span>,
                 <span class="ident">funcrefs</span>,
-                <span class="ident">signal_handler</span>: <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="prelude-val">None</span>),
                 <span class="ident">imported_function_envs</span>,
                 <span class="ident">vmctx</span>: <span class="ident">VMContext</span> {},
             };
@@ -2512,9 +2472,6 @@
             <span class="ident">VMBuiltinFunctionsArray</span>::<span class="ident">initialized</span>(),
         );
 
-        <span class="comment">// Ensure that our signal handlers are ready for action.</span>
-        <span class="ident">init_traps</span>();
-
         <span class="comment">// Perform infallible initialization in this constructor, while fallible</span>
         <span class="comment">// initialization is deferred to the `initialize` method.</span>
         <span class="ident">initialize_passive_elements</span>(<span class="ident">instance</span>);
@@ -2535,6 +2492,7 @@
     <span class="doccomment">/// Only safe to call immediately after instantiation.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">finish_instantiation</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TrapHandler</span>,
         <span class="ident">data_initializers</span>: <span class="kw-2">&amp;</span>[<span class="ident">DataInitializer</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>],
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance</span>().<span class="ident">as_ref</span>();
@@ -2545,7 +2503,7 @@
 
         <span class="comment">// The WebAssembly spec specifies that the start function is</span>
         <span class="comment">// invoked automatically at instantiation time.</span>
-        <span class="ident">instance</span>.<span class="ident">invoke_start_function</span>()<span class="question-mark">?</span>;
+        <span class="ident">instance</span>.<span class="ident">invoke_start_function</span>(<span class="ident">trap_handler</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -2782,34 +2740,6 @@
     }
 }
 
-<span class="ident">cfg_if</span>::<span class="macro">cfg_if</span><span class="macro">!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span> {
-        <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">SignalHandler</span> <span class="op">=</span> <span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="ident">libc</span>::<span class="ident">c_int</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">siginfo_t</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
-
-        <span class="kw">impl</span> <span class="ident">InstanceHandle</span> {
-            <span class="doccomment">/// Set a custom signal handler</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_signal_handler</span><span class="op">&lt;</span><span class="ident">H</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">handler</span>: <span class="ident">H</span>)
-            <span class="kw">where</span>
-                <span class="ident">H</span>: <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Fn</span>(<span class="ident">libc</span>::<span class="ident">c_int</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">siginfo_t</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>,
-            {
-                <span class="self">self</span>.<span class="ident">instance</span>().<span class="ident">as_ref</span>().<span class="ident">signal_handler</span>.<span class="ident">set</span>(<span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">handler</span>)));
-            }
-        }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span> {
-        <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">SignalHandler</span> <span class="op">=</span> <span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="ident">winapi</span>::<span class="ident">um</span>::<span class="ident">winnt</span>::<span class="ident">PEXCEPTION_POINTERS</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
-
-        <span class="kw">impl</span> <span class="ident">InstanceHandle</span> {
-            <span class="doccomment">/// Set a custom signal handler</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_signal_handler</span><span class="op">&lt;</span><span class="ident">H</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">handler</span>: <span class="ident">H</span>)
-            <span class="kw">where</span>
-                <span class="ident">H</span>: <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Fn</span>(<span class="ident">winapi</span>::<span class="ident">um</span>::<span class="ident">winnt</span>::<span class="ident">PEXCEPTION_POINTERS</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>,
-            {
-                <span class="self">self</span>.<span class="ident">instance</span>().<span class="ident">as_ref</span>().<span class="ident">signal_handler</span>.<span class="ident">set</span>(<span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">handler</span>)));
-            }
-        }
-    }
-}
-
 <span class="doccomment">/// Compute the offset for a memory data initializer.</span>
 <span class="kw">fn</span> <span class="ident">get_memory_init_start</span>(<span class="ident">init</span>: <span class="kw-2">&amp;</span><span class="ident">DataInitializer</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">init</span>.<span class="ident">location</span>.<span class="ident">offset</span>;
@@ -2875,7 +2805,7 @@
             .<span class="ident">checked_add</span>(<span class="ident">init</span>.<span class="ident">elements</span>.<span class="ident">len</span>())
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">end</span><span class="op">|</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">table</span>.<span class="ident">size</span>() <span class="kw">as</span> <span class="ident">usize</span>)
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
         }
 
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">func_idx</span>) <span class="kw">in</span> <span class="ident">init</span>.<span class="ident">elements</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
@@ -2933,7 +2863,7 @@
             .<span class="ident">checked_add</span>(<span class="ident">init</span>.<span class="ident">data</span>.<span class="ident">len</span>())
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">end</span><span class="op">|</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>())
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">HeapAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">HeapAccessOutOfBounds</span>));
         }
 
         <span class="kw">unsafe</span> {

@@ -1216,7 +1216,7 @@
     <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
     <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">table_get</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>) {
         <span class="prelude-val">Some</span>(<span class="ident">table_ref</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">table_ref</span>.<span class="ident">into</span>(),
-        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>)),
+        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>)),
     }
 }
 
@@ -1237,7 +1237,7 @@
     <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
     <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">imported_table_get</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>) {
         <span class="prelude-val">Some</span>(<span class="ident">table_ref</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">table_ref</span>.<span class="ident">into</span>(),
-        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>)),
+        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>)),
     }
 }
 
@@ -1545,7 +1545,7 @@
 <span class="doccomment">/// `wasmer_call_trampoline` must have been previously called.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_raise_trap</span>(<span class="ident">trap_code</span>: <span class="ident">TrapCode</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
-    <span class="kw">let</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">trap_code</span>);
+    <span class="kw">let</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">trap_code</span>);
     <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>)
 }
 

@@ -132,6 +132,7 @@
 <span id="129">129</span>
 <span id="130">130</span>
 <span id="131">131</span>
+<span id="132">132</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Cranelift.</span>
 
@@ -259,8 +260,9 @@
         <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">IntegerDivisionByZero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">IntegerDivisionByZero</span>,
         <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">BadConversionToInteger</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">BadConversionToInteger</span>,
         <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">UnreachableCodeReached</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">UnreachableCodeReached</span>,
-        <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">Interrupt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TrapCode</span>::<span class="ident">Interrupt</span>,
+        <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">Interrupt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;Interrupts not supported&quot;</span>),
         <span class="ident">ir</span>::<span class="ident">TrapCode</span>::<span class="ident">User</span>(<span class="ident">_user_code</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;User trap code not supported&quot;</span>),
+        <span class="comment">// ir::TrapCode::Interrupt =&gt; TrapCode::Interrupt,</span>
         <span class="comment">// ir::TrapCode::User(user_code) =&gt; TrapCode::User(user_code),</span>
     }
 }

@@ -44,7 +44,9 @@ implementation produce and use.</p>
 </td></tr><tr class="module-item"><td><a class="trait" href="trait.Tunables.html" title="wasmer_engine::Tunables trait">Tunables</a></td><td class="docblock-short"><p>An engine delegates the creation of memories, tables, and globals
 to a foreign implementor of this trait.</p>
 </td></tr></table><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>
-<table><tr class="module-item"><td><a class="fn" href="fn.register_frame_info.html" title="wasmer_engine::register_frame_info fn">register_frame_info</a></td><td class="docblock-short"><p>Registers a new compiled module's frame information.</p>
+<table><tr class="module-item"><td><a class="fn" href="fn.is_wasm_pc.html" title="wasmer_engine::is_wasm_pc fn">is_wasm_pc</a></td><td class="docblock-short"><p>Returns whether the <code>pc</code>, according to globally registered information,
+is a wasm trap or not.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.register_frame_info.html" title="wasmer_engine::register_frame_info fn">register_frame_info</a></td><td class="docblock-short"><p>Registers a new compiled module's frame information.</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.resolve_imports.html" title="wasmer_engine::resolve_imports fn">resolve_imports</a></td><td class="docblock-short"><p>This function allows to match all imports of a <code>ModuleInfo</code> with concrete definitions provided by
 a <code>Resolver</code>.</p>
 </td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="wasmer_engine"></div>

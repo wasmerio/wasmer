@@ -319,6 +319,14 @@
 <span id="316">316</span>
 <span id="317">317</span>
 <span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
@@ -362,6 +370,14 @@
     <span class="doccomment">/// The key of this map is the highest address in the module and the value</span>
     <span class="doccomment">/// is the module&#39;s information, which also contains the start address.</span>
     <span class="ident">ranges</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">ModuleInfoFrameInfo</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// Returns whether the `pc`, according to globally registered information,</span>
+<span class="doccomment">/// is a wasm trap or not.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_wasm_pc</span>(<span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">let</span> <span class="ident">frame_info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">module_info</span> <span class="op">=</span> <span class="ident">frame_info</span>.<span class="ident">module_info</span>(<span class="ident">pc</span>);
+    <span class="ident">module_info</span>.<span class="ident">is_some</span>()
 }
 
 <span class="doccomment">/// An RAII structure used to unregister a module&#39;s frame information when the</span>

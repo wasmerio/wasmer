@@ -433,6 +433,7 @@
 <span id="432">432</span>
 <span id="433">433</span>
 <span id="434">434</span>
+<span id="435">435</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">store</span>::<span class="ident">Store</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
@@ -711,7 +712,8 @@
             <span class="comment">// of this steps traps, we still need to keep the instance alive</span>
             <span class="comment">// as some of the Instance elements may have placed in other</span>
             <span class="comment">// instance tables.</span>
-            <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">finish_instantiation</span>(<span class="kw-2">&amp;</span><span class="ident">instance_handle</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">artifact</span>
+                .<span class="ident">finish_instantiation</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">instance_handle</span>)<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="ident">instance_handle</span>)
         }

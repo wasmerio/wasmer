@@ -239,6 +239,7 @@
 <span id="238">238</span>
 <span id="239">239</span>
 <span id="240">240</span>
+<span id="241">241</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Native Functions.</span>
 <span class="doccomment">//!</span>
@@ -373,6 +374,7 @@ where
                     };
                     <span class="kw">unsafe</span> {
                         <span class="ident">wasmer_vm</span>::<span class="ident">wasmer_call_trampoline</span>(
+                            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>,
                             <span class="self">self</span>.<span class="ident">vmctx</span>(),
                             <span class="ident">trampoline</span>,
                             <span class="self">self</span>.<span class="ident">address</span>(),
@@ -387,8 +389,8 @@ where
                             <span class="comment">// TODO: we can probably remove this copy by doing some clever `transmute`s.</span>
                             <span class="comment">// we know it&#39;s not overlapping because `using_rets_array` is false</span>
                             <span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">copy_nonoverlapping</span>(<span class="ident">src_pointer</span>,
-                                                            <span class="ident">rets_list</span>,
-                                                            <span class="ident">num_rets</span>);
+                                                          <span class="ident">rets_list</span>,
+                                                          <span class="ident">num_rets</span>);
                         }
                     }
                     <span class="prelude-val">Ok</span>(<span class="ident">Rets</span>::<span class="ident">from_array</span>(<span class="ident">rets_list_array</span>))

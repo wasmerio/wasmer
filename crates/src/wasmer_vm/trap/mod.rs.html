@@ -27,7 +27,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">trapcode</span>::<span class="ident">TrapCode</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">traphandlers</span>::{
     <span class="ident">catch_traps</span>, <span class="ident">catch_traps_with_result</span>, <span class="ident">raise_lib_trap</span>, <span class="ident">raise_user_trap</span>, <span class="ident">wasmer_call_trampoline</span>,
-    <span class="ident">Trap</span>,
+    <span class="ident">TlsRestore</span>, <span class="ident">Trap</span>, <span class="ident">TrapHandler</span>, <span class="ident">TrapHandlerFn</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">traphandlers</span>::{<span class="ident">init_traps</span>, <span class="ident">resume_panic</span>};
 </pre></div>

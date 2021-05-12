@@ -1652,6 +1652,7 @@
 <span id="1651">1651</span>
 <span id="1652">1652</span>
 <span id="1653">1653</span>
+<span id="1654">1654</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::<span class="ident">Extern</span>;
@@ -2135,6 +2136,7 @@
         <span class="comment">// Call the trampoline.</span>
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">error</span>) <span class="op">=</span> <span class="kw">unsafe</span> {
             <span class="ident">wasmer_call_trampoline</span>(
+                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>,
                 <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">vmctx</span>,
                 <span class="ident">trampoline</span>,
                 <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">address</span>,

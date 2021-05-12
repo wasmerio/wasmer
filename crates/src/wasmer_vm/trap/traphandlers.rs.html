@@ -881,6 +881,118 @@
 <span id="878">878</span>
 <span id="879">879</span>
 <span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
+<span id="887">887</span>
+<span id="888">888</span>
+<span id="889">889</span>
+<span id="890">890</span>
+<span id="891">891</span>
+<span id="892">892</span>
+<span id="893">893</span>
+<span id="894">894</span>
+<span id="895">895</span>
+<span id="896">896</span>
+<span id="897">897</span>
+<span id="898">898</span>
+<span id="899">899</span>
+<span id="900">900</span>
+<span id="901">901</span>
+<span id="902">902</span>
+<span id="903">903</span>
+<span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
+<span id="907">907</span>
+<span id="908">908</span>
+<span id="909">909</span>
+<span id="910">910</span>
+<span id="911">911</span>
+<span id="912">912</span>
+<span id="913">913</span>
+<span id="914">914</span>
+<span id="915">915</span>
+<span id="916">916</span>
+<span id="917">917</span>
+<span id="918">918</span>
+<span id="919">919</span>
+<span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
+<span id="946">946</span>
+<span id="947">947</span>
+<span id="948">948</span>
+<span id="949">949</span>
+<span id="950">950</span>
+<span id="951">951</span>
+<span id="952">952</span>
+<span id="953">953</span>
+<span id="954">954</span>
+<span id="955">955</span>
+<span id="956">956</span>
+<span id="957">957</span>
+<span id="958">958</span>
+<span id="959">959</span>
+<span id="960">960</span>
+<span id="961">961</span>
+<span id="962">962</span>
+<span id="963">963</span>
+<span id="964">964</span>
+<span id="965">965</span>
+<span id="966">966</span>
+<span id="967">967</span>
+<span id="968">968</span>
+<span id="969">969</span>
+<span id="970">970</span>
+<span id="971">971</span>
+<span id="972">972</span>
+<span id="973">973</span>
+<span id="974">974</span>
+<span id="975">975</span>
+<span id="976">976</span>
+<span id="977">977</span>
+<span id="978">978</span>
+<span id="979">979</span>
+<span id="980">980</span>
+<span id="981">981</span>
+<span id="982">982</span>
+<span id="983">983</span>
+<span id="984">984</span>
+<span id="985">985</span>
+<span id="986">986</span>
+<span id="987">987</span>
+<span id="988">988</span>
+<span id="989">989</span>
+<span id="990">990</span>
+<span id="991">991</span>
+<span id="992">992</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -889,30 +1001,38 @@
 <span class="doccomment">//! signalhandling mechanisms.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">trapcode</span>::<span class="ident">TrapCode</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">instance</span>::{<span class="ident">Instance</span>, <span class="ident">SignalHandler</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::{<span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMTrampoline</span>};
 <span class="kw">use</span> <span class="ident">backtrace</span>::<span class="ident">Backtrace</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::{<span class="ident">Cell</span>, <span class="ident">UnsafeCell</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::{<span class="self">self</span>, <span class="ident">MaybeUninit</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Once</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tls</span>::<span class="ident">TlsRestore</span>;
+
+<span class="ident">cfg_if</span>::<span class="macro">cfg_if</span><span class="macro">!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span> {
+        <span class="doccomment">/// Function which may handle custom signals while processing traps.</span>
+        <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TrapHandlerFn</span> <span class="op">=</span> <span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="ident">libc</span>::<span class="ident">c_int</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">siginfo_t</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span> {
+        <span class="doccomment">/// Function which may handle custom signals while processing traps.</span>
+        <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TrapHandlerFn</span> <span class="op">=</span> <span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="ident">winapi</span>::<span class="ident">um</span>::<span class="ident">winnt</span>::<span class="ident">PEXCEPTION_POINTERS</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+    }
+}
 
 <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-    <span class="kw">fn</span> <span class="ident">RegisterSetjmp</span>(
+    <span class="kw">fn</span> <span class="ident">wasmer_register_setjmp</span>(
         <span class="ident">jmp_buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>,
         <span class="ident">callback</span>: <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>),
         <span class="ident">payload</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span>;
-    <span class="kw">fn</span> <span class="ident">Unwind</span>(<span class="ident">jmp_buf</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span>;
+    <span class="kw">fn</span> <span class="ident">wasmer_unwind</span>(<span class="ident">jmp_buf</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span>;
 }
 
 <span class="ident">cfg_if</span>::<span class="macro">cfg_if</span><span class="macro">!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">MaybeUninit</span>;
-
         <span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">PREV_SIGSEGV</span>: <span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">libc</span>::<span class="ident">sigaction</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MaybeUninit</span>::<span class="ident">uninit</span>();
         <span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">PREV_SIGBUS</span>: <span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">libc</span>::<span class="ident">sigaction</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MaybeUninit</span>::<span class="ident">uninit</span>();
         <span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">PREV_SIGILL</span>: <span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">libc</span>::<span class="ident">sigaction</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">MaybeUninit</span>::<span class="ident">uninit</span>();
@@ -1044,7 +1164,7 @@
                 } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">jmp_buf</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
                     <span class="bool-val">true</span>
                 } <span class="kw">else</span> {
-                    <span class="ident">Unwind</span>(<span class="ident">jmp_buf</span>)
+                    <span class="ident">wasmer_unwind</span>(<span class="ident">jmp_buf</span>)
                 }
             });
 
@@ -1222,44 +1342,53 @@
                 } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">jmp_buf</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">=</span><span class="op">=</span> <span class="number">1</span> {
                     <span class="ident">EXCEPTION_CONTINUE_EXECUTION</span>
                 } <span class="kw">else</span> {
-                    <span class="ident">Unwind</span>(<span class="ident">jmp_buf</span>)
+                    <span class="ident">wasmer_unwind</span>(<span class="ident">jmp_buf</span>)
                 }
             })
         }
     }
 }
 
-<span class="doccomment">/// This function performs the low-overhead signal handler initialization that</span>
-<span class="doccomment">/// we want to do eagerly to ensure a more-deterministic global process state.</span>
+<span class="doccomment">/// Globally-set callback to determine whether a program counter is actually a</span>
+<span class="doccomment">/// wasm trap.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// This is especially relevant for signal handlers since handler ordering</span>
-<span class="doccomment">/// depends on installation order: the wasm signal handler must run *before*</span>
-<span class="doccomment">/// the other crash handlers and since POSIX signal handlers work LIFO, this</span>
-<span class="doccomment">/// function needs to be called at the end of the startup process, after other</span>
-<span class="doccomment">/// handlers have been installed. This function can thus be called multiple</span>
-<span class="doccomment">/// times, having no effect after the first call.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">init_traps</span>() {
-    <span class="kw">static</span> <span class="ident">INIT</span>: <span class="ident">Once</span> <span class="op">=</span> <span class="ident">Once</span>::<span class="ident">new</span>();
-    <span class="ident">INIT</span>.<span class="ident">call_once</span>(<span class="ident">real_init</span>);
-}
+<span class="doccomment">/// This is initialized during `init_traps` below. The definition lives within</span>
+<span class="doccomment">/// `wasmer` currently.</span>
+<span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">IS_WASM_PC</span>: <span class="kw">fn</span>(<span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> <span class="op">=</span> <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="bool-val">false</span>;
 
-<span class="kw">fn</span> <span class="ident">real_init</span>() {
-    <span class="kw">unsafe</span> {
+<span class="doccomment">/// This function is required to be called before any WebAssembly is entered.</span>
+<span class="doccomment">/// This will configure global state such as signal handlers to prepare the</span>
+<span class="doccomment">/// process to receive wasm traps.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This function must not only be called globally once before entering</span>
+<span class="doccomment">/// WebAssembly but it must also be called once-per-thread that enters</span>
+<span class="doccomment">/// WebAssembly. Currently in wasmer&#39;s integration this function is called on</span>
+<span class="doccomment">/// creation of a `Store`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// The `is_wasm_pc` argument is used when a trap happens to determine if a</span>
+<span class="doccomment">/// program counter is the pc of an actual wasm trap or not. This is then used</span>
+<span class="doccomment">/// to disambiguate faults that happen due to wasm and faults that happen due to</span>
+<span class="doccomment">/// bugs in Rust or elsewhere.</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">init_traps</span>(<span class="ident">is_wasm_pc</span>: <span class="kw">fn</span>(<span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>) {
+    <span class="kw">static</span> <span class="ident">INIT</span>: <span class="ident">Once</span> <span class="op">=</span> <span class="ident">Once</span>::<span class="ident">new</span>();
+    <span class="ident">INIT</span>.<span class="ident">call_once</span>(<span class="op">|</span><span class="op">|</span> <span class="kw">unsafe</span> {
+        <span class="ident">IS_WASM_PC</span> <span class="op">=</span> <span class="ident">is_wasm_pc</span>;
         <span class="ident">platform_init</span>();
-    }
+    });
 }
 
 <span class="doccomment">/// Raises a user-defined trap immediately.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This function performs as-if a wasm trap was just executed, only the trap</span>
 <span class="doccomment">/// has a dynamic payload associated with it which is user-provided. This trap</span>
-<span class="doccomment">/// payload is then returned from `wasmer_call` and `wasmer_call_trampoline`</span>
-<span class="doccomment">/// below.</span>
+<span class="doccomment">/// payload is then returned from `catch_traps` below.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Safety</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or</span>
-<span class="doccomment">/// `wasmer_call_trampoline` must have been previously called.</span>
+<span class="doccomment">/// Only safe to call when wasm code is on the stack, aka `catch_traps` must</span>
+<span class="doccomment">/// have been previous called and not yet returned.</span>
+<span class="doccomment">/// Additionally no Rust destructors may be on the stack.</span>
+<span class="doccomment">/// They will be skipped and not executed.</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">raise_user_trap</span>(<span class="ident">data</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
     <span class="ident">tls</span>::<span class="ident">with</span>(<span class="op">|</span><span class="ident">info</span><span class="op">|</span> <span class="ident">info</span>.<span class="ident">unwrap</span>().<span class="ident">unwind_with</span>(<span class="ident">UnwindReason</span>::<span class="ident">UserTrap</span>(<span class="ident">data</span>)))
 }
@@ -1267,13 +1396,14 @@
 <span class="doccomment">/// Raises a trap from inside library code immediately.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This function performs as-if a wasm trap was just executed. This trap</span>
-<span class="doccomment">/// payload is then returned from `wasmer_call` and `wasmer_call_trampoline`</span>
-<span class="doccomment">/// below.</span>
+<span class="doccomment">/// payload is then returned from `catch_traps` below.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Safety</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or</span>
-<span class="doccomment">/// `wasmer_call_trampoline` must have been previously called.</span>
+<span class="doccomment">/// Only safe to call when wasm code is on the stack, aka `catch_traps` must</span>
+<span class="doccomment">/// have been previous called and not yet returned.</span>
+<span class="doccomment">/// Additionally no Rust destructors may be on the stack.</span>
+<span class="doccomment">/// They will be skipped and not executed.</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>: <span class="ident">Trap</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
     <span class="ident">tls</span>::<span class="ident">with</span>(<span class="op">|</span><span class="ident">info</span><span class="op">|</span> <span class="ident">info</span>.<span class="ident">unwrap</span>().<span class="ident">unwind_with</span>(<span class="ident">UnwindReason</span>::<span class="ident">LibTrap</span>(<span class="ident">trap</span>)))
 }
@@ -1283,8 +1413,9 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Safety</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or</span>
-<span class="doccomment">/// `wasmer_call_trampoline` must have been previously called.</span>
+<span class="doccomment">/// Only safe to call when wasm code is on the stack, aka `catch_traps` must</span>
+<span class="doccomment">/// have been previously called and not returned. Additionally no Rust destructors may be on the</span>
+<span class="doccomment">/// stack. They will be skipped and not executed.</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">resume_panic</span>(<span class="ident">payload</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
     <span class="ident">tls</span>::<span class="ident">with</span>(<span class="op">|</span><span class="ident">info</span><span class="op">|</span> <span class="ident">info</span>.<span class="ident">unwrap</span>().<span class="ident">unwind_with</span>(<span class="ident">UnwindReason</span>::<span class="ident">Panic</span>(<span class="ident">payload</span>)))
 }
@@ -1311,7 +1442,9 @@
     <span class="doccomment">/// A user-raised trap through `raise_user_trap`.</span>
     <span class="ident">User</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>),
 
-    <span class="doccomment">/// A trap raised from machine code generated from Wasm</span>
+    <span class="doccomment">/// A trap raised from the Wasm generated code</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note: this trap is deterministic (assuming a deterministic host implementation)</span>
     <span class="ident">Wasm</span> {
         <span class="doccomment">/// The program counter in generated code where this trap happened.</span>
         <span class="ident">pc</span>: <span class="ident">usize</span>,
@@ -1321,45 +1454,54 @@
         <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>,
     },
 
-    <span class="doccomment">/// A trap raised manually from the Wasmer VM</span>
-    <span class="ident">Runtime</span> {
+    <span class="doccomment">/// A trap raised from a wasm libcall</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note: this trap is deterministic (assuming a deterministic host implementation)</span>
+    <span class="ident">Lib</span> {
         <span class="doccomment">/// Code of the trap.</span>
         <span class="ident">trap_code</span>: <span class="ident">TrapCode</span>,
         <span class="doccomment">/// Native stack backtrace at the time the trap occurred</span>
         <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>,
     },
+
+    <span class="doccomment">/// A trap indicating that the runtime was unable to allocate sufficient memory.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note: this trap is nondeterministic, since it depends on the host system.</span>
+    <span class="ident">OOM</span> {
+        <span class="doccomment">/// Native stack backtrace at the time the OOM occurred</span>
+        <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>,
+    },
 }
 
 <span class="kw">impl</span> <span class="ident">Trap</span> {
-    <span class="doccomment">/// Construct a new VM `Trap` with the given the program counter, backtrace and an optional</span>
-    <span class="doccomment">/// trap code associated with the signal received from the kernel.</span>
-    <span class="doccomment">/// Wasm traps are Traps that are triggered by the chip when running generated</span>
-    <span class="doccomment">/// code for a Wasm function.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_from_wasm</span>(<span class="ident">pc</span>: <span class="ident">usize</span>, <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>, <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>::<span class="ident">Wasm</span> {
+    <span class="doccomment">/// Construct a new Wasm trap with the given source location and backtrace.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasm</span>(<span class="ident">pc</span>: <span class="ident">usize</span>, <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>, <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">Trap</span>::<span class="ident">Wasm</span> {
             <span class="ident">pc</span>,
             <span class="ident">backtrace</span>,
             <span class="ident">signal_trap</span>,
         }
     }
 
-    <span class="doccomment">/// Construct a new runtime `Trap` with the given trap code.</span>
-    <span class="doccomment">/// Runtime traps are Traps that are triggered manually from the VM.</span>
+    <span class="doccomment">/// Construct a new Wasm trap with the given trap code.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_from_runtime</span>(<span class="ident">trap_code</span>: <span class="ident">TrapCode</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lib</span>(<span class="ident">trap_code</span>: <span class="ident">TrapCode</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">backtrace</span> <span class="op">=</span> <span class="ident">Backtrace</span>::<span class="ident">new_unresolved</span>();
-        <span class="self">Self</span>::<span class="ident">Runtime</span> {
+        <span class="ident">Trap</span>::<span class="ident">Lib</span> {
             <span class="ident">trap_code</span>,
             <span class="ident">backtrace</span>,
         }
     }
 
-    <span class="doccomment">/// Construct a new Out of Memory (OOM) `Trap`.</span>
+    <span class="doccomment">/// Construct a new OOM trap with the given source location and trap code.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_from_user</span>(<span class="ident">error</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>::<span class="ident">User</span>(<span class="ident">error</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">oom</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">backtrace</span> <span class="op">=</span> <span class="ident">Backtrace</span>::<span class="ident">new_unresolved</span>();
+        <span class="ident">Trap</span>::<span class="ident">OOM</span> { <span class="ident">backtrace</span> }
     }
 }
 
@@ -1379,34 +1521,29 @@
 <span class="doccomment">/// Wildly unsafe because it calls raw function pointers and reads/writes raw</span>
 <span class="doccomment">/// function pointers.</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">wasmer_call_trampoline</span>(
+    <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">TrapHandler</span>,
     <span class="ident">vmctx</span>: <span class="ident">VMFunctionEnvironment</span>,
     <span class="ident">trampoline</span>: <span class="ident">VMTrampoline</span>,
     <span class="ident">callee</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMFunctionBody</span>,
     <span class="ident">values_vec</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-    <span class="ident">catch_traps</span>(<span class="ident">vmctx</span>, <span class="op">|</span><span class="op">|</span> {
+    <span class="ident">catch_traps</span>(<span class="ident">trap_handler</span>, <span class="op">|</span><span class="op">|</span> {
         <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(<span class="ident">VMFunctionEnvironment</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMFunctionBody</span>, <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>)<span class="op">&gt;</span>(
             <span class="ident">trampoline</span>,
-        )(<span class="ident">vmctx</span>, <span class="ident">callee</span>, <span class="ident">values_vec</span>)
+        )(<span class="ident">vmctx</span>, <span class="ident">callee</span>, <span class="ident">values_vec</span>);
     })
 }
 
 <span class="doccomment">/// Catches any wasm traps that happen within the execution of `closure`,</span>
 <span class="doccomment">/// returning them as a `Result`.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Highly unsafe since `closure` won&#39;t have any destructors run.</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">catch_traps</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">vmctx</span>: <span class="ident">VMFunctionEnvironment</span>, <span class="kw-2">mut</span> <span class="ident">closure</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span>
+<span class="doccomment">/// Highly unsafe since `closure` won&#39;t have any dtors run.</span>
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">catch_traps</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TrapHandler</span>, <span class="kw-2">mut</span> <span class="ident">closure</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">F</span>: <span class="ident">FnMut</span>(),
 {
-    <span class="comment">// Ensure that we have our sigaltstack installed.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="ident">setup_unix_sigaltstack</span>()<span class="question-mark">?</span>;
-
-    <span class="kw">return</span> <span class="ident">CallThreadState</span>::<span class="ident">new</span>(<span class="ident">vmctx</span>).<span class="ident">with</span>(<span class="op">|</span><span class="ident">cx</span><span class="op">|</span> {
-        <span class="ident">RegisterSetjmp</span>(
+    <span class="kw">return</span> <span class="ident">CallThreadState</span>::<span class="ident">new</span>(<span class="ident">trap_handler</span>).<span class="ident">with</span>(<span class="op">|</span><span class="ident">cx</span><span class="op">|</span> {
+        <span class="ident">wasmer_register_setjmp</span>(
             <span class="ident">cx</span>.<span class="ident">jmp_buf</span>.<span class="ident">as_ptr</span>(),
             <span class="ident">call_closure</span>::<span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>,
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">closure</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">F</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>,
@@ -1431,14 +1568,14 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// Check [`catch_traps`].</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">catch_traps_with_result</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">R</span><span class="op">&gt;</span>(
-    <span class="ident">vmctx</span>: <span class="ident">VMFunctionEnvironment</span>,
+    <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TrapHandler</span>,
     <span class="kw-2">mut</span> <span class="ident">closure</span>: <span class="ident">F</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">Trap</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">F</span>: <span class="ident">FnMut</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span>,
 {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">global_results</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>::<span class="ident">uninit</span>();
-    <span class="ident">catch_traps</span>(<span class="ident">vmctx</span>, <span class="op">|</span><span class="op">|</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">global_results</span> <span class="op">=</span> <span class="ident">MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>::<span class="ident">uninit</span>();
+    <span class="ident">catch_traps</span>(<span class="ident">trap_handler</span>, <span class="op">|</span><span class="op">|</span> {
         <span class="ident">global_results</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">write</span>(<span class="ident">closure</span>());
     })<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(<span class="ident">global_results</span>.<span class="ident">assume_init</span>())
@@ -1446,91 +1583,84 @@
 
 <span class="doccomment">/// Temporary state stored on the stack which is registered in the `tls` module</span>
 <span class="doccomment">/// below for calls into wasm.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CallThreadState</span> {
-    <span class="ident">unwind</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">UnwindReason</span><span class="op">&gt;</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="ident">unwind</span>: <span class="ident">UnsafeCell</span><span class="op">&lt;</span><span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">UnwindReason</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">jmp_buf</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span><span class="op">&gt;</span>,
     <span class="ident">reset_guard_page</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>,
-    <span class="ident">prev</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">CallThreadState</span><span class="op">&gt;</span>,
-    <span class="ident">vmctx</span>: <span class="ident">VMFunctionEnvironment</span>,
+    <span class="ident">prev</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">tls</span>::<span class="ident">Ptr</span><span class="op">&gt;</span>,
+    <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> (<span class="kw">dyn</span> <span class="ident">TrapHandler</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>),
     <span class="ident">handling_trap</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>,
 }
 
+<span class="doccomment">/// A package of functionality needed by `catch_traps` to figure out what to do</span>
+<span class="doccomment">/// when handling a trap.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Note that this is an `unsafe` trait at least because it&#39;s being run in the</span>
+<span class="doccomment">/// context of a synchronous signal handler, so it needs to be careful to not</span>
+<span class="doccomment">/// access too much state in answering these queries.</span>
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">TrapHandler</span> {
+    <span class="doccomment">/// Converts this object into an `Any` to dynamically check its type.</span>
+    <span class="kw">fn</span> <span class="ident">as_any</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Any</span>;
+
+    <span class="doccomment">/// Uses `call` to call a custom signal handler, if one is specified.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns `true` if `call` returns true, otherwise returns `false`.</span>
+    <span class="kw">fn</span> <span class="ident">custom_trap_handler</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">call</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">TrapHandlerFn</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>;
+}
+
 <span class="kw">enum</span> <span class="ident">UnwindReason</span> {
-    <span class="prelude-val">None</span>,
+    <span class="doccomment">/// A panic caused by the host</span>
     <span class="ident">Panic</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// A custom error triggered by the user</span>
     <span class="ident">UserTrap</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// A Trap triggered by a wasm libcall</span>
     <span class="ident">LibTrap</span>(<span class="ident">Trap</span>),
-    <span class="ident">RuntimeTrap</span> {
+    <span class="doccomment">/// A trap caused by the Wasm generated code</span>
+    <span class="ident">WasmTrap</span> {
         <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>,
         <span class="ident">pc</span>: <span class="ident">usize</span>,
         <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>,
     },
 }
 
-<span class="kw">impl</span> <span class="ident">CallThreadState</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">vmctx</span>: <span class="ident">VMFunctionEnvironment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> (<span class="kw">dyn</span> <span class="ident">TrapHandler</span> <span class="op">+</span> <span class="lifetime">&#39;a</span>)) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
         <span class="self">Self</span> {
-            <span class="ident">unwind</span>: <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="ident">UnwindReason</span>::<span class="prelude-val">None</span>),
-            <span class="ident">vmctx</span>,
+            <span class="ident">unwind</span>: <span class="ident">UnsafeCell</span>::<span class="ident">new</span>(<span class="ident">MaybeUninit</span>::<span class="ident">uninit</span>()),
             <span class="ident">jmp_buf</span>: <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="ident">ptr</span>::<span class="ident">null</span>()),
             <span class="ident">reset_guard_page</span>: <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="bool-val">false</span>),
-            <span class="ident">prev</span>: <span class="prelude-val">None</span>,
+            <span class="ident">prev</span>: <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="ident">ptr</span>::<span class="ident">null</span>()),
+            <span class="ident">trap_handler</span>,
             <span class="ident">handling_trap</span>: <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="bool-val">false</span>),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">with</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">closure</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-        <span class="ident">tls</span>::<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> {
-            <span class="self">self</span>.<span class="ident">prev</span> <span class="op">=</span> <span class="ident">prev</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
-            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">tls</span>::<span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">closure</span>(<span class="kw-2">&amp;</span><span class="self">self</span>));
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">unwind</span>.<span class="ident">replace</span>(<span class="ident">UnwindReason</span>::<span class="prelude-val">None</span>) {
-                <span class="ident">UnwindReason</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">ret</span>, <span class="number">1</span>);
-                    <span class="prelude-val">Ok</span>(())
-                }
-                <span class="ident">UnwindReason</span>::<span class="ident">UserTrap</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">ret</span>, <span class="number">0</span>);
-                    <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_user</span>(<span class="ident">data</span>))
-                }
-                <span class="ident">UnwindReason</span>::<span class="ident">LibTrap</span>(<span class="ident">trap</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>),
-                <span class="ident">UnwindReason</span>::<span class="ident">RuntimeTrap</span> {
-                    <span class="ident">backtrace</span>,
-                    <span class="ident">pc</span>,
-                    <span class="ident">signal_trap</span>,
-                } <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">ret</span>, <span class="number">0</span>);
-                    <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_wasm</span>(<span class="ident">pc</span>, <span class="ident">backtrace</span>, <span class="ident">signal_trap</span>))
-                }
-                <span class="ident">UnwindReason</span>::<span class="ident">Panic</span>(<span class="ident">panic</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">ret</span>, <span class="number">0</span>);
-                    <span class="ident">std</span>::<span class="ident">panic</span>::<span class="ident">resume_unwind</span>(<span class="ident">panic</span>)
-                }
-            }
-        })
-    }
-
-    <span class="kw">fn</span> <span class="ident">any_instance</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">func</span>: <span class="kw">impl</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Instance</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> {
-            <span class="kw">if</span> <span class="ident">func</span>(
-                <span class="self">self</span>.<span class="ident">vmctx</span>
-                    .<span class="ident">vmctx</span>
-                    .<span class="ident">as_ref</span>()
-                    .<span class="ident">expect</span>(<span class="string">&quot;`VMContext` is null in `any_instance`&quot;</span>)
-                    .<span class="ident">instance</span>(),
-            ) {
-                <span class="kw">return</span> <span class="bool-val">true</span>;
-            }
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">prev</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">prev</span>) <span class="op">=</span><span class="op">&gt;</span> (<span class="kw-2">*</span><span class="ident">prev</span>).<span class="ident">any_instance</span>(<span class="ident">func</span>),
-                <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
-            }
+    <span class="kw">fn</span> <span class="ident">with</span>(<span class="self">self</span>, <span class="ident">closure</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="ident">CallThreadState</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">tls</span>::<span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="op">|</span><span class="op">|</span> <span class="ident">closure</span>(<span class="kw-2">&amp;</span><span class="self">self</span>))<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">ret</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+        }
+        <span class="comment">// We will only reach this path if ret == 0. And that will</span>
+        <span class="comment">// only happen if a trap did happen. As such, it&#39;s safe to</span>
+        <span class="comment">// assume that the `unwind` field is already initialized</span>
+        <span class="comment">// at this moment.</span>
+        <span class="kw">match</span> <span class="kw">unsafe</span> { (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">unwind</span>.<span class="ident">get</span>()).<span class="ident">as_ptr</span>().<span class="ident">read</span>() } {
+            <span class="ident">UnwindReason</span>::<span class="ident">UserTrap</span>(<span class="ident">data</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">User</span>(<span class="ident">data</span>)),
+            <span class="ident">UnwindReason</span>::<span class="ident">LibTrap</span>(<span class="ident">trap</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>),
+            <span class="ident">UnwindReason</span>::<span class="ident">WasmTrap</span> {
+                <span class="ident">backtrace</span>,
+                <span class="ident">pc</span>,
+                <span class="ident">signal_trap</span>,
+            } <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">wasm</span>(<span class="ident">pc</span>, <span class="ident">backtrace</span>, <span class="ident">signal_trap</span>)),
+            <span class="ident">UnwindReason</span>::<span class="ident">Panic</span>(<span class="ident">panic</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">panic</span>::<span class="ident">resume_unwind</span>(<span class="ident">panic</span>),
         }
     }
 
     <span class="kw">fn</span> <span class="ident">unwind_with</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">reason</span>: <span class="ident">UnwindReason</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
-        <span class="self">self</span>.<span class="ident">unwind</span>.<span class="ident">replace</span>(<span class="ident">reason</span>);
         <span class="kw">unsafe</span> {
-            <span class="ident">Unwind</span>(<span class="self">self</span>.<span class="ident">jmp_buf</span>.<span class="ident">get</span>());
+            (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">unwind</span>.<span class="ident">get</span>()).<span class="ident">as_mut_ptr</span>().<span class="ident">write</span>(<span class="ident">reason</span>);
+            <span class="ident">wasmer_unwind</span>(<span class="self">self</span>.<span class="ident">jmp_buf</span>.<span class="ident">get</span>());
         }
     }
 
@@ -1556,7 +1686,7 @@
         <span class="ident">pc</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>,
         <span class="ident">reset_guard_page</span>: <span class="ident">bool</span>,
         <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>,
-        <span class="ident">call_handler</span>: <span class="kw">impl</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">SignalHandler</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>,
+        <span class="ident">call_handler</span>: <span class="kw">impl</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">TrapHandlerFn</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span> {
         <span class="comment">// If we hit a fault while handling a previous trap, that&#39;s quite bad,</span>
         <span class="comment">// so bail out and let the system handle this recursive segfault.</span>
@@ -1567,21 +1697,10 @@
             <span class="kw">return</span> <span class="ident">ptr</span>::<span class="ident">null</span>();
         }
 
-        <span class="comment">// First up see if any instance registered has a custom trap handler,</span>
-        <span class="comment">// in which case run them all. If anything handles the trap then we</span>
+        <span class="comment">// First up see if we have a custom trap handler,</span>
+        <span class="comment">// in which case run it. If anything handles the trap then we</span>
         <span class="comment">// return that the trap was handled.</span>
-        <span class="kw">let</span> <span class="ident">any_instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">any_instance</span>(<span class="op">|</span><span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">signal_handler</span>.<span class="ident">replace</span>(<span class="prelude-val">None</span>) {
-                <span class="prelude-val">Some</span>(<span class="ident">handler</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">handler</span>,
-                <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="bool-val">false</span>,
-            };
-            <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">call_handler</span>(<span class="kw-2">&amp;</span><span class="ident">handler</span>);
-            <span class="ident">instance</span>.<span class="ident">signal_handler</span>.<span class="ident">set</span>(<span class="prelude-val">Some</span>(<span class="ident">handler</span>));
-            <span class="ident">result</span>
-        });
-
-        <span class="kw">if</span> <span class="ident">any_instance</span> {
-            <span class="self">self</span>.<span class="ident">handling_trap</span>.<span class="ident">set</span>(<span class="bool-val">false</span>);
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">trap_handler</span>.<span class="ident">custom_trap_handler</span>(<span class="kw-2">&amp;</span><span class="ident">call_handler</span>) {
             <span class="kw">return</span> <span class="number">1</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>;
         }
 
@@ -1598,17 +1717,21 @@
         }
         <span class="kw">let</span> <span class="ident">backtrace</span> <span class="op">=</span> <span class="ident">Backtrace</span>::<span class="ident">new_unresolved</span>();
         <span class="self">self</span>.<span class="ident">reset_guard_page</span>.<span class="ident">set</span>(<span class="ident">reset_guard_page</span>);
-        <span class="self">self</span>.<span class="ident">unwind</span>.<span class="ident">replace</span>(<span class="ident">UnwindReason</span>::<span class="ident">RuntimeTrap</span> {
-            <span class="ident">backtrace</span>,
-            <span class="ident">signal_trap</span>,
-            <span class="ident">pc</span>: <span class="ident">pc</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        });
+        <span class="kw">unsafe</span> {
+            (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">unwind</span>.<span class="ident">get</span>())
+                .<span class="ident">as_mut_ptr</span>()
+                .<span class="ident">write</span>(<span class="ident">UnwindReason</span>::<span class="ident">WasmTrap</span> {
+                    <span class="ident">backtrace</span>,
+                    <span class="ident">signal_trap</span>,
+                    <span class="ident">pc</span>: <span class="ident">pc</span> <span class="kw">as</span> <span class="ident">usize</span>,
+                });
+        }
         <span class="self">self</span>.<span class="ident">handling_trap</span>.<span class="ident">set</span>(<span class="bool-val">false</span>);
         <span class="self">self</span>.<span class="ident">jmp_buf</span>.<span class="ident">get</span>()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">CallThreadState</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">reset_guard_page</span>.<span class="ident">get</span>() {
             <span class="ident">reset_guard_page</span>();
@@ -1623,37 +1746,138 @@
 <span class="comment">// the caller to the trap site.</span>
 <span class="kw">mod</span> <span class="ident">tls</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">CallThreadState</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Trap</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>;
 
-    <span class="macro">thread_local</span><span class="macro">!</span>(<span class="kw">static</span> <span class="ident">PTR</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">CallThreadState</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Cell</span>::<span class="ident">new</span>(<span class="ident">ptr</span>::<span class="ident">null</span>()));
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">raw</span>::<span class="ident">Ptr</span>;
+
+    <span class="comment">// An even *more* inner module for dealing with TLS. This actually has the</span>
+    <span class="comment">// thread local variable and has functions to access the variable.</span>
+    <span class="comment">//</span>
+    <span class="comment">// Note that this is specially done to fully encapsulate that the accessors</span>
+    <span class="comment">// for tls must not be inlined. Wasmer&#39;s async support will employ stack</span>
+    <span class="comment">// switching which can resume execution on different OS threads. This means</span>
+    <span class="comment">// that borrows of our TLS pointer must never live across accesses because</span>
+    <span class="comment">// otherwise the access may be split across two threads and cause unsafety.</span>
+    <span class="comment">//</span>
+    <span class="comment">// This also means that extra care is taken by the runtime to save/restore</span>
+    <span class="comment">// these TLS values when the runtime may have crossed threads.</span>
+    <span class="kw">mod</span> <span class="ident">raw</span> {
+        <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">CallThreadState</span>;
+        <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">Trap</span>;
+        <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
+        <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>;
+
+        <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Ptr</span> <span class="op">=</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span>;
+
+        <span class="comment">// The first entry here is the `Ptr` which is what&#39;s used as part of the</span>
+        <span class="comment">// public interface of this module. The second entry is a boolean which</span>
+        <span class="comment">// allows the runtime to perform per-thread initialization if necessary</span>
+        <span class="comment">// for handling traps (e.g. setting up ports on macOS and sigaltstack on</span>
+        <span class="comment">// Unix).</span>
+        <span class="macro">thread_local</span><span class="macro">!</span>(<span class="kw">static</span> <span class="ident">PTR</span>: <span class="ident">Cell</span><span class="op">&lt;</span>(<span class="ident">Ptr</span>, <span class="ident">bool</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Cell</span>::<span class="ident">new</span>((<span class="ident">ptr</span>::<span class="ident">null</span>(), <span class="bool-val">false</span>)));
+
+        <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span> <span class="comment">// see module docs for why this is here</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">replace</span>(<span class="ident">val</span>: <span class="ident">Ptr</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Ptr</span>, <span class="ident">Trap</span><span class="op">&gt;</span> {
+            <span class="ident">PTR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
+                <span class="comment">// When a new value is configured that means that we may be</span>
+                <span class="comment">// entering WebAssembly so check to see if this thread has</span>
+                <span class="comment">// performed per-thread initialization for traps.</span>
+                <span class="kw">let</span> (<span class="ident">prev</span>, <span class="kw-2">mut</span> <span class="ident">initialized</span>) <span class="op">=</span> <span class="ident">p</span>.<span class="ident">get</span>();
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">initialized</span> {
+                    <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">lazy_per_thread_init</span>()<span class="question-mark">?</span>;
+                    <span class="ident">initialized</span> <span class="op">=</span> <span class="bool-val">true</span>;
+                }
+                <span class="ident">p</span>.<span class="ident">set</span>((<span class="ident">val</span>, <span class="ident">initialized</span>));
+                <span class="prelude-val">Ok</span>(<span class="ident">prev</span>)
+            })
+        }
+
+        <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">never</span>)]</span> <span class="comment">// see module docs for why this is here</span>
+        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Ptr</span> {
+            <span class="ident">PTR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">get</span>().<span class="number">0</span>)
+        }
+    }
+
+    <span class="doccomment">/// Opaque state used to help control TLS state across stack switches for</span>
+    <span class="doccomment">/// async support.</span>
+    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TlsRestore</span>(<span class="ident">raw</span>::<span class="ident">Ptr</span>);
+
+    <span class="kw">impl</span> <span class="ident">TlsRestore</span> {
+        <span class="doccomment">/// Takes the TLS state that is currently configured and returns a</span>
+        <span class="doccomment">/// token that is used to replace it later.</span>
+        <span class="doccomment">///</span>
+        <span class="doccomment">/// # Safety</span>
+        <span class="doccomment">///</span>
+        <span class="doccomment">/// This is not a safe operation since it&#39;s intended to only be used</span>
+        <span class="doccomment">/// with stack switching found with fibers and async wasmer.</span>
+        <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">take</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TlsRestore</span>, <span class="ident">Trap</span><span class="op">&gt;</span> {
+            <span class="comment">// Our tls pointer must be set at this time, and it must not be</span>
+            <span class="comment">// null. We need to restore the previous pointer since we&#39;re</span>
+            <span class="comment">// removing ourselves from the call-stack, and in the process we</span>
+            <span class="comment">// null out our own previous field for safety in case it&#39;s</span>
+            <span class="comment">// accidentally used later.</span>
+            <span class="kw">let</span> <span class="ident">raw</span> <span class="op">=</span> <span class="ident">raw</span>::<span class="ident">get</span>();
+            <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">raw</span>.<span class="ident">is_null</span>());
+            <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">raw</span>).<span class="ident">prev</span>.<span class="ident">replace</span>(<span class="ident">ptr</span>::<span class="ident">null</span>());
+            <span class="ident">raw</span>::<span class="ident">replace</span>(<span class="ident">prev</span>)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="ident">TlsRestore</span>(<span class="ident">raw</span>))
+        }
+
+        <span class="doccomment">/// Restores a previous tls state back into this thread&#39;s TLS.</span>
+        <span class="doccomment">///</span>
+        <span class="doccomment">/// # Safety</span>
+        <span class="doccomment">///</span>
+        <span class="doccomment">/// This is unsafe because it&#39;s intended to only be used within the</span>
+        <span class="doccomment">/// context of stack switching within wasmer.</span>
+        <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">replace</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw">super</span>::<span class="ident">Trap</span><span class="op">&gt;</span> {
+            <span class="comment">// We need to configure our previous TLS pointer to whatever is in</span>
+            <span class="comment">// TLS at this time, and then we set the current state to ourselves.</span>
+            <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="ident">raw</span>::<span class="ident">get</span>();
+            <span class="macro">assert</span><span class="macro">!</span>((<span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>).<span class="ident">prev</span>.<span class="ident">get</span>().<span class="ident">is_null</span>());
+            (<span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>).<span class="ident">prev</span>.<span class="ident">set</span>(<span class="ident">prev</span>);
+            <span class="ident">raw</span>::<span class="ident">replace</span>(<span class="self">self</span>.<span class="number">0</span>)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(())
+        }
+    }
 
     <span class="doccomment">/// Configures thread local state such that for the duration of the</span>
     <span class="doccomment">/// execution of `closure` any call to `with` will yield `ptr`, unless this</span>
     <span class="doccomment">/// is recursively called again.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(<span class="ident">ptr</span>: <span class="kw-2">&amp;</span><span class="ident">CallThreadState</span>, <span class="ident">closure</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span> {
-        <span class="kw">struct</span> <span class="ident">Reset</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">Copy</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">T</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(<span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">closure</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">Trap</span><span class="op">&gt;</span> {
+        <span class="kw">struct</span> <span class="ident">Reset</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span><span class="op">&gt;</span>);
 
-        <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Reset</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">T</span><span class="op">&gt;</span> {
+        <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Reset</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+            <span class="attribute">#[<span class="ident">inline</span>]</span>
             <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-                <span class="self">self</span>.<span class="number">0</span>.<span class="ident">set</span>(<span class="self">self</span>.<span class="number">1</span>);
+                <span class="ident">raw</span>::<span class="ident">replace</span>(<span class="self">self</span>.<span class="number">0</span>.<span class="ident">prev</span>.<span class="ident">replace</span>(<span class="ident">ptr</span>::<span class="ident">null</span>()))
+                    .<span class="ident">expect</span>(<span class="string">&quot;tls should be previously initialized&quot;</span>);
             }
         }
 
-        <span class="ident">PTR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">_r</span> <span class="op">=</span> <span class="ident">Reset</span>(<span class="ident">p</span>, <span class="ident">p</span>.<span class="ident">replace</span>(<span class="ident">ptr</span>));
-            <span class="ident">closure</span>()
-        })
+        <span class="comment">// Note that this extension of the lifetime to `&#39;static` should be</span>
+        <span class="comment">// safe because we only ever access it below with an anonymous</span>
+        <span class="comment">// lifetime, meaning `&#39;static` never leaks out of this module.</span>
+        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span>(<span class="ident">state</span>) };
+        <span class="kw">let</span> <span class="ident">prev</span> <span class="op">=</span> <span class="ident">raw</span>::<span class="ident">replace</span>(<span class="ident">ptr</span>)<span class="question-mark">?</span>;
+        <span class="ident">state</span>.<span class="ident">prev</span>.<span class="ident">set</span>(<span class="ident">prev</span>);
+        <span class="kw">let</span> <span class="ident">_reset</span> <span class="op">=</span> <span class="ident">Reset</span>(<span class="ident">state</span>);
+        <span class="prelude-val">Ok</span>(<span class="ident">closure</span>())
     }
 
     <span class="doccomment">/// Returns the last pointer configured with `set` above. Panics if `set`</span>
-    <span class="doccomment">/// has not been previously called.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(<span class="ident">closure</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">CallThreadState</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span> {
-        <span class="ident">PTR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">ptr</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">get</span>();
-            <span class="kw">unsafe</span> { <span class="ident">closure</span>(<span class="kw">if</span> <span class="ident">p</span>.<span class="ident">is_null</span>() { <span class="prelude-val">None</span> } <span class="kw">else</span> { <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">p</span>) }) }
-        })
+    <span class="doccomment">/// has not been previously called and not returned.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(<span class="ident">closure</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">CallThreadState</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">R</span> {
+        <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">raw</span>::<span class="ident">get</span>();
+        <span class="kw">unsafe</span> { <span class="ident">closure</span>(<span class="kw">if</span> <span class="ident">p</span>.<span class="ident">is_null</span>() { <span class="prelude-val">None</span> } <span class="kw">else</span> { <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">p</span>) }) }
     }
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">unix</span>))]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lazy_per_thread_init</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+    <span class="comment">// Unused on Windows</span>
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// A module for registering a custom alternate signal stack (sigaltstack).</span>
@@ -1663,7 +1887,7 @@
 <span class="doccomment">/// and registering our own alternate stack that is large enough and has a guard</span>
 <span class="doccomment">/// page.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">fn</span> <span class="ident">setup_unix_sigaltstack</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lazy_per_thread_init</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">RefCell</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null_mut</span>;
 
@@ -1718,7 +1942,7 @@
             <span class="number">0</span>,
         );
         <span class="kw">if</span> <span class="ident">ptr</span> <span class="op">=</span><span class="op">=</span> <span class="ident">libc</span>::<span class="ident">MAP_FAILED</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">new_from_runtime</span>(<span class="ident">TrapCode</span>::<span class="ident">VMOutOfMemory</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">oom</span>());
         }
 
         <span class="comment">// Prepare the stack with readable/writable memory and then register it</span>
