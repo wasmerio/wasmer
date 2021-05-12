@@ -16,7 +16,7 @@ wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["transl
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
 cranelift-entity = { version = "0.70", default-features = false }
-cranelift-codegen = { version = "0.70", default-features = false, features = ["x86", "arm64"] }
+cranelift-codegen = { version = "0.72", default-features = false, features = ["x86", "arm64"] }
 cranelift-frontend = { version = "0.70", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.9", optional = true }
@@ -28,7 +28,7 @@ loupe = "0.1"
 
 [dev-dependencies]
 target-lexicon = { version = "0.11", default-features = false }
-cranelift-codegen = { version = "0.70", features = ["all-arch"] }
+cranelift-codegen = { version = "0.72", features = ["all-arch"] }
 lazy_static = "1.4"
 
 [badges]
