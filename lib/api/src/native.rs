@@ -131,6 +131,7 @@ macro_rules! impl_native_traits {
                     };
                     unsafe {
                         wasmer_vm::wasmer_call_trampoline(
+                            &self.store,
                             self.vmctx(),
                             trampoline,
                             self.address(),
@@ -145,8 +146,8 @@ macro_rules! impl_native_traits {
                             // TODO: we can probably remove this copy by doing some clever `transmute`s.
                             // we know it's not overlapping because `using_rets_array` is false
                             std::ptr::copy_nonoverlapping(src_pointer,
-                                                            rets_list,
-                                                            num_rets);
+                                                          rets_list,
+                                                          num_rets);
                         }
                     }
                     Ok(Rets::from_array(rets_list_array))
