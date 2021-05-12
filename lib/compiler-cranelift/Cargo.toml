@@ -16,7 +16,7 @@ wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["transl
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
 cranelift-entity = { version = "0.73", default-features = false }
-cranelift-codegen = { version = "0.73", default-features = false, features = ["x86", "arm64"] }
+cranelift-codegen = { version = "0.73", default-features = false, features = ["x86", "arm64", "old-x86-backend"] }
 cranelift-frontend = { version = "0.73", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.9", optional = true }
@@ -39,6 +39,3 @@ default = ["std", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
-
-# Enable Cranelift experimental x64 backend
-experimental-x64 = ["cranelift-codegen/experimental_x64"]
