@@ -650,20 +650,14 @@ impl<'a> CallThreadState<'a> {
         // assume that the `unwind` field is already initialized
         // at this moment.
         match unsafe { (*self.unwind.get()).as_ptr().read() } {
-            UnwindReason::UserTrap(data) => {
-                Err(Trap::User(data))
-            }
+            UnwindReason::UserTrap(data) => Err(Trap::User(data)),
             UnwindReason::LibTrap(trap) => Err(trap),
             UnwindReason::WasmTrap {
                 backtrace,
                 pc,
                 signal_trap,
-            } => {
-                Err(Trap::wasm(pc, backtrace, signal_trap))
-            }
-            UnwindReason::Panic(panic) => {
-                std::panic::resume_unwind(panic)
-            }
+            } => Err(Trap::wasm(pc, backtrace, signal_trap)),
+            UnwindReason::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
 
