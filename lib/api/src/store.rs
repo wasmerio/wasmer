@@ -141,10 +141,7 @@ impl Default for Store {
         let config = get_config();
         let engine = get_engine(config);
         let tunables = BaseTunables::for_target(engine.target());
-        Store {
-            engine: Arc::new(engine),
-            tunables: Arc::new(tunables),
-        }
+        Self::new_with_tunables(&engine, tunables)
     }
 }
 
