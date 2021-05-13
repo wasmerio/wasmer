@@ -16,6 +16,38 @@ use std::ptr;
 use std::sync::Once;
 pub use tls::TlsRestore;
 
+
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+unsafe fn set_pc(cx: *mut libc::c_void, pc: usize, arg1: usize) {
+    cfg_if::cfg_if! {
+        if #[cfg(not(target_os = "macos"))] {
+            unreachable!(); // not used on these platforms
+        } else if #[cfg(target_arch = "x86_64")] {
+            let cx = &mut *(cx as *mut libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__rip = pc as u64;
+            (*cx.uc_mcontext).__ss.__rdi = arg1 as u64;
+            // We're simulating a "pseudo-call" so we need to ensure
+            // stack alignment is properly respected, notably that on a
+            // `call` instruction the stack is 8/16-byte aligned, then
+            // the function adjusts itself to be 16-byte aligned.
+            //
+            // Most of the time the stack pointer is 16-byte aligned at
+            // the time of the trap but for more robust-ness with JIT
+            // code where it may ud2 in a prologue check before the
+            // stack is aligned we double-check here.
+            if (*cx.uc_mcontext).__ss.__rsp % 16 == 0 {
+                (*cx.uc_mcontext).__ss.__rsp -= 8;
+            }
+        } else if #[cfg(target_arch = "aarch64")] {
+            let cx = &mut *(cx as *mut libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__pc = pc as u64;
+            (*cx.uc_mcontext).__ss.__x[0] = arg1 as u64;
+        } else {
+            compile_error!("unsupported macos target architecture");
+        }
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
@@ -166,6 +198,13 @@ cfg_if::cfg_if! {
                 if jmp_buf.is_null() {
                     false
                 } else if jmp_buf as usize == 1 {
+                    true
+                }
+                else if cfg!(target_os = "macos") {
+                    unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
+                        wasmer_unwind(jmp_buf as _)
+                    }
+                    set_pc(context, unwind_shim as usize, jmp_buf as usize);
                     true
                 } else {
                     wasmer_unwind(jmp_buf)
@@ -903,7 +942,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 
     /// The size of the sigaltstack (not including the guard, which will be
     /// added). Make this large enough to run our signal handlers.
-    const MIN_STACK_SIZE: usize = 16 * 4096;
+    const MIN_STACK_SIZE: usize = 4 * 4096;
 
     enum Tls {
         None,

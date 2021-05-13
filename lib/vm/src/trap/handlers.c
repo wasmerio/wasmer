@@ -8,7 +8,7 @@
 // the process signal mask. This should make this call a bit faster b/c it
 // doesn't need to touch the kernel signal handling routines.
 // In case of macOS, stackoverflow
-#if defined(CFG_TARGET_OS_WINDOWS) || defined(CFG_TARGET_OS_MACOS)
+#if defined(CFG_TARGET_OS_WINDOWS)
 #define platform_setjmp(buf) setjmp(buf)
 #define platform_longjmp(buf, arg) longjmp(buf, arg)
 #define platform_jmp_buf jmp_buf
