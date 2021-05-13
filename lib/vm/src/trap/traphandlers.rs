@@ -207,6 +207,7 @@ cfg_if::cfg_if! {
                     set_pc(context, unwind_shim as usize, jmp_buf as usize);
                     true
                 } else {
+                    println!("Doing unwinding");
                     wasmer_unwind(jmp_buf)
                 }
             });
@@ -731,12 +732,15 @@ impl<'a> CallThreadState<'a> {
         signal_trap: Option<TrapCode>,
         call_handler: impl Fn(&TrapHandlerFn) -> bool,
     ) -> *const u8 {
+        let is_wasm_pc = unsafe { IS_WASM_PC(pc as _) };
+        println!("HANDLE TRAP {:?} (from wasm: {:?})", pc, is_wasm_pc);
         // If we hit a fault while handling a previous trap, that's quite bad,
         // so bail out and let the system handle this recursive segfault.
         //
         // Otherwise flag ourselves as handling a trap, do the trap handling,
         // and reset our trap handling flag.
         if self.handling_trap.replace(true) {
+            println!("WAS HANDLING TRAP");
             return ptr::null();
         }
 
@@ -745,6 +749,10 @@ impl<'a> CallThreadState<'a> {
         // return that the trap was handled.
         if self.trap_handler.custom_trap_handler(&call_handler) {
             return 1 as *const _;
+        }
+
+        if !is_wasm_pc {
+            return ptr::null();
         }
 
         // TODO: stack overflow can happen at any random time (i.e. in malloc()
@@ -769,7 +777,6 @@ impl<'a> CallThreadState<'a> {
                     pc: pc as usize,
                 });
         }
-        self.handling_trap.set(false);
         self.jmp_buf.get()
     }
 }
