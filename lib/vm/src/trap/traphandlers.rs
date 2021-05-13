@@ -16,6 +16,38 @@ use std::ptr;
 use std::sync::Once;
 pub use tls::TlsRestore;
 
+
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+unsafe fn set_pc(cx: *mut libc::c_void, pc: usize, arg1: usize) {
+    cfg_if::cfg_if! {
+        if #[cfg(not(target_os = "macos"))] {
+            unreachable!(); // not used on these platforms
+        } else if #[cfg(target_arch = "x86_64")] {
+            let cx = &mut *(cx as *mut libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__rip = pc as u64;
+            (*cx.uc_mcontext).__ss.__rdi = arg1 as u64;
+            // We're simulating a "pseudo-call" so we need to ensure
+            // stack alignment is properly respected, notably that on a
+            // `call` instruction the stack is 8/16-byte aligned, then
+            // the function adjusts itself to be 16-byte aligned.
+            //
+            // Most of the time the stack pointer is 16-byte aligned at
+            // the time of the trap but for more robust-ness with JIT
+            // code where it may ud2 in a prologue check before the
+            // stack is aligned we double-check here.
+            if (*cx.uc_mcontext).__ss.__rsp % 16 == 0 {
+                (*cx.uc_mcontext).__ss.__rsp -= 8;
+            }
+        } else if #[cfg(target_arch = "aarch64")] {
+            let cx = &mut *(cx as *mut libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__pc = pc as u64;
+            (*cx.uc_mcontext).__ss.__x[0] = arg1 as u64;
+        } else {
+            compile_error!("unsupported macos target architecture");
+        }
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
@@ -166,6 +198,13 @@ cfg_if::cfg_if! {
                 if jmp_buf.is_null() {
                     false
                 } else if jmp_buf as usize == 1 {
+                    true
+                }
+                else if cfg!(target_os = "macos") {
+                    unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
+                        wasmer_unwind(jmp_buf as _)
+                    }
+                    set_pc(context, unwind_shim as usize, jmp_buf as usize);
                     true
                 } else {
                     wasmer_unwind(jmp_buf)
@@ -588,7 +627,7 @@ where
 /// Temporary state stored on the stack which is registered in the `tls` module
 /// below for calls into wasm.
 pub struct CallThreadState<'a> {
-    unwind: UnsafeCell<MaybeUninit<UnwindReason>>,
+    unwind: Cell<UnwindReason>,
     jmp_buf: Cell<*const u8>,
     reset_guard_page: Cell<bool>,
     prev: Cell<tls::Ptr>,
@@ -613,6 +652,7 @@ pub unsafe trait TrapHandler {
 }
 
 enum UnwindReason {
+    None,
     /// A panic caused by the host
     Panic(Box<dyn Any + Send>),
     /// A custom error triggered by the user
@@ -631,7 +671,7 @@ impl<'a> CallThreadState<'a> {
     #[inline]
     fn new(trap_handler: &'a (dyn TrapHandler + 'a)) -> CallThreadState<'a> {
         Self {
-            unwind: UnsafeCell::new(MaybeUninit::uninit()),
+            unwind: Cell::new(UnwindReason::None),
             jmp_buf: Cell::new(ptr::null()),
             reset_guard_page: Cell::new(false),
             prev: Cell::new(ptr::null()),
@@ -642,28 +682,37 @@ impl<'a> CallThreadState<'a> {
 
     fn with(self, closure: impl FnOnce(&CallThreadState) -> i32) -> Result<(), Trap> {
         let ret = tls::set(&self, || closure(&self))?;
-        if ret != 0 {
-            return Ok(());
-        }
-        // We will only reach this path if ret == 0. And that will
-        // only happen if a trap did happen. As such, it's safe to
-        // assume that the `unwind` field is already initialized
-        // at this moment.
-        match unsafe { (*self.unwind.get()).as_ptr().read() } {
-            UnwindReason::UserTrap(data) => Err(Trap::User(data)),
-            UnwindReason::LibTrap(trap) => Err(trap),
+        match self.unwind.replace(UnwindReason::None) {
+            UnwindReason::None => {
+                debug_assert_eq!(ret, 1);
+                Ok(())
+            }
+            UnwindReason::UserTrap(data) => {
+                debug_assert_eq!(ret, 0);
+                Err(Trap::User(data))
+            },
+            UnwindReason::LibTrap(trap) => {
+                debug_assert_eq!(ret, 0);
+                Err(trap)
+            },
             UnwindReason::WasmTrap {
                 backtrace,
                 pc,
                 signal_trap,
-            } => Err(Trap::wasm(pc, backtrace, signal_trap)),
-            UnwindReason::Panic(panic) => std::panic::resume_unwind(panic),
+            } => {
+                debug_assert_eq!(ret, 0);
+                Err(Trap::wasm(pc, backtrace, signal_trap))
+            },
+            UnwindReason::Panic(panic) => {
+                debug_assert_eq!(ret, 0);
+                std::panic::resume_unwind(panic)
+            },
         }
     }
 
     fn unwind_with(&self, reason: UnwindReason) -> ! {
+        self.unwind.replace(reason);
         unsafe {
-            (*self.unwind.get()).as_mut_ptr().write(reason);
             wasmer_unwind(self.jmp_buf.get());
         }
     }
@@ -721,15 +770,11 @@ impl<'a> CallThreadState<'a> {
         }
         let backtrace = Backtrace::new_unresolved();
         self.reset_guard_page.set(reset_guard_page);
-        unsafe {
-            (*self.unwind.get())
-                .as_mut_ptr()
-                .write(UnwindReason::WasmTrap {
-                    backtrace,
-                    signal_trap,
-                    pc: pc as usize,
-                });
-        }
+        self.unwind.replace(UnwindReason::WasmTrap {
+            backtrace,
+            signal_trap,
+            pc: pc as usize,
+        });
         self.handling_trap.set(false);
         self.jmp_buf.get()
     }
@@ -903,7 +948,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 
     /// The size of the sigaltstack (not including the guard, which will be
     /// added). Make this large enough to run our signal handlers.
-    const MIN_STACK_SIZE: usize = 16 * 4096;
+    const MIN_STACK_SIZE: usize = 4 * 4096;
 
     enum Tls {
         None,

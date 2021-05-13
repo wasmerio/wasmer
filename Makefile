@@ -392,7 +392,7 @@ else
 endif
 
 build-docs:
-	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
+	cargo doc $(compiler_features) --document-private-items --no-deps --workspace
 
 capi-setup:
 ifeq ($(IS_WINDOWS), 1)
@@ -484,22 +484,22 @@ build-capi-headless-all: capi-setup
 test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 test-singlepass-native:
-	cargo test --release --tests $(compiler_features) --features "test-singlepass test-native"
+	cargo test --tests $(compiler_features) --features "test-singlepass test-native"
 
 test-singlepass-jit:
-	cargo test --release --tests $(compiler_features) --features "test-singlepass test-jit"
+	cargo test --tests $(compiler_features) --features "test-singlepass test-jit"
 
 test-cranelift-native:
-	cargo test --release --tests $(compiler_features) --features "test-cranelift test-native"
+	cargo test --tests $(compiler_features) --features "test-cranelift test-native"
 
 test-cranelift-jit:
-	cargo test --release --tests $(compiler_features) --features "test-cranelift test-jit"
+	cargo test --tests $(compiler_features) --features "test-cranelift test-jit"
 
 test-llvm-native:
-	cargo test --release --tests $(compiler_features) --features "test-llvm test-native"
+	cargo test --tests $(compiler_features) --features "test-llvm test-native"
 
 test-llvm-jit:
-	cargo test --release --tests $(compiler_features) --features "test-llvm test-jit"
+	cargo test --tests $(compiler_features) --features "test-llvm test-jit"
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
@@ -508,21 +508,21 @@ test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engi
 test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
 
 test-packages:
-	cargo test -p wasmer --release
-	cargo test -p wasmer-vm --release
-	cargo test -p wasmer-types --release
-	cargo test -p wasmer-wasi --release
-	cargo test -p wasmer-object --release
-	cargo test -p wasmer-engine-native --release --no-default-features
-	cargo test -p wasmer-engine-jit --release --no-default-features
-	cargo test -p wasmer-compiler --release
-	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
-	cargo test -p wasmer-cache --release
-	cargo test -p wasmer-engine --release
-	cargo test -p wasmer-derive --release
-	cargo check --manifest-path fuzz/Cargo.toml $(compiler_features) --release
+	cargo test -p wasmer
+	cargo test -p wasmer-vm
+	cargo test -p wasmer-types
+	cargo test -p wasmer-wasi
+	cargo test -p wasmer-object
+	cargo test -p wasmer-engine-native --no-default-features
+	cargo test -p wasmer-engine-jit --no-default-features
+	cargo test -p wasmer-compiler
+	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std
+	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std
+	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	cargo test -p wasmer-cache
+	cargo test -p wasmer-engine
+	cargo test -p wasmer-derive
+	cargo check --manifest-path fuzz/Cargo.toml $(compiler_features)
 
 
 # We want to run all the tests for all available compilers. The C API
@@ -579,15 +579,15 @@ test-capi-tests: package-capi
 	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
-	cargo test --manifest-path lib/wasi/Cargo.toml --release
+	cargo test --manifest-path lib/wasi/Cargo.toml
 
 test-examples:
-	cargo test --release $(compiler_features) --features wasi --examples
+	cargo test $(compiler_features) --features wasi --examples
 
 test-deprecated:
-	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
+	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --examples
 
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
