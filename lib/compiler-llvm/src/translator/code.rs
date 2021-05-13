@@ -6964,9 +6964,20 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::F32x4DemoteF64x2Zero => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_f64x2(v, i);
-                let res = self
-                    .builder
-                    .build_float_trunc(v, self.intrinsics.f32x4_ty, "");
+                let f32x2_ty = self.intrinsics.f32_ty.vec_type(2);
+                let res = self.builder.build_float_trunc(v, f32x2_ty, "");
+                let zeros = f32x2_ty.const_zero();
+                let res = self.builder.build_shuffle_vector(
+                    res,
+                    zeros,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_consts[0],
+                        self.intrinsics.i32_consts[1],
+                        self.intrinsics.i32_consts[2],
+                        self.intrinsics.i32_consts[3],
+                    ]),
+                    "",
+                );
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1_extra(res, ExtraInfo::pending_f32_nan());
             }
