@@ -1428,6 +1428,62 @@
 <span id="1427">1427</span>
 <span id="1428">1428</span>
 <span id="1429">1429</span>
+<span id="1430">1430</span>
+<span id="1431">1431</span>
+<span id="1432">1432</span>
+<span id="1433">1433</span>
+<span id="1434">1434</span>
+<span id="1435">1435</span>
+<span id="1436">1436</span>
+<span id="1437">1437</span>
+<span id="1438">1438</span>
+<span id="1439">1439</span>
+<span id="1440">1440</span>
+<span id="1441">1441</span>
+<span id="1442">1442</span>
+<span id="1443">1443</span>
+<span id="1444">1444</span>
+<span id="1445">1445</span>
+<span id="1446">1446</span>
+<span id="1447">1447</span>
+<span id="1448">1448</span>
+<span id="1449">1449</span>
+<span id="1450">1450</span>
+<span id="1451">1451</span>
+<span id="1452">1452</span>
+<span id="1453">1453</span>
+<span id="1454">1454</span>
+<span id="1455">1455</span>
+<span id="1456">1456</span>
+<span id="1457">1457</span>
+<span id="1458">1458</span>
+<span id="1459">1459</span>
+<span id="1460">1460</span>
+<span id="1461">1461</span>
+<span id="1462">1462</span>
+<span id="1463">1463</span>
+<span id="1464">1464</span>
+<span id="1465">1465</span>
+<span id="1466">1466</span>
+<span id="1467">1467</span>
+<span id="1468">1468</span>
+<span id="1469">1469</span>
+<span id="1470">1470</span>
+<span id="1471">1471</span>
+<span id="1472">1472</span>
+<span id="1473">1473</span>
+<span id="1474">1474</span>
+<span id="1475">1475</span>
+<span id="1476">1476</span>
+<span id="1477">1477</span>
+<span id="1478">1478</span>
+<span id="1479">1479</span>
+<span id="1480">1480</span>
+<span id="1481">1481</span>
+<span id="1482">1482</span>
+<span id="1483">1483</span>
+<span id="1484">1484</span>
+<span id="1485">1485</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.</span>
 <span class="doccomment">//!</span>
@@ -1500,6 +1556,7 @@
 
     <span class="kw">pub</span> <span class="ident">ctpop_i32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">ctpop_i64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">ctpop_i8x16</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">sqrt_f32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">sqrt_f64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
@@ -1508,15 +1565,23 @@
 
     <span class="kw">pub</span> <span class="ident">ceil_f32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">ceil_f64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">ceil_f32x4</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">ceil_f64x2</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">floor_f32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">floor_f64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">floor_f32x4</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">floor_f64x2</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">trunc_f32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">trunc_f64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">trunc_f32x4</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">trunc_f64x2</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">nearbyint_f32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">nearbyint_f64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">nearbyint_f32x4</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">nearbyint_f64x2</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">fabs_f32</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">fabs_f64</span>: <span class="ident">FunctionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
@@ -1548,6 +1613,8 @@
 
     <span class="kw">pub</span> <span class="ident">void_ty</span>: <span class="ident">VoidType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i1_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">i2_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">i4_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i8_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i16_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i32_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
@@ -1563,6 +1630,7 @@
     <span class="kw">pub</span> <span class="ident">i64x2_ty</span>: <span class="ident">VectorType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f32x4_ty</span>: <span class="ident">VectorType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f64x2_ty</span>: <span class="ident">VectorType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">i32x8_ty</span>: <span class="ident">VectorType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
     <span class="kw">pub</span> <span class="ident">i8_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i16_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
@@ -1587,6 +1655,7 @@
     <span class="kw">pub</span> <span class="ident">f64_zero</span>: <span class="ident">FloatValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f32x4_zero</span>: <span class="ident">VectorValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f64x2_zero</span>: <span class="ident">VectorValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">i32_consts</span>: [<span class="ident">IntValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">16</span>],
 
     <span class="kw">pub</span> <span class="ident">trap_unreachable</span>: <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">trap_call_indirect_null</span>: <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
@@ -1646,6 +1715,8 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">declare</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">Context</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">void_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">void_type</span>();
         <span class="kw">let</span> <span class="ident">i1_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">bool_type</span>();
+        <span class="kw">let</span> <span class="ident">i2_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">custom_width_int_type</span>(<span class="number">2</span>);
+        <span class="kw">let</span> <span class="ident">i4_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">custom_width_int_type</span>(<span class="number">4</span>);
         <span class="kw">let</span> <span class="ident">i8_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">i8_type</span>();
         <span class="kw">let</span> <span class="ident">i16_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">i16_type</span>();
         <span class="kw">let</span> <span class="ident">i32_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">i32_type</span>();
@@ -1661,6 +1732,7 @@
         <span class="kw">let</span> <span class="ident">i64x2_ty</span> <span class="op">=</span> <span class="ident">i64_ty</span>.<span class="ident">vec_type</span>(<span class="number">2</span>);
         <span class="kw">let</span> <span class="ident">f32x4_ty</span> <span class="op">=</span> <span class="ident">f32_ty</span>.<span class="ident">vec_type</span>(<span class="number">4</span>);
         <span class="kw">let</span> <span class="ident">f64x2_ty</span> <span class="op">=</span> <span class="ident">f64_ty</span>.<span class="ident">vec_type</span>(<span class="number">2</span>);
+        <span class="kw">let</span> <span class="ident">i32x8_ty</span> <span class="op">=</span> <span class="ident">i32_ty</span>.<span class="ident">vec_type</span>(<span class="number">8</span>);
 
         <span class="kw">let</span> <span class="ident">i8_ptr_ty</span> <span class="op">=</span> <span class="ident">i8_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace</span>::<span class="ident">Generic</span>);
         <span class="kw">let</span> <span class="ident">i16_ptr_ty</span> <span class="op">=</span> <span class="ident">i16_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace</span>::<span class="ident">Generic</span>);
@@ -1679,6 +1751,24 @@
         <span class="kw">let</span> <span class="ident">f64_zero</span> <span class="op">=</span> <span class="ident">f64_ty</span>.<span class="ident">const_float</span>(<span class="number">0.0</span>);
         <span class="kw">let</span> <span class="ident">f32x4_zero</span> <span class="op">=</span> <span class="ident">f32x4_ty</span>.<span class="ident">const_zero</span>();
         <span class="kw">let</span> <span class="ident">f64x2_zero</span> <span class="op">=</span> <span class="ident">f64x2_ty</span>.<span class="ident">const_zero</span>();
+        <span class="kw">let</span> <span class="ident">i32_consts</span> <span class="op">=</span> [
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">0</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">1</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">2</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">3</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">4</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">5</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">6</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">7</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">8</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">9</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">10</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">11</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">12</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">13</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">14</span>, <span class="bool-val">false</span>),
+            <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">15</span>, <span class="bool-val">false</span>),
+        ];
 
         <span class="kw">let</span> <span class="ident">i1_ty_basic</span> <span class="op">=</span> <span class="ident">i1_ty</span>.<span class="ident">as_basic_type_enum</span>();
         <span class="kw">let</span> <span class="ident">i32_ty_basic</span> <span class="op">=</span> <span class="ident">i32_ty</span>.<span class="ident">as_basic_type_enum</span>();
@@ -1708,6 +1798,7 @@
         <span class="kw">let</span> <span class="ident">externref_ty</span> <span class="op">=</span> <span class="ident">funcref_ty</span>;
         <span class="kw">let</span> <span class="ident">anyref_ty</span> <span class="op">=</span> <span class="ident">i8_ptr_ty</span>;
 
+        <span class="kw">let</span> <span class="ident">ret_i8x16_take_i8x16</span> <span class="op">=</span> <span class="ident">i8x16_ty</span>.<span class="ident">fn_type</span>(<span class="kw-2">&amp;</span>[<span class="ident">i8x16_ty_basic</span>], <span class="bool-val">false</span>);
         <span class="kw">let</span> <span class="ident">ret_i8x16_take_i8x16_i8x16</span> <span class="op">=</span> <span class="ident">i8x16_ty</span>.<span class="ident">fn_type</span>(<span class="kw-2">&amp;</span>[<span class="ident">i8x16_ty_basic</span>, <span class="ident">i8x16_ty_basic</span>], <span class="bool-val">false</span>);
         <span class="kw">let</span> <span class="ident">ret_i16x8_take_i16x8_i16x8</span> <span class="op">=</span> <span class="ident">i16x8_ty</span>.<span class="ident">fn_type</span>(<span class="kw-2">&amp;</span>[<span class="ident">i16x8_ty_basic</span>, <span class="ident">i16x8_ty_basic</span>], <span class="bool-val">false</span>);
 
@@ -1737,6 +1828,7 @@
 
             <span class="ident">ctpop_i32</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.ctpop.i32&quot;</span>, <span class="ident">ret_i32_take_i32</span>, <span class="prelude-val">None</span>),
             <span class="ident">ctpop_i64</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.ctpop.i64&quot;</span>, <span class="ident">ret_i64_take_i64</span>, <span class="prelude-val">None</span>),
+            <span class="ident">ctpop_i8x16</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.ctpop.v16i8&quot;</span>, <span class="ident">ret_i8x16_take_i8x16</span>, <span class="prelude-val">None</span>),
 
             <span class="ident">sqrt_f32</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.sqrt.f32&quot;</span>, <span class="ident">ret_f32_take_f32</span>, <span class="prelude-val">None</span>),
             <span class="ident">sqrt_f64</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.sqrt.f64&quot;</span>, <span class="ident">ret_f64_take_f64</span>, <span class="prelude-val">None</span>),
@@ -1745,15 +1837,31 @@
 
             <span class="ident">ceil_f32</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.ceil.f32&quot;</span>, <span class="ident">ret_f32_take_f32</span>, <span class="prelude-val">None</span>),
             <span class="ident">ceil_f64</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.ceil.f64&quot;</span>, <span class="ident">ret_f64_take_f64</span>, <span class="prelude-val">None</span>),
+            <span class="ident">ceil_f32x4</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.ceil.v4f32&quot;</span>, <span class="ident">ret_f32x4_take_f32x4</span>, <span class="prelude-val">None</span>),
+            <span class="ident">ceil_f64x2</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.ceil.v2f64&quot;</span>, <span class="ident">ret_f64x2_take_f64x2</span>, <span class="prelude-val">None</span>),
 
             <span class="ident">floor_f32</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.floor.f32&quot;</span>, <span class="ident">ret_f32_take_f32</span>, <span class="prelude-val">None</span>),
             <span class="ident">floor_f64</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.floor.f64&quot;</span>, <span class="ident">ret_f64_take_f64</span>, <span class="prelude-val">None</span>),
+            <span class="ident">floor_f32x4</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.floor.v4f32&quot;</span>, <span class="ident">ret_f32x4_take_f32x4</span>, <span class="prelude-val">None</span>),
+            <span class="ident">floor_f64x2</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.floor.v2f64&quot;</span>, <span class="ident">ret_f64x2_take_f64x2</span>, <span class="prelude-val">None</span>),
 
             <span class="ident">trunc_f32</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.trunc.f32&quot;</span>, <span class="ident">ret_f32_take_f32</span>, <span class="prelude-val">None</span>),
             <span class="ident">trunc_f64</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.trunc.f64&quot;</span>, <span class="ident">ret_f64_take_f64</span>, <span class="prelude-val">None</span>),
+            <span class="ident">trunc_f32x4</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.trunc.v4f32&quot;</span>, <span class="ident">ret_f32x4_take_f32x4</span>, <span class="prelude-val">None</span>),
+            <span class="ident">trunc_f64x2</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.trunc.v2f64&quot;</span>, <span class="ident">ret_f64x2_take_f64x2</span>, <span class="prelude-val">None</span>),
 
             <span class="ident">nearbyint_f32</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.nearbyint.f32&quot;</span>, <span class="ident">ret_f32_take_f32</span>, <span class="prelude-val">None</span>),
             <span class="ident">nearbyint_f64</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.nearbyint.f64&quot;</span>, <span class="ident">ret_f64_take_f64</span>, <span class="prelude-val">None</span>),
+            <span class="ident">nearbyint_f32x4</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(
+                <span class="string">&quot;llvm.nearbyint.v4f32&quot;</span>,
+                <span class="ident">ret_f32x4_take_f32x4</span>,
+                <span class="prelude-val">None</span>,
+            ),
+            <span class="ident">nearbyint_f64x2</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(
+                <span class="string">&quot;llvm.nearbyint.v2f64&quot;</span>,
+                <span class="ident">ret_f64x2_take_f64x2</span>,
+                <span class="prelude-val">None</span>,
+            ),
 
             <span class="ident">fabs_f32</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.fabs.f32&quot;</span>, <span class="ident">ret_f32_take_f32</span>, <span class="prelude-val">None</span>),
             <span class="ident">fabs_f64</span>: <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="string">&quot;llvm.fabs.f64&quot;</span>, <span class="ident">ret_f64_take_f64</span>, <span class="prelude-val">None</span>),
@@ -1829,6 +1937,8 @@
 
             <span class="ident">void_ty</span>,
             <span class="ident">i1_ty</span>,
+            <span class="ident">i2_ty</span>,
+            <span class="ident">i4_ty</span>,
             <span class="ident">i8_ty</span>,
             <span class="ident">i16_ty</span>,
             <span class="ident">i32_ty</span>,
@@ -1844,6 +1954,7 @@
             <span class="ident">i64x2_ty</span>,
             <span class="ident">f32x4_ty</span>,
             <span class="ident">f64x2_ty</span>,
+            <span class="ident">i32x8_ty</span>,
 
             <span class="ident">i8_ptr_ty</span>,
             <span class="ident">i16_ptr_ty</span>,
@@ -1868,6 +1979,7 @@
             <span class="ident">f64_zero</span>,
             <span class="ident">f32x4_zero</span>,
             <span class="ident">f64x2_zero</span>,
+            <span class="ident">i32_consts</span>,
 
             <span class="ident">trap_unreachable</span>: <span class="ident">i32_ty</span>
                 .<span class="ident">const_int</span>(<span class="ident">TrapCode</span>::<span class="ident">UnreachableCodeReached</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="bool-val">false</span>)
