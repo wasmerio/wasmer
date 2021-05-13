@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("New counter value (host): {:?}", counter_value);
     assert_eq!(counter_value, 5);
 
-    println!("New counter value (guest): {:?}", counter_value);
+    println!("New counter value (guest): {:?}", result);
     assert_eq!(result, 5);
 
     Ok(())
