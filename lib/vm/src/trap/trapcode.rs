@@ -61,17 +61,8 @@ pub enum TrapCode {
     /// Code that was supposed to have been unreachable was reached.
     UnreachableCodeReached = 10,
 
-    /// Execution has potentially run too long and may be interrupted.
-    /// This trap is resumable.
-    Interrupt = 11,
-
     /// An atomic memory access was attempted with an unaligned pointer.
-    UnalignedAtomic = 12,
-
-    /// A trap indicating that the runtime was unable to allocate sufficient memory.
-    VMOutOfMemory = 13,
-    // /// A user-defined trap code.
-    // User(u16),
+    UnalignedAtomic = 11,
 }
 
 impl TrapCode {
@@ -89,10 +80,7 @@ impl TrapCode {
             Self::IntegerDivisionByZero => "integer divide by zero",
             Self::BadConversionToInteger => "invalid conversion to integer",
             Self::UnreachableCodeReached => "unreachable",
-            Self::Interrupt => "interrupt",
             Self::UnalignedAtomic => "unaligned atomic access",
-            Self::VMOutOfMemory => "out of memory",
-            // Self::User(_) => unreachable!(),
         }
     }
 }
@@ -111,10 +99,7 @@ impl Display for TrapCode {
             Self::IntegerDivisionByZero => "int_divz",
             Self::BadConversionToInteger => "bad_toint",
             Self::UnreachableCodeReached => "unreachable",
-            Self::Interrupt => "interrupt",
             Self::UnalignedAtomic => "unalign_atom",
-            Self::VMOutOfMemory => "oom",
-            // User(x) => return write!(f, "user{}", x),
         };
         f.write_str(identifier)
     }
@@ -124,23 +109,19 @@ impl FromStr for TrapCode {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use self::TrapCode::*;
         match s {
-            "stk_ovf" => Ok(StackOverflow),
-            "heap_get_oob" => Ok(HeapAccessOutOfBounds),
-            "heap_misaligned" => Ok(HeapMisaligned),
-            "table_get_oob" => Ok(TableAccessOutOfBounds),
-            "oob" => Ok(OutOfBounds),
-            "icall_null" => Ok(IndirectCallToNull),
-            "bad_sig" => Ok(BadSignature),
-            "int_ovf" => Ok(IntegerOverflow),
-            "int_divz" => Ok(IntegerDivisionByZero),
-            "bad_toint" => Ok(BadConversionToInteger),
-            "unreachable" => Ok(UnreachableCodeReached),
-            "interrupt" => Ok(Interrupt),
-            "unalign_atom" => Ok(UnalignedAtomic),
-            "oom" => Ok(VMOutOfMemory),
-            // _ if s.starts_with("user") => s[4..].parse().map(User).map_err(|_| ()),
+            "stk_ovf" => Ok(TrapCode::StackOverflow),
+            "heap_get_oob" => Ok(TrapCode::HeapAccessOutOfBounds),
+            "heap_misaligned" => Ok(TrapCode::HeapMisaligned),
+            "table_get_oob" => Ok(TrapCode::TableAccessOutOfBounds),
+            "oob" => Ok(TrapCode::OutOfBounds),
+            "icall_null" => Ok(TrapCode::IndirectCallToNull),
+            "bad_sig" => Ok(TrapCode::BadSignature),
+            "int_ovf" => Ok(TrapCode::IntegerOverflow),
+            "int_divz" => Ok(TrapCode::IntegerDivisionByZero),
+            "bad_toint" => Ok(TrapCode::BadConversionToInteger),
+            "unreachable" => Ok(TrapCode::UnreachableCodeReached),
+            "unalign_atom" => Ok(TrapCode::UnalignedAtomic),
             _ => Err(()),
         }
     }
@@ -151,7 +132,7 @@ mod tests {
     use super::*;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 13] = [
+    const CODES: [TrapCode; 12] = [
         TrapCode::StackOverflow,
         TrapCode::HeapAccessOutOfBounds,
         TrapCode::HeapMisaligned,
@@ -163,7 +144,6 @@ mod tests {
         TrapCode::IntegerDivisionByZero,
         TrapCode::BadConversionToInteger,
         TrapCode::UnreachableCodeReached,
-        TrapCode::Interrupt,
         TrapCode::UnalignedAtomic,
     ];
 
