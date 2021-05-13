@@ -37,8 +37,6 @@ cranelift::spec::skip_stack_guard_page on aarch64
 
 cranelift::spec::simd::simd_boolean
 cranelift::spec::simd::simd_lane
-llvm::spec::simd::simd_boolean
-llvm::spec::simd::simd_lane
 
 # Frontends
 
@@ -123,31 +121,3 @@ cranelift::spec::simd::simd_store16_lane
 cranelift::spec::simd::simd_store32_lane
 cranelift::spec::simd::simd_store64_lane
 cranelift::spec::simd::simd_store8_lane
-
-# new simd
-llvm::spec::simd::simd_conversions
-llvm::spec::simd::simd_f32x4_pmin_pmax
-llvm::spec::simd::simd_f32x4_rounding
-llvm::spec::simd::simd_f64x2_pmin_pmax
-llvm::spec::simd::simd_f64x2_rounding
-llvm::spec::simd::simd_i16x8_extadd_pairwise_i8x16
-llvm::spec::simd::simd_i16x8_extmul_i8x16
-llvm::spec::simd::simd_i16x8_q15mulr_sat_s
-llvm::spec::simd::simd_i32x4_dot_i16x8
-llvm::spec::simd::simd_i32x4_extadd_pairwise_i16x8
-llvm::spec::simd::simd_i32x4_extmul_i16x8
-llvm::spec::simd::simd_i32x4_trunc_sat_f64x2
-llvm::spec::simd::simd_i64x2_arith2
-llvm::spec::simd::simd_i64x2_cmp
-llvm::spec::simd::simd_i64x2_extmul_i32x4
-llvm::spec::simd::simd_i8x16_arith2
-llvm::spec::simd::simd_int_to_int_extend
-llvm::spec::simd::simd_load16_lane
-llvm::spec::simd::simd_load32_lane
-llvm::spec::simd::simd_load64_lane
-llvm::spec::simd::simd_load8_lane
-llvm::spec::simd::simd_store16_lane
-llvm::spec::simd::simd_store32_lane
-llvm::spec::simd::simd_store64_lane
-llvm::spec::simd::simd_store8_lane
-
