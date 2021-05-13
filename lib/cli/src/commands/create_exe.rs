@@ -70,9 +70,6 @@ impl CreateExe {
         let output_path = starting_cd.join(&self.output);
         env::set_current_dir(&working_dir)?;
 
-        #[cfg(not(windows))]
-        let wasm_object_path = PathBuf::from("wasm.a");
-        #[cfg(windows)]
         let wasm_object_path = PathBuf::from("wasm.a");
 
         let wasm_module_path = starting_cd.join(&self.path);
