@@ -630,6 +630,13 @@ impl Artifact for NativeArtifact {
             .into_iter()
             .map(|(index, function_pointer)| {
                 let fp = **function_pointer as usize;
+                // This assumes we never lay any functions bodies across the usize::MAX..nullptr
+                // wrapping point.
+                // Which is generally true on most OSes, but certainly doesn't have to be true.
+                //
+                // Further reading: https://lwn.net/Articles/342330/ \
+                // "There is one little problem with that reasoning, though: NULL (zero) can
+                // actually be a valid pointer address."
                 let current_size_by_ptr = prev_pointer - fp;
                 let frame_info = &self.metadata.frame_infos[index];
                 prev_pointer = fp;

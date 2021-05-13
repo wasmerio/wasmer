@@ -82,8 +82,6 @@ impl ModuleMetadata {
     ///
     /// # Safety
     ///
-    /// This method is unsafe since it deserializes data directly
-    /// from memory.
     /// The `metadata_slice` must be an archive produced by
     /// `ModuleMetadata::serialize`.
     /// > Note: right now we are not doing any extra work for validation, but

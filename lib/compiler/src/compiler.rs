@@ -23,6 +23,7 @@ use wasmparser::{Validator, WasmFeatures};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExperimentalNativeCompilation {
     /// The contents of emitted object files
+    /// The order is irrelevant but deterministic.
     pub object_files: Vec<Vec<u8>>,
     /// The frame infos of the files
     pub frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,

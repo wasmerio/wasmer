@@ -82,8 +82,8 @@ impl ModuleMetadata {
     ///
     /// # Safety
     ///
-    /// This method is unsafe since it deserializes data directly
-    /// from memory.
+    /// The `metadata_slice` must be an archive produced by
+    /// `ModuleMetadata::serialize`.
     /// Right now we are not doing any extra work for validation, but
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
