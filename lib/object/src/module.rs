@@ -209,11 +209,7 @@ pub fn emit_compilation(
 
     // Add relocations (function and sections)
     let (relocation_size, relocation_kind, relocation_encoding) = match triple.architecture {
-        Architecture::X86_64 => (
-            32,
-            RelocationKind::PltRelative,
-            RelocationEncoding::X86Branch,
-        ),
+        Architecture::X86_64 => (32, RelocationKind::GotRelative, RelocationEncoding::Generic),
         // Object doesn't fully support it yet
         // Architecture::Aarch64(_) => (
         //     32,
