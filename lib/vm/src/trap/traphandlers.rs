@@ -177,6 +177,21 @@ cfg_if::cfg_if! {
                     None => return false,
                 };
 
+                let pc = get_pc(context);
+                if unsafe { !IS_WASM_PC(pc as _) } {
+                    if cfg!(target_os = "macos") && maybe_signal_trap == Some(TrapCode::StackOverflow) {
+                        let jmp_buf = info.jmp_buf.get();
+                        if jmp_buf.is_null() {
+                            return false;
+                        }
+                        unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
+                            wasmer_unwind(jmp_buf as _)
+                        }
+                        set_pc(context, unwind_shim as usize, jmp_buf as usize);
+                    }
+                    return true;
+                }
+
                 // If we hit an exception while handling a previous trap, that's
                 // quite bad, so bail out and let the system handle this
                 // recursive segfault.
@@ -185,7 +200,7 @@ cfg_if::cfg_if! {
                 // handling, and reset our trap handling flag. Then we figure
                 // out what to do based on the result of the trap handling.
                 let jmp_buf = info.handle_trap(
-                    get_pc(context),
+                    pc,
                     false,
                     maybe_signal_trap,
                     |handler| handler(signum, siginfo, context),
