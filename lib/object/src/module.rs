@@ -1,9 +1,9 @@
 use crate::error::ObjectError;
 use object::write::{Object, Relocation, StandardSection, Symbol as ObjSymbol, SymbolSection};
-use object::{RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope};
+use object::{elf, RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope};
 use wasmer_compiler::{
-    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness, RelocationTarget,
-    Symbol, SymbolRegistry, Triple,
+    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
+    RelocationKind as Reloc, RelocationTarget, Symbol, SymbolRegistry, Triple,
 };
 
 /// Create an object for a given target `Triple`.
@@ -207,21 +207,6 @@ pub fn emit_compilation(
         obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
     }
 
-    // Add relocations (function and sections)
-    let (relocation_size, relocation_kind, relocation_encoding) = match triple.architecture {
-        Architecture::X86_64 => (32, RelocationKind::GotRelative, RelocationEncoding::Generic),
-        // Object doesn't fully support it yet
-        // Architecture::Aarch64(_) => (
-        //     32,
-        //     RelocationKind::PltRelative,
-        //     RelocationEncoding::Generic,
-        // ),
-        architecture => {
-            return Err(ObjectError::UnsupportedArchitecture(
-                architecture.to_string(),
-            ))
-        }
-    };
     let mut all_relocations = Vec::new();
 
     for (function_local_index, relocations) in function_relocations.into_iter() {
@@ -242,6 +227,42 @@ pub fn emit_compilation(
         let section_id = obj.section_id(StandardSection::Text);
 
         for r in relocations {
+            let (relocation_kind, relocation_encoding, relocation_size) = match r.kind {
+                Reloc::Abs4 => (RelocationKind::Absolute, RelocationEncoding::Generic, 32),
+                Reloc::Abs8 => (RelocationKind::Absolute, RelocationEncoding::Generic, 64),
+                Reloc::X86PCRel4 => (RelocationKind::Relative, RelocationEncoding::Generic, 32),
+                Reloc::X86CallPCRel4 => {
+                    (RelocationKind::Relative, RelocationEncoding::X86Branch, 32)
+                }
+                Reloc::X86CallPLTRel4 => (
+                    RelocationKind::PltRelative,
+                    RelocationEncoding::X86Branch,
+                    32,
+                ),
+                Reloc::X86GOTPCRel4 => {
+                    (RelocationKind::GotRelative, RelocationEncoding::Generic, 32)
+                }
+                Reloc::ElfX86_64TlsGd => (
+                    RelocationKind::Elf(elf::R_X86_64_TLSGD),
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                // Reloc::X86PCRelRodata4 => {
+                //     return None;
+                // }
+                Reloc::Arm64Call => (
+                    RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                other => {
+                    return Err(ObjectError::UnsupportedArchitecture(format!(
+                        "{} (relocation: {}",
+                        triple.architecture, other
+                    )))
+                }
+            };
+
             let relocation_address = section_offset + r.offset as u64;
 
             match r.reloc_target {
