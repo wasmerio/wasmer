@@ -44,9 +44,8 @@ pub enum RelocationKind {
     X86CallPCRel4,
     /// x86 call to PLT-relative 4-byte
     X86CallPLTRel4,
-    // /// x86 GOT PC-relative 4-byte
-    // X86GOTPCRel4,
-
+    /// x86 GOT PC-relative 4-byte
+    X86GOTPCRel4,
     // /// Arm32 call target
     // Arm32Call,
 
@@ -75,7 +74,7 @@ impl fmt::Display for RelocationKind {
             Self::X86PCRelRodata4 => write!(f, "PCRelRodata4"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
-            // Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
+            Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
             // Self::Arm32Call | Self::Arm64Call | Self::RiscvCall => write!(f, "Call"),
 
             // Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
