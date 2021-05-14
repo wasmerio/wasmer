@@ -177,37 +177,28 @@ cfg_if::cfg_if! {
                     None => return false,
                 };
 
-                // If we hit an exception while handling a previous trap, that's
-                // quite bad, so bail out and let the system handle this
-                // recursive segfault.
-                //
-                // Otherwise flag ourselves as handling a trap, do the trap
-                // handling, and reset our trap handling flag. Then we figure
-                // out what to do based on the result of the trap handling.
-                let jmp_buf = info.handle_trap(
+                let handle_code = info.handle_trap(
                     get_pc(context),
                     false,
                     maybe_signal_trap,
                     |handler| handler(signum, siginfo, context),
                 );
-
-                // Figure out what to do based on the result of this handling of
-                // the trap. Note that our sentinel value of 1 means that the
-                // exception was handled by a custom exception handler, so we
-                // keep executing.
-                if jmp_buf.is_null() {
-                    false
-                } else if jmp_buf as usize == 1 {
-                    true
-                }
-                else if cfg!(target_os = "macos") {
-                    unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
-                        wasmer_unwind(jmp_buf as _)
+                match handle_code {
+                    HandleCode::ForwardTrap => false,
+                    HandleCode::ContinueExecution => true,
+                    HandleCode::UnwindTo(jmp_buf) => {
+                        // if cfg!(target_os = "macos") {
+                        //     unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
+                        //         // println!("Unwind");
+                        //         wasmer_unwind(jmp_buf as _)
+                        //     }
+                        //     set_pc(context, unwind_shim as usize, jmp_buf as usize);
+                        //     true
+                        // } else {
+                            // println!("Doing unwinding");
+                            wasmer_unwind(jmp_buf)
+                        // }
                     }
-                    set_pc(context, unwind_shim as usize, jmp_buf as usize);
-                    true
-                } else {
-                    wasmer_unwind(jmp_buf)
                 }
             });
 
@@ -373,19 +364,16 @@ cfg_if::cfg_if! {
                     Some(info) => info,
                     None => return EXCEPTION_CONTINUE_SEARCH,
                 };
-                let jmp_buf = info.handle_trap(
+                match info.handle_trap(
                     (*(*exception_info).ContextRecord).Rip as *const u8,
                     record.ExceptionCode == EXCEPTION_STACK_OVERFLOW,
                     // TODO: fix the signal trap associated to memory access in Windows
                     None,
                     |handler| handler(exception_info),
-                );
-                if jmp_buf.is_null() {
-                    EXCEPTION_CONTINUE_SEARCH
-                } else if jmp_buf as usize == 1 {
-                    EXCEPTION_CONTINUE_EXECUTION
-                } else {
-                    wasmer_unwind(jmp_buf)
+                ) {
+                    HandleCode::ForwardTrap => EXCEPTION_CONTINUE_SEARCH,
+                    HandleCode::ContinueExecution => EXCEPTION_CONTINUE_EXECUTION,
+                    HandleCode::UnwindTo(jmp_buf) => wasmer_unwind(jmp_buf as)
                 }
             })
         }
@@ -571,6 +559,7 @@ pub unsafe fn wasmer_call_trampoline(
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(trap_handler, || {
+        println!("trampoline closure");
         mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec);
@@ -586,18 +575,48 @@ where
     F: FnMut(),
 {
     return CallThreadState::new(trap_handler).with(|cx| {
-        wasmer_register_setjmp(
-            cx.jmp_buf.as_ptr(),
-            call_closure::<F>,
-            &mut closure as *mut F as *mut u8,
-        )
+                        wasmer_register_setjmp(
+                            cx.jmp_buf.as_ptr(),
+                            call_closure::<F>,
+                            &mut closure as *mut F as *mut u8,
+                        )
+        // })
     });
 
     extern "C" fn call_closure<F>(payload: *mut u8)
     where
         F: FnMut(),
     {
-        unsafe { (*(payload as *mut F))() }
+        println!("Call closure");
+        // psm::psm_stack_manipulation! {
+        //     yes {
+        //         use std::alloc;
+
+        //         const STACK_ALIGN: usize = 4096;
+        //         const STACK_REDLINE: usize = 512;
+        //         let mut stack_size = 1024 * 128;
+        //         unsafe {
+        //             let layout = alloc::Layout::from_size_align(stack_size, STACK_ALIGN).unwrap();
+        //             let new_stack = alloc::alloc(layout);
+        //             assert!(!new_stack.is_null(), "allocations must succeed!");
+        //             // let max_stack = match psm::StackDirection::new() {
+        //             //     psm::StackDirection::Ascending =>
+        //             //         new_stack.offset((stack_size - STACK_REDLINE) as isize),
+        //             //     psm::StackDirection::Descending =>
+        //             //         new_stack.offset(STACK_REDLINE as isize),
+        //             // };
+        //             let result = psm::on_stack(new_stack, stack_size, || {
+                        unsafe { (*(payload as *mut F))() }
+        //             });
+        //             alloc::dealloc(new_stack, layout);
+        //             result
+        //         }
+        //     }
+        //     no {
+        //         compiler_error!("Not supported psm stack");
+        //     }
+        // }
+        println!("Closure called");
     }
 }
 
@@ -666,6 +685,16 @@ enum UnwindReason {
     },
 }
 
+#[derive(Debug)]
+enum HandleCode {
+    /// Trap was handled, continue execution
+    ContinueExecution,
+    /// Forward the trap so the OS can handle it
+    ForwardTrap,
+    /// Is a Wasm trap, resume it
+    UnwindTo(*const u8),
+}
+
 impl<'a> CallThreadState<'a> {
     #[inline]
     fn new(trap_handler: &'a (dyn TrapHandler + 'a)) -> CallThreadState<'a> {
@@ -730,21 +759,24 @@ impl<'a> CallThreadState<'a> {
         reset_guard_page: bool,
         signal_trap: Option<TrapCode>,
         call_handler: impl Fn(&TrapHandlerFn) -> bool,
-    ) -> *const u8 {
+    ) -> HandleCode {
+        let is_wasm_pc = unsafe { IS_WASM_PC(pc as _) };
+        println!("HANDLE TRAP {:?} (from wasm: {:?}, handling trap: {:?})", pc, is_wasm_pc, self.handling_trap);
         // If we hit a fault while handling a previous trap, that's quite bad,
         // so bail out and let the system handle this recursive segfault.
         //
         // Otherwise flag ourselves as handling a trap, do the trap handling,
         // and reset our trap handling flag.
         if self.handling_trap.replace(true) {
-            return ptr::null();
+            println!("WAS HANDLING TRAP");
+            return HandleCode::ForwardTrap;
         }
 
         // First up see if we have a custom trap handler,
         // in which case run it. If anything handles the trap then we
         // return that the trap was handled.
         if self.trap_handler.custom_trap_handler(&call_handler) {
-            return 1 as *const _;
+            return HandleCode::ContinueExecution;
         }
 
         // TODO: stack overflow can happen at any random time (i.e. in malloc()
@@ -756,7 +788,7 @@ impl<'a> CallThreadState<'a> {
         // means the trap is stack overflow.
         if self.jmp_buf.get().is_null() {
             self.handling_trap.set(false);
-            return ptr::null();
+            return HandleCode::ForwardTrap
         }
         let backtrace = Backtrace::new_unresolved();
         self.reset_guard_page.set(reset_guard_page);
@@ -770,7 +802,7 @@ impl<'a> CallThreadState<'a> {
                 });
         }
         self.handling_trap.set(false);
-        self.jmp_buf.get()
+        HandleCode::UnwindTo(self.jmp_buf.get())
     }
 }
 
@@ -906,6 +938,7 @@ mod tls {
         let prev = raw::replace(ptr)?;
         state.prev.set(prev);
         let _reset = Reset(state);
+        // stacker::grow(32 * 4 * 1024, || {
         Ok(closure())
     }
 

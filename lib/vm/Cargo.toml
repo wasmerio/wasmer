@@ -20,6 +20,8 @@ thiserror = "1.0"
 more-asserts = "0.2"
 cfg-if = "0.1"
 backtrace = "0.3"
+stacker = "0.1"
+psm = "0.1"
 serde = { version = "1.0", features = ["derive", "rc"] }
 rkyv = { version = "0.6.1", optional = true}
 loupe = { version = "0.1", features = ["enable-indexmap"] }

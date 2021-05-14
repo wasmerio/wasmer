@@ -150,6 +150,7 @@ impl Wast {
     }
 
     fn run_directive(&mut self, directive: wast::WastDirective) -> Result<()> {
+        println!(" -> Running directive");
         use wast::WastDirective::*;
 
         match directive {
