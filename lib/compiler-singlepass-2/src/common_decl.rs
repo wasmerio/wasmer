@@ -106,6 +106,14 @@ pub struct FunctionStateMap {
     pub trappable_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Size {
+    S8,
+    S16,
+    S32,
+    S64,
+}
+
 pub use std::rc::{Rc, Weak};
 use std::cell::Cell;
 
@@ -134,7 +142,7 @@ impl<T: Copy> Local<T> {
     }
 
     pub fn dec_ref(&self) {
-        self.0.ref_ct.replace(self.0.ref_ct.get() - 1);
+        self.0.ref_ct.replace(self.0.ref_ct.get().saturating_sub(1));
     }
 
     pub fn ref_ct(&self) -> u32 {

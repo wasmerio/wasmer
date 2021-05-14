@@ -20,9 +20,6 @@ use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
 use dynasmrt::{aarch64::Assembler as Aarch64Assembler};
 use crate::machine_aarch64::Aarch64Machine;
 
-use crate::emitter::*;
-use crate::emitter_aarch64::*;
-
 use wasmer_compiler::{CompiledFunctionFrameInfo}; // TEMPORARY
 use wasmer_types::entity::{SecondaryMap}; // TEMPORARY
 use crate::address_map::get_function_address_map; // TEMPORARY
@@ -124,7 +121,6 @@ impl Compiler for SinglepassCompiler {
                 match target.triple().architecture {
                     Architecture::Aarch64(_) => {
                         let mut generator = FuncGen::new(
-                            Aarch64Assembler::new().unwrap(),
                             Aarch64Machine::new(),
                             module,
                             &self.config,

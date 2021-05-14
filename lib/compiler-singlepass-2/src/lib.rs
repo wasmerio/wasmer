@@ -13,11 +13,8 @@ mod codegen;
 mod common_decl;
 mod compiler;
 mod config;
-mod emitter;
 mod machine;
 mod machine_aarch64;
-mod emitter_aarch64;
-// mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;
 pub use crate::config::Singlepass;
