@@ -60,7 +60,7 @@ pub(crate) fn compiled_function_unwind_info(
 // We return unwind as None in macOS M1 chips for now as Cranelift
 // generates wrong unwind info that causes a trap/breakpoint signal
 // when unwinding from exceptions.
-#[cfg(any(feature = "unwind", all(target_os = "macos", target_arch = "aarch64")))]
+#[cfg(any(not(feature = "unwind"), all(target_os = "macos", target_arch = "aarch64")))]
 /// Constructs unwind info object from Cranelift IR
 pub(crate) fn compiled_function_unwind_info(
     isa: &dyn isa::TargetIsa,
