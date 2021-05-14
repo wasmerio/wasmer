@@ -1261,6 +1261,17 @@ impl InstanceHandle {
         }
         Ok(())
     }
+
+    /// TODO: document this
+    pub fn same_instance_ref(&self, _extern: &VMExtern) -> bool {
+        let other = if let Some(ir) = _extern.get_instance_ref() {
+            ir
+        } else {
+            return false;
+        };
+
+        *other == self.instance
+    }
 }
 
 /// Compute the offset for a memory data initializer.

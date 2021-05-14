@@ -112,6 +112,14 @@ impl InstanceRef {
     pub(super) unsafe fn as_mut(&mut self) -> &mut Instance {
         self.instance.as_mut()
     }
+
+    /// TODO: document this
+    pub(crate) unsafe fn decrement_strong_count(&self) {
+        if self.strong.fetch_sub(1, atomic::Ordering::Release) != 1 {
+            return;
+        }
+        panic!("Invalid manual decrement of `InstanceRef` count!");
+    }
 }
 
 /// TODO: Review this super carefully.

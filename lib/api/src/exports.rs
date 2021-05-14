@@ -165,6 +165,25 @@ impl Exports {
             Some(extern_) => T::get_self_from_extern_with_generics(extern_),
         }
     }
+    /// Hack to get this working with nativefunc too
+    /// TODO: document this
+    pub unsafe fn get_with_generics_unowned<'a, T, Args, Rets>(
+        &'a self,
+        name: &str,
+        instance: &crate::Instance,
+    ) -> Result<T, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        T: ExportableWithGenerics<'a, Args, Rets>,
+    {
+        match self.map.get(name) {
+            None => Err(ExportError::Missing(name.to_string())),
+            Some(extern_) => {
+                T::get_self_with_generics_no_increment_if_same_instance(extern_, instance)
+            }
+        }
+    }
 
     /// Get an export as an `Extern`.
     pub fn get_extern(&self, name: &str) -> Option<&Extern> {
@@ -294,6 +313,12 @@ pub trait Exportable<'a>: Sized {
     ///
     /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
+
+    /// TODO: document this
+    unsafe fn get_self_no_increment_if_same_instance(
+        _extern: &'a Extern,
+        _instance: &crate::Instance,
+    ) -> Result<Self, ExportError>;
 }
 
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
@@ -302,6 +327,11 @@ pub trait Exportable<'a>: Sized {
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
+    /// TODO: document this
+    unsafe fn get_self_with_generics_no_increment_if_same_instance(
+        _extern: &'a Extern,
+        _instance: &crate::Instance,
+    ) -> Result<Self, ExportError>;
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)
@@ -309,5 +339,11 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())
+    }
+    unsafe fn get_self_with_generics_no_increment_if_same_instance(
+        _extern: &'a Extern,
+        instance: &crate::Instance,
+    ) -> Result<Self, ExportError> {
+        T::get_self_no_increment_if_same_instance(_extern, instance)
     }
 }

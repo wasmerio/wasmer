@@ -164,6 +164,11 @@ impl Instance {
     pub fn vmctx_ptr(&self) -> *mut VMContext {
         self.handle.lock().unwrap().vmctx_ptr()
     }
+
+    pub(crate) fn same_instance_ref(&self, vm_extern: &wasmer_vm::VMExtern) -> bool {
+        let guard = self.handle.lock().unwrap();
+        guard.same_instance_ref(vm_extern)
+    }
 }
 
 impl fmt::Debug for Instance {

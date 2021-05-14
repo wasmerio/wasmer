@@ -227,6 +227,7 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
+        //vm_memory.instance_ref = None;
         Self {
             store: store.clone(),
             vm_memory,
@@ -260,5 +261,16 @@ impl<'a> Exportable<'a> for Memory {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+    unsafe fn get_self_no_increment_if_same_instance(
+        _extern: &'a Extern,
+        instance: &crate::Instance,
+    ) -> Result<Self, ExportError> {
+        let memory = Self::get_self_from_extern(_extern)?.clone();
+        let vm_extern = memory.vm_memory.clone().into();
+        if instance.same_instance_ref(&vm_extern) {
+            memory.vm_memory.decrement_instance_ref_strong_count();
+        }
+        Ok(memory)
     }
 }

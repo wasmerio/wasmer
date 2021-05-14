@@ -26,6 +26,17 @@ pub enum VMExtern {
     Global(VMGlobal),
 }
 
+impl VMExtern {
+    pub(crate) fn get_instance_ref(&self) -> Option<&InstanceRef> {
+        match self {
+            Self::Function(f) => f.instance_ref.as_ref(),
+            Self::Table(t) => t.instance_ref.as_ref(),
+            Self::Memory(m) => m.instance_ref.as_ref(),
+            Self::Global(g) => g.instance_ref.as_ref(),
+        }
+    }
+}
+
 /// A function export value.
 #[derive(Debug, Clone, PartialEq, MemoryUsage)]
 pub struct VMFunction {
@@ -53,6 +64,15 @@ pub struct VMFunction {
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host function.
     pub instance_ref: Option<InstanceRef>,
+}
+
+impl VMFunction {
+    /// TODO: document this
+    pub unsafe fn decrement_instance_ref_strong_count(&self) {
+        self.instance_ref
+            .as_ref()
+            .map(|ir| ir.decrement_strong_count());
+    }
 }
 
 /// # Safety
@@ -107,6 +127,12 @@ impl VMTable {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
     }
+    /// TODO: document this
+    pub unsafe fn decrement_instance_ref_strong_count(&self) {
+        self.instance_ref
+            .as_ref()
+            .map(|ir| ir.decrement_strong_count());
+    }
 }
 
 impl From<VMTable> for VMExtern {
@@ -153,6 +179,12 @@ impl VMMemory {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
     }
+    /// TODO: document this
+    pub unsafe fn decrement_instance_ref_strong_count(&self) {
+        self.instance_ref
+            .as_ref()
+            .map(|ir| ir.decrement_strong_count());
+    }
 }
 
 impl From<VMMemory> for VMExtern {
@@ -188,6 +220,13 @@ impl VMGlobal {
     /// Returns whether or not the two `VMGlobal`s refer to the same Global.
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
+    }
+
+    /// TODO: document this
+    pub unsafe fn decrement_instance_ref_strong_count(&self) {
+        self.instance_ref
+            .as_ref()
+            .map(|ir| ir.decrement_strong_count());
     }
 }
 

@@ -231,4 +231,15 @@ impl<'a> Exportable<'a> for Global {
             _ => Err(ExportError::IncompatibleType),
         }
     }
+    unsafe fn get_self_no_increment_if_same_instance(
+        _extern: &'a Extern,
+        instance: &crate::Instance,
+    ) -> Result<Self, ExportError> {
+        let global = Self::get_self_from_extern(_extern)?.clone();
+        let vm_extern = global.vm_global.clone().into();
+        if instance.same_instance_ref(&vm_extern) {
+            global.vm_global.decrement_instance_ref_strong_count();
+        }
+        Ok(global)
+    }
 }

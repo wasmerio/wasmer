@@ -87,6 +87,11 @@ pub trait WasmerEnv: Clone + Send + Sync {
     fn init_with_instance(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
         Ok(())
     }
+
+    // TODO: this probably can't reasonably have a default unless we want to default
+    // to leaking memory
+    /// Used to prevent memory leaks with cycles when using `WasmerEnv` with exports.
+    unsafe fn dec_strong_count_if_from_same_instance(&mut self, _instance: &Instance) {}
 }
 
 impl WasmerEnv for u8 {}

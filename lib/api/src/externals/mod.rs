@@ -72,6 +72,25 @@ impl<'a> Exportable<'a> for Extern {
         // Since this is already an extern, we can just return it.
         Ok(_extern)
     }
+    unsafe fn get_self_no_increment_if_same_instance(
+        _extern: &'a Extern,
+        instance: &crate::Instance,
+    ) -> Result<Self, ExportError> {
+        match _extern {
+            Self::Function(_) => {
+                Function::get_self_no_increment_if_same_instance(_extern, instance).map(Into::into)
+            }
+            Self::Global(_) => {
+                Global::get_self_no_increment_if_same_instance(_extern, instance).map(Into::into)
+            }
+            Self::Memory(_) => {
+                Memory::get_self_no_increment_if_same_instance(_extern, instance).map(Into::into)
+            }
+            Self::Table(_) => {
+                Table::get_self_no_increment_if_same_instance(_extern, instance).map(Into::into)
+            }
+        }
+    }
 }
 
 impl StoreObject for Extern {

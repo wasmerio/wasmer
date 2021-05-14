@@ -159,4 +159,15 @@ impl<'a> Exportable<'a> for Table {
             _ => Err(ExportError::IncompatibleType),
         }
     }
+    unsafe fn get_self_no_increment_if_same_instance(
+        _extern: &'a Extern,
+        instance: &crate::Instance,
+    ) -> Result<Self, ExportError> {
+        let table = Self::get_self_from_extern(_extern)?.clone();
+        let vm_extern = table.vm_table.clone().into();
+        if instance.same_instance_ref(&vm_extern) {
+            table.vm_table.decrement_instance_ref_strong_count();
+        }
+        Ok(table)
+    }
 }

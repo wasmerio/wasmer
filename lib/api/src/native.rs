@@ -208,6 +208,14 @@ macro_rules! impl_native_traits {
                 use crate::exports::Exportable;
                 crate::Function::get_self_from_extern(_extern)?.native().map_err(|_| crate::exports::ExportError::IncompatibleType)
             }
+            unsafe fn get_self_with_generics_no_increment_if_same_instance(_extern: &'a crate::externals::Extern, instance: &crate::Instance) -> Result<Self, crate::exports::ExportError> {
+                let f = Self::get_self_from_extern_with_generics(_extern)?;
+                let vm_extern = f.exported.vm_function.clone().into();
+                if instance.same_instance_ref(&vm_extern) {
+                    f.exported.vm_function.decrement_instance_ref_strong_count();
+                }
+                Ok(f)
+            }
         }
     };
 }
