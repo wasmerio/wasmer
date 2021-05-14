@@ -22,7 +22,7 @@ tracing = "0.1"
 hashbrown = { version = "0.9", optional = true }
 rayon = "1.5"
 more-asserts = "0.2"
-gimli = { version = "0.23", optional = true }
+gimli = { version = "0.24", optional = true }
 smallvec = "1.6"
 loupe = "0.1"
 
