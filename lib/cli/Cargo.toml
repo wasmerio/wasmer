@@ -103,11 +103,6 @@ cranelift = [
     "wasmer-compiler-cranelift",
     "compiler",
 ]
-# Enable Cranelift experimental x64 backend
-cranelift-experimental-x64 = [
-    "cranelift",
-    "wasmer-compiler-cranelift/experimental-x64",
-]
 llvm = [
     "wasmer-compiler-llvm",
     "compiler",
