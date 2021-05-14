@@ -204,7 +204,10 @@ ifeq ($(ENABLE_CRANELIFT), 1)
 				compilers_engines += cranelift-native
 			endif
 		else ifeq ($(IS_AARCH64), 1)
-			compilers_engines += cranelift-native
+			# The object crate doesn't support yet Darwin + Aarch64 relocations
+			ifneq ($(IS_DARWIN), 1)
+				compilers_engines += cranelift-native
+			endif
 		endif
 	endif
 endif
