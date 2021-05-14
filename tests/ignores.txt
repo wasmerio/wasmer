@@ -9,6 +9,7 @@ singlepass on windows # Singlepass is not yet supported on Windows
 # https://github.com/rust-lang/backtrace-rs/issues/356
 cranelift::spec::skip_stack_guard_page on darwin
 llvm::spec::skip_stack_guard_page on darwin
+cranelift::spec::skip_stack_guard_page on linux
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
 cranelift::spec::linking on native
