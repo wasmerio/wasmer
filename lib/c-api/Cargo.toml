@@ -38,7 +38,7 @@ typetag = { version = "0.1", optional = true }
 paste = "1.0"
 
 [dev-dependencies]
-field-offset = "0.3.3"
+field-offset = "0.3.4"
 inline-c = "0.1.5"
 
 [features]
