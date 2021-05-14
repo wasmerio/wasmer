@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 
 use crate::address_map::get_function_address_map;
-use crate::{common_decl::*, config::Singlepass, emitter::*};
+use crate::{common_decl::*, config::Singlepass};
 use crate::machine::*;
 use dynasmrt::{Assembler, DynamicLabel, relocations::Relocation as DynasmRelocation};
 use smallvec::{smallvec, SmallVec};
@@ -47,13 +47,6 @@ pub struct FuncGen<'a, M: Machine> {
     /// Function signature.
     signature: FunctionType,
 
-    // Working storage.
-    /// The assembler.
-    ///
-    /// This should be changed to `Vec<u8>` for platform independency, but dynasm doesn't (yet)
-    /// support automatic relative relocations for `Vec<u8>`.
-    pub(crate) assembler: M::Emitter,
-
     /// Memory locations of local variables.
     locals_: Vec<M::Location>,
 
@@ -67,7 +60,7 @@ pub struct FuncGen<'a, M: Machine> {
     fp_stack: Vec<FloatValue>,
 
     /// A list of frames describing the current control stack.
-    control_stack: Vec<ControlFrame>,
+    control_stack: Vec<ControlFrame<M::Label>>,
 
     /// Low-level machine state.
     machine: M,
@@ -85,7 +78,7 @@ pub struct FuncGen<'a, M: Machine> {
     relocations: Vec<Relocation>,
 
     /// A set of special labels for trapping.
-    special_labels: SpecialLabelSet,
+    special_labels: SpecialLabelSet<M::Label>,
 
     /// The source location for the current operator.
     src_loc: u32,
@@ -99,12 +92,12 @@ pub struct FuncGen<'a, M: Machine> {
     stack: Vec<Local<M::Location>>,
 }
 
-pub struct SpecialLabelSet {
-    integer_division_by_zero: DynamicLabel,
-    heap_access_oob: DynamicLabel,
-    table_access_oob: DynamicLabel,
-    indirect_call_null: DynamicLabel,
-    bad_signature: DynamicLabel,
+pub struct SpecialLabelSet<L> {
+    integer_division_by_zero: L,
+    heap_access_oob: L,
+    table_access_oob: L,
+    indirect_call_null: L,
+    bad_signature: L,
 }
 
 /// A trap table for a `RunnableModuleInfo`.
@@ -222,18 +215,18 @@ impl<T> PopMany<T> for Vec<T> {
     }
 }
 
-trait WpTypeExt {
-    fn is_float(&self) -> bool;
-}
+// trait WpTypeExt {
+//     fn is_float(&self) -> bool;
+// }
 
-impl WpTypeExt for WpType {
-    fn is_float(&self) -> bool {
-        match self {
-            WpType::F32 | WpType::F64 => true,
-            _ => false,
-        }
-    }
-}
+// impl WpTypeExt for WpType {
+//     fn is_float(&self) -> bool {
+//         match self {
+//             WpType::F32 | WpType::F64 => true,
+//             _ => false,
+//         }
+//     }
+// }
 
 pub fn type_to_wp_type(ty: Type) -> WpType {
     match ty {
@@ -248,8 +241,8 @@ pub fn type_to_wp_type(ty: Type) -> WpType {
 }
 
 #[derive(Debug)]
-pub struct ControlFrame {
-    pub label: DynamicLabel,
+pub struct ControlFrame<L> {
+    pub label: L,
     pub loop_like: bool,
     pub if_else: IfElseState,
     pub returns: SmallVec<[WpType; 1]>,
@@ -280,21 +273,7 @@ pub struct CodegenError {
 // }
 
 impl <'a, M: Machine> FuncGen<'a, M> {
-    // fn get_location_released(&mut self, loc: M::Location) -> M::Location {
-    //     self.machine.release_locations(&mut self.assembler, &[loc]);
-    //     loc
-    // }
-
-    // fn pop_value_released(&mut self) -> M::Location {
-    //     let loc = self
-    //         .value_stack
-    //         .pop()
-    //         .expect("pop_value_released: value stack is empty");
-    //     self.get_location_released(loc)
-    // }
-
     pub fn new(
-        mut assembler: M::Emitter,
         machine: M,
         module: &'a ModuleInfo,
         config: &'a Singlepass,
@@ -324,12 +303,13 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 .collect(),
         );
 
+        let mut machine = machine;
         let special_labels = SpecialLabelSet {
-            integer_division_by_zero: assembler.new_label(),
-            heap_access_oob: assembler.new_label(),
-            table_access_oob: assembler.new_label(),
-            indirect_call_null: assembler.new_label(),
-            bad_signature: assembler.new_label(),
+            integer_division_by_zero: machine.new_label(),
+            heap_access_oob: machine.new_label(),
+            table_access_oob: machine.new_label(),
+            indirect_call_null: machine.new_label(),
+            bad_signature: machine.new_label(),
         };
 
         let mut fg = FuncGen {
@@ -339,7 +319,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             memory_styles,
             // table_styles,
             signature,
-            assembler,
             locals_: vec![], // initialization deferred to emit_head
             local_types,
             value_stack: vec![],
@@ -391,10 +370,58 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     .stack
                     .drain(self.stack.len() - param_types.len()..)
                     .collect();
-                println!("{:?}, {:?}", params, return_types);
+                
+                // Pop arguments off the FP stack and canonicalize them if needed.
+                //
+                // Canonicalization state will be lost across function calls, so early canonicalization
+                // is necessary here.
+                while let Some(fp) = self.fp_stack.last() {
+                    if fp.depth >= self.stack.len() {
+                        let index = fp.depth - self.stack.len();
+                        if false //self.machine.arch_supports_canonicalize_nan()
+                            && self.config.enable_nan_canonicalization
+                            && fp.canonicalization.is_some() {
+                            let size = fp.canonicalization.unwrap().to_size();
+                            // self.canonicalize_nan(size, params[index], params[index]);
+                        }
+                        self.fp_stack.pop().unwrap();
+                    } else {
+                        break;
+                    }
+                }
+                
+                // Imported functions are called through trampolines placed as custom sections.
+                let reloc_target = if function_index < self.module.num_imported_functions {
+                    RelocationTarget::CustomSection(SectionIndex::new(function_index))
+                } else {
+                    RelocationTarget::LocalFunc(LocalFunctionIndex::new(
+                        function_index - self.module.num_imported_functions,
+                    ))
+                };
+                
+                let info = self.machine.emit_call(reloc_target, &params, &return_types);
+                
+                self.trap_table
+                    .offset_to_code
+                    .insert(info.before_call, TrapCode::StackOverflow);
+                self.mark_instruction_address_end(info.after_call);
+
+                for local in params {
+                    local.dec_ref();
+                    if local.ref_ct() < 1 {
+                        self.machine.release_location(local);
+                    }
+                }
+
+                for local in info.returns {
+                    local.inc_ref();
+                    self.stack.push(local);
+                    // self.fp_stack
+                    //     .push(FloatValue::new(self.stack.len() - 1));
+                }
             },
             Operator::I32Const { value } => {
-                let imm = self.machine.imm32(&mut self.assembler, value as u32);
+                let imm = self.machine.imm32(value as u32);
                 imm.inc_ref();
                 self.stack.push(imm);
             },
@@ -402,23 +429,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 let local = self.locals[local_index as usize].clone();
                 local.inc_ref();
                 self.stack.push(local);
-                // let ret = self.machine.acquire_locations(
-                //     &mut self.assembler,
-                //     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                //     false,
-                // )[0];
-                // self.assembler.emit_move(Size::S64, self.locals[local_index], ret);
-                // // self.emit_relaxed_binop(
-                // //     Assembler::emit_mov,
-                // //     Size::S64,
-                // //     self.locals[local_index],
-                // //     ret,
-                // // );
-                // self.value_stack.push(ret);
-                // // if self.local_types[local_index].is_float() {
-                // //     self.fp_stack
-                // //         .push(FloatValue::new(self.value_stack.len() - 1));
-                // // }
             },
             Operator::LocalSet { local_index } => {
                 let from_stack = self.stack.pop().unwrap();
@@ -431,34 +441,32 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
                 self.locals[local_index as usize] = from_stack;
 
-                // let loc = self.pop_value_released();
-
-                // // if self.local_types[local_index].is_float() {
-                // //     let fp = self.fp_stack.pop1()?;
-                // //     if self.assembler.arch_supports_canonicalize_nan()
-                // //         && self.config.enable_nan_canonicalization
-                // //         && fp.canonicalization.is_some()
-                // //     {
-                // //         self.canonicalize_nan(
-                // //             match self.local_types[local_index] {
-                // //                 WpType::F32 => Size::S32,
-                // //                 WpType::F64 => Size::S64,
-                // //                 _ => unreachable!(),
-                // //             },
-                // //             loc,
-                // //             self.locals[local_index],
-                // //         );
-                // //     } else {
-                // //         self.emit_relaxed_binop(
-                // //             Assembler::emit_mov,
-                // //             Size::S64,
-                // //             loc,
-                // //             self.locals[local_index],
-                // //         );
-                // //     }
-                // // } else {
-                //     self.assembler.emit_move(Size::S64, loc, self.locals[local_index]);
-                // // }
+                // if self.local_types[local_index].is_float() {
+                //     let fp = self.fp_stack.pop1()?;
+                //     if self.machine.arch_supports_canonicalize_nan()
+                //         && self.config.enable_nan_canonicalization
+                //         && fp.canonicalization.is_some()
+                //     {
+                //         self.canonicalize_nan(
+                //             match self.local_types[local_index] {
+                //                 WpType::F32 => Size::S32,
+                //                 WpType::F64 => Size::S64,
+                //                 _ => unreachable!(),
+                //             },
+                //             loc,
+                //             self.locals[local_index],
+                //         );
+                //     } else {
+                //         self.emit_relaxed_binop(
+                //             Assembler::emit_mov,
+                //             Size::S64,
+                //             loc,
+                //             self.locals[local_index],
+                //         );
+                //     }
+                // } else {
+                //    self.assembler.emit_move(Size::S64, loc, self.locals[local_index]);
+                // }
             },
             Operator::I32Add => {
                 let r = self.stack.pop().unwrap();
@@ -469,7 +477,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
                 let imm_result = match (l.location().imm_value(), r.location().imm_value()) {
                     (Some(Value::I32(l)), Some(Value::I32(r))) => {
-                        Some(self.machine.imm32(&mut self.assembler, (l + r) as u32))
+                        Some(self.machine.imm32((l + r) as u32))
                     },
                     (Some(_), Some(_)) => {
                         unreachable!();
@@ -483,7 +491,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     imm_result.inc_ref();
                     self.stack.push(imm_result);
                 } else {
-                    let result_loc = self.machine.emit_add_i32(&mut self.assembler, Size::S64, l.clone(), r.clone());
+                    let result_loc = self.machine.emit_add_i32(Size::S64, l.clone(), r.clone());
                     result_loc.inc_ref();
                     self.stack.push(result_loc);
                 }
@@ -497,67 +505,44 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             },
             Operator::End => {
                 let frame = self.control_stack.pop().unwrap();
-
-                let loc = self.stack.pop();
-                // let loc = if /* !was_unreachable &&*/ !frame.returns.is_empty() {
-                //     Some(*self.value_stack.last().unwrap())
-                // //     if frame.returns[0].is_float() {
-                // //         let fp = self.fp_stack.peek1()?;
-                // //         if self.assembler.arch_supports_canonicalize_nan()
-                // //             && self.config.enable_nan_canonicalization
-                // //             && fp.canonicalization.is_some()
-                // //         {
-                // //             self.canonicalize_nan(
-                // //                 match frame.returns[0] {
-                // //                     WpType::F32 => Size::S32,
-                // //                     WpType::F64 => Size::S64,
-                // //                     _ => unreachable!(),
-                // //                 },
-                // //                 loc,
-                // //                 Location::GPR(GPR::RAX),
-                // //             );
-                // //         } else {
-                // //             self.emit_relaxed_binop(
-                // //                 Assembler::emit_mov,
-                // //                 Size::S64,
-                // //                 loc,
-                // //                 Location::GPR(GPR::RAX),
-                // //             );
-                // //         }
-                // //     } else {
-                // //         self.emit_relaxed_binop(
-                // //             Assembler::emit_mov,
-                // //             Size::S64,
-                // //             loc,
-                // //             Location::GPR(GPR::RAX),
-                // //         );
-                // //     }
-                // } else {
-                //     None
-                // };
-
-                if self.control_stack.is_empty() {
-                    self.assembler.emit_label(frame.label);
-                    self.machine.finalize_stack(&mut self.assembler, &self.locals);
-                    // self.assembler.emit_mov(
-                    //     Size::S64,
-                    //     Location::GPR(GPR::RBP),
-                    //     Location::GPR(GPR::RSP),
-                    // );
-                    // self.assembler.emit_pop(Size::S64, Location::GPR(GPR::RBP));
-
-                    // // Make a copy of the return value in XMM0, as required by the SysV CC.
-                    // match self.signature.results() {
-                    //     [x] if *x == Type::F32 || *x == Type::F64 => {
-                    //         self.assembler.emit_mov(
-                    //             Size::S64,
+                if /* !was_unreachable &&*/ !frame.returns.is_empty() {
+                    assert!(frame.returns.len() == 1);
+                    // if frame.returns[0].is_float() {
+                    //     let fp = self.fp_stack.peek1()?;
+                    //     if self.machine.arch_supports_canonicalize_nan()
+                    //         && self.config.enable_nan_canonicalization
+                    //         && fp.canonicalization.is_some()
+                    //     {
+                    //         self.canonicalize_nan(
+                    //             match frame.returns[0] {
+                    //                 WpType::F32 => Size::S32,
+                    //                 WpType::F64 => Size::S64,
+                    //                 _ => unreachable!(),
+                    //             },
+                    //             loc,
                     //             Location::GPR(GPR::RAX),
-                    //             Location::XMM(XMM::XMM0),
+                    //         );
+                    //     } else {
+                    //         self.emit_relaxed_binop(
+                    //             Assembler::emit_mov,
+                    //             Size::S64,
+                    //             loc,
+                    //             Location::GPR(GPR::RAX),
                     //         );
                     //     }
-                    //     _ => {}
+                    // } else {
+                    //     self.emit_relaxed_binop(
+                    //         Assembler::emit_mov,
+                    //         Size::S64,
+                    //         loc,
+                    //         Location::GPR(GPR::RAX),
+                    //     );
                     // }
-                    self.assembler.emit_return(loc.map(|loc| loc.location()));
+                    self.machine.emit_return(frame.returns[0], self.stack.pop().unwrap());
+                }
+
+                if self.control_stack.is_empty() {
+                    self.relocations = self.machine.emit_end(frame.label);
                 } else {
                     // let released = &self.value_stack[frame.value_stack_depth..];
                     // self.machine
@@ -596,6 +581,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     //         // we already canonicalized at the `Br*` instruction or here previously.
                     //     }
                     // }
+                    unimplemented!();
                 }
             },
             _ => {},
@@ -604,12 +590,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     pub fn begin(&mut self) -> Result<(), CodegenError> {
-        self.assembler.emit_prologue();
-        self.locals = self.machine.init_locals(
-                &mut self.assembler,
-                self.local_types.len(),
-                self.signature.params().len(),
-            );
+        self.locals = self.machine.init(self.local_types.len(), self.signature.params().len());
 
         // // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
         // self.machine.state.register_values
@@ -624,7 +605,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         //     .emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
 
         self.control_stack.push(ControlFrame {
-            label: self.assembler.new_label(),
+            label: self.machine.new_label(),
             loop_like: false,
             if_else: IfElseState::None,
             returns: self
@@ -663,12 +644,12 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         self.instructions_address_map.push(InstructionAddressMap {
             srcloc: SourceLoc::new(self.src_loc),
             code_offset: begin,
-            code_len: self.assembler.get_offset().0 - begin,
+            code_len: self.machine.get_assembly_offset() - begin,
         });
     }
 
     pub fn finalize(self, data: &FunctionBodyData) -> CompiledFunction {
-        let body = self.assembler.finalize();
+        let body = self.machine.finalize();
         let instructions_address_map = self.instructions_address_map;
         let address_map = get_function_address_map(instructions_address_map, data, body.len());
 
@@ -696,7 +677,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
     pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
         FunctionBody {
-            body: M::Emitter::gen_std_trampoline(sig),
+            body: M::gen_std_trampoline(sig),
             unwind_info: None,
         }
     }
@@ -706,7 +687,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         sig: &FunctionType,
     ) -> FunctionBody {
         FunctionBody {
-            body: M::Emitter::gen_std_dynamic_import_trampoline(vmoffsets, sig),
+            body: M::gen_std_dynamic_import_trampoline(vmoffsets, sig),
             unwind_info: None,
         }
     }
@@ -719,7 +700,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         CustomSection {
             protection: CustomSectionProtection::ReadExecute,
             bytes: SectionBody::new_with_vec(
-                M::Emitter::gen_import_call_trampoline(vmoffsets, index, sig)),
+                M::gen_import_call_trampoline(vmoffsets, index, sig)),
             relocations: vec![],
         }
     }
