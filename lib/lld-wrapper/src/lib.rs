@@ -8,7 +8,7 @@ use std::os::unix::ffi::OsStrExt;
 
 mod link;
 
-pub unsafe fn link(filenames: &[&Path]) {
+pub unsafe fn link_paths(filenames: &[&Path]) {
     let mut storage: Vec<CString> = Vec::new();
     for f in filenames {
         #[cfg(target_family = "unix")]
@@ -27,6 +27,20 @@ pub unsafe fn link(filenames: &[&Path]) {
 /*
 #[test]
 fn my_test() {
-    unsafe { link(&[Path::new("/tmp/a.o"), Path::new("/tmp/b.o")]) };
+    unsafe { link_paths(&[Path::new("/tmp/a.o"), Path::new("/tmp/b.o")]) };
 }
  */
+
+/*
+#[test]
+fn my_test() {
+    let filenames = [b"/tmp/a.o", std::ptr::null()];
+    let lengths = [8u32, 0u32];
+    unsafe {
+        link::wasmer_lld_wrapper_macho_link(
+            filenames.as_ptr() as *const *const c_char,
+            lengths.as_ptr() as *const u32,
+        );
+    }
+}
+*/

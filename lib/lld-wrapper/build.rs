@@ -116,7 +116,6 @@ fn main() {
         }
         Some(x) => x,
     };
-    dbg!(&llvm_config);
 
     // TODO: improve compatibility with llvm-sys
     //
@@ -182,8 +181,12 @@ fn main() {
     std::io::stdout().write_all(b"\n").unwrap();
 
     // These are not included in llvm-config, they're lld libraries.
-    println!("cargo:rustc-link-lib=lldELF");
     println!("cargo:rustc-link-lib=lldCommon");
+    println!("cargo:rustc-link-lib=lldCore");
+    println!("cargo:rustc-link-lib=lldELF");
+    println!("cargo:rustc-link-lib=lldMachO");
+    println!("cargo:rustc-link-lib=lldReaderWriter");
+    println!("cargo:rustc-link-lib=lldYAML");
 
     for lib in libs {
         std::io::stdout()
