@@ -318,10 +318,6 @@
 <span id="315">315</span>
 <span id="316">316</span>
 <span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">ObjectError</span>;
 <span class="kw">use</span> <span class="ident">object</span>::<span class="ident">write</span>::{<span class="ident">Object</span>, <span class="ident">Relocation</span>, <span class="ident">StandardSection</span>, <span class="ident">Symbol</span> <span class="kw">as</span> <span class="ident">ObjSymbol</span>, <span class="ident">SymbolSection</span>};
@@ -534,11 +530,7 @@
 
     <span class="comment">// Add relocations (function and sections)</span>
     <span class="kw">let</span> (<span class="ident">relocation_size</span>, <span class="ident">relocation_kind</span>, <span class="ident">relocation_encoding</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>.<span class="ident">architecture</span> {
-        <span class="ident">Architecture</span>::<span class="ident">X86_64</span> <span class="op">=</span><span class="op">&gt;</span> (
-            <span class="number">32</span>,
-            <span class="ident">RelocationKind</span>::<span class="ident">PltRelative</span>,
-            <span class="ident">RelocationEncoding</span>::<span class="ident">X86Branch</span>,
-        ),
+        <span class="ident">Architecture</span>::<span class="ident">X86_64</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="number">32</span>, <span class="ident">RelocationKind</span>::<span class="ident">GotRelative</span>, <span class="ident">RelocationEncoding</span>::<span class="ident">Generic</span>),
         <span class="comment">// Object doesn&#39;t fully support it yet</span>
         <span class="comment">// Architecture::Aarch64(_) =&gt; (</span>
         <span class="comment">//     32,</span>

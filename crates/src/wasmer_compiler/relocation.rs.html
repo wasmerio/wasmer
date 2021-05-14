@@ -173,7 +173,6 @@
 <span id="170">170</span>
 <span id="171">171</span>
 <span id="172">172</span>
-<span id="173">173</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent</span>
 <span class="doccomment">//! code and data of a program and adjusting the code and data to reflect the</span>
@@ -221,9 +220,8 @@
     <span class="ident">X86CallPCRel4</span>,
     <span class="doccomment">/// x86 call to PLT-relative 4-byte</span>
     <span class="ident">X86CallPLTRel4</span>,
-    <span class="comment">// /// x86 GOT PC-relative 4-byte</span>
-    <span class="comment">// X86GOTPCRel4,</span>
-
+    <span class="doccomment">/// x86 GOT PC-relative 4-byte</span>
+    <span class="ident">X86GOTPCRel4</span>,
     <span class="comment">// /// Arm32 call target</span>
     <span class="comment">// Arm32Call,</span>
 
@@ -252,7 +250,7 @@
             <span class="self">Self</span>::<span class="ident">X86PCRelRodata4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;PCRelRodata4&quot;</span>),
             <span class="self">Self</span>::<span class="ident">X86CallPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;CallPCRel4&quot;</span>),
             <span class="self">Self</span>::<span class="ident">X86CallPLTRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;CallPLTRel4&quot;</span>),
-            <span class="comment">// Self::X86GOTPCRel4 =&gt; write!(f, &quot;GOTPCRel4&quot;),</span>
+            <span class="self">Self</span>::<span class="ident">X86GOTPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;GOTPCRel4&quot;</span>),
             <span class="comment">// Self::Arm32Call | Self::Arm64Call | Self::RiscvCall =&gt; write!(f, &quot;Call&quot;),</span>
 
             <span class="comment">// Self::ElfX86_64TlsGd =&gt; write!(f, &quot;ElfX86_64TlsGd&quot;),</span>

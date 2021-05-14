@@ -162,6 +162,7 @@
 <span id="159">159</span>
 <span id="160">160</span>
 <span id="161">161</span>
+<span id="162">162</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Helper functions and structures for the translation.</span>
 
@@ -254,6 +255,7 @@
         <span class="ident">Reloc</span>::<span class="ident">X86PCRelRodata4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind</span>::<span class="ident">X86PCRelRodata4</span>,
         <span class="ident">Reloc</span>::<span class="ident">X86CallPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind</span>::<span class="ident">X86CallPCRel4</span>,
         <span class="ident">Reloc</span>::<span class="ident">X86CallPLTRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind</span>::<span class="ident">X86CallPLTRel4</span>,
+        <span class="ident">Reloc</span>::<span class="ident">X86GOTPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind</span>::<span class="ident">X86GOTPCRel4</span>,
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;The relocation {} is not yet supported.&quot;</span>, <span class="ident">reloc</span>),
     }
 }

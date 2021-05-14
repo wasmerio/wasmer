@@ -87,7 +87,6 @@
 <span id="84">84</span>
 <span id="85">85</span>
 <span id="86">86</span>
-<span id="87">87</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Linking for JIT-compiled code.</span>
 
@@ -140,7 +139,6 @@
             <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
             <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u64</span>, <span class="ident">reloc_delta</span>);
         },
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;32&quot;</span>)]</span>
         <span class="ident">RelocationKind</span>::<span class="ident">X86CallPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> {
             <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
             <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span> <span class="kw">as</span> <span class="kw">_</span>);
