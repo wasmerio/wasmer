@@ -19,6 +19,7 @@ cranelift::spec::linking on native
 cranelift::spec::bulk on native
 
 # Some SIMD opperations are not yet supported by Cranelift
+cranelift::spec::simd::simd_boolean on aarch64
 cranelift::spec::simd::simd_conversions
 cranelift::spec::simd::simd_i16x8_extadd_pairwise_i8x16
 cranelift::spec::simd::simd_i16x8_extmul_i8x16
