@@ -242,16 +242,15 @@ pub fn emit_compilation(
                 Reloc::X86GOTPCRel4 => {
                     (RelocationKind::GotRelative, RelocationEncoding::Generic, 32)
                 }
-                Reloc::ElfX86_64TlsGd => (
-                    RelocationKind::Elf(elf::R_X86_64_TLSGD),
-                    RelocationEncoding::Generic,
-                    32,
-                ),
                 // Reloc::X86PCRelRodata4 => {
-                //     return None;
                 // }
                 Reloc::Arm64Call => (
                     RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::ElfX86_64TlsGd => (
+                    RelocationKind::Elf(elf::R_X86_64_TLSGD),
                     RelocationEncoding::Generic,
                     32,
                 ),

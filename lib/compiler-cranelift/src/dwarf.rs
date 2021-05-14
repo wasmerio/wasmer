@@ -68,7 +68,7 @@ impl Writer for WriterRelocate {
                     let reloc_target = RelocationTarget::LocalFunc(function_index);
                     let offset = self.len() as u32;
                     let kind = match size {
-                        8 => RelocationKind::Abs8,
+                        8 => RelocationKind::X86GOTPCRel4,
                         _ => unimplemented!("dwarf relocation size not yet supported: {}", size),
                     };
                     let addend = 0;
