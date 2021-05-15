@@ -481,7 +481,7 @@ impl Function {
 
         // Call the trampoline.
         unsafe {
-            if unchecked {
+            if !unchecked {
                 wasmer_call_trampoline(
                     &self.store,
                     self.exported.vm_function.vmctx,

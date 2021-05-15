@@ -50,7 +50,7 @@ pub fn run_basic_static_function(store: &Store, compiler_name: &str, c: &mut Cri
     });
 
     c.bench_function(
-        &format!("basic static func [unchecked] {}", compiler_name),
+        &format!("basic static func {} [unchecked]", compiler_name),
         |b| unsafe {
             store
                 .catch_traps(|| {
@@ -106,7 +106,7 @@ pub fn run_basic_static_function(store: &Store, compiler_name: &str, c: &mut Cri
     );
 
     c.bench_function(
-        &format!("basic static func with many args {}", compiler_name),
+        &format!("basic static func with many args {} [unchecked]", compiler_name),
         |b| unsafe {
             store
                 .catch_traps(|| {
@@ -146,7 +146,7 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
     });
 
     c.bench_function(
-        &format!("basic dynfunc [unchecked] {}", compiler_name),
+        &format!("basic dynfunc {} [unchecked]", compiler_name),
         |b| unsafe {
             store
                 .catch_traps(|| {
