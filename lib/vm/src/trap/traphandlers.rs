@@ -524,6 +524,7 @@ impl Trap {
 ///
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
+#[inline(always)]
 pub unsafe fn wasmer_call_trampoline(
     trap_handler: &impl TrapHandler,
     vmctx: VMFunctionEnvironment,
@@ -538,8 +539,39 @@ pub unsafe fn wasmer_call_trampoline(
     })
 }
 
+/// Call the wasm function pointed to by `callee`.
+///
+/// * `vmctx` - the callee vmctx argument
+/// * `caller_vmctx` - the caller vmctx argument
+/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
+///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
+///   `values_vec` argument.
+/// * `callee` - the third argument to the `trampoline` function
+/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
+///   which the outgoing return values will be written.
+///
+/// # Safety
+///
+/// This function is very unsafe for two reasons:
+/// 1. It calls raw function pointers and reads/writes raw function pointers.
+/// 2. It must be wrapped with `catch_traps` in order to catch properly
+///    any traps triggered from Wasm generated code.
+#[inline(always)]
+pub unsafe fn wasmer_call_trampoline_unchecked(
+    vmctx: VMFunctionEnvironment,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values_vec: *mut u8,
+) {
+    mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
+        trampoline,
+    )(vmctx, callee, values_vec);
+}
+
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
+///
+/// # Safety
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps<F>(trap_handler: &dyn TrapHandler, mut closure: F) -> Result<(), Trap>

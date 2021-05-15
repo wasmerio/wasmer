@@ -5,8 +5,8 @@ use std::fmt;
 use std::sync::{Arc, RwLock};
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{is_wasm_pc, Engine, Tunables};
-use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
+use wasmer_engine::{is_wasm_pc, Engine, RuntimeError, Tunables};
+use wasmer_vm::{catch_traps, init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -39,6 +39,19 @@ impl Store {
     pub fn set_trap_handler(&self, handler: Option<Box<TrapHandlerFn>>) {
         let mut m = self.trap_handler.write().unwrap();
         *m = handler;
+    }
+
+    /// Catches any Wasm traps that happen within the execution of `closure`,
+    /// returning them as a `Result`.
+    ///
+    /// # Safety
+    ///
+    /// Highly unsafe since `closure` won't have any dtors run.
+    pub unsafe fn catch_traps<F>(&self, mut closure: F) -> Result<(), RuntimeError>
+    where
+        F: FnMut(),
+    {
+        Ok(catch_traps(self.trap_handler(), closure)?)
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].

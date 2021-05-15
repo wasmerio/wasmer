@@ -17,9 +17,9 @@ use std::fmt;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,
-    VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, wasmer_call_trampoline_unchecked,
+    ImportInitializerFuncPtr, VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef,
+    VMFunction, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
 /// A WebAssembly `function` instance.
@@ -431,11 +431,13 @@ impl Function {
         &self.store
     }
 
+    #[inline(always)]
     fn call_wasm(
         &self,
         trampoline: VMTrampoline,
         params: &[Val],
         results: &mut [Val],
+        unchecked: bool,
     ) -> Result<(), RuntimeError> {
         let format_types_for_error_message = |items: &[Val]| {
             items
@@ -478,16 +480,23 @@ impl Function {
         }
 
         // Call the trampoline.
-        if let Err(error) = unsafe {
-            wasmer_call_trampoline(
-                &self.store,
-                self.exported.vm_function.vmctx,
-                trampoline,
-                self.exported.vm_function.address,
-                values_vec.as_mut_ptr() as *mut u8,
-            )
-        } {
-            return Err(RuntimeError::from_trap(error));
+        unsafe {
+            if unchecked {
+                wasmer_call_trampoline(
+                    &self.store,
+                    self.exported.vm_function.vmctx,
+                    trampoline,
+                    self.exported.vm_function.address,
+                    values_vec.as_mut_ptr() as *mut u8,
+                )?
+            } else {
+                wasmer_call_trampoline_unchecked(
+                    self.exported.vm_function.vmctx,
+                    trampoline,
+                    self.exported.vm_function.address,
+                    values_vec.as_mut_ptr() as *mut u8,
+                )
+            }
         }
 
         // Load the return values out of `values_vec`.
@@ -573,7 +582,54 @@ impl Function {
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         if let Some(trampoline) = self.exported.vm_function.call_trampoline {
             let mut results = vec![Val::null(); self.result_arity()];
-            self.call_wasm(trampoline, params, &mut results)?;
+            self.call_wasm(trampoline, params, &mut results, false)?;
+            return Ok(results.into_boxed_slice());
+        }
+
+        unimplemented!("The function definition isn't supported for the moment");
+    }
+
+    /// Call the `Function` function (unchecked).
+    ///
+    /// Depending on where the Function is defined, it will call it.
+    /// 1. If the function is defined inside a WebAssembly, it will call the trampoline
+    ///    for the function signature.
+    /// 2. If the function is defined in the host (in a native way), it will
+    ///    call the trampoline.
+    ///
+    /// # Safety
+    ///
+    /// This method has to be wrapped using [`Store::catch_traps`] in order to be safe.
+    /// Otherwise traps caused by Wasm code will not be caught by the runtime and will
+    /// be spilled to caller context.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    ///
+    /// store.catch_traps(|| unsafe {
+    ///   assert_eq!(sum.call_unchecked(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
+    /// });
+    /// ```
+    pub unsafe fn call_unchecked(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
+        if let Some(trampoline) = self.exported.vm_function.call_trampoline {
+            let mut results = vec![Val::null(); self.result_arity()];
+            self.call_wasm(trampoline, params, &mut results, true)?;
             return Ok(results.into_boxed_slice());
         }
 

@@ -109,6 +109,23 @@ macro_rules! impl_native_traits {
         {
             /// Call the typed func and return results.
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                self.do_call(false, $( $x, )* )
+            }
+
+            /// Call the typed func and return results (unchecked)
+            ///
+            /// # Safety
+            ///
+            /// This method has to be wrapped using [`Store::catch_traps`] in order to be safe.
+            /// Otherwise traps caused by Wasm code will not be caught by the runtime and will
+            /// be spilled to caller context.
+            pub unsafe fn call_unchecked(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                self.do_call(true, $( $x, )* )
+            }
+
+            /// Call the typed func and return results.
+            #[inline(always)]
+            fn do_call(&self, unchecked: bool, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 if !self.is_host() {
                     // We assume the trampoline is always going to be present for
                     // Wasm functions
@@ -130,14 +147,24 @@ macro_rules! impl_native_traits {
                         rets_list.as_mut()
                     };
                     unsafe {
-                        wasmer_vm::wasmer_call_trampoline(
-                            &self.store,
-                            self.vmctx(),
-                            trampoline,
-                            self.address(),
-                            args_rets.as_mut_ptr() as *mut u8,
-                        )
-                    }?;
+                        if !unchecked {
+                            wasmer_vm::wasmer_call_trampoline(
+                                &self.store,
+                                self.vmctx(),
+                                trampoline,
+                                self.address(),
+                                args_rets.as_mut_ptr() as *mut u8,
+                            )?
+                        }
+                        else {
+                            wasmer_vm::wasmer_call_trampoline_unchecked(
+                                &self.store,
+                                trampoline,
+                                self.address(),
+                                args_rets.as_mut_ptr() as *mut u8,
+                            )
+                        }
+                    };
                     let num_rets = rets_list.len();
                     if !using_rets_array && num_rets > 0 {
                         let src_pointer = params_list.as_ptr();

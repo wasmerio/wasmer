@@ -49,6 +49,20 @@ pub fn run_basic_static_function(store: &Store, compiler_name: &str, c: &mut Cri
         })
     });
 
+    c.bench_function(
+        &format!("basic static func [unchecked] {}", compiler_name),
+        |b| unsafe {
+            store
+                .catch_traps(|| {
+                    b.iter(|| {
+                        let result = black_box(f.call_unchecked(4, 6).unwrap());
+                        assert_eq!(result, 10);
+                    })
+                })
+                .unwrap();
+        },
+    );
+
     let dyn_f_many: &Function = instance.exports.get("add20").unwrap();
     let f_many: NativeFunc<
         (
@@ -90,6 +104,27 @@ pub fn run_basic_static_function(store: &Store, compiler_name: &str, c: &mut Cri
             })
         },
     );
+
+    c.bench_function(
+        &format!("basic static func with many args {}", compiler_name),
+        |b| unsafe {
+            store
+                .catch_traps(|| {
+                    b.iter(|| {
+                        let result = black_box(
+                            f_many
+                                .call_unchecked(
+                                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+                                    19, 20,
+                                )
+                                .unwrap(),
+                        );
+                        assert_eq!(result, 210);
+                    })
+                })
+                .unwrap();
+        },
+    );
 }
 
 pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Criterion) {
@@ -102,12 +137,28 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
     let instance = Instance::new(&module, &import_object).unwrap();
 
     let dyn_f: &Function = instance.exports.get("add").unwrap();
+
     c.bench_function(&format!("basic dynfunc {}", compiler_name), |b| {
         b.iter(|| {
             let dyn_result = black_box(dyn_f.call(&[Val::I32(4), Val::I32(6)]).unwrap());
             assert_eq!(dyn_result[0], Val::I32(10));
         })
     });
+
+    c.bench_function(
+        &format!("basic dynfunc [unchecked] {}", compiler_name),
+        |b| unsafe {
+            store
+                .catch_traps(|| {
+                    b.iter(|| {
+                        let dyn_result =
+                            black_box(dyn_f.call_unchecked(&[Val::I32(4), Val::I32(6)]).unwrap());
+                        assert_eq!(dyn_result[0], Val::I32(10));
+                    })
+                })
+                .unwrap();
+        },
+    );
 
     let dyn_f_many: &Function = instance.exports.get("add20").unwrap();
     c.bench_function(
@@ -146,42 +197,52 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
     );
 }
 
-fn run_static_benchmarks(_c: &mut Criterion) {
+fn run_static_benchmarks(c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let store = Store::new(&JIT::new(wasmer_compiler_llvm::LLVM::new()).engine());
+        let store =
+            Store::new(&wasmer_engine_jit::JIT::new(wasmer_compiler_llvm::LLVM::new()).engine());
         run_basic_static_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let store = Store::new(&JIT::new(wasmer_compiler_cranelift::Cranelift::new()).engine());
+        let store = Store::new(
+            &wasmer_engine_jit::JIT::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
+        );
         run_basic_static_function(&store, "cranelift", c);
     }
 
     #[cfg(feature = "singlepass")]
     {
-        let store = Store::new(&JIT::new(wasmer_compiler_singlepass::Singlepass::new()).engine());
+        let store = Store::new(
+            &wasmer_engine_jit::JIT::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
+        );
         run_basic_static_function(&store, "singlepass", c);
     }
 }
 
-fn run_dynamic_benchmarks(_c: &mut Criterion) {
+fn run_dynamic_benchmarks(c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let store = Store::new(&JIT::new(wasmer_compiler_llvm::LLVM::new()).engine());
+        let store =
+            Store::new(&wasmer_engine_jit::JIT::new(wasmer_compiler_llvm::LLVM::new()).engine());
         run_basic_dynamic_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let store = Store::new(&JIT::new(wasmer_compiler_cranelift::Cranelift::new()).engine());
+        let store = Store::new(
+            &wasmer_engine_jit::JIT::new(wasmer_compiler_cranelift::Cranelift::new()).engine(),
+        );
         run_basic_dynamic_function(&store, "cranelift", c);
     }
 
     #[cfg(feature = "singlepass")]
     {
-        let store = Store::new(&JIT::new(wasmer_compiler_singlepass::Singlepass::new()).engine());
+        let store = Store::new(
+            &wasmer_engine_jit::JIT::new(wasmer_compiler_singlepass::Singlepass::new()).engine(),
+        );
         run_basic_dynamic_function(&store, "singlepass", c);
     }
 }
