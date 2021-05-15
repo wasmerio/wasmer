@@ -47,11 +47,11 @@ impl Store {
     /// # Safety
     ///
     /// Highly unsafe since `closure` won't have any dtors run.
-    pub unsafe fn catch_traps<F>(&self, mut closure: F) -> Result<(), RuntimeError>
+    pub unsafe fn catch_traps<F>(&self, closure: F) -> Result<(), RuntimeError>
     where
         F: FnMut(),
     {
-        Ok(catch_traps(self.trap_handler(), closure)?)
+        Ok(catch_traps(self, closure)?)
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].

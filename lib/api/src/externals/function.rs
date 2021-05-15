@@ -622,9 +622,11 @@ impl Function {
     /// #
     /// let sum = instance.exports.get_function("sum").unwrap();
     ///
-    /// store.catch_traps(|| unsafe {
-    ///   assert_eq!(sum.call_unchecked(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
-    /// });
+    /// unsafe {
+    ///   store.catch_traps(|| {
+    ///     assert_eq!(sum.call_unchecked(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
+    ///   });
+    /// }
     /// ```
     pub unsafe fn call_unchecked(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         if let Some(trampoline) = self.exported.vm_function.call_trampoline {

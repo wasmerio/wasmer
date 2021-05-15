@@ -158,7 +158,7 @@ macro_rules! impl_native_traits {
                         }
                         else {
                             wasmer_vm::wasmer_call_trampoline_unchecked(
-                                &self.store,
+                                self.vmctx(),
                                 trampoline,
                                 self.address(),
                                 args_rets.as_mut_ptr() as *mut u8,
