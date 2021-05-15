@@ -49,6 +49,7 @@ members = [
     "lib/wasi-experimental-io-devices",
     "lib/types",
     "tests/lib/wast",
+    "tests/lib/compiler-test-derive",
     "tests/integration/cli",
 ]
 exclude = [
@@ -68,6 +69,7 @@ blake3 = "0.3"
 criterion = "0.3"
 lazy_static = "1.4"
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
+compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.1"
 loupe = "0.1"
 

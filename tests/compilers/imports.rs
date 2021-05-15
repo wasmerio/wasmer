@@ -2,7 +2,6 @@
 //! This tests checks that the provided functions (both native and
 //! dynamic ones) work properly.
 
-use crate::utils::get_store;
 use anyhow::Result;
 use std::convert::Infallible;
 use std::sync::{
@@ -43,9 +42,9 @@ fn get_module(store: &Store) -> Result<Module> {
     Ok(module)
 }
 
-#[test]
-fn dynamic_function() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn dynamic_function(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = get_module(&store)?;
     static HITS: AtomicUsize = AtomicUsize::new(0);
     Instance::new(
@@ -83,9 +82,9 @@ fn dynamic_function() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn dynamic_function_with_env() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn dynamic_function_with_env(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = get_module(&store)?;
 
     #[derive(WasmerEnv, Clone)]
@@ -138,9 +137,9 @@ fn dynamic_function_with_env() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn static_function() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn static_function(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
@@ -176,9 +175,9 @@ fn static_function() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn static_function_with_results() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn static_function_with_results(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
@@ -214,9 +213,9 @@ fn static_function_with_results() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn static_function_with_env() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn static_function_with_env(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = get_module(&store)?;
 
     #[derive(WasmerEnv, Clone)]
@@ -262,9 +261,9 @@ fn static_function_with_env() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn static_function_that_fails() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn static_function_that_fails(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (import "host" "0" (func))
 
@@ -313,9 +312,9 @@ fn get_module2(store: &Store) -> Result<Module> {
     Ok(module)
 }
 
-#[test]
-fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn dynamic_function_with_env_wasmer_env_init_works(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = get_module2(&store)?;
 
     #[allow(dead_code)]
@@ -344,9 +343,9 @@ fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = get_module2(&store)?;
 
     #[allow(dead_code)]
@@ -391,9 +390,9 @@ fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn instance_local_memory_lifetime() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(imports)]
+fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
+    let store = config.store();
 
     let memory: Memory = {
         let wat = r#"(module
