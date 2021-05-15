@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["ArchivedCompiledFunctionUnwindInfo",""],["CompiledFunctionUnwindInfo","Compiled function unwind information."],["CompiledFunctionUnwindInfoResolver",""]]});
+initSidebarItems({"enum":[["ArchivedCompiledFunctionUnwindInfo","An archived `CompiledFunctionUnwindInfo`"],["CompiledFunctionUnwindInfo","Compiled function unwind information."],["CompiledFunctionUnwindInfoResolver","The resolver for archived `CompiledFunctionUnwindInfo`"]]});

@@ -168,11 +168,6 @@
 <span id="165">165</span>
 <span id="166">166</span>
 <span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent</span>
 <span class="doccomment">//! code and data of a program and adjusting the code and data to reflect the</span>
@@ -222,18 +217,14 @@
     <span class="ident">X86CallPLTRel4</span>,
     <span class="doccomment">/// x86 GOT PC-relative 4-byte</span>
     <span class="ident">X86GOTPCRel4</span>,
-    <span class="comment">// /// Arm32 call target</span>
-    <span class="comment">// Arm32Call,</span>
-
-    <span class="comment">// /// Arm64 call target</span>
-    <span class="comment">// Arm64Call,</span>
-
+    <span class="doccomment">/// Arm32 call target</span>
+    <span class="ident">Arm32Call</span>,
+    <span class="doccomment">/// Arm64 call target</span>
+    <span class="ident">Arm64Call</span>,
     <span class="comment">// /// RISC-V call target</span>
     <span class="comment">// RiscvCall,</span>
-
-    <span class="comment">// /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.</span>
-    <span class="comment">// ElfX86_64TlsGd,</span>
-
+    <span class="doccomment">/// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.</span>
+    <span class="ident">ElfX86_64TlsGd</span>,
     <span class="comment">// /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.</span>
     <span class="comment">// MachOX86_64Tlv,</span>
 }
@@ -251,9 +242,8 @@
             <span class="self">Self</span>::<span class="ident">X86CallPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;CallPCRel4&quot;</span>),
             <span class="self">Self</span>::<span class="ident">X86CallPLTRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;CallPLTRel4&quot;</span>),
             <span class="self">Self</span>::<span class="ident">X86GOTPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;GOTPCRel4&quot;</span>),
-            <span class="comment">// Self::Arm32Call | Self::Arm64Call | Self::RiscvCall =&gt; write!(f, &quot;Call&quot;),</span>
-
-            <span class="comment">// Self::ElfX86_64TlsGd =&gt; write!(f, &quot;ElfX86_64TlsGd&quot;),</span>
+            <span class="self">Self</span>::<span class="ident">Arm32Call</span> <span class="op">|</span> <span class="self">Self</span>::<span class="ident">Arm64Call</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;Call&quot;</span>),
+            <span class="self">Self</span>::<span class="ident">ElfX86_64TlsGd</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;ElfX86_64TlsGd&quot;</span>),
             <span class="comment">// Self::MachOX86_64Tlv =&gt; write!(f, &quot;MachOX86_64Tlv&quot;),</span>
         }
     }

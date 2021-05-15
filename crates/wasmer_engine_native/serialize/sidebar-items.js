@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["to_compile_error",""]],"struct":[["ArchivedModuleMetadata",""],["ModuleMetadata","Serializable struct that represents the compiled metadata."],["ModuleMetadataResolver",""],["ModuleMetadataSymbolRegistry",""]]});
+initSidebarItems({"fn":[["to_compile_error",""]],"struct":[["ArchivedModuleMetadata","An archived `ModuleMetadata`"],["ModuleMetadata","Serializable struct that represents the compiled metadata."],["ModuleMetadataResolver","The resolver for archived `ModuleMetadata`"],["ModuleMetadataSymbolRegistry",""]]});
