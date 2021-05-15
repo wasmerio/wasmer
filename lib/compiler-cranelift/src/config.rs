@@ -32,7 +32,6 @@ pub enum CraneliftOptLevel {
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
-    enable_simd: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
     /// The middleware chain.
@@ -48,7 +47,6 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
-            enable_simd: true,
             middlewares: vec![],
         }
     }
@@ -59,12 +57,6 @@ impl Cranelift {
     /// deterministically across different architectures.
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
-        self
-    }
-
-    /// Enable SIMD support.
-    pub fn enable_simd(&mut self, enable: bool) -> &mut Self {
-        self.enable_simd = enable;
         self
     }
 
@@ -156,23 +148,19 @@ impl Cranelift {
             .set("enable_safepoints", "true")
             .expect("should be valid flag");
 
-        let opt_level = if self.enable_simd {
-            "none"
-        } else {
-            match self.opt_level {
-                CraneliftOptLevel::None => "none",
-                CraneliftOptLevel::Speed => "speed",
-                CraneliftOptLevel::SpeedAndSize => "speed_and_size",
-            }
-        };
-
         flags
-            .set("opt_level", opt_level)
+            .set(
+                "opt_level",
+                match self.opt_level {
+                    CraneliftOptLevel::None => "none",
+                    CraneliftOptLevel::Speed => "speed",
+                    CraneliftOptLevel::SpeedAndSize => "speed_and_size",
+                },
+            )
             .expect("should be valid flag");
 
-        let enable_simd = if self.enable_simd { "true" } else { "false" };
         flags
-            .set("enable_simd", enable_simd)
+            .set("enable_simd", "true")
             .expect("should be valid flag");
 
         let enable_nan_canonicalization = if self.enable_nan_canonicalization {

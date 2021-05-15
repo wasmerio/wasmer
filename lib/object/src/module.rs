@@ -186,7 +186,12 @@ pub fn emit_compilation(
                     section: SymbolSection::Section(section_id),
                     flags: SymbolFlags::None,
                 });
-                obj.add_symbol_data(symbol_id, section_id, custom_section.bytes.as_slice(), align);
+                obj.add_symbol_data(
+                    symbol_id,
+                    section_id,
+                    custom_section.bytes.as_slice(),
+                    align,
+                );
                 (section_id, symbol_id)
             }
         })
