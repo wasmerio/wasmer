@@ -377,6 +377,11 @@
 <span id="374">374</span>
 <span id="375">375</span>
 <span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">ObjectError</span>;
 <span class="kw">use</span> <span class="ident">object</span>::<span class="ident">write</span>::{
@@ -566,7 +571,12 @@
                     <span class="ident">section</span>: <span class="ident">SymbolSection</span>::<span class="ident">Section</span>(<span class="ident">section_id</span>),
                     <span class="ident">flags</span>: <span class="ident">SymbolFlags</span>::<span class="prelude-val">None</span>,
                 });
-                <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="ident">custom_section</span>.<span class="ident">bytes</span>.<span class="ident">as_slice</span>(), <span class="ident">align</span>);
+                <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(
+                    <span class="ident">symbol_id</span>,
+                    <span class="ident">section_id</span>,
+                    <span class="ident">custom_section</span>.<span class="ident">bytes</span>.<span class="ident">as_slice</span>(),
+                    <span class="ident">align</span>,
+                );
                 (<span class="ident">section_id</span>, <span class="ident">symbol_id</span>)
             }
         })

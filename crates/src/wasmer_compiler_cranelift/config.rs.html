@@ -204,18 +204,6 @@
 <span id="201">201</span>
 <span id="202">202</span>
 <span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">compiler</span>::<span class="ident">CraneliftCompiler</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
@@ -251,7 +239,6 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Cranelift</span> {
     <span class="ident">enable_nan_canonicalization</span>: <span class="ident">bool</span>,
     <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,
-    <span class="ident">enable_simd</span>: <span class="ident">bool</span>,
     <span class="ident">enable_pic</span>: <span class="ident">bool</span>,
     <span class="ident">opt_level</span>: <span class="ident">CraneliftOptLevel</span>,
     <span class="doccomment">/// The middleware chain.</span>
@@ -267,7 +254,6 @@
             <span class="ident">enable_verifier</span>: <span class="bool-val">false</span>,
             <span class="ident">opt_level</span>: <span class="ident">CraneliftOptLevel</span>::<span class="ident">Speed</span>,
             <span class="ident">enable_pic</span>: <span class="bool-val">false</span>,
-            <span class="ident">enable_simd</span>: <span class="bool-val">true</span>,
             <span class="ident">middlewares</span>: <span class="macro">vec</span><span class="macro">!</span>[],
         }
     }
@@ -278,12 +264,6 @@
     <span class="doccomment">/// deterministically across different architectures.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">canonicalize_nans</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
-
-    <span class="doccomment">/// Enable SIMD support.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">enable_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">enable_simd</span> <span class="op">=</span> <span class="ident">enable</span>;
         <span class="self">self</span>
     }
 
@@ -375,23 +355,19 @@
             .<span class="ident">set</span>(<span class="string">&quot;enable_safepoints&quot;</span>, <span class="string">&quot;true&quot;</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">opt_level</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_simd</span> {
-            <span class="string">&quot;none&quot;</span>
-        } <span class="kw">else</span> {
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">opt_level</span> {
-                <span class="ident">CraneliftOptLevel</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;none&quot;</span>,
-                <span class="ident">CraneliftOptLevel</span>::<span class="ident">Speed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed&quot;</span>,
-                <span class="ident">CraneliftOptLevel</span>::<span class="ident">SpeedAndSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed_and_size&quot;</span>,
-            }
-        };
-
         <span class="ident">flags</span>
-            .<span class="ident">set</span>(<span class="string">&quot;opt_level&quot;</span>, <span class="ident">opt_level</span>)
+            .<span class="ident">set</span>(
+                <span class="string">&quot;opt_level&quot;</span>,
+                <span class="kw">match</span> <span class="self">self</span>.<span class="ident">opt_level</span> {
+                    <span class="ident">CraneliftOptLevel</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;none&quot;</span>,
+                    <span class="ident">CraneliftOptLevel</span>::<span class="ident">Speed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed&quot;</span>,
+                    <span class="ident">CraneliftOptLevel</span>::<span class="ident">SpeedAndSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed_and_size&quot;</span>,
+                },
+            )
             .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">enable_simd</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_simd</span> { <span class="string">&quot;true&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;false&quot;</span> };
         <span class="ident">flags</span>
-            .<span class="ident">set</span>(<span class="string">&quot;enable_simd&quot;</span>, <span class="ident">enable_simd</span>)
+            .<span class="ident">set</span>(<span class="string">&quot;enable_simd&quot;</span>, <span class="string">&quot;true&quot;</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
 
         <span class="kw">let</span> <span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> {
