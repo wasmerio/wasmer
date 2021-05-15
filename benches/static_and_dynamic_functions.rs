@@ -106,7 +106,10 @@ pub fn run_basic_static_function(store: &Store, compiler_name: &str, c: &mut Cri
     );
 
     c.bench_function(
-        &format!("basic static func with many args {} [unchecked]", compiler_name),
+        &format!(
+            "basic static func with many args {} [unchecked]",
+            compiler_name
+        ),
         |b| unsafe {
             store
                 .catch_traps(|| {
