@@ -19,10 +19,10 @@ pub use tls::TlsRestore;
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
-        pub type TrapHandlerFn = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
+        pub type TrapHandler<'a> = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool + Send + Sync + 'a;
     } else if #[cfg(target_os = "windows")] {
         /// Function which may handle custom signals while processing traps.
-        pub type TrapHandlerFn = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
+        pub type TrapHandler<'a> = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool + Send + Sync + 'a;
     }
 }
 
@@ -525,7 +525,7 @@ impl Trap {
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
-    trap_handler: &impl TrapHandler,
+    trap_handler: Option<*const TrapHandler<'static>>,
     vmctx: VMFunctionEnvironment,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
@@ -542,7 +542,10 @@ pub unsafe fn wasmer_call_trampoline(
 /// returning them as a `Result`.
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
-pub unsafe fn catch_traps<F>(trap_handler: &dyn TrapHandler, mut closure: F) -> Result<(), Trap>
+pub unsafe fn catch_traps<F>(
+    trap_handler: Option<*const TrapHandler<'static>>,
+    mut closure: F,
+) -> Result<(), Trap>
 where
     F: FnMut(),
 {
@@ -572,7 +575,7 @@ where
 ///
 /// Check [`catch_traps`].
 pub unsafe fn catch_traps_with_result<F, R>(
-    trap_handler: &dyn TrapHandler,
+    trap_handler: Option<*const TrapHandler<'static>>,
     mut closure: F,
 ) -> Result<R, Trap>
 where
@@ -587,29 +590,13 @@ where
 
 /// Temporary state stored on the stack which is registered in the `tls` module
 /// below for calls into wasm.
-pub struct CallThreadState<'a> {
+pub struct CallThreadState {
     unwind: UnsafeCell<MaybeUninit<UnwindReason>>,
+    trap_handler: Option<*const TrapHandler<'static>>,
     jmp_buf: Cell<*const u8>,
     reset_guard_page: Cell<bool>,
     prev: Cell<tls::Ptr>,
-    trap_handler: &'a (dyn TrapHandler + 'a),
     handling_trap: Cell<bool>,
-}
-
-/// A package of functionality needed by `catch_traps` to figure out what to do
-/// when handling a trap.
-///
-/// Note that this is an `unsafe` trait at least because it's being run in the
-/// context of a synchronous signal handler, so it needs to be careful to not
-/// access too much state in answering these queries.
-pub unsafe trait TrapHandler {
-    /// Converts this object into an `Any` to dynamically check its type.
-    fn as_any(&self) -> &dyn Any;
-
-    /// Uses `call` to call a custom signal handler, if one is specified.
-    ///
-    /// Returns `true` if `call` returns true, otherwise returns `false`.
-    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool;
 }
 
 enum UnwindReason {
@@ -627,9 +614,9 @@ enum UnwindReason {
     },
 }
 
-impl<'a> CallThreadState<'a> {
+impl CallThreadState {
     #[inline]
-    fn new(trap_handler: &'a (dyn TrapHandler + 'a)) -> CallThreadState<'a> {
+    fn new(trap_handler: Option<*const TrapHandler<'static>>) -> CallThreadState {
         Self {
             unwind: UnsafeCell::new(MaybeUninit::uninit()),
             jmp_buf: Cell::new(ptr::null()),
@@ -690,7 +677,7 @@ impl<'a> CallThreadState<'a> {
         pc: *const u8,
         reset_guard_page: bool,
         signal_trap: Option<TrapCode>,
-        call_handler: impl Fn(&TrapHandlerFn) -> bool,
+        call_handler: impl Fn(&TrapHandler) -> bool,
     ) -> *const u8 {
         // If we hit a fault while handling a previous trap, that's quite bad,
         // so bail out and let the system handle this recursive segfault.
@@ -704,8 +691,10 @@ impl<'a> CallThreadState<'a> {
         // First up see if we have a custom trap handler,
         // in which case run it. If anything handles the trap then we
         // return that the trap was handled.
-        if self.trap_handler.custom_trap_handler(&call_handler) {
-            return 1 as *const _;
+        if let Some(handler) = self.trap_handler {
+            if unsafe { call_handler(&*handler) } {
+                return 1 as *const _;
+            }
         }
 
         // TODO: stack overflow can happen at any random time (i.e. in malloc()
@@ -735,7 +724,7 @@ impl<'a> CallThreadState<'a> {
     }
 }
 
-impl<'a> Drop for CallThreadState<'a> {
+impl Drop for CallThreadState {
     fn drop(&mut self) {
         if self.reset_guard_page.get() {
             reset_guard_page();
@@ -751,7 +740,6 @@ impl<'a> Drop for CallThreadState<'a> {
 mod tls {
     use super::CallThreadState;
     use crate::Trap;
-    use std::mem;
     use std::ptr;
 
     pub use raw::Ptr;
@@ -773,7 +761,7 @@ mod tls {
         use std::cell::Cell;
         use std::ptr;
 
-        pub type Ptr = *const CallThreadState<'static>;
+        pub type Ptr = *const CallThreadState;
 
         // The first entry here is the `Ptr` which is what's used as part of the
         // public interface of this module. The second entry is a boolean which
@@ -849,10 +837,11 @@ mod tls {
     /// Configures thread local state such that for the duration of the
     /// execution of `closure` any call to `with` will yield `ptr`, unless this
     /// is recursively called again.
-    pub fn set<R>(state: &CallThreadState<'_>, closure: impl FnOnce() -> R) -> Result<R, Trap> {
-        struct Reset<'a, 'b>(&'a CallThreadState<'b>);
+    #[inline]
+    pub fn set<R>(state: &CallThreadState, closure: impl FnOnce() -> R) -> Result<R, Trap> {
+        struct Reset<'a>(&'a CallThreadState);
 
-        impl Drop for Reset<'_, '_> {
+        impl Drop for Reset<'_> {
             #[inline]
             fn drop(&mut self) {
                 raw::replace(self.0.prev.replace(ptr::null()))
@@ -860,11 +849,7 @@ mod tls {
             }
         }
 
-        // Note that this extension of the lifetime to `'static` should be
-        // safe because we only ever access it below with an anonymous
-        // lifetime, meaning `'static` never leaks out of this module.
-        let ptr = unsafe { mem::transmute::<*const CallThreadState<'_>, _>(state) };
-        let prev = raw::replace(ptr)?;
+        let prev = raw::replace(state)?;
         state.prev.set(prev);
         let _reset = Reset(state);
         Ok(closure())
@@ -872,7 +857,7 @@ mod tls {
 
     /// Returns the last pointer configured with `set` above. Panics if `set`
     /// has not been previously called and not returned.
-    pub fn with<R>(closure: impl FnOnce(Option<&CallThreadState<'_>>) -> R) -> R {
+    pub fn with<R>(closure: impl FnOnce(Option<&CallThreadState>) -> R) -> R {
         let p = raw::get();
         unsafe { closure(if p.is_null() { None } else { Some(&*p) }) }
     }

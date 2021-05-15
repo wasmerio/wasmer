@@ -131,7 +131,7 @@ macro_rules! impl_native_traits {
                     };
                     unsafe {
                         wasmer_vm::wasmer_call_trampoline(
-                            &self.store,
+                            self.store.trap_handler(),
                             self.vmctx(),
                             trampoline,
                             self.address(),

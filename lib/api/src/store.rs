@@ -1,12 +1,11 @@
 use crate::tunables::BaseTunables;
 use loupe::MemoryUsage;
-use std::any::Any;
 use std::fmt;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::{is_wasm_pc, Engine, Tunables};
-use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
+use wasmer_vm::{init_traps, TrapHandler};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -23,7 +22,7 @@ pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
     tunables: Arc<dyn Tunables + Send + Sync>,
     #[loupe(skip)]
-    trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn>>>>,
+    pub(crate) trap_handler: Arc<Option<Box<TrapHandler<'static>>>>,
 }
 
 impl Store {
@@ -35,10 +34,15 @@ impl Store {
         Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
     }
 
-    /// Set the trap handler in this store.
-    pub fn set_trap_handler(&self, handler: Option<Box<TrapHandlerFn>>) {
-        let mut m = self.trap_handler.write().unwrap();
-        *m = handler;
+    /// Sets a [`TrapHandler`] for the `Store`
+    pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandler<'static>>>) {
+        self.trap_handler = Arc::new(handler);
+    }
+
+    /// Retrieves the [`TrapHandler`] pointer if is already set for the `Store`.
+    pub fn trap_handler(&self) -> Option<*const TrapHandler<'static>> {
+        let trap_handler = (*self.trap_handler).as_ref()?;
+        Some(&**trap_handler as *const _)
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
@@ -53,7 +57,7 @@ impl Store {
         Self {
             engine: engine.cloned(),
             tunables: Arc::new(tunables),
-            trap_handler: Arc::new(RwLock::new(None)),
+            trap_handler: Arc::new(None),
         }
     }
 
@@ -78,21 +82,6 @@ impl Store {
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
         Self::same(self, other)
-    }
-}
-
-unsafe impl TrapHandler for Store {
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
-        if let Some(handler) = *&self.trap_handler.read().unwrap().as_ref() {
-            call(handler)
-        } else {
-            false
-        }
     }
 }
 

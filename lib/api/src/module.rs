@@ -276,7 +276,7 @@ impl Module {
             // as some of the Instance elements may have placed in other
             // instance tables.
             self.artifact
-                .finish_instantiation(&self.store, &instance_handle)?;
+                .finish_instantiation(self.store.trap_handler(), &instance_handle)?;
 
             Ok(instance_handle)
         }

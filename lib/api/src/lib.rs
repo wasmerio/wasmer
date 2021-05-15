@@ -327,8 +327,8 @@ pub mod vm {
     //! The vm module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMExtern, VMMemoryDefinition,
-        VMTableDefinition,
+        Memory, MemoryError, MemoryStyle, Table, TableStyle, TrapHandler, VMExtern,
+        VMMemoryDefinition, VMTableDefinition,
     };
 }
 
