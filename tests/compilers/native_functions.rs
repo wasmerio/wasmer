@@ -33,7 +33,7 @@ fn long_f_dynamic(values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
 }
 
 #[compiler_test(native_functions)]
-fn native_function_works_for_wasm(config: crate::Config) -> Result<()> {
+fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
     let store = config.store();
     let wat = r#"(module
         (func $multiply (import "env" "multiply") (param i32 i32) (result i32))
@@ -76,33 +76,33 @@ fn native_function_works_for_wasm(config: crate::Config) -> Result<()> {
     Ok(())
 }
 
-#[compiler_test(native_functions)]
-#[should_panic(
-    expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
-)]
-fn native_host_function_closure_panics(config: crate::Config) -> Result<()> {
-    let store = config.store();
-    let state = 3;
-    Function::new_native(&store, move |_: i32| {
-        println!("{}", state);
-    });
-}
+// #[should_panic(
+//     expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
+// )]
+// #[compiler_test(native_functions)]
+// fn native_host_function_closure_panics(config: crate::Config) {
+//     let store = config.store();
+//     let state = 3;
+//     Function::new_native(&store, move |_: i32| {
+//         println!("{}", state);
+//     });
+// }
+
+// #[should_panic(
+//     expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
+// )]
+// #[compiler_test(native_functions)]
+// fn native_with_env_host_function_closure_panics(config: crate::Config) {
+//     let store = config.store();
+//     let state = 3;
+//     let env = 4;
+//     Function::new_native_with_env(&store, env, move |_env: &i32, _: i32| {
+//         println!("{}", state);
+//     });
+// }
 
 #[compiler_test(native_functions)]
-#[should_panic(
-    expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
-)]
-fn native_with_env_host_function_closure_panics(config: crate::Config) -> Result<()> {
-    let store = config.store();
-    let state = 3;
-    let env = 4;
-    Function::new_native_with_env(&store, env, move |_env: &i32, _: i32| {
-        println!("{}", state);
-    });
-}
-
-#[compiler_test(native_functions)]
-fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> Result<()> {
+fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> anyhow::Result<()> {
     let store = config.store();
     let wat = r#"(module
         (func $multiply1 (import "env" "multiply1") (param i32 i32) (result i32))
@@ -161,7 +161,7 @@ fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> 
 }
 
 #[compiler_test(native_functions)]
-fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> Result<()> {
+fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> anyhow::Result<()> {
     let store = config.store();
     let wat = r#"(module
         (func $longf (import "env" "longf") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64))
@@ -199,7 +199,9 @@ fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> 
 }
 
 #[compiler_test(native_functions)]
-fn native_function_works_for_wasm_function_manyparams_dynamic(config: crate::Config) -> Result<()> {
+fn native_function_works_for_wasm_function_manyparams_dynamic(
+    config: crate::Config,
+) -> anyhow::Result<()> {
     let store = config.store();
     let wat = r#"(module
         (func $longf (import "env" "longf") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64))
@@ -237,8 +239,8 @@ fn native_function_works_for_wasm_function_manyparams_dynamic(config: crate::Con
 }
 
 #[compiler_test(native_functions)]
-fn static_host_function_without_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()> {
+    let store = config.store();
 
     fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         (d * 4.0, c * 3.0, b * 2, a * 1)
@@ -298,8 +300,8 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
 }
 
 #[compiler_test(native_functions)]
-fn static_host_function_with_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
+    let store = config.store();
 
     fn f(env: &Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         let mut guard = env.0.lock().unwrap();
@@ -361,8 +363,8 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
 }
 
 #[compiler_test(native_functions)]
-fn dynamic_host_function_without_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()> {
+    let store = config.store();
 
     let f = Function::new(
         &store,
@@ -388,8 +390,8 @@ fn dynamic_host_function_without_env() -> anyhow::Result<()> {
 }
 
 #[compiler_test(native_functions)]
-fn dynamic_host_function_with_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
+    let store = config.store();
 
     #[derive(WasmerEnv, Clone)]
     struct Env(Arc<Mutex<i32>>);

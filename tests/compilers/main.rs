@@ -9,7 +9,7 @@ mod config;
 mod imports;
 mod metering;
 mod middlewares;
-mod multi_value_imports;
+// mod multi_value_imports;
 mod native_functions;
 mod serialize;
 mod traps;

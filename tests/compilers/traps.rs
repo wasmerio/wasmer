@@ -418,9 +418,8 @@ RuntimeError: indirect call type mismatch
     Ok(())
 }
 
-#[test]
-#[cfg_attr(target_env = "musl", ignore)]
 #[compiler_test(traps)]
+#[cfg_attr(target_env = "musl", ignore)]
 fn start_trap_pretty(config: crate::Config) -> Result<()> {
     let store = config.store();
     let wat = r#"
