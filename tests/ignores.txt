@@ -3,6 +3,7 @@ singlepass spec::multi_value
 singlepass spec::simd
 
 singlepass+windows *
+singlepass+native *
 
 # LLVM/JIT doesn't work in macOS M1. Skip all tests
 llvm+jit+macos+aarch64 *
