@@ -9,7 +9,6 @@ use ::quote::quote;
 use ::syn::parse;
 #[cfg(test)]
 use ::syn::parse2 as parse;
-// use std::iter::FromIterator;
 use ::syn::*;
 use std::path::PathBuf;
 

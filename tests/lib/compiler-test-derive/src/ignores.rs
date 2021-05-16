@@ -70,25 +70,6 @@ impl Ignores {
         let file = File::open(path).unwrap();
         let reader = BufReader::new(file);
         let mut patterns = Vec::new();
-        // if cfg!(target_arch = "aarch64") {
-        //     host_features.insert("aarch64".to_string());
-        // } else if cfg!(target_arch = "x86-64") {
-        //     host_features.insert("aarch64".to_string());
-        // } else {
-        //     host_features.insert("unknown-arch".to_string());
-        // };
-
-        // if cfg!(target_os = "macos") {
-        //     host_features.insert("macos".to_string());
-        //     host_features.insert("unix".to_string());
-        // } else if cfg!(target_os = "linux") {
-        //     host_features.insert("linux".to_string());
-        //     host_features.insert("unix".to_string());
-        // } else if cfg!(target_os = "windows") {
-        //     host_features.insert("windows".to_string());
-        // } else {
-        //     host_features.insert("unknown-arch".to_string());
-        // };
 
         for line in reader.lines() {
             let line = line.unwrap();
