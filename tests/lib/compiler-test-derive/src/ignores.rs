@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::path::PathBuf;
 
-use std::collections::HashSet;
 use std::io::{BufRead, BufReader};
 
 pub const CFG_TARGET_OS: &'static str = env!("CFG_TARGET_OS");

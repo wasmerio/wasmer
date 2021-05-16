@@ -6,6 +6,7 @@ name = "compiler-test-derive"
 version = "0.0.1"
 authors = ["Wasmer Engineering <engineering@wasmer.io>"]
 edition = "2018"
+license = "MIT"
 
 description = "A macro to generate easily tests across compilers and engines"
 keywords = ["unsafe", "body", "fn", "safety", "hygiene"]

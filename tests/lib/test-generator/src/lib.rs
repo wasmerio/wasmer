@@ -9,12 +9,8 @@ mod processors;
 
 pub use crate::processors::{emscripten_processor, wasi_processor, wast_processor};
 use anyhow::Context;
-use std::collections::HashSet;
 use std::fmt::Write;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use target_lexicon::Triple;
 
 pub struct Testsuite {
     pub buffer: String,
