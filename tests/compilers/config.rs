@@ -18,7 +18,7 @@ pub enum Engine {
 pub struct Config {
     pub compiler: Compiler,
     pub engine: Engine,
-    pub features: Features,
+    pub features: Option<Features>,
     pub middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     pub canonicalize_nans: bool,
 }
@@ -28,7 +28,7 @@ impl Config {
         Self {
             compiler,
             engine,
-            features: Default::default(),
+            features: None,
             canonicalize_nans: false,
             middlewares: vec![],
         }
@@ -39,7 +39,7 @@ impl Config {
     }
 
     pub fn set_features(&mut self, features: Features) {
-        self.features = features;
+        self.features = Some(features);
     }
 
     pub fn set_nan_canonicalization(&mut self, canonicalize_nans: bool) {
@@ -62,17 +62,22 @@ impl Config {
         compile_error!("Plese enable at least one engine via the features");
         match &self.engine {
             #[cfg(feature = "native")]
-            Engine::Native => Box::new(
-                wasmer_engine_native::Native::new(compiler_config)
-                    .features(self.features.clone())
-                    .engine(),
-            ),
+            Engine::Native => {
+                let mut engine = wasmer_engine_native::Native::new(compiler_config);
+                if let Some(ref features) = self.features {
+                    engine = engine.features(features.clone())
+                }
+                Box::new(engine.engine())
+            }
             #[cfg(feature = "jit")]
-            Engine::JIT => Box::new(
-                wasmer_engine_jit::JIT::new(compiler_config)
-                    .features(self.features.clone())
-                    .engine(),
-            ),
+            Engine::JIT => {
+                let mut engine = wasmer_engine_jit::JIT::new(compiler_config);
+                if let Some(ref features) = self.features {
+                    engine = engine.features(features.clone())
+                }
+                Box::new(engine.engine())
+            }
+            #[cfg(not(any(feature = "native", feature = "jit")))]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",
                 engine
@@ -86,6 +91,7 @@ impl Config {
             Engine::Native => Box::new(wasmer_engine_native::Native::headless().engine()),
             #[cfg(feature = "jit")]
             Engine::JIT => Box::new(wasmer_engine_jit::JIT::headless().engine()),
+            #[cfg(not(any(feature = "native", feature = "jit")))]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",
                 engine

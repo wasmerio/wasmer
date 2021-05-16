@@ -33,7 +33,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     if is_simd {
         features.simd(true);
     }
-    if cfg!(feature = "test-singlepass") {
+    if config.compiler == crate::Compiler::Singlepass {
         features.multi_value(false);
     }
     config.set_features(features);
