@@ -104,8 +104,8 @@ impl Ignores {
                         "cranelift" | "llvm" | "singlepass" => {
                             compiler = Some(alias.to_string());
                         }
-                        _ => {
-                            panic!("Alias {} not currently supported");
+                        other => {
+                            panic!("Alias {:?} not currently supported", other);
                         }
                     }
                 }
