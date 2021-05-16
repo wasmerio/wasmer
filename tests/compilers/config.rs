@@ -115,7 +115,7 @@ impl Config {
                 Box::new(compiler)
             }
             #[cfg(feature = "singlepass")]
-            Compiler::SinglePass => {
+            Compiler::Singlepass => {
                 let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler.enable_verifier();
