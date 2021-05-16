@@ -5,6 +5,35 @@ singlepass spec::simd
 singlepass+windows *
 singlepass+native *
 
+# Traps
+singlepass traps::test_trap_trace
+native     traps::test_trap_trace
+aarch64    traps::test_trap_trace
+singlepass traps::test_trap_stack_overflow
+native     traps::test_trap_stack_overflow
+aarch64    traps::test_trap_stack_overflow
+singlepass traps::trap_display_pretty
+llvm       traps::trap_display_pretty
+native     traps::trap_display_pretty
+aarch64    traps::trap_display_pretty
+singlepass traps::trap_display_multi_module
+llvm       traps::trap_display_multi_module
+native     traps::trap_display_multi_module
+aarch64    traps::trap_display_multi_module
+singlepass traps::call_signature_mismatch
+llvm       traps::call_signature_mismatch
+native     traps::call_signature_mismatch
+macos+aarch64    traps::call_signature_mismatch
+singlepass traps::start_trap_pretty
+llvm       traps::start_trap_pretty
+native     traps::start_trap_pretty
+aarch64    traps::start_trap_pretty
+
+cranelift  multi_value_imports::native
+singlepass multi_value_imports::native
+singlepass multi_value_imports::dynamic
+
+
 # LLVM/JIT doesn't work in macOS M1. Skip all tests
 llvm+jit+macos+aarch64 *
 
