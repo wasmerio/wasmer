@@ -573,7 +573,7 @@ pub unsafe fn wasmer_call_trampoline_unchecked(
 ///
 /// # Safety
 ///
-/// Highly unsafe since `closure` won't have any dtors run.
+/// Highly unsafe since `closure` won't have any destructors run.
 pub unsafe fn catch_traps<F>(trap_handler: &dyn TrapHandler, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
