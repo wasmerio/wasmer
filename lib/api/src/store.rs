@@ -46,7 +46,7 @@ impl Store {
     ///
     /// # Safety
     ///
-    /// Highly unsafe since `closure` won't have any dtors run.
+    /// Highly unsafe since `closure` won't have any destructors run.
     pub unsafe fn catch_traps<F>(&self, closure: F) -> Result<(), RuntimeError>
     where
         F: FnMut(),
