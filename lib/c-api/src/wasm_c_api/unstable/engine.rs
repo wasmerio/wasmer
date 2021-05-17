@@ -95,6 +95,45 @@ pub extern "C" fn wasm_config_set_features(
     config.features = Some(features);
 }
 
+/// Updates the configuration to enable NaN canonicalization.
+///
+/// This is a Wasmer-specific function.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Enable NaN canonicalization.
+///     wasm_config_canonicalize_nans(config, true);
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+#[no_mangle]
+pub extern "C" fn wasm_config_canonicalize_nans(config: &mut wasm_config_t, enable: bool) {
+    config.nan_canonicalization = enable;
+}
+
 /// Check whether the given compiler is available, i.e. part of this
 /// compiled library.
 #[no_mangle]

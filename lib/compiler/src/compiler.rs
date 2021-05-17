@@ -37,6 +37,25 @@ pub trait CompilerConfig {
         // in case they create an IR that they can verify.
     }
 
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    #[deprecated(note = "Please use the canonicalize_nans instead")]
+    fn enable_nan_canonicalization(&mut self) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they create an IR that they can verify.
+    }
+
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    fn canonicalize_nans(&mut self, _enable: bool) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they create an IR that they can verify.
+    }
+
     /// Gets the custom compiler config
     fn compiler(self: Box<Self>) -> Box<dyn Compiler>;
 

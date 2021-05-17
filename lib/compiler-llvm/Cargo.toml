@@ -25,7 +25,8 @@ rayon = "1.5"
 loupe = "0.1"
 
 [dependencies.inkwell]
-version = "=0.1.0-beta.2"
+git = "https://github.com/wasmerio/inkwell"
+branch = "add-metadata-support"
 default-features = false
 features = ["llvm11-0", "target-x86", "target-aarch64"]
 

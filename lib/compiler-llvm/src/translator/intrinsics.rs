@@ -5,6 +5,7 @@
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
 use crate::abi::Abi;
+use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
@@ -71,10 +72,41 @@ pub struct Intrinsics<'ctx> {
     pub ctpop_i64: FunctionValue<'ctx>,
     pub ctpop_i8x16: FunctionValue<'ctx>,
 
+    pub fp_rounding_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_exception_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_ogt_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_olt_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_uno_md: BasicMetadataValueEnum<'ctx>,
+
+    pub add_f32: FunctionValue<'ctx>,
+    pub add_f64: FunctionValue<'ctx>,
+    pub add_f32x4: FunctionValue<'ctx>,
+    pub add_f64x2: FunctionValue<'ctx>,
+
+    pub sub_f32: FunctionValue<'ctx>,
+    pub sub_f64: FunctionValue<'ctx>,
+    pub sub_f32x4: FunctionValue<'ctx>,
+    pub sub_f64x2: FunctionValue<'ctx>,
+
+    pub mul_f32: FunctionValue<'ctx>,
+    pub mul_f64: FunctionValue<'ctx>,
+    pub mul_f32x4: FunctionValue<'ctx>,
+    pub mul_f64x2: FunctionValue<'ctx>,
+
+    pub div_f32: FunctionValue<'ctx>,
+    pub div_f64: FunctionValue<'ctx>,
+    pub div_f32x4: FunctionValue<'ctx>,
+    pub div_f64x2: FunctionValue<'ctx>,
+
     pub sqrt_f32: FunctionValue<'ctx>,
     pub sqrt_f64: FunctionValue<'ctx>,
     pub sqrt_f32x4: FunctionValue<'ctx>,
     pub sqrt_f64x2: FunctionValue<'ctx>,
+
+    pub cmp_f32: FunctionValue<'ctx>,
+    pub cmp_f64: FunctionValue<'ctx>,
+    pub cmp_f32x4: FunctionValue<'ctx>,
+    pub cmp_f64x2: FunctionValue<'ctx>,
 
     pub ceil_f32: FunctionValue<'ctx>,
     pub ceil_f64: FunctionValue<'ctx>,
@@ -90,6 +122,9 @@ pub struct Intrinsics<'ctx> {
     pub trunc_f64: FunctionValue<'ctx>,
     pub trunc_f32x4: FunctionValue<'ctx>,
     pub trunc_f64x2: FunctionValue<'ctx>,
+
+    pub fpext_f32: FunctionValue<'ctx>,
+    pub fptrunc_f64: FunctionValue<'ctx>,
 
     pub nearbyint_f32: FunctionValue<'ctx>,
     pub nearbyint_f64: FunctionValue<'ctx>,
@@ -238,6 +273,8 @@ impl<'ctx> Intrinsics<'ctx> {
         let f32_ty = context.f32_type();
         let f64_ty = context.f64_type();
 
+        let i1x4_ty = i1_ty.vec_type(4);
+        let i1x2_ty = i1_ty.vec_type(2);
         let i1x128_ty = i1_ty.vec_type(128);
         let i8x16_ty = i8_ty.vec_type(16);
         let i16x8_ty = i16_ty.vec_type(8);
@@ -311,6 +348,9 @@ impl<'ctx> Intrinsics<'ctx> {
         let externref_ty = funcref_ty;
         let anyref_ty = i8_ptr_ty;
 
+        let md_ty = context.metadata_type();
+        let md_ty_basic = md_ty.as_basic_type_enum();
+
         let ret_i8x16_take_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic], false);
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
@@ -331,7 +371,46 @@ impl<'ctx> Intrinsics<'ctx> {
         let ret_f32x4_take_f32x4_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic, f32x4_ty_basic], false);
         let ret_f64x2_take_f64x2_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic, f64x2_ty_basic], false);
 
+        let ret_f64_take_f32_md = f64_ty.fn_type(&[f32_ty_basic, md_ty_basic], false);
+        let ret_f32_take_f64_md_md =
+            f32_ty.fn_type(&[f64_ty_basic, md_ty_basic, md_ty_basic], false);
+
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
+
+        let ret_i1_take_f32_f32_md_md = i1_ty.fn_type(
+            &[f32_ty_basic, f32_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+        let ret_i1_take_f64_f64_md_md = i1_ty.fn_type(
+            &[f64_ty_basic, f64_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+        let ret_i1x4_take_f32x4_f32x4_md_md = i1x4_ty.fn_type(
+            &[f32x4_ty_basic, f32x4_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+        let ret_i1x2_take_f64x2_f64x2_md_md = i1x2_ty.fn_type(
+            &[f64x2_ty_basic, f64x2_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+
+        let ret_f32_take_f32_f32_md_md = f32_ty.fn_type(
+            &[f32_ty_basic, f32_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+        let ret_f64_take_f64_f64_md_md = f64_ty.fn_type(
+            &[f64_ty_basic, f64_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+        let ret_f32x4_take_f32x4_f32x4_md_md = f32x4_ty.fn_type(
+            &[f32x4_ty_basic, f32x4_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+        let ret_f64x2_take_f64x2_f64x2_md_md = f64x2_ty.fn_type(
+            &[f64x2_ty_basic, f64x2_ty_basic, md_ty_basic, md_ty_basic],
+            false,
+        );
+
         let intrinsics = Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
             ctlz_i64: module.add_function("llvm.ctlz.i64", ret_i64_take_i64_i1, None),
@@ -342,6 +421,13 @@ impl<'ctx> Intrinsics<'ctx> {
             ctpop_i32: module.add_function("llvm.ctpop.i32", ret_i32_take_i32, None),
             ctpop_i64: module.add_function("llvm.ctpop.i64", ret_i64_take_i64, None),
             ctpop_i8x16: module.add_function("llvm.ctpop.v16i8", ret_i8x16_take_i8x16, None),
+
+            fp_rounding_md: context.metadata_string("round.tonearest").into(),
+            fp_exception_md: context.metadata_string("fpexcept.strict").into(),
+
+            fp_ogt_md: context.metadata_string("ogt").into(),
+            fp_olt_md: context.metadata_string("olt").into(),
+            fp_uno_md: context.metadata_string("uno").into(),
 
             sqrt_f32: module.add_function("llvm.sqrt.f32", ret_f32_take_f32, None),
             sqrt_f64: module.add_function("llvm.sqrt.f64", ret_f64_take_f64, None),
@@ -373,6 +459,122 @@ impl<'ctx> Intrinsics<'ctx> {
             nearbyint_f64x2: module.add_function(
                 "llvm.nearbyint.v2f64",
                 ret_f64x2_take_f64x2,
+                None,
+            ),
+
+            add_f32: module.add_function(
+                "llvm.experimental.constrained.fadd.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            add_f64: module.add_function(
+                "llvm.experimental.constrained.fadd.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            add_f32x4: module.add_function(
+                "llvm.experimental.constrained.fadd.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            add_f64x2: module.add_function(
+                "llvm.experimental.constrained.fadd.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            sub_f32: module.add_function(
+                "llvm.experimental.constrained.fsub.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            sub_f64: module.add_function(
+                "llvm.experimental.constrained.fsub.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            sub_f32x4: module.add_function(
+                "llvm.experimental.constrained.fsub.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            sub_f64x2: module.add_function(
+                "llvm.experimental.constrained.fsub.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            mul_f32: module.add_function(
+                "llvm.experimental.constrained.fmul.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            mul_f64: module.add_function(
+                "llvm.experimental.constrained.fmul.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            mul_f32x4: module.add_function(
+                "llvm.experimental.constrained.fmul.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            mul_f64x2: module.add_function(
+                "llvm.experimental.constrained.fmul.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            div_f32: module.add_function(
+                "llvm.experimental.constrained.fdiv.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            div_f64: module.add_function(
+                "llvm.experimental.constrained.fdiv.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            div_f32x4: module.add_function(
+                "llvm.experimental.constrained.fdiv.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            div_f64x2: module.add_function(
+                "llvm.experimental.constrained.fdiv.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            cmp_f32: module.add_function(
+                "llvm.experimental.constrained.fcmp.f32",
+                ret_i1_take_f32_f32_md_md,
+                None,
+            ),
+            cmp_f64: module.add_function(
+                "llvm.experimental.constrained.fcmp.f64",
+                ret_i1_take_f64_f64_md_md,
+                None,
+            ),
+            cmp_f32x4: module.add_function(
+                "llvm.experimental.constrained.fcmp.v4f32",
+                ret_i1x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            cmp_f64x2: module.add_function(
+                "llvm.experimental.constrained.fcmp.v2f64",
+                ret_i1x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            fpext_f32: module.add_function(
+                "llvm.experimental.constrained.fpext.f64.f32",
+                ret_f64_take_f32_md,
+                None,
+            ),
+            fptrunc_f64: module.add_function(
+                "llvm.experimental.constrained.fptrunc.f32.f64",
+                ret_f32_take_f64_md_md,
                 None,
             ),
 
