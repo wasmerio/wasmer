@@ -41,7 +41,7 @@ macro_rules! gen_tests {(
 gen_tests! {
     identity_for_no_unsafe:
     stringify! {
-        #[compiler_test]
+        #[compiler_test(derive_test)]
         #[cold]
         fn add (config: crate::Config)
         {
@@ -52,15 +52,17 @@ gen_tests! {
         mod add {
             use super::*;
 
-            #[cold]
             fn add(config: crate::Config)
             {
                 // Do tests
             }
 
+            #[cfg(feature = "singlepass")]
             mod singlepass {
                 use super::*;
                 #[test]
+                #[cold]
+                #[cfg(feature = "jit")]
                 fn jit() {
                     add(crate::Config::new(
                         crate::Engine::JIT,
@@ -68,6 +70,8 @@ gen_tests! {
                     ))
                 }
                 #[test]
+                #[cold]
+                #[cfg(feature = "native")]
                 fn native() {
                     add(crate::Config::new(
                         crate::Engine::Native,
@@ -76,9 +80,12 @@ gen_tests! {
                 }
             }
 
+            #[cfg(feature = "cranelift")]
             mod cranelift {
                 use super::*;
                 #[test]
+                #[cold]
+                #[cfg(feature = "jit")]
                 fn jit() {
                     add(crate::Config::new(
                         crate::Engine::JIT,
@@ -86,6 +93,8 @@ gen_tests! {
                     ))
                 }
                 #[test]
+                #[cold]
+                #[cfg(feature = "native")]
                 fn native() {
                     add(crate::Config::new(
                         crate::Engine::Native,
@@ -94,9 +103,12 @@ gen_tests! {
                 }
             }
 
+            #[cfg(feature = "llvm")]
             mod llvm {
-                use super::add;
+                use super::*;
                 #[test]
+                #[cold]
+                #[cfg(feature = "jit")]
                 fn jit() {
                     add(crate::Config::new(
                         crate::Engine::JIT,
@@ -104,6 +116,8 @@ gen_tests! {
                     ))
                 }
                 #[test]
+                #[cold]
+                #[cfg(feature = "native")]
                 fn native() {
                     add(crate::Config::new(
                         crate::Engine::Native,

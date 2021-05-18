@@ -39,7 +39,7 @@ macro_rules! parse_macro_input {
 #[proc_macro_attribute]
 pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let path: Option<ExprPath> = parse::<ExprPath>(attrs).ok();
-    let my_fn: ItemFn = parse_macro_input!(input as ItemFn);
+    let mut my_fn: ItemFn = parse_macro_input!(input as ItemFn);
     let fn_name = my_fn.sig.ident.clone();
 
     // Let's build the ignores to append an `#[ignore]` macro to the
@@ -68,7 +68,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
         // println!("{} -> Should ignore: {}", full_path, should_ignore);
         return should_ignore;
     };
-    let construct_engine_test = |sig: &::syn::Signature,
+    let construct_engine_test = |func: &::syn::ItemFn,
                                  compiler_name: &str,
                                  engine_name: &str|
      -> ::proc_macro2::TokenStream {
@@ -76,35 +76,42 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
         let config_engine = ::quote::format_ident!("{}", engine_name);
         let engine_name_lowercase = engine_name.to_lowercase();
         let test_name = ::quote::format_ident!("{}", engine_name_lowercase);
-        let mut new_sig = sig.clone();
+        let mut new_sig = func.sig.clone();
+        let attrs = func
+            .attrs
+            .clone()
+            .iter()
+            .fold(quote! {}, |acc, new| quote! {#acc #new});
         new_sig.ident = test_name;
         new_sig.inputs = ::syn::punctuated::Punctuated::new();
-        let func = quote! {
+        let f = quote! {
             #[test]
+            #attrs
             #[cfg(feature = #engine_name_lowercase)]
             #new_sig {
                 #fn_name(crate::Config::new(crate::Engine::#config_engine, crate::Compiler::#config_compiler))
             }
         };
         if should_ignore(
-            &sig.ident.to_string().replace("r#", ""),
+            &func.sig.ident.to_string().replace("r#", ""),
             compiler_name,
             engine_name,
-        ) {
+        ) && !cfg!(test)
+        {
             quote! {
                 #[ignore]
-                #func
+                #f
             }
         } else {
-            func
+            f
         }
     };
 
     let construct_compiler_test =
-        |sig: &::syn::Signature, compiler_name: &str| -> ::proc_macro2::TokenStream {
+        |func: &::syn::ItemFn, compiler_name: &str| -> ::proc_macro2::TokenStream {
             let mod_name = ::quote::format_ident!("{}", compiler_name.to_lowercase());
-            let jit_engine_test = construct_engine_test(sig, compiler_name, "JIT");
-            let native_engine_test = construct_engine_test(sig, compiler_name, "Native");
+            let jit_engine_test = construct_engine_test(func, compiler_name, "JIT");
+            let native_engine_test = construct_engine_test(func, compiler_name, "Native");
             let compiler_name_lowercase = compiler_name.to_lowercase();
 
             quote! {
@@ -118,9 +125,12 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
             }
         };
 
-    let singlepass_compiler_test = construct_compiler_test(&my_fn.sig, "Singlepass");
-    let cranelift_compiler_test = construct_compiler_test(&my_fn.sig, "Cranelift");
-    let llvm_compiler_test = construct_compiler_test(&my_fn.sig, "LLVM");
+    let singlepass_compiler_test = construct_compiler_test(&my_fn, "Singlepass");
+    let cranelift_compiler_test = construct_compiler_test(&my_fn, "Cranelift");
+    let llvm_compiler_test = construct_compiler_test(&my_fn, "LLVM");
+
+    // We remove the method decorators
+    my_fn.attrs = vec![];
 
     let x = quote! {
         #[cfg(test)]
