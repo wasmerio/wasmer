@@ -91,7 +91,7 @@ mod tests {
             self.enabled_pic = true;
         }
 
-        fn compiler(&self) -> Box<dyn Compiler> {
+        fn compiler(self: Box<Self>) -> Box<dyn Compiler> {
             unimplemented!("compiler not implemented");
         }
 
@@ -104,7 +104,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "compiler not implemented")]
     fn build_engine() {
-        let mut compiler_config = TestCompilerConfig::default();
+        let compiler_config = TestCompilerConfig::default();
         let native = Native::new(compiler_config);
         let _engine = native.engine();
     }
