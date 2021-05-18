@@ -76,30 +76,30 @@ fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-// #[should_panic(
-//     expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
-// )]
-// #[compiler_test(native_functions)]
-// fn native_host_function_closure_panics(config: crate::Config) {
-//     let store = config.store();
-//     let state = 3;
-//     Function::new_native(&store, move |_: i32| {
-//         println!("{}", state);
-//     });
-// }
+#[should_panic(
+    expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
+)]
+#[compiler_test(native_functions)]
+fn native_host_function_closure_panics(config: crate::Config) {
+    let store = config.store();
+    let state = 3;
+    Function::new_native(&store, move |_: i32| {
+        println!("{}", state);
+    });
+}
 
-// #[should_panic(
-//     expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
-// )]
-// #[compiler_test(native_functions)]
-// fn native_with_env_host_function_closure_panics(config: crate::Config) {
-//     let store = config.store();
-//     let state = 3;
-//     let env = 4;
-//     Function::new_native_with_env(&store, env, move |_env: &i32, _: i32| {
-//         println!("{}", state);
-//     });
-// }
+#[should_panic(
+    expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
+)]
+#[compiler_test(native_functions)]
+fn native_with_env_host_function_closure_panics(config: crate::Config) {
+    let store = config.store();
+    let state = 3;
+    let env = 4;
+    Function::new_native_with_env(&store, env, move |_env: &i32, _: i32| {
+        println!("{}", state);
+    });
+}
 
 #[compiler_test(native_functions)]
 fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> anyhow::Result<()> {
