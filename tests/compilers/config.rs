@@ -77,7 +77,7 @@ impl Config {
                 }
                 Box::new(engine.engine())
             }
-            #[cfg(not(any(feature = "native", feature = "jit")))]
+            #[allow(dead_code)]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",
                 engine
@@ -91,7 +91,7 @@ impl Config {
             Engine::Native => Box::new(wasmer_engine_native::Native::headless().engine()),
             #[cfg(feature = "jit")]
             Engine::JIT => Box::new(wasmer_engine_jit::JIT::headless().engine()),
-            #[cfg(not(any(feature = "native", feature = "jit")))]
+            #[allow(dead_code)]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",
                 engine

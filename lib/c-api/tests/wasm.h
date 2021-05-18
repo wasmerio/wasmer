@@ -12,7 +12,7 @@
 wasm_engine_t *wasm_engine_new() {
   wasm_config_t *config = wasm_config_new();
 
-  char *wasmer_test_compiler = getenv("TEST");
+  char *wasmer_test_compiler = getenv("WASMER_CAPI_CONFIG");
   char *wasmer_test_engine;
 
   strtok_r(wasmer_test_compiler, "-", &wasmer_test_engine);

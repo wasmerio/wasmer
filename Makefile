@@ -480,7 +480,22 @@ build-capi-headless-all: capi-setup
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
+test: test-compilers test-packages test-examples test-deprecated
+
+test-compilers:
+	cargo test --release --tests $(compiler_features)
+
+test-packages:
+	cargo test --all --release --exclude wasmer-c-api
+	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
+
+########################
+# Testing (Compatible) #
+########################
+
+test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
 test-singlepass-native:
 	cargo test --release --tests $(compiler_features) -- singlepass::native
@@ -506,12 +521,6 @@ test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engi
 
 test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
 
-test-packages:
-	cargo test --all
-	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features)
-
 # We want to run all the tests for all available compilers. The C API
 # and the tests rely on the fact that one and only one default
 # compiler will be selected at compile-time. Therefore, if we want to
@@ -536,14 +545,14 @@ test-packages:
 test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
 
 test-capi-crate-%:
-	TEST=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
+	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,wasi,middlewares $(capi_default_features) $(compiler_features) -- --nocapture
 
 test-capi-integration-%: package-capi
 	# Test the Wasmer C API tests for C
-	cd lib/c-api/tests; TEST=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
+	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples
-	cd lib/c-api/examples; TEST=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
+	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
@@ -576,7 +585,7 @@ else
 		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
 	fi
 ifeq ($(IS_DARWIN), 1)
-	# codesign -s - package/bin/wapm || true
+	codesign -s - package/bin/wapm || true
 endif
 endif
 
@@ -598,7 +607,7 @@ ifeq ($(IS_WINDOWS), 1)
 else
 	cp $(TARGET_DIR)/wasmer package/bin/
 ifeq ($(IS_DARWIN), 1)
-	# codesign -s - package/bin/wasmer || true
+	codesign -s - package/bin/wasmer || true
 endif
 endif
 

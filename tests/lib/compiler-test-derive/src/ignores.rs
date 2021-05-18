@@ -70,12 +70,12 @@ impl Ignores {
         let reader = BufReader::new(file);
         let mut patterns = Vec::new();
 
-        for line in reader.lines() {
+        for (i, line) in reader.lines().enumerate() {
             let line = line.unwrap();
             // If the line has a `#` we discard all the content that comes after
             let line = if line.contains('#') {
-                let l: Vec<&str> = line.split('#').collect();
-                l.get(0).unwrap().to_string()
+                let l: Vec<&str> = line.splitn(2, '#').collect();
+                l[0].to_string()
             } else {
                 line
             };
@@ -90,7 +90,7 @@ impl Ignores {
                 let mut arch: Option<String> = None;
                 let mut engine: Option<String> = None;
                 let mut compiler: Option<String> = None;
-                for alias in l.get(0).unwrap().trim().split("+") {
+                for alias in l[0].trim().split("+") {
                     match alias {
                         "aarch64" | "x86" | "x64" => {
                             arch = Some(alias.to_string());
@@ -105,11 +105,11 @@ impl Ignores {
                             compiler = Some(alias.to_string());
                         }
                         other => {
-                            panic!("Alias {:?} not currently supported", other);
+                            panic!("Alias {:?} not currently supported (defined in ignores.txt in line {})", other, i+1);
                         }
                     }
                 }
-                let pattern_to_ignore = l.get(1).unwrap().trim().to_string();
+                let pattern_to_ignore = l[1].trim().to_string();
                 patterns.push(IgnorePattern {
                     os,
                     arch,
