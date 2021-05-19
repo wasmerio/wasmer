@@ -395,7 +395,7 @@ impl Instance {
     /// Invoke the WebAssembly start function of the instance, if one is present.
     fn invoke_start_function(
         &self,
-        trap_handler: Option<*const TrapHandler<'static>>,
+        trap_handler: Arc<Option<Box<TrapHandler<'static>>>>,
     ) -> Result<(), Trap> {
         let start_index = match self.module.start_function {
             Some(idx) => idx,
@@ -1018,7 +1018,7 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &self,
-        trap_handler: Option<*const TrapHandler<'static>>,
+        trap_handler: Arc<Option<Box<TrapHandler<'static>>>>,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
         let instance = self.instance().as_ref();

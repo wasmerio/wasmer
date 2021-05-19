@@ -13,6 +13,7 @@ use std::error::Error;
 use std::io;
 use std::mem::{self, MaybeUninit};
 use std::ptr;
+use std::sync::Arc;
 use std::sync::Once;
 pub use tls::TlsRestore;
 
@@ -525,7 +526,7 @@ impl Trap {
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
-    trap_handler: Option<*const TrapHandler<'static>>,
+    trap_handler: Arc<Option<Box<TrapHandler<'static>>>>,
     vmctx: VMFunctionEnvironment,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
@@ -543,7 +544,7 @@ pub unsafe fn wasmer_call_trampoline(
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps<F>(
-    trap_handler: Option<*const TrapHandler<'static>>,
+    trap_handler: Arc<Option<Box<TrapHandler<'static>>>>,
     mut closure: F,
 ) -> Result<(), Trap>
 where
@@ -575,7 +576,7 @@ where
 ///
 /// Check [`catch_traps`].
 pub unsafe fn catch_traps_with_result<F, R>(
-    trap_handler: Option<*const TrapHandler<'static>>,
+    trap_handler: Arc<Option<Box<TrapHandler<'static>>>>,
     mut closure: F,
 ) -> Result<R, Trap>
 where
@@ -592,7 +593,7 @@ where
 /// below for calls into wasm.
 pub struct CallThreadState {
     unwind: UnsafeCell<MaybeUninit<UnwindReason>>,
-    trap_handler: Option<*const TrapHandler<'static>>,
+    trap_handler: Arc<Option<Box<TrapHandler<'static>>>>,
     jmp_buf: Cell<*const u8>,
     reset_guard_page: Cell<bool>,
     prev: Cell<tls::Ptr>,
@@ -616,7 +617,7 @@ enum UnwindReason {
 
 impl CallThreadState {
     #[inline]
-    fn new(trap_handler: Option<*const TrapHandler<'static>>) -> CallThreadState {
+    fn new(trap_handler: Arc<Option<Box<TrapHandler<'static>>>>) -> CallThreadState {
         Self {
             unwind: UnsafeCell::new(MaybeUninit::uninit()),
             jmp_buf: Cell::new(ptr::null()),
@@ -691,8 +692,8 @@ impl CallThreadState {
         // First up see if we have a custom trap handler,
         // in which case run it. If anything handles the trap then we
         // return that the trap was handled.
-        if let Some(handler) = self.trap_handler {
-            if unsafe { call_handler(&*handler) } {
+        if let Some(handler) = self.trap_handler.as_ref() {
+            if call_handler(&*handler) {
                 return 1 as *const _;
             }
         }

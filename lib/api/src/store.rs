@@ -40,9 +40,8 @@ impl Store {
     }
 
     /// Retrieves the [`TrapHandler`] pointer if is already set for the `Store`.
-    pub fn trap_handler(&self) -> Option<*const TrapHandler<'static>> {
-        let trap_handler = (*self.trap_handler).as_ref()?;
-        Some(&**trap_handler as *const _)
+    pub fn trap_handler(&self) -> Arc<Option<Box<TrapHandler<'static>>>> {
+        self.trap_handler.clone()
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
