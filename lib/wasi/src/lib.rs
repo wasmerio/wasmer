@@ -33,8 +33,6 @@ use wasmer::{
     imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, Module,
     NamedResolver, Store, WasmerEnv,
 };
-#[cfg(all(target_os = "macos", target_arch = "aarch64",))]
-use wasmer::{FunctionType, ValType};
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -146,34 +144,6 @@ pub fn generate_import_object_from_env(
     }
 }
 
-// Note: we use this wrapper because native functions with more than 9 params
-// fail on Apple Silicon (with Cranelift).
-fn get_path_open_for_store(store: &Store, env: WasiEnv) -> Function {
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64",)))]
-    let path_open = Function::new_native_with_env(store, env, path_open);
-    #[cfg(all(target_os = "macos", target_arch = "aarch64",))]
-    let path_open = Function::new_with_env(
-        store,
-        FunctionType::new(
-            vec![
-                ValType::I32,
-                ValType::I32,
-                ValType::I32,
-                ValType::I32,
-                ValType::I32,
-                ValType::I64,
-                ValType::I64,
-                ValType::I32,
-                ValType::I32,
-            ],
-            vec![ValType::I32],
-        ),
-        env.clone(),
-        path_open_dynamic,
-    );
-    path_open
-}
-
 /// Combines a state generating function with the import list for legacy WASI
 fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject {
     imports! {
@@ -209,7 +179,7 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
             "path_filestat_get" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::path_filestat_get),
             "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
             "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => get_path_open_for_store(store, env.clone()),
+            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
             "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
             "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
             "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
@@ -262,7 +232,7 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "path_filestat_get" => Function::new_native_with_env(store, env.clone(), path_filestat_get),
             "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
             "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => get_path_open_for_store(store, env.clone()),
+            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
             "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
             "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
             "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
