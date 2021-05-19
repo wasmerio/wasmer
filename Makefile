@@ -486,7 +486,7 @@ test-compilers:
 	cargo test --release --tests $(compiler_features)
 
 test-packages:
-	cargo test --all --release --exclude wasmer-c-api --exclude wasmer-cli
+	cargo test --all --release --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-wasi-experimental-io-devices
 	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
