@@ -939,7 +939,7 @@ impl InstanceHandle {
 
             // Set the funcrefs after we've built the instance
             {
-                let instance = instance_ref.as_mut();
+                let instance = instance_ref.as_mut().unwrap();
                 let vmctx_ptr = instance.vmctx_ptr();
                 instance.funcrefs = build_funcrefs(
                     &*instance.module,
@@ -1237,7 +1237,7 @@ impl InstanceHandle {
         &mut self,
         instance_ptr: *const ffi::c_void,
     ) -> Result<(), Err> {
-        let instance_ref = self.instance.as_mut();
+        let instance_ref = self.instance.as_mut_unchecked();
 
         for import_function_env in instance_ref.imported_function_envs.values_mut() {
             match import_function_env {
