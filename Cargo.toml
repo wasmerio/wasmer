@@ -69,6 +69,7 @@ anyhow = "1.0"
 blake3 = "0.3"
 criterion = "0.3"
 lazy_static = "1.4"
+serial_test = "0.5"
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.1"
