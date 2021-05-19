@@ -6,7 +6,11 @@ use std::ptr::{self, NonNull};
 use std::sync::Arc;
 
 /// Dynamic instance allocation.
+///
+/// This structure has a C representation because `Instance` is
+/// dynamically-sized, and the `instance` field must be last.
 #[derive(Debug)]
+#[repr(C)]
 struct InstanceInner {
     /// The layout of `Instance` (which can vary).
     instance_layout: Layout,
@@ -37,14 +41,7 @@ impl InstanceInner {
         ptr::drop_in_place(instance_ptr);
         std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
     }
-    // TODO: do we need this?
-    /*
-    /// Get the number of strong references pointing to this
-    /// `InstanceRef`.
-    pub fn strong_count(&self) -> usize {
-        self.strong.load(atomic::Ordering::SeqCst)
-    }
-    */
+
     /// Get a reference to the `Instance`.
     #[inline]
     pub(crate) fn as_ref(&self) -> &Instance {
@@ -112,11 +109,7 @@ impl MemoryUsage for InstanceInner {
 /// share an [`Instance`] between an [`InstanceHandle`] and the module
 /// exports, so that one can drop a [`InstanceHandle`] but still being
 /// able to use the exports properly.
-///
-/// This structure has a C representation because `Instance` is
-/// dynamically-sized, and the `instance` field must be last.
 #[derive(Debug, PartialEq, Clone, MemoryUsage)]
-#[repr(C)]
 pub struct InstanceRef(Arc<InstanceInner>);
 
 impl InstanceRef {
