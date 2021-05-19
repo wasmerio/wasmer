@@ -3,7 +3,7 @@ use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::alloc::Layout;
 use std::mem;
 use std::ptr::{self, NonNull};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 /// Dynamic instance allocation.
 ///
@@ -149,5 +149,56 @@ impl InstanceRef {
     pub(super) unsafe fn as_mut_unchecked(&mut self) -> &mut Instance {
         let ptr: *mut InstanceInner = Arc::as_ptr(&self.0) as *mut _;
         (&mut *ptr).as_mut()
+    }
+}
+
+#[derive(Debug, Clone)]
+/// TODO:  document this
+pub struct WeakInstanceRef(Weak<InstanceInner>);
+
+impl WeakInstanceRef {
+    // TODO: document this
+    pub fn upgrade(&self) -> Option<InstanceRef> {
+        let inner = self.0.upgrade()?;
+        Some(InstanceRef(inner))
+    }
+}
+
+impl MemoryUsage for WeakInstanceRef {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        todo!("Probably missing implementation at crate level for `Weak`. Can be done manually here but I'm focused on other things right now");
+    }
+}
+
+#[derive(Debug, Clone, MemoryUsage)]
+/// TODO:  document this
+pub enum WeakOrStrongInstanceRef {
+    /// A weak instance ref.
+    Weak(WeakInstanceRef),
+    /// A strong instance ref.
+    Strong(InstanceRef),
+}
+
+impl WeakOrStrongInstanceRef {
+    /// Get a strong `InstanceRef`. A return Value of `None` means that the
+    /// `InstanceRef` has been freed and cannot be accessed.
+    pub fn get_strong(&self) -> Option<InstanceRef> {
+        match self {
+            Self::Weak(weak) => weak.upgrade(),
+            Self::Strong(strong) => Some(strong.clone()),
+        }
+    }
+    /// Get a weak `InstanceRef`.
+    pub fn get_weak(&self) -> WeakInstanceRef {
+        match self {
+            Self::Weak(weak) => weak.clone(),
+            Self::Strong(strong) => WeakInstanceRef(Arc::downgrade(&strong.0)),
+        }
+    }
+
+    /// TODO: document this
+    pub fn into_weak(&mut self) {
+        let new = self.get_weak();
+        *self = Self::Weak(new);
     }
 }

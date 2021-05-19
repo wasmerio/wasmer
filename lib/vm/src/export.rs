@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 use crate::global::Global;
-use crate::instance::InstanceRef;
+use crate::instance::{InstanceRef, WeakOrStrongInstanceRef};
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
@@ -116,14 +116,30 @@ impl From<VMTable> for VMExtern {
 }
 
 /// A memory export value.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, MemoryUsage)]
 pub struct VMMemory {
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host memory.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
+}
+
+// Is this just a bad idea? We want the default behavior to be converting from weak
+// to strong... but is this just a footgun?
+impl Clone for VMMemory {
+    fn clone(&self) -> Self {
+        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
+        // way to express this.
+        Self {
+            from: self.from.clone(),
+            instance_ref: self
+                .instance_ref
+                .as_ref()
+                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+        }
+    }
 }
 
 /// # Safety

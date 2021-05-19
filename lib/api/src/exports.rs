@@ -166,6 +166,19 @@ impl Exports {
         }
     }
 
+    /// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.
+    /// This is useful for passing data into `WasmerEnv`, for example.
+    pub fn get_with_generics_weak<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        T: ExportableWithGenerics<'a, Args, Rets>,
+    {
+        let mut out: T = self.get_with_generics(name)?;
+        out.into_weak_instance_ref();
+        Ok(out)
+    }
+
     /// Get an export as an `Extern`.
     pub fn get_extern(&self, name: &str) -> Option<&Extern> {
         self.map.get(name)
@@ -294,6 +307,11 @@ pub trait Exportable<'a>: Sized {
     ///
     /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
+
+    /// TODO: this method doesn't belong  here
+    fn into_weak_instance_ref(&mut self) {
+        todo!("into_weak_instance_ref")
+    }
 }
 
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
@@ -302,6 +320,10 @@ pub trait Exportable<'a>: Sized {
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
+    /// TODO: this method doesn't belong  here
+    fn into_weak_instance_ref(&mut self) {
+        todo!("into_weak_instance_ref")
+    }
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)
@@ -309,5 +331,10 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())
+    }
+
+    /// TODO: this method doesn't belong  here
+    fn into_weak_instance_ref(&mut self) {
+        <Self as Exportable>::into_weak_instance_ref(self);
     }
 }
