@@ -384,16 +384,6 @@
 <span id="381">381</span>
 <span id="382">382</span>
 <span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
-<span id="391">391</span>
-<span id="392">392</span>
-<span id="393">393</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define the `Resolver` trait, allowing custom resolution for external</span>
 <span class="doccomment">//! references.</span>
@@ -570,17 +560,7 @@
                         <span class="comment">// TODO: We should check that the f.vmctx actually matches</span>
                         <span class="comment">// the shape of `VMDynamicFunctionImportContext`</span>
                     }
-                    <span class="ident">VMFunctionKind</span>::<span class="ident">Static</span> <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="comment">// The native ABI for functions fails when defining a function natively in</span>
-                        <span class="comment">// macos (Darwin) with the Apple Silicon ARM chip, for functions with more than 10 args</span>
-                        <span class="comment">// TODO: Cranelift should have a good ABI for the ABI</span>
-                        <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>)) {
-                            <span class="kw">let</span> <span class="ident">num_params</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">signature</span>.<span class="ident">params</span>().<span class="ident">len</span>();
-                            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">num_params</span> <span class="op">&lt;</span> <span class="number">9</span>, <span class="string">&quot;Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}&quot;</span>, <span class="ident">num_params</span>, <span class="ident">module_name</span>, <span class="ident">field</span>);
-                        }
-
-                        <span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">address</span>
-                    }
+                    <span class="ident">VMFunctionKind</span>::<span class="ident">Static</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f</span>.<span class="ident">vm_function</span>.<span class="ident">address</span>,
                 };
 
                 <span class="comment">// Clone the host env for this `Instance`.</span>
