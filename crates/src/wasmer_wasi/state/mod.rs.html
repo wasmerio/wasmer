@@ -1549,6 +1549,30 @@
 <span id="1548">1548</span>
 <span id="1549">1549</span>
 <span id="1550">1550</span>
+<span id="1551">1551</span>
+<span id="1552">1552</span>
+<span id="1553">1553</span>
+<span id="1554">1554</span>
+<span id="1555">1555</span>
+<span id="1556">1556</span>
+<span id="1557">1557</span>
+<span id="1558">1558</span>
+<span id="1559">1559</span>
+<span id="1560">1560</span>
+<span id="1561">1561</span>
+<span id="1562">1562</span>
+<span id="1563">1563</span>
+<span id="1564">1564</span>
+<span id="1565">1565</span>
+<span id="1566">1566</span>
+<span id="1567">1567</span>
+<span id="1568">1568</span>
+<span id="1569">1569</span>
+<span id="1570">1570</span>
+<span id="1571">1571</span>
+<span id="1572">1572</span>
+<span id="1573">1573</span>
+<span id="1574">1574</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
@@ -2368,7 +2392,7 @@
                                 <span class="ident">symlink_count</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                                 <span class="ident">Kind</span>::<span class="ident">Symlink</span> {
                                     <span class="ident">base_po_dir</span>: <span class="ident">pre_open_dir_fd</span>,
-                                    <span class="ident">path_to_symlink</span>: <span class="ident">relative_path</span>,
+                                    <span class="ident">path_to_symlink</span>: <span class="ident">relative_path</span>.<span class="ident">to_owned</span>(),
                                     <span class="ident">relative_path</span>: <span class="ident">link_value</span>,
                                 }
                             } <span class="kw">else</span> {
@@ -2510,15 +2534,37 @@
         <span class="prelude-val">Ok</span>(<span class="ident">cur_inode</span>)
     }
 
-    <span class="doccomment">/// Splits a path into the preopened directory that has the largest prefix of</span>
-    <span class="doccomment">/// the given path, if such a preopened directory exists, and the rest of the path.</span>
-    <span class="kw">fn</span> <span class="ident">path_into_pre_open_and_relative_path</span>(
+    <span class="doccomment">/// Finds the preopened directory that is the &quot;best match&quot; for the given path and</span>
+    <span class="doccomment">/// returns a path relative to this preopened directory.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The &quot;best match&quot; is the preopened directory that has the longest prefix of the</span>
+    <span class="doccomment">/// given path. For example, given preopened directories [`a`, `a/b`, `a/c`] and</span>
+    <span class="doccomment">/// the path `a/b/c/file`, we will return the fd corresponding to the preopened</span>
+    <span class="doccomment">/// directory, `a/b` and the relative path `c/file`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// In the case of a tie, the later preopened fd is preferred.</span>
+    <span class="kw">fn</span> <span class="ident">path_into_pre_open_and_relative_path</span><span class="op">&lt;</span><span class="lifetime">&#39;path</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">__wasi_fd_t</span>, <span class="ident">PathBuf</span>), <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">max_prefix_len</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">max_stripped_path</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">max_po_fd</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;path</span> <span class="ident">Path</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">__wasi_fd_t</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;path</span> <span class="ident">Path</span>), <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
+        <span class="kw">enum</span> <span class="ident">BaseFdAndRelPath</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+            <span class="prelude-val">None</span>,
+            <span class="ident">BestMatch</span> {
+                <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
+                <span class="ident">rel_path</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Path</span>,
+                <span class="ident">max_seen</span>: <span class="ident">usize</span>,
+            },
+        }
+
+        <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">BaseFdAndRelPath</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+            <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">max_seen</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+                <span class="kw">match</span> <span class="self">self</span> {
+                    <span class="self">Self</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
+                    <span class="self">Self</span>::<span class="ident">BestMatch</span> { <span class="ident">max_seen</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">max_seen</span>,
+                }
+            }
+        }
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">BaseFdAndRelPath</span>::<span class="prelude-val">None</span>;
         <span class="comment">// for each preopened directory</span>
         <span class="kw">for</span> <span class="ident">po_fd</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">preopen_fds</span> {
             <span class="kw">let</span> <span class="ident">po_inode</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">fd_map</span>[<span class="ident">po_fd</span>].<span class="ident">inode</span>;
@@ -2533,17 +2579,19 @@
                 <span class="kw">let</span> <span class="ident">new_prefix_len</span> <span class="op">=</span> <span class="ident">po_path</span>.<span class="ident">as_os_str</span>().<span class="ident">len</span>();
                 <span class="comment">// we use &gt;= to favor later preopens because we iterate in order</span>
                 <span class="comment">// whereas WASI libc iterates in reverse to get this behavior.</span>
-                <span class="kw">if</span> <span class="ident">new_prefix_len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">max_prefix_len</span> {
-                    <span class="ident">max_prefix_len</span> <span class="op">=</span> <span class="ident">new_prefix_len</span>;
-                    <span class="ident">max_stripped_path</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">stripped_path</span>);
-                    <span class="ident">max_po_fd</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">po_fd</span>);
+                <span class="kw">if</span> <span class="ident">new_prefix_len</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">res</span>.<span class="ident">max_seen</span>() {
+                    <span class="ident">res</span> <span class="op">=</span> <span class="ident">BaseFdAndRelPath</span>::<span class="ident">BestMatch</span> {
+                        <span class="ident">fd</span>: <span class="kw-2">*</span><span class="ident">po_fd</span>,
+                        <span class="ident">rel_path</span>: <span class="ident">stripped_path</span>,
+                        <span class="ident">max_seen</span>: <span class="ident">new_prefix_len</span>,
+                    };
                 }
             }
         }
-        <span class="kw">if</span> <span class="ident">max_prefix_len</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">__WASI_EINVAL</span>) <span class="comment">// this may not make sense depending on where it&#39;s called</span>
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Ok</span>((<span class="ident">max_po_fd</span>.<span class="ident">unwrap</span>(), <span class="ident">max_stripped_path</span>.<span class="ident">unwrap</span>().<span class="ident">to_owned</span>()))
+        <span class="kw">match</span> <span class="ident">res</span> {
+            <span class="comment">// this error may not make sense depending on where it&#39;s called</span>
+            <span class="ident">BaseFdAndRelPath</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">__WASI_EINVAL</span>),
+            <span class="ident">BaseFdAndRelPath</span>::<span class="ident">BestMatch</span> { <span class="ident">fd</span>, <span class="ident">rel_path</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>((<span class="ident">fd</span>, <span class="ident">rel_path</span>)),
         }
     }
 
