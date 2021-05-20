@@ -148,8 +148,17 @@ ifneq ($(ENABLE_LLVM), 0)
 	endif
 endif
 
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
+# Is failing to compile in Linux for some reason
+exclude_tests += --exclude wasmer-wasi-experimental-io-devices
+# We run integration tests separately (it requires building the c-api)
+exclude_tests += --exclude wasmer-integration-tests-cli
+
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
+else
+	# We exclude LLVM from our package testing
+	exclude_tests += --exclude wasmer-compiler-llvm
 endif
 
 ##
@@ -486,7 +495,7 @@ test-compilers:
 	cargo test --release --tests $(compiler_features)
 
 test-packages:
-	cargo test --all --release --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-wasi-experimental-io-devices --exclude wasmer-integration-tests-cli
+	cargo test --all --release $(exclude_tests)
 	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
@@ -690,7 +699,7 @@ update-testsuite:
 
 lint-packages: RUSTFLAGS += -D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
 lint-packages:
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all --exclude wasmer-wasi-experimental-io-devices --exclude wasmer-cli
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all $(exclude_tests)
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features)
 
