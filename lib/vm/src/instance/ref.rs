@@ -156,6 +156,12 @@ impl InstanceRef {
 /// TODO:  document this
 pub struct WeakInstanceRef(Weak<InstanceInner>);
 
+impl PartialEq for WeakInstanceRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.ptr_eq(&other.0)
+    }
+}
+
 impl WeakInstanceRef {
     // TODO: document this
     pub fn upgrade(&self) -> Option<InstanceRef> {
@@ -165,12 +171,12 @@ impl WeakInstanceRef {
 }
 
 impl MemoryUsage for WeakInstanceRef {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+    fn size_of_val(&self, _tracker: &mut dyn MemoryUsageTracker) -> usize {
         todo!("Probably missing implementation at crate level for `Weak`. Can be done manually here but I'm focused on other things right now");
     }
 }
 
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone, PartialEq, MemoryUsage)]
 /// TODO:  document this
 pub enum WeakOrStrongInstanceRef {
     /// A weak instance ref.
@@ -200,5 +206,10 @@ impl WeakOrStrongInstanceRef {
     pub fn into_weak(&mut self) {
         let new = self.get_weak();
         *self = Self::Weak(new);
+    }
+
+    /// Check if the reference contained is strong.
+    pub fn is_strong(&self) -> bool {
+        matches!(self, WeakOrStrongInstanceRef::Strong(_))
     }
 }

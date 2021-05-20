@@ -248,6 +248,13 @@ impl Memory {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.vm_memory.from, &other.vm_memory.from)
     }
+
+    /// Check if the memory holds a strong `InstanceRef`.
+    /// None means there's no `InstanceRef`, strong or weak.
+    // TODO: maybe feature gate this, we only need it for tests...
+    pub fn is_strong_instance_ref(&self) -> Option<bool> {
+        self.vm_memory.instance_ref.as_ref().map(|v| v.is_strong())
+    }
 }
 
 impl<'a> Exportable<'a> for Memory {

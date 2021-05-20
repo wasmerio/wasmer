@@ -321,9 +321,7 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
     /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
     /// TODO: this method doesn't belong  here
-    fn into_weak_instance_ref(&mut self) {
-        todo!("into_weak_instance_ref")
-    }
+    fn into_weak_instance_ref(&mut self);
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)

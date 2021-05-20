@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 use crate::global::Global;
-use crate::instance::{InstanceRef, WeakOrStrongInstanceRef};
+use crate::instance::WeakOrStrongInstanceRef;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
@@ -27,7 +27,7 @@ pub enum VMExtern {
 }
 
 /// A function export value.
-#[derive(Debug, Clone, PartialEq, MemoryUsage)]
+#[derive(Debug, PartialEq, MemoryUsage)]
 pub struct VMFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
@@ -52,7 +52,27 @@ pub struct VMFunction {
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host function.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
+}
+
+// Is this just a bad idea? We want the default behavior to be converting from weak
+// to strong... but is this just a footgun?
+impl Clone for VMFunction {
+    fn clone(&self) -> Self {
+        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
+        // way to express this.
+        Self {
+            address: self.address.clone(),
+            vmctx: self.vmctx.clone(),
+            signature: self.signature.clone(),
+            kind: self.kind.clone(),
+            call_trampoline: self.call_trampoline.clone(),
+            instance_ref: self
+                .instance_ref
+                .as_ref()
+                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+        }
+    }
 }
 
 /// # Safety
@@ -70,14 +90,30 @@ impl From<VMFunction> for VMExtern {
 }
 
 /// A table export value.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, MemoryUsage)]
 pub struct VMTable {
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host table.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
+}
+
+// Is this just a bad idea? We want the default behavior to be converting from weak
+// to strong... but is this just a footgun?
+impl Clone for VMTable {
+    fn clone(&self) -> Self {
+        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
+        // way to express this.
+        Self {
+            from: self.from.clone(),
+            instance_ref: self
+                .instance_ref
+                .as_ref()
+                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+        }
+    }
 }
 
 /// # Safety
@@ -178,14 +214,30 @@ impl From<VMMemory> for VMExtern {
 }
 
 /// A global export value.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, MemoryUsage)]
 pub struct VMGlobal {
     /// The global declaration, used for compatibility checking.
     pub from: Arc<Global>,
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host global.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
+}
+
+// Is this just a bad idea? We want the default behavior to be converting from weak
+// to strong... but is this just a footgun?
+impl Clone for VMGlobal {
+    fn clone(&self) -> Self {
+        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
+        // way to express this.
+        Self {
+            from: self.from.clone(),
+            instance_ref: self
+                .instance_ref
+                .as_ref()
+                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+        }
+    }
 }
 
 /// # Safety

@@ -146,6 +146,13 @@ impl Table {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.vm_table.from, &other.vm_table.from)
     }
+
+    /// Check if the table holds a strong `InstanceRef`.
+    /// None means there's no `InstanceRef`, strong or weak.
+    // TODO: maybe feature gate this, we only need it for tests...
+    pub fn is_strong_instance_ref(&self) -> Option<bool> {
+        self.vm_table.instance_ref.as_ref().map(|v| v.is_strong())
+    }
 }
 
 impl<'a> Exportable<'a> for Table {
@@ -158,5 +165,9 @@ impl<'a> Exportable<'a> for Table {
             Extern::Table(table) => Ok(table),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.vm_table.instance_ref.as_mut().map(|v| v.into_weak());
     }
 }

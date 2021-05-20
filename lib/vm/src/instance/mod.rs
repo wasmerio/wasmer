@@ -1100,7 +1100,7 @@ impl InstanceHandle {
                     signature,
                     vmctx,
                     call_trampoline,
-                    instance_ref: Some(instance),
+                    instance_ref: Some(WeakOrStrongInstanceRef::Strong(instance)),
                 }
                 .into()
             }
@@ -1113,7 +1113,7 @@ impl InstanceHandle {
                 };
                 VMTable {
                     from,
-                    instance_ref: Some(instance),
+                    instance_ref: Some(WeakOrStrongInstanceRef::Strong(instance)),
                 }
                 .into()
             }
@@ -1141,7 +1141,7 @@ impl InstanceHandle {
                 };
                 VMGlobal {
                     from,
-                    instance_ref: Some(instance),
+                    instance_ref: Some(WeakOrStrongInstanceRef::Strong(instance)),
                 }
                 .into()
             }

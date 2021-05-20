@@ -712,6 +712,17 @@ impl Function {
     fn closures_unsupported_panic() -> ! {
         unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
+
+    /// Check if the function holds a strong `InstanceRef`.
+    /// None means there's no `InstanceRef`, strong or weak.
+    // TODO: maybe feature gate this, we only need it for tests...
+    pub fn is_strong_instance_ref(&self) -> Option<bool> {
+        self.exported
+            .vm_function
+            .instance_ref
+            .as_ref()
+            .map(|v| v.is_strong())
+    }
 }
 
 impl<'a> Exportable<'a> for Function {
@@ -724,6 +735,14 @@ impl<'a> Exportable<'a> for Function {
             Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.exported
+            .vm_function
+            .instance_ref
+            .as_mut()
+            .map(|v| v.into_weak());
     }
 }
 

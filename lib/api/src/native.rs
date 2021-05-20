@@ -196,6 +196,12 @@ macro_rules! impl_native_traits {
                 }
 
             }
+            /// Check if the function holds a strong `InstanceRef`.
+            /// None means there's no `InstanceRef`, strong or weak.
+            // TODO: maybe feature gate this, we only need it for tests...
+            pub fn is_strong_instance_ref(&self) -> Option<bool> {
+                self.exported.vm_function.instance_ref.as_ref().map(|v| v.is_strong())
+            }
         }
 
         #[allow(unused_parens)]
@@ -207,6 +213,10 @@ macro_rules! impl_native_traits {
             fn get_self_from_extern_with_generics(_extern: &crate::externals::Extern) -> Result<Self, crate::exports::ExportError> {
                 use crate::exports::Exportable;
                 crate::Function::get_self_from_extern(_extern)?.native().map_err(|_| crate::exports::ExportError::IncompatibleType)
+            }
+
+            fn into_weak_instance_ref(&mut self) {
+                self.exported.vm_function.instance_ref.as_mut().map(|v| v.into_weak());
             }
         }
     };
