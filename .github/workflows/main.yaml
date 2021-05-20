@@ -105,9 +105,12 @@ jobs:
         if: matrix.use_sccache != true
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest' && !matrix.llvm_url
-        shell: cmd
+        shell: bash
         run: |
           choco install llvm --version 11.1.0
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_110_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-11.0' && !matrix.llvm_url
         run: |
