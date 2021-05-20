@@ -100,9 +100,6 @@ impl Config {
     }
 
     pub fn compiler_config(&self, canonicalize_nans: bool) -> Box<dyn CompilerConfig> {
-        #[cfg(not(feature = "compiler"))]
-        compile_error!("Plese enable at least one compiler via the features");
-
         match &self.compiler {
             #[cfg(feature = "cranelift")]
             Compiler::Cranelift => {
