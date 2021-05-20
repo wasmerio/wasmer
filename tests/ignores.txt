@@ -5,6 +5,7 @@ singlepass spec::simd
 singlepass+windows *
 singlepass+native *
 windows+native *
+musl+native * # Dynamic loading not supported in Musl
 
 # Traps
 singlepass traps::test_trap_trace

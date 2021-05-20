@@ -4,12 +4,14 @@ use std::path::PathBuf;
 use std::io::{BufRead, BufReader};
 
 pub const CFG_TARGET_OS: &'static str = env!("CFG_TARGET_OS");
-pub const CFG_TARGET_ARCH: &'static str = env!("CFG_TARGET_OS");
+pub const CFG_TARGET_ARCH: &'static str = env!("CFG_TARGET_ARCH");
+pub const CFG_TARGET_ENV: &'static str = env!("CFG_TARGET_ENV");
 
 #[derive(Debug, Clone)]
 struct IgnorePattern {
     os: Option<String>,
     arch: Option<String>,
+    target_env: Option<String>,
     engine: Option<String>,
     compiler: Option<String>,
     pattern_to_ignore: String,
@@ -20,12 +22,17 @@ impl IgnorePattern {
         &self,
         os: &str,
         arch: &str,
+        target_env: &str,
         engine: &str,
         compiler: &str,
         canonical_path: &str,
     ) -> bool {
         self.os.as_ref().map_or(true, |val| val == os)
             && self.arch.as_ref().map_or(true, |val| val == arch)
+            && self
+                .target_env
+                .as_ref()
+                .map_or(true, |val| val == target_env)
             && self.engine.as_ref().map_or(true, |val| val == engine)
             && self.compiler.as_ref().map_or(true, |val| val == compiler)
             && (self.pattern_to_ignore == "*" || canonical_path.contains(&*self.pattern_to_ignore))
@@ -44,13 +51,14 @@ impl Ignores {
         &self,
         os: &str,
         arch: &str,
+        target_env: &str,
         engine: &str,
         compiler: &str,
         canonical_path: &str,
     ) -> bool {
         self.patterns.iter().any(|p| {
             // println!(" -> {:?}", p);
-            p.should_ignore(os, arch, engine, compiler, canonical_path)
+            p.should_ignore(os, arch, target_env, engine, compiler, canonical_path)
         })
     }
 
@@ -58,6 +66,7 @@ impl Ignores {
         self.should_ignore(
             CFG_TARGET_OS,
             CFG_TARGET_ARCH,
+            CFG_TARGET_ENV,
             engine,
             compiler,
             canonical_path,
@@ -88,19 +97,28 @@ impl Ignores {
                 let l: Vec<&str> = line.splitn(2, " ").collect();
                 let mut os: Option<String> = None;
                 let mut arch: Option<String> = None;
+                let mut target_env: Option<String> = None;
                 let mut engine: Option<String> = None;
                 let mut compiler: Option<String> = None;
                 for alias in l[0].trim().split("+") {
                     match alias {
-                        "aarch64" | "x86" | "x64" => {
-                            arch = Some(alias.to_string());
-                        }
+                        // Operating Systems
                         "windows" | "macos" | "linux" => {
                             os = Some(alias.to_string());
                         }
+                        // Environments
+                        "musl" => {
+                            target_env = Some(alias.to_string());
+                        }
+                        // Chipset architectures
+                        "aarch64" | "x86" | "x64" => {
+                            arch = Some(alias.to_string());
+                        }
+                        // Engines
                         "jit" | "native" => {
                             engine = Some(alias.to_string());
                         }
+                        // Compilers
                         "cranelift" | "llvm" | "singlepass" => {
                             compiler = Some(alias.to_string());
                         }
@@ -113,6 +131,7 @@ impl Ignores {
                 patterns.push(IgnorePattern {
                     os,
                     arch,
+                    target_env,
                     engine,
                     compiler,
                     pattern_to_ignore,
@@ -124,6 +143,7 @@ impl Ignores {
                 patterns.push(IgnorePattern {
                     os: None,
                     arch: None,
+                    target_env: None,
                     engine: None,
                     compiler: None,
                     pattern_to_ignore: line,
@@ -143,6 +163,7 @@ mod tests {
         assert!(IgnorePattern {
             os: None,
             arch: None,
+            target_env: None,
             engine: None,
             compiler: None,
             pattern_to_ignore: "*".to_string()
@@ -150,6 +171,7 @@ mod tests {
         .should_ignore(
             "unknown",
             "unknown",
+            "",
             "engine",
             "compiler",
             "some::random::text"
@@ -157,6 +179,7 @@ mod tests {
         assert!(IgnorePattern {
             os: None,
             arch: None,
+            target_env: None,
             engine: None,
             compiler: None,
             pattern_to_ignore: "some::random".to_string()
@@ -164,6 +187,7 @@ mod tests {
         .should_ignore(
             "unknown",
             "unknown",
+            "",
             "engine",
             "compiler",
             "some::random::text"
@@ -171,6 +195,7 @@ mod tests {
         assert!(!IgnorePattern {
             os: Some("macos".to_string()),
             arch: None,
+            target_env: None,
             engine: None,
             compiler: None,
             pattern_to_ignore: "other".to_string()
@@ -178,6 +203,7 @@ mod tests {
         .should_ignore(
             "unknown",
             "unknown",
+            "",
             "engine",
             "compiler",
             "some::random::text"
@@ -185,11 +211,19 @@ mod tests {
         assert!(!IgnorePattern {
             os: Some("macos".to_string()),
             arch: None,
+            target_env: None,
             engine: Some("jit".to_string()),
             compiler: None,
             pattern_to_ignore: "other".to_string()
         }
-        .should_ignore("macos", "unknown", "jit", "compiler", "some::random::text"));
+        .should_ignore(
+            "macos",
+            "unknown",
+            "",
+            "jit",
+            "compiler",
+            "some::random::text"
+        ));
         Ok(())
     }
 }
