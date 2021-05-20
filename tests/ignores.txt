@@ -4,6 +4,7 @@ singlepass spec::simd
 
 singlepass+windows *
 singlepass+native *
+windows+native *
 
 # Traps
 singlepass traps::test_trap_trace
