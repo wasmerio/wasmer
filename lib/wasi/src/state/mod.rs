@@ -816,7 +816,7 @@ impl WasiFs {
                                 symlink_count += 1;
                                 Kind::Symlink {
                                     base_po_dir: pre_open_dir_fd,
-                                    path_to_symlink: relative_path,
+                                    path_to_symlink: relative_path.to_owned(),
                                     relative_path: link_value,
                                 }
                             } else {
@@ -958,15 +958,37 @@ impl WasiFs {
         Ok(cur_inode)
     }
 
-    /// Splits a path into the preopened directory that has the largest prefix of
-    /// the given path, if such a preopened directory exists, and the rest of the path.
-    fn path_into_pre_open_and_relative_path(
+    /// Finds the preopened directory that is the "best match" for the given path and
+    /// returns a path relative to this preopened directory.
+    ///
+    /// The "best match" is the preopened directory that has the longest prefix of the
+    /// given path. For example, given preopened directories [`a`, `a/b`, `a/c`] and
+    /// the path `a/b/c/file`, we will return the fd corresponding to the preopened
+    /// directory, `a/b` and the relative path `c/file`.
+    ///
+    /// In the case of a tie, the later preopened fd is preferred.
+    fn path_into_pre_open_and_relative_path<'path>(
         &self,
-        path: &Path,
-    ) -> Result<(__wasi_fd_t, PathBuf), __wasi_errno_t> {
-        let mut max_prefix_len = 0;
-        let mut max_stripped_path = None;
-        let mut max_po_fd = None;
+        path: &'path Path,
+    ) -> Result<(__wasi_fd_t, &'path Path), __wasi_errno_t> {
+        enum BaseFdAndRelPath<'a> {
+            None,
+            BestMatch {
+                fd: __wasi_fd_t,
+                rel_path: &'a Path,
+                max_seen: usize,
+            },
+        }
+
+        impl<'a> BaseFdAndRelPath<'a> {
+            const fn max_seen(&self) -> usize {
+                match self {
+                    Self::None => 0,
+                    Self::BestMatch { max_seen, .. } => *max_seen,
+                }
+            }
+        }
+        let mut res = BaseFdAndRelPath::None;
         // for each preopened directory
         for po_fd in &self.preopen_fds {
             let po_inode = self.fd_map[po_fd].inode;
@@ -981,17 +1003,19 @@ impl WasiFs {
                 let new_prefix_len = po_path.as_os_str().len();
                 // we use >= to favor later preopens because we iterate in order
                 // whereas WASI libc iterates in reverse to get this behavior.
-                if new_prefix_len >= max_prefix_len {
-                    max_prefix_len = new_prefix_len;
-                    max_stripped_path = Some(stripped_path);
-                    max_po_fd = Some(*po_fd);
+                if new_prefix_len >= res.max_seen() {
+                    res = BaseFdAndRelPath::BestMatch {
+                        fd: *po_fd,
+                        rel_path: stripped_path,
+                        max_seen: new_prefix_len,
+                    };
                 }
             }
         }
-        if max_prefix_len == 0 {
-            Err(__WASI_EINVAL) // this may not make sense depending on where it's called
-        } else {
-            Ok((max_po_fd.unwrap(), max_stripped_path.unwrap().to_owned()))
+        match res {
+            // this error may not make sense depending on where it's called
+            BaseFdAndRelPath::None => Err(__WASI_EINVAL),
+            BaseFdAndRelPath::BestMatch { fd, rel_path, .. } => Ok((fd, rel_path)),
         }
     }
 
