@@ -9,6 +9,11 @@ use std::sync::Arc;
 ///
 /// This structure has a C representation because `Instance` is
 /// dynamically-sized, and the `instance` field must be last.
+///
+/// This `InstanceRef` must be freed with [`InstanceInner::deallocate_instance`]
+/// if and only if it has been set correctly. The `Drop` implementation of
+/// [`InstanceInner`] calls its `deallocate_instance` method without
+/// checking if this property holds, only when `Self.strong` is equal to 1.
 #[derive(Debug)]
 #[repr(C)]
 struct InstanceInner {
@@ -96,11 +101,6 @@ impl MemoryUsage for InstanceInner {
 /// to `Instance`. In short, `InstanceRef` is roughly a
 /// simplified version of `std::sync::Arc`.
 ///
-/// This `InstanceRef` must be freed with [`InstanceRef::deallocate_instance`]
-/// if and only if it has been set correctly. The `Drop` implementation of
-/// [`InstanceRef`] calls its `deallocate_instance` method without
-/// checking if this  property holds, only when `Self.strong` is equal to 1.
-///
 /// Note for the curious reader: [`InstanceAllocator::new`]
 /// and [`InstanceHandle::new`] will respectively allocate a proper
 /// `Instance` and will fill it correctly.
@@ -136,16 +136,20 @@ impl InstanceRef {
         (&*self.0).as_ref()
     }
 
-    #[inline]
     /// Only succeeds if ref count is 1.
+    #[inline]
     pub(super) fn as_mut(&mut self) -> Option<&mut Instance> {
         Some(Arc::get_mut(&mut self.0)?.as_mut())
     }
 
-    #[inline]
+    /// Like [`InstanceRef::as_mut`] but always succeeds.
+    /// May cause undefined behavior if used improperly.
+    ///
     /// # Safety
     /// It is the caller's responsibility to ensure exclusivity and synchronization of the
-    /// instance.
+    /// instance before calling this function. No other pointers to any Instance data
+    /// should be dereferenced for the lifetime of the returned `&mut Instance`.
+    #[inline]
     pub(super) unsafe fn as_mut_unchecked(&mut self) -> &mut Instance {
         let ptr: *mut InstanceInner = Arc::as_ptr(&self.0) as *mut _;
         (&mut *ptr).as_mut()
