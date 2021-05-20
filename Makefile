@@ -521,28 +521,9 @@ test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engi
 
 test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
 
-# We want to run all the tests for all available compilers. The C API
-# and the tests rely on the fact that one and only one default
-# compiler will be selected at compile-time. Therefore, if we want to
-# test exhaustively for all available compilers, we need to build and
-# to test the C API with a different compiler each time.
-#
-# That's exactly what `test-capi` does: it runs `build-capi-*` with
-# one compiler, and then it runs `test-capi-*` for that compiler
-# specifically.
-#
-# Why do we need to run `build-capi-*` exactly? One might think that
-# `cargo test` would generate a static library (`.a`) to link the
-# tests against, but no. `cargo test` has no idea that we need this
-# static library, that's normal the library isn't generated. Hence the
-# need to run `cargo build` prior to testing to get all the build
-# artifacts.
-#
-# Finally, `test-capi` calls `test-capi-all` that runs the tests for
-# the library built with `build-capi`, which is the one we will
-# deliver to the users, i.e. the one that may include multiple
-# compilers.
-test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
+# This test requires building the capi with all the available
+# compilers first
+test-capi: build-capi $(foreach compiler_engine,$(compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
