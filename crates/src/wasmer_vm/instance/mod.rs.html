@@ -2416,7 +2416,7 @@
 
             <span class="comment">// Set the funcrefs after we&#39;ve built the instance</span>
             {
-                <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">instance_ref</span>.<span class="ident">as_mut</span>();
+                <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">instance_ref</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">vmctx_ptr</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">vmctx_ptr</span>();
                 <span class="ident">instance</span>.<span class="ident">funcrefs</span> <span class="op">=</span> <span class="ident">build_funcrefs</span>(
                     <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">instance</span>.<span class="ident">module</span>,
@@ -2714,7 +2714,7 @@
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">instance_ptr</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">instance_ref</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">as_mut</span>();
+        <span class="kw">let</span> <span class="ident">instance_ref</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">as_mut_unchecked</span>();
 
         <span class="kw">for</span> <span class="ident">import_function_env</span> <span class="kw">in</span> <span class="ident">instance_ref</span>.<span class="ident">imported_function_envs</span>.<span class="ident">values_mut</span>() {
             <span class="kw">match</span> <span class="ident">import_function_env</span> {

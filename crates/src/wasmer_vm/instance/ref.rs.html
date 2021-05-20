@@ -158,113 +158,26 @@
 <span id="155">155</span>
 <span id="156">156</span>
 <span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">Instance</span>;
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">alloc</span>::<span class="ident">Layout</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">atomic</span>, <span class="ident">Arc</span>};
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 
-<span class="doccomment">/// An `InstanceRef` is responsible to properly deallocate,</span>
-<span class="doccomment">/// and to give access to an `Instance`, in such a way that `Instance`</span>
-<span class="doccomment">/// is unique, can be shared, safely, across threads, without</span>
-<span class="doccomment">/// duplicating the pointer in multiple locations. `InstanceRef`</span>
-<span class="doccomment">/// must be the only “owner” of an `Instance`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Consequently, one must not share `Instance` but</span>
-<span class="doccomment">/// `InstanceRef`. It acts like an Atomically Reference Counter</span>
-<span class="doccomment">/// to `Instance`. In short, `InstanceRef` is roughly a</span>
-<span class="doccomment">/// simplified version of `std::sync::Arc`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This `InstanceRef` must be freed with [`InstanceRef::deallocate_instance`]</span>
-<span class="doccomment">/// if and only if it has been set correctly. The `Drop` implementation of</span>
-<span class="doccomment">/// [`InstanceRef`] calls its `deallocate_instance` method without</span>
-<span class="doccomment">/// checking if this  property holds, only when `Self.strong` is equal to 1.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Note for the curious reader: [`InstanceAllocator::new`]</span>
-<span class="doccomment">/// and [`InstanceHandle::new`] will respectively allocate a proper</span>
-<span class="doccomment">/// `Instance` and will fill it correctly.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// A little bit of background: The initial goal was to be able to</span>
-<span class="doccomment">/// share an [`Instance`] between an [`InstanceHandle`] and the module</span>
-<span class="doccomment">/// exports, so that one can drop a [`InstanceHandle`] but still being</span>
-<span class="doccomment">/// able to use the exports properly.</span>
+<span class="doccomment">/// Dynamic instance allocation.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This structure has a C representation because `Instance` is</span>
 <span class="doccomment">/// dynamically-sized, and the `instance` field must be last.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This `InstanceRef` must be freed with [`InstanceInner::deallocate_instance`]</span>
+<span class="doccomment">/// if and only if it has been set correctly. The `Drop` implementation of</span>
+<span class="doccomment">/// [`InstanceInner`] calls its `deallocate_instance` method without</span>
+<span class="doccomment">/// checking if this property holds, only when `Self.strong` is equal to 1.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceRef</span> {
-    <span class="doccomment">/// Number of `Self` in the nature. It increases when `Self` is</span>
-    <span class="doccomment">/// cloned, and it decreases when `Self` is dropped.</span>
-    <span class="ident">strong</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">atomic</span>::<span class="ident">AtomicUsize</span><span class="op">&gt;</span>,
-
+<span class="kw">struct</span> <span class="ident">InstanceInner</span> {
     <span class="doccomment">/// The layout of `Instance` (which can vary).</span>
     <span class="ident">instance_layout</span>: <span class="ident">Layout</span>,
 
@@ -281,31 +194,7 @@
     <span class="ident">instance</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">InstanceRef</span> {
-    <span class="doccomment">/// Create a new `InstanceRef`. It allocates nothing. It fills</span>
-    <span class="doccomment">/// nothing. The `Instance` must be already valid and</span>
-    <span class="doccomment">/// filled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// `instance` must a non-null, non-dangling, properly aligned,</span>
-    <span class="doccomment">/// and correctly initialized pointer to `Instance`. See</span>
-    <span class="doccomment">/// [`InstanceAllocator`] for an example of how to correctly use</span>
-    <span class="doccomment">/// this API.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">instance</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>, <span class="ident">instance_layout</span>: <span class="ident">Layout</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">strong</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">atomic</span>::<span class="ident">AtomicUsize</span>::<span class="ident">new</span>(<span class="number">1</span>)),
-            <span class="ident">instance_layout</span>,
-            <span class="ident">instance</span>,
-        }
-    }
-
-    <span class="doccomment">/// A soft limit on the amount of references that may be made to an `InstanceRef`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Going above this limit will make the program to panic at exactly</span>
-    <span class="doccomment">/// `MAX_REFCOUNT` references.</span>
-    <span class="kw">const</span> <span class="ident">MAX_REFCOUNT</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">usize</span>::<span class="ident">MAX</span> <span class="op">-</span> <span class="number">1</span>;
-
+<span class="kw">impl</span> <span class="ident">InstanceInner</span> {
     <span class="doccomment">/// Deallocate `Instance`.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>
@@ -319,12 +208,6 @@
         <span class="ident">std</span>::<span class="ident">alloc</span>::<span class="ident">dealloc</span>(<span class="ident">instance_ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">instance_layout</span>);
     }
 
-    <span class="doccomment">/// Get the number of strong references pointing to this</span>
-    <span class="doccomment">/// `InstanceRef`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">strong_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">load</span>(<span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">SeqCst</span>)
-    }
-
     <span class="doccomment">/// Get a reference to the `Instance`.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">as_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Instance</span> {
@@ -335,115 +218,102 @@
     }
 
     <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">as_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Instance</span> {
-        <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">as_mut</span>()
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">as_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Instance</span> {
+        <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">as_mut</span>() }
     }
 }
 
-<span class="doccomment">/// TODO: Review this super carefully.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">InstanceRef</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">InstanceRef</span> {}
-
-<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">InstanceRef</span> {
-    <span class="doccomment">/// Makes a clone of `InstanceRef`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates another `InstanceRef` using the same</span>
-    <span class="doccomment">/// `instance` pointer, increasing the strong reference count.</span>
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="comment">// Using a relaxed ordering is alright here, as knowledge of</span>
-        <span class="comment">// the original reference prevents other threads from</span>
-        <span class="comment">// erroneously deleting the object.</span>
-        <span class="comment">//</span>
-        <span class="comment">// As explained in the [Boost documentation][1]:</span>
-        <span class="comment">//</span>
-        <span class="comment">// &gt; Increasing the reference counter can always be done with</span>
-        <span class="comment">// &gt; `memory_order_relaxed`: New references to an object can</span>
-        <span class="comment">// &gt; only be formed from an existing reference, and passing an</span>
-        <span class="comment">// &gt; existing reference from one thread to another must already</span>
-        <span class="comment">// &gt; provide any required synchronization.</span>
-        <span class="comment">//</span>
-        <span class="comment">// [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html</span>
-        <span class="kw">let</span> <span class="ident">old_size</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">Relaxed</span>);
-
-        <span class="comment">// However we need to guard against massive refcounts in case</span>
-        <span class="comment">// someone is `mem::forget`ing `InstanceRef`. If we</span>
-        <span class="comment">// don&#39;t do this the count can overflow and users will</span>
-        <span class="comment">// use-after free. We racily saturate to `isize::MAX` on the</span>
-        <span class="comment">// assumption that there aren&#39;t ~2 billion threads</span>
-        <span class="comment">// incrementing the reference count at once. This branch will</span>
-        <span class="comment">// never be taken in any realistic program.</span>
-        <span class="comment">//</span>
-        <span class="comment">// We abort because such a program is incredibly degenerate,</span>
-        <span class="comment">// and we don&#39;t care to support it.</span>
-
-        <span class="kw">if</span> <span class="ident">old_size</span> <span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">MAX_REFCOUNT</span> {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Too many references of `InstanceRef`&quot;</span>);
-        }
-
-        <span class="self">Self</span> {
-            <span class="ident">strong</span>: <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">clone</span>(),
-            <span class="ident">instance_layout</span>: <span class="self">self</span>.<span class="ident">instance_layout</span>,
-            <span class="ident">instance</span>: <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">clone</span>(),
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">InstanceRef</span> {
-    <span class="doccomment">/// Two `InstanceRef` are equal if and only if</span>
+<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {
+    <span class="doccomment">/// Two `InstanceInner` are equal if and only if</span>
     <span class="doccomment">/// `Self.instance` points to the same location.</span>
     <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">instance</span> <span class="op">=</span><span class="op">=</span> <span class="ident">other</span>.<span class="ident">instance</span>
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">InstanceRef</span> {
-    <span class="doccomment">/// Drop the `InstanceRef`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This will decrement the strong reference count. If it reaches</span>
-    <span class="doccomment">/// 1, then the `Self.instance` will be deallocated with</span>
-    <span class="doccomment">/// `Self::deallocate_instance`.</span>
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {
+    <span class="doccomment">/// Drop the `InstanceInner`.</span>
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="comment">// Because `fetch_sub` is already atomic, we do not need to</span>
-        <span class="comment">// synchronize with other thread.</span>
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">fetch_sub</span>(<span class="number">1</span>, <span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">Release</span>) <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-            <span class="kw">return</span>;
-        }
-
-        <span class="comment">// This fence is needed to prevent reordering of use of the data and</span>
-        <span class="comment">// deletion of the data. Because it is marked `Release`, the decreasing</span>
-        <span class="comment">// of the reference count synchronizes with this `Acquire` fence. This</span>
-        <span class="comment">// means that use of the data happens before decreasing the reference</span>
-        <span class="comment">// count, which happens before this fence, which happens before the</span>
-        <span class="comment">// deletion of the data.</span>
-        <span class="comment">//</span>
-        <span class="comment">// As explained in the [Boost documentation][1]:</span>
-        <span class="comment">//</span>
-        <span class="comment">// &gt; It is important to enforce any possible access to the object in one</span>
-        <span class="comment">// &gt; thread (through an existing reference) to *happen before* deleting</span>
-        <span class="comment">// &gt; the object in a different thread. This is achieved by a &quot;release&quot;</span>
-        <span class="comment">// &gt; operation after dropping a reference (any access to the object</span>
-        <span class="comment">// &gt; through this reference must obviously happened before), and an</span>
-        <span class="comment">// &gt; &quot;acquire&quot; operation before deleting the object.</span>
-        <span class="comment">//</span>
-        <span class="comment">// [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html</span>
-        <span class="ident">atomic</span>::<span class="ident">fence</span>(<span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">Acquire</span>);
-
-        <span class="comment">// Now we can deallocate the instance. Note that we don&#39;t</span>
-        <span class="comment">// check the pointer to `Instance` is correctly initialized,</span>
-        <span class="comment">// but the way `InstanceHandle` creates the</span>
-        <span class="comment">// `InstanceRef` ensures that.</span>
         <span class="kw">unsafe</span> { <span class="self">Self</span>::<span class="ident">deallocate_instance</span>(<span class="self">self</span>) };
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">InstanceRef</span> {
+<span class="doccomment">/// TODO: Review this super carefully.</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {}
+
+<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">InstanceInner</span> {
     <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-        <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>) <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">strong</span>)
-            <span class="op">+</span> <span class="self">self</span>.<span class="ident">instance_layout</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
+        <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">instance_layout</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
             <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">instance_layout</span>)
             <span class="op">+</span> <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
             <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">instance</span>)
+    }
+}
+
+<span class="doccomment">/// An `InstanceRef` is responsible to properly deallocate,</span>
+<span class="doccomment">/// and to give access to an `Instance`, in such a way that `Instance`</span>
+<span class="doccomment">/// is unique, can be shared, safely, across threads, without</span>
+<span class="doccomment">/// duplicating the pointer in multiple locations. `InstanceRef`</span>
+<span class="doccomment">/// must be the only “owner” of an `Instance`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Consequently, one must not share `Instance` but</span>
+<span class="doccomment">/// `InstanceRef`. It acts like an Atomically Reference Counter</span>
+<span class="doccomment">/// to `Instance`. In short, `InstanceRef` is roughly a</span>
+<span class="doccomment">/// simplified version of `std::sync::Arc`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Note for the curious reader: [`InstanceAllocator::new`]</span>
+<span class="doccomment">/// and [`InstanceHandle::new`] will respectively allocate a proper</span>
+<span class="doccomment">/// `Instance` and will fill it correctly.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// A little bit of background: The initial goal was to be able to</span>
+<span class="doccomment">/// share an [`Instance`] between an [`InstanceHandle`] and the module</span>
+<span class="doccomment">/// exports, so that one can drop a [`InstanceHandle`] but still being</span>
+<span class="doccomment">/// able to use the exports properly.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceRef</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">InstanceInner</span><span class="op">&gt;</span>);
+
+<span class="kw">impl</span> <span class="ident">InstanceRef</span> {
+    <span class="doccomment">/// Create a new `InstanceRef`. It allocates nothing. It fills</span>
+    <span class="doccomment">/// nothing. The `Instance` must be already valid and</span>
+    <span class="doccomment">/// filled.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// `instance` must a non-null, non-dangling, properly aligned,</span>
+    <span class="doccomment">/// and correctly initialized pointer to `Instance`. See</span>
+    <span class="doccomment">/// [`InstanceAllocator`] for an example of how to correctly use</span>
+    <span class="doccomment">/// this API.</span>
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">instance</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>, <span class="ident">instance_layout</span>: <span class="ident">Layout</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">InstanceInner</span> {
+            <span class="ident">instance_layout</span>,
+            <span class="ident">instance</span>,
+        }))
+    }
+
+    <span class="doccomment">/// Get a reference to the `Instance`.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">as_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Instance</span> {
+        (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>).<span class="ident">as_ref</span>()
+    }
+
+    <span class="doccomment">/// Only succeeds if ref count is 1.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">as_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Instance</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Some</span>(<span class="ident">Arc</span>::<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="number">0</span>)<span class="question-mark">?</span>.<span class="ident">as_mut</span>())
+    }
+
+    <span class="doccomment">/// Like [`InstanceRef::as_mut`] but always succeeds.</span>
+    <span class="doccomment">/// May cause undefined behavior if used improperly.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// It is the caller&#39;s responsibility to ensure exclusivity and synchronization of the</span>
+    <span class="doccomment">/// instance before calling this function. No other pointers to any Instance data</span>
+    <span class="doccomment">/// should be dereferenced for the lifetime of the returned `&amp;mut Instance`.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">as_mut_unchecked</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Instance</span> {
+        <span class="kw">let</span> <span class="ident">ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">InstanceInner</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">as_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw">_</span>;
+        (<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="ident">ptr</span>).<span class="ident">as_mut</span>()
     }
 }
 </pre></div>
