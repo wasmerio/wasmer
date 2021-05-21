@@ -27,6 +27,70 @@ use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunction
 
 use wasmer::Value;
 
+use std::rc::{Rc, Weak};
+use std::cell::Cell;
+
+#[derive(Debug)]
+struct LocalImpl<T: Copy> {
+    loc: Cell<T>,
+    ref_ct: Cell<u32>,
+}
+
+#[derive(Debug)]
+pub struct Local<T: Copy>(Rc<LocalImpl<T>>);
+
+#[derive(Debug)]
+pub struct WeakLocal<T: Copy>(Weak<LocalImpl<T>>);
+
+impl<T: Copy> Local<T> {
+    pub fn new(loc: T) -> Self {
+        Self(Rc::new(LocalImpl {
+            loc: Cell::new(loc),
+            ref_ct: Cell::new(0),
+        }))
+    }
+
+    fn inc_ref(&self) {
+        self.0.ref_ct.replace(self.0.ref_ct.get() + 1);
+    }
+
+    fn dec_ref(&self) {
+        self.0.ref_ct.replace(self.0.ref_ct.get().saturating_sub(1));
+    }
+
+    pub fn ref_ct(&self) -> u32 {
+        self.0.ref_ct.get()
+    }
+
+    pub fn location(&self) -> T {
+        self.0.loc.get()
+    }
+
+    pub fn replace_location(&self, loc: T) -> T {
+        self.0.loc.replace(loc)
+    }
+
+    pub fn downgrade(&self) -> WeakLocal<T> {
+        WeakLocal(Rc::downgrade(&self.0))
+    }
+}
+
+impl<T: Copy> WeakLocal<T> {
+    pub fn new() -> Self {
+        Self(Weak::new())
+    }
+    
+    pub fn upgrade(&self) -> Option<Local<T>> {
+        self.0.upgrade().map(|rc| Local(rc))
+    }
+}
+
+impl<T: Copy> Clone for Local<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
     // Immutable properties assigned at creation time.
@@ -350,7 +414,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CodegenError> {
-        println!("{:?}", op);
         match op {
             Operator::Call { function_index } => {
                 let function_index = function_index as usize;
@@ -399,7 +462,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     ))
                 };
                 
-                let info = self.machine.emit_call(reloc_target, &params, &return_types);
+                let info = self.machine.do_call(reloc_target, &params, &return_types);
                 
                 self.trap_table
                     .offset_to_code
@@ -408,9 +471,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
                 for local in params {
                     local.dec_ref();
-                    if local.ref_ct() < 1 {
-                        self.machine.release_location(local);
-                    }
+                    self.maybe_release(local);
                 }
 
                 for local in info.returns {
@@ -421,23 +482,78 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 }
             },
             Operator::I32Const { value } => {
-                let imm = self.machine.imm32(value as u32);
-                imm.inc_ref();
-                self.stack.push(imm);
+                let imm = self.machine.do_const_i32(value);
+                self.push_stack(imm);
+            },
+            Operator::GlobalGet { global_index } => {
+                let global_index = GlobalIndex::from_u32(global_index);
+
+                // let ty = type_to_wp_type(self.module.globals[global_index].ty);
+                // if ty.is_float() {
+                //     self.fp_stack.push(FloatValue::new(self.value_stack.len()));
+                // }
+
+                let offset = if let Some(local_global_index) = self.module.local_global_index(global_index) {
+                    self.vmoffsets.vmctx_vmglobal_definition(local_global_index)
+                } else {
+                    self.vmoffsets.vmctx_vmglobal_import_definition(global_index)
+                };
+
+                let ptr = self.machine.do_load_from_vmctx(Size::S64, offset);
+                let local = self.machine.do_deref(Size::S64, ptr.clone());
+
+                self.push_stack(local);
+                self.maybe_release(ptr);
+            },
+            Operator::GlobalSet { global_index } => {
+                let global_index = GlobalIndex::from_u32(global_index);
+                let offset = if let Some(local_global_index) = self.module.local_global_index(global_index) {
+                    self.vmoffsets.vmctx_vmglobal_definition(local_global_index)
+                } else {
+                    self.vmoffsets.vmctx_vmglobal_import_definition(global_index)
+                };
+
+                let local = self.pop_stack();
+
+                let ptr = self.machine.do_load_from_vmctx(Size::S64, offset);
+                self.machine.do_deref_write(Size::S64, ptr.clone(), local.clone());
+
+                // let ty = type_to_wp_type(self.module.globals[global_index].ty);
+                // if ty.is_float() {
+                //     let fp = self.fp_stack.pop1()?;
+                //     if self.assembler.arch_supports_canonicalize_nan()
+                //         && self.config.enable_nan_canonicalization
+                //         && fp.canonicalization.is_some()
+                //     {
+                //         self.canonicalize_nan(
+                //             match ty {
+                //                 WpType::F32 => Size::S32,
+                //                 WpType::F64 => Size::S64,
+                //                 _ => unreachable!(),
+                //             },
+                //             loc,
+                //             dst,
+                //         );
+                //     } else {
+                //         self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, dst);
+                //     }
+                // } else {
+                //     self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, dst);
+                // }
+                
+                self.maybe_release(ptr);
+                self.maybe_release(local);
             },
             Operator::LocalGet { local_index } => {
                 let local = self.locals[local_index as usize].clone();
-                local.inc_ref();
-                self.stack.push(local);
+                self.push_stack(local);
             },
             Operator::LocalSet { local_index } => {
-                let from_stack = self.stack.pop().unwrap();
+                let from_stack = self.pop_stack();
 
                 let local = self.locals[local_index as usize].clone();
                 local.dec_ref();
-                if local.ref_ct() < 1 {
-                    self.machine.release_location(local);
-                }
+                self.maybe_release(local);
 
                 self.locals[local_index as usize] = from_stack;
 
@@ -469,52 +585,82 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 // }
             },
             Operator::I32Add => {
-                let r = self.stack.pop().unwrap();
-                let l = self.stack.pop().unwrap();
-
-                l.dec_ref();
-                r.dec_ref();
-
-                let imm_result = match (l.location().imm_value(), r.location().imm_value()) {
-                    (Some(Value::I32(l)), Some(Value::I32(r))) => {
-                        Some(self.machine.imm32((l + r) as u32))
-                    },
-                    (Some(_), Some(_)) => {
-                        unreachable!();
-                    },
-                    _ => {
-                        None
-                    }
-                };
-
-                if let Some(imm_result) = imm_result {
-                    imm_result.inc_ref();
-                    self.stack.push(imm_result);
-                } else {
-                    let result_loc = self.machine.emit_add_i32(Size::S64, l.clone(), r.clone());
-                    result_loc.inc_ref();
-                    self.stack.push(result_loc);
-                }
-
-                if l.ref_ct() < 1 {
-                    self.machine.release_location(l);
-                }
-                if r.ref_ct() < 1 {
-                    self.machine.release_location(r);
-                }
+                self.do_bin_op_i32(
+                    | this, l, r| this.machine.do_add_i32(l.clone(), r.clone()),
+                    |_this, l, r| l.wrapping_add(r),
+                );
             },
-            Operator::End => {
-                let frame = self.control_stack.pop().unwrap();
-                if /* !was_unreachable &&*/ !frame.returns.is_empty() {
-                    assert!(frame.returns.len() == 1);
-                    // if frame.returns[0].is_float() {
+            Operator::I32Sub => {
+                self.do_bin_op_i32(
+                    | this, l, r| this.machine.do_sub_i32(l.clone(), r.clone()),
+                    |_this, l, r| l.wrapping_sub(r),
+                );
+            },
+            Operator::I32LeU => {
+                self.do_bin_op_i32(
+                    | this, l, r| this.machine.do_le_u_i32(l.clone(), r.clone()),
+                    |_this, l, r| (l <= r) as i32,
+                );
+            },
+            Operator::I32And => {
+                self.do_bin_op_i32(
+                    | this, l, r| this.machine.do_and_i32(l.clone(), r.clone()),
+                    |_this, l, r| (l != 0 && r != 0) as i32,
+                );
+            },
+            Operator::I32Eqz => {
+                self.do_unary_op_i32(
+                    | this, l| this.machine.do_eqz_i32(l.clone()),
+                    |_this, l| (l == 0) as i32,
+                );
+            },
+            Operator::I32Load { memarg } => {
+                let addr = self.pop_stack();
+                let val = self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
+                    this.machine.do_deref(Size::S32, addr)
+                });
+
+                self.maybe_release(addr);
+                self.push_stack(val);
+            },
+            Operator::I32Store { memarg } => {
+                let val = self.pop_stack();
+                let addr = self.pop_stack();
+                
+                self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
+                    this.machine.do_deref_write(Size::S32, addr, val.clone());
+                });
+
+                self.maybe_release(val);
+                self.maybe_release(addr);
+            },
+            // Operator::Block { ty } => {
+            //     unimplemented!();
+            // },
+            // Operator::BrIf { relative_depth: 0 } => {
+            //     unimplemented!();
+            // },
+            // Operator::Br { relative_depth: 1 } => {
+            //     unimplemented!();
+            // },
+            Operator::Return => {
+                let frame = &self.control_stack[0];
+                if !frame.returns.is_empty() {
+                    if frame.returns.len() != 1 {
+                        unimplemented!();
+                    }
+                    let loc = self.stack.pop().unwrap();
+                    loc.dec_ref();
+                    self.machine.do_return(Some(frame.returns[0]), Some(loc.clone()), frame.label);
+                    self.maybe_release(loc);
+                    // if first_return.is_float() {
                     //     let fp = self.fp_stack.peek1()?;
-                    //     if self.machine.arch_supports_canonicalize_nan()
+                    //     if self.assembler.arch_supports_canonicalize_nan()
                     //         && self.config.enable_nan_canonicalization
                     //         && fp.canonicalization.is_some()
                     //     {
                     //         self.canonicalize_nan(
-                    //             match frame.returns[0] {
+                    //             match first_return {
                     //                 WpType::F32 => Size::S32,
                     //                 WpType::F64 => Size::S64,
                     //                 _ => unreachable!(),
@@ -538,11 +684,54 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     //         Location::GPR(GPR::RAX),
                     //     );
                     // }
-                    self.machine.emit_return(frame.returns[0], self.stack.pop().unwrap());
+                } else {
+                    self.machine.do_return(None, None, frame.label);
                 }
+                // let frame = &self.control_stack[0];
+                // let released = &self.value_stack[frame.value_stack_depth..];
+                // self.machine
+                //     .release_locations_keep_state(&mut self.assembler, released);
+                self.unreachable_depth = 1;
+            },
+            Operator::End => {
+                let frame = self.control_stack.pop().unwrap();
+                // if /* !was_unreachable &&*/ !frame.returns.is_empty() {
+                //     assert!(frame.returns.len() == 1);
+                //     if frame.returns[0].is_float() {
+                //         let fp = self.fp_stack.peek1()?;
+                //         if self.machine.arch_supports_canonicalize_nan()
+                //             && self.config.enable_nan_canonicalization
+                //             && fp.canonicalization.is_some()
+                //         {
+                //             self.canonicalize_nan(
+                //                 match frame.returns[0] {
+                //                     WpType::F32 => Size::S32,
+                //                     WpType::F64 => Size::S64,
+                //                     _ => unreachable!(),
+                //                 },
+                //                 loc,
+                //                 Location::GPR(GPR::RAX),
+                //             );
+                //         } else {
+                //             self.emit_relaxed_binop(
+                //                 Assembler::emit_mov,
+                //                 Size::S64,
+                //                 loc,
+                //                 Location::GPR(GPR::RAX),
+                //             );
+                //         }
+                //     } else {
+                //         self.emit_relaxed_binop(
+                //             Assembler::emit_mov,
+                //             Size::S64,
+                //             loc,
+                //             Location::GPR(GPR::RAX),
+                //         );
+                //     }
+                // }
 
                 if self.control_stack.is_empty() {
-                    self.relocations = self.machine.emit_end(frame.label);
+                    self.relocations = self.machine.func_end(frame.label);
                 } else {
                     // let released = &self.value_stack[frame.value_stack_depth..];
                     // self.machine
@@ -584,13 +773,15 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     unimplemented!();
                 }
             },
-            _ => {},
+            _ => {
+                println!("{:?}", op);
+            },
         }
         Ok(())
     }
 
     pub fn begin(&mut self) -> Result<(), CodegenError> {
-        self.locals = self.machine.init(self.local_types.len(), self.signature.params().len());
+        self.locals = self.machine.func_begin(self.local_types.len(), self.signature.params().len());
 
         // // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
         // self.machine.state.register_values
@@ -648,6 +839,23 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         });
     }
 
+    fn pop_stack(&mut self) -> Local<M::Location> {
+        let local = self.stack.pop().unwrap();
+        local.dec_ref();
+        local
+    }
+
+    fn push_stack(&mut self, local: Local<M::Location>) {
+        local.inc_ref();
+        self.stack.push(local);
+    }
+
+    fn maybe_release(&mut self, local: Local<M::Location>) {
+        if local.ref_ct() < 1 {
+            self.machine.release_location(local);
+        }
+    }
+
     pub fn finalize(self, data: &FunctionBodyData) -> CompiledFunction {
         let body = self.machine.finalize();
         let instructions_address_map = self.instructions_address_map;
@@ -673,6 +881,199 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 address_map,
             },
         }
+    }
+
+    fn do_bin_op_i32<F, FImm>(&mut self, f: F, f_imm: FImm)
+        where 
+            F: FnOnce(&mut Self, Local<M::Location>, Local<M::Location>) -> Local<M::Location>,
+            FImm: FnOnce(&mut Self, i32, i32) -> i32 {
+        let r = self.pop_stack();
+        let l = self.pop_stack();
+
+        let imm_result = match (l.location().imm_value(), r.location().imm_value()) {
+            (Some(Value::I32(l)), Some(Value::I32(r))) => {
+                let result = f_imm(self, l, r);
+                Some(self.machine.do_const_i32(result))
+            },
+            (Some(_), Some(_)) => {
+                unreachable!();
+            },
+            _ => {
+                None
+            }
+        };
+
+        if let Some(imm_result) = imm_result {
+            imm_result.inc_ref();
+            self.stack.push(imm_result);
+        } else {
+            let result_loc = f(self, l.clone(), r.clone());
+            result_loc.inc_ref();
+            self.stack.push(result_loc);
+        }
+
+        self.maybe_release(l);
+        self.maybe_release(r);
+    }
+
+    fn do_unary_op_i32<F, FImm>(&mut self, f: F, f_imm: FImm)
+        where 
+            F: FnOnce(&mut Self, Local<M::Location>) -> Local<M::Location>,
+            FImm: FnOnce(&mut Self, i32) -> i32 {
+        let l = self.pop_stack();
+
+        let imm_result = match l.location().imm_value() {
+            Some(Value::I32(l)) => {
+                let result = f_imm(self, l);
+                Some(self.machine.do_const_i32(result))
+            },
+            Some(_) => {
+                unreachable!();
+            },
+            _ => {
+                None
+            }
+        };
+
+        if let Some(imm_result) = imm_result {
+            imm_result.inc_ref();
+            self.stack.push(imm_result);
+        } else {
+            let result_loc = f(self, l.clone());
+            result_loc.inc_ref();
+            self.stack.push(result_loc);
+        }
+
+        self.maybe_release(l);
+    }
+
+    fn do_memory_op<F: FnOnce(&mut Self, Local<M::Location>) -> T, T>(
+        &mut self, addr: Local<M::Location>, memarg: MemoryImmediate,
+        check_alignment: bool, value_size: usize, cb: F) -> T {
+        let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+            MemoryStyle::Static { .. } => false,
+            MemoryStyle::Dynamic { .. } => true,
+        };
+
+        let (base_ptr, bound_ptr) = if self.module.num_imported_memories != 0 {
+            // Imported memories require one level of indirection.
+            let offset = self.vmoffsets.vmctx_vmmemory_import_definition(MemoryIndex::new(0));
+            let vmctx_field = self.machine.do_load_from_vmctx(Size::S64, offset);
+            vmctx_field.inc_ref();
+            let ptrs = (self.machine.do_ptr_offset(vmctx_field.clone(), 0), 
+                self.machine.do_ptr_offset(vmctx_field.clone(), 8));
+            vmctx_field.dec_ref();
+            self.maybe_release(vmctx_field);
+            ptrs
+        } else {
+            let offset = self.vmoffsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(0)) as i32;
+            (self.machine.do_vmctx_ptr_offset(offset),
+            self.machine.do_vmctx_ptr_offset(offset + 8))
+        };
+
+        // // Load bound into temporary register, if needed.
+        // if need_check {
+        //     self.assembler.emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
+    
+        //     // Wasm -> Effective.
+        //     // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+        //     // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+    
+        //     // This `lea` calculates the upper bound allowed for the beginning of the word.
+        //     // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
+        //     // the maximum allowed beginning of word is (inclusively)
+        //     // `tmp_bound + tmp_base - value_size`.
+        //     self.assembler.emit_lea(
+        //         Size::S64,
+        //         Location::MemoryAddTriple(tmp_bound, tmp_base, -(value_size as i32)),
+        //         Location::GPR(tmp_bound),
+        //     );
+        // }
+            
+        let mut addr = addr;
+
+        // Add offset to memory address.
+        if memarg.offset != 0 {
+            let imm = self.machine.do_const_i32(memarg.offset as i32);
+
+            addr = if let Some(Value::I32(0)) = addr.location().imm_value() {
+                imm.inc_ref();
+                self.maybe_release(addr);
+                imm.clone()
+            } else {
+                let new_addr = self.machine.do_add_i32(addr.clone(), imm.clone());
+                new_addr.inc_ref();
+                self.maybe_release(addr);
+                self.maybe_release(imm);
+                new_addr
+            };
+
+            
+            // // Trap if offset calculation overflowed.
+            // self.assembler
+            //     .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
+        }
+        
+        {
+            // Wasm linear memory -> real memory
+            println!("{:?}\n{:?}", base_ptr, addr);
+            let new_addr = self.machine.do_add_i32(base_ptr.clone(), addr.clone());
+            new_addr.inc_ref();
+            self.maybe_release(addr);
+            self.maybe_release(base_ptr);
+            addr = new_addr
+        }
+
+        // if need_check {
+        //     // Trap if the end address of the requested area is above that of the linear memory.
+        //     self.assembler
+        //         .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+    
+        //     // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
+        //     self.assembler
+        //         .emit_jmp(Condition::Above, self.special_labels.heap_access_oob);
+        // }
+    
+        let align = memarg.align;
+        if check_alignment && align != 1 {
+            unimplemented!();
+            // let tmp_aligncheck = self.machine.acquire_temp_gpr().unwrap();
+            // self.assembler.emit_mov(
+            //     Size::S32,
+            //     Location::GPR(tmp_addr),
+            //     Location::GPR(tmp_aligncheck),
+            // );
+            // self.assembler.emit_and(
+            //     Size::S64,
+            //     Location::Imm32((align - 1).into()),
+            //     Location::GPR(tmp_aligncheck),
+            // );
+            // self.assembler
+            //     .emit_jmp(Condition::NotEqual, self.special_labels.heap_access_oob);
+            // self.machine.release_temp_gpr(tmp_aligncheck);
+        }
+    
+        let result = self.mark_range_with_trap_code(
+            TrapCode::HeapAccessOutOfBounds, |this| cb(this, addr.clone()));
+        self.maybe_release(addr);
+
+        return result;
+    }
+
+    /// Marks each address in the code range emitted by `f` with the trap code `code`.
+    fn mark_range_with_trap_code<F: FnOnce(&mut Self) -> R, R>(
+        &mut self,
+        code: TrapCode,
+        f: F,
+    ) -> R {
+        let begin = self.machine.get_assembly_offset();
+        let ret = f(self);
+        let end = self.machine.get_assembly_offset();
+        for i in begin..end {
+            self.trap_table.offset_to_code.insert(i, code);
+        }
+        self.mark_instruction_address_end(begin);
+        ret
     }
 
     pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {

@@ -1,13 +1,13 @@
 use crate::common_decl::*;
 use crate::machine::*;
+use crate::codegen::{Local, WeakLocal};
 
 use dynasmrt::aarch64::Assembler;
 use dynasmrt::{dynasm, DynamicLabel, DynasmApi, DynasmLabelApi};
 use wasmer_types::{FunctionType, FunctionIndex};
 use wasmer_vm::VMOffsets;
 
-use smallvec::smallvec;
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer::Value;
 use array_init::array_init;
@@ -87,6 +87,7 @@ pub const X30: Reg = Reg::X(30);
 // pub const XZR: Reg = Reg::XZR;
 pub const SP:  Reg = Reg::SP;
 pub const FP:  Reg = Reg::X(29);
+pub const VMCTX: Reg = Reg::X(28);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
@@ -106,7 +107,7 @@ impl MaybeImmediate for Location {
 
 pub struct Aarch64Machine {
     assembler: Assembler,
-    regs: [WeakLocal<Location>; 29],
+    regs: [WeakLocal<Location>; 28], // x28, x29, and x30 are off limits!
     reg_counter: u32,
     free_regs: Vec<u32>,
     free_callee_save: Vec<u32>,
@@ -118,7 +119,7 @@ pub struct Aarch64Machine {
 }
 
 macro_rules! do_bin_op {
-    ($self:ident, $op:ident, $src1:ident, $src2:ident, $dst:ident) => {
+    ($self:ident, $op:ident, $src1:ident, $src2:ident, $dst:ident, $imm_ty:ty) => {
         let (src1_reg, dst_reg) = 
             if let (Location::Reg(Reg::X(src1_reg)), Location::Reg(Reg::X(dst_reg))) = 
                 ($src1.location(), $dst.location()) {
@@ -132,12 +133,41 @@ macro_rules! do_bin_op {
                 dynasm!($self.assembler ; .arch aarch64 ; $op X(dst_reg), X(src1_reg), X(src2_reg));
             },
             Location::Imm32(src2_val) => {
-                dynasm!($self.assembler ; .arch aarch64 ; $op X(dst_reg), X(src1_reg), src2_val);
+                dynasm!($self.assembler ; .arch aarch64 ; $op X(dst_reg), X(src1_reg), src2_val as $imm_ty);
             },
             _ => {
                 unreachable!()
             }
         }
+    }
+}
+
+macro_rules! do_cmp_op {
+    ($self:ident, $op:tt, $src1:ident, $src2:ident, $dst:ident) => {
+        let (src1_reg, dst_reg) = 
+            if let (Location::Reg(Reg::X(src1_reg)), Location::Reg(Reg::X(dst_reg))) = 
+                ($src1.location(), $dst.location()) {
+                (src1_reg, dst_reg)
+            } else {
+                unreachable!();
+            };
+
+        match $src2.location() {
+            Location::Reg(Reg::X(src2_reg)) => {
+                dynasm!($self.assembler ; .arch aarch64 ; cmp X(src1_reg), X(src2_reg));
+            },
+            Location::Reg(Reg::XZR) => {
+                dynasm!($self.assembler ; .arch aarch64 ; cmp X(src1_reg), xzr);
+            },
+            Location::Imm32(src2_val) => {
+                dynasm!($self.assembler ; .arch aarch64 ; cmp X(src1_reg), src2_val);
+            },
+            _ => {
+                unreachable!()
+            }
+        }
+
+        dynasm!($self.assembler ; .arch aarch64 ; cset X(dst_reg), $op);
     }
 }
 
@@ -148,7 +178,7 @@ impl Aarch64Machine {
             regs: array_init(|_| WeakLocal::new()),
             reg_counter: 0,
             free_regs: vec![8,9,10,11,12,13,14,15,16,17,18],
-            free_callee_save: vec![],
+            free_callee_save: vec![/*19,20,21,22,23,24,25,26,27*/],
             free_stack: vec![],
             stack_offset: 0,
             relocation_info: vec![],
@@ -157,8 +187,36 @@ impl Aarch64Machine {
         }
     }
 
+    fn prep_unary_op(&mut self, src: Local<Location>) -> (Local<Location>, Local<Location>) {
+        let r = self.move_to_reg(src.clone(), &[]);
+        if src.ref_ct() < 2 {
+            (src.clone(), src)
+        } else {
+            let dst = self.get_free_reg(&[r]);
+            let dst = Local::new(Location::Reg(Reg::X(dst)));
+            (src, dst)
+        }
+    }
+
+    fn prep_bin_op_no_imm(&mut self,
+        src1: Local<Location>, src2: Local<Location>) ->
+        (Local<Location>, Local<Location>, Local<Location>) {
+        let r1 = self.move_to_reg(src1.clone(), &[]);
+        let r2 = self.move_to_reg(src2.clone(), &[r1]);
+
+        if src1.ref_ct() < 2 {
+            (src1.clone(), src2, src1)
+        } else if src2.ref_ct() < 2 {
+            (src1, src2.clone(), src2)
+        } else {
+            let dst = self.get_free_reg(&[r1, r2]);
+            let dst = Local::new(Location::Reg(Reg::X(dst)));
+            (src1, src2, dst)
+        }
+    }
+
     fn prep_bin_op(&mut self,
-        src1: Local<Location>, src2: Local<Location>, commutative: bool) ->
+        src1: Local<Location>, src2: Local<Location>, commutative: bool, imm_bits: u8) ->
         (Local<Location>, Local<Location>, Local<Location>) {
         
         let (src1, src2) = match (src1.location(), src2.location(), commutative) {
@@ -175,30 +233,32 @@ impl Aarch64Machine {
                 (src2, src1)
             },
             (_, Location::Reg(Reg::X(r2)), _) => {
-                self.move_to_reg(src1.clone(), &[r2]);
-                let r1 = if let Location::Reg(Reg::X(r1)) = src1.location() {
-                    r1
-                } else {
-                    unreachable!();
-                };
+                let r1 = self.move_to_reg(src1.clone(), &[r2]);
                 self.move_to_reg(src2.clone(), &[r1]);
                 (src1, src2)
             }
             _ => {
-                self.move_to_reg(src1.clone(), &[]);
-                let r1 = if let Location::Reg(Reg::X(r1)) = src1.location() {
-                    r1
-                } else {
-                    unreachable!();
-                };
+                let r1 = self.move_to_reg(src1.clone(), &[]);
                 self.move_to_reg(src2.clone(), &[r1]);
                 (src1, src2)
             }
         };
         
+        let src2_is_imm = if let Location::Imm32(_) = src2.location() { true } else { false };
+
+        if let Some(Value::I32(val)) = src2.location().imm_value() {
+            let mask: u32 = 0xffffffff << imm_bits;
+            
+            if mask & val as u32 != 0 {
+                // value is too large to be represented as an immediate value
+                let r1 = if let Location::Reg(Reg::X(r1)) = src1.location() {r1} else {unreachable!()};
+                self.move_to_reg(src2.clone(), &[r1]);
+            }
+        }
+
         if src1.ref_ct() < 2 {
             (src1.clone(), src2, src1)
-        } else if src2.ref_ct() < 2 {
+        } else if !src2_is_imm && src2.ref_ct() < 2 {
             (src1, src2.clone(), src2)
         } else {
             let mut dont_use: SmallVec<[_; 2]> = SmallVec::new();
@@ -217,7 +277,7 @@ impl Aarch64Machine {
     fn get_param_location(i: usize) -> Location {
         match i {
             0..=7 => Location::Reg(Reg::X(i as u32)),
-            _ => Location::Memory(FP, 16 + (i-8) as i32 * 8),
+            _ => Location::Memory(FP, 32 + (i-8) as i32 * 8),
         }
     }
 
@@ -279,18 +339,24 @@ impl Aarch64Machine {
         }
     }
     
-    fn move_to_reg(&mut self, loc: Local<Location>, dont_use: &[u32]) {
-        if let Location::Reg(_) = loc.location() {
-            return;
+    fn move_to_reg(&mut self, loc: Local<Location>, dont_use: &[u32]) -> u32 {
+        if let Location::Reg(Reg::X(reg)) = loc.location() {
+            return reg;
         }
         
         let reg = self.get_free_reg(dont_use);
+        // println!("{:?}", loc.location());
         match loc.location() {
             Location::Imm32(n) => {
-                dynasm!(self.assembler; .arch aarch64; mov X(reg), n as u64);
+                if n & 0xffff0000 != 0 {
+                    dynasm!(self.assembler; .arch aarch64; mov X(reg), (n & 0xffff) as u64);
+                    dynasm!(self.assembler; .arch aarch64; movk X(reg), n >> 16, LSL 16);
+                } else {
+                    dynasm!(self.assembler; .arch aarch64; mov X(reg), n as u64);
+                }
             },
-            Location::Memory(FP, n) => {
-                dynasm!(self.assembler; .arch aarch64; ldur X(reg), [x29, n]);
+            Location::Memory(Reg::X(base_reg), n) => {
+                dynasm!(self.assembler; .arch aarch64; ldur X(reg), [X(base_reg), n]);
                 self.free_stack.push(n);
             },
             _ => {
@@ -300,6 +366,8 @@ impl Aarch64Machine {
 
         self.regs[reg as usize] = loc.downgrade();
         loc.replace_location(Location::Reg(Reg::X(reg)));
+
+        reg
     }
 
     fn move_data(&mut self, sz: Size, src: Location, dst: Location) {
@@ -436,8 +504,8 @@ impl Machine for Aarch64Machine {
         &mut self.state
     }
 
-    fn imm32(&mut self, n: u32) -> Local<Location> {
-        Local::new(Location::Imm32(n))
+    fn do_const_i32(&mut self, n: i32) -> Local<Location> {
+        Local::new(Location::Imm32(n as u32))
     }
 
     fn release_location(&mut self, loc: Local<Location>) {
@@ -461,13 +529,15 @@ impl Machine for Aarch64Machine {
     }
 
     // N.B. `n_locals` includes `n_params`; `n_locals` will always be >= `n_params`
-    fn init(&mut self, n_locals: usize, n_params: usize) -> Vec<Local<Location>> {
-        // save LR and FP
+    fn func_begin(&mut self, n_locals: usize, n_params: usize) -> Vec<Local<Location>> {
+        // save LR, FP, and VMCTX regs
         dynasm!(&mut self.assembler
             ; .arch aarch64
-            ; sub sp, sp, 16
+            ; sub sp, sp, 32
             ; stp x29, x30, [sp]
-            ; mov x29, sp);
+            ; str x28, [sp, 16]
+            ; mov x29, sp
+            ; mov x28, x0);
         
             let mut locals: Vec<Local<Location>> = Vec::with_capacity(n_locals);
         for i in 0..n_params {
@@ -512,21 +582,6 @@ impl Machine for Aarch64Machine {
         //     }
         // }
 
-        // // Load in-register parameters into the allocated locations.
-        // // Locals are allocated on the stack from higher address to lower address,
-        // // so we won't skip the stack guard page here.
-        // for i in 0..n_params {
-        //     let loc = Self::get_param_location(i + 1);
-        //     self.move_data(Size::S64, loc, locations[i])
-        // }
-
-        // // Load vmctx into R15.
-        // self.move_data(
-        //     Size::S64,
-        //     Self::get_param_location(0),
-        //     Location::Reg(X28),
-        // );
-
         // // // Stack probe.
         // // //
         // // // `rep stosq` writes data from low address to high address and may skip the stack guard page.
@@ -534,47 +589,12 @@ impl Machine for Aarch64Machine {
         // // for i in (n_params..n).step_by(NATIVE_PAGE_SIZE / 8).skip(1) {
         // //     self.assembler.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
         // // }
-
-        // // // Initialize all normal locals to zero.
-        // // let mut init_stack_loc_cnt = 0;
-        // // let mut last_stack_loc = Location::Memory(GPR::RBP, i32::MAX);
-        // // for i in n_params..n {
-        // //     match locations[i] {
-        // //         Location::Memory(_, _) => {
-        // //             init_stack_loc_cnt += 1;
-        // //             last_stack_loc = cmp::min(last_stack_loc, locations[i]);
-        // //         }
-        // //         Location::GPR(_) => {
-        // //             self.assembler.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
-        // //         }
-        // //         _ => unreachable!(),
-        // //     }
-        // // }
-        // // if init_stack_loc_cnt > 0 {
-        // //     // Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.
-        // //     self.assembler.emit_mov(
-        // //         Size::S64,
-        // //         Location::Imm64(init_stack_loc_cnt as u64),
-        // //         Location::GPR(GPR::RCX),
-        // //     );
-        // //     self.assembler.emit_xor(Size::S64, Location::GPR(GPR::RAX), Location::GPR(GPR::RAX));
-        // //     self.assembler.emit_lea(Size::S64, last_stack_loc, Location::GPR(GPR::RDI));
-        // //     self.assembler.emit_rep_stosq();
-        // // }
-
-        // // Add the size of all locals allocated to stack.
-        // self.stack_offset.0 += static_area_size - callee_saved_regs_size;
+        
         locals
     }
 
-    fn emit_end(&mut self, end_label: DynamicLabel) -> Vec<Relocation> {
+    fn func_end(&mut self, end_label: DynamicLabel) -> Vec<Relocation> {
         dynasm!(self.assembler ; .arch aarch64 ; =>end_label);
-        // self.assembler.emit_mov(
-        //     Size::S64,
-        //     Location::GPR(GPR::RBP),
-        //     Location::GPR(GPR::RSP),
-        // );
-        // self.assembler.emit_pop(Size::S64, Location::GPR(GPR::RBP));
 
         // // Make a copy of the return value in XMM0, as required by the SysV CC.
         // match self.signature.results() {
@@ -594,11 +614,12 @@ impl Machine for Aarch64Machine {
             dynasm!(self.assembler ; .arch aarch64 ; add sp, sp, -self.stack_offset as u32);
         }
         
-        // restore LR and FP
+        // restore LR, FP, and VMCTX regs
         dynasm!(self.assembler
             ; .arch aarch64
             ; ldp x29, x30, [sp]
-            ; add sp, sp, 16
+            ; ldr x28, [sp, 16]
+            ; add sp, sp, 32
             ; ret);
         
         // reserve space for relocated function pointers
@@ -625,9 +646,6 @@ impl Machine for Aarch64Machine {
         //     Location::GPR(GPR::RSP),
         // );
 
-        // // Restore R15 used by vmctx.
-        // self.assembler.emit_pop(Size::S64, Location::GPR(GPR::R15));
-
         // // Restore callee-saved registers.
         // for loc in locations.iter().rev() {
         //     if let Location::Reg(_) = *loc {
@@ -637,31 +655,78 @@ impl Machine for Aarch64Machine {
         // }
     }
 
-    // pub fn get_param_location(idx: usize) -> Location {
-    //     match idx {
-    //         0 => Location::GPR(GPR::RDI),
-    //         1 => Location::GPR(GPR::RSI),
-    //         2 => Location::GPR(GPR::RDX),
-    //         3 => Location::GPR(GPR::RCX),
-    //         4 => Location::GPR(GPR::R8),
-    //         5 => Location::GPR(GPR::R9),
-    //         _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
-    //     }
-    // }
+    fn do_add_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
+        let (src1, src2, dst) = self.prep_bin_op(src1, src2, true, 12);
+        do_bin_op!(self, add, src1, src2, dst, u32);
+    }
 
-    fn emit_add_i32(&mut self, sz: Size, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
-        let (src1, src2, dst) = self.prep_bin_op(src1, src2, true);
-        do_bin_op!(self, add, src1, src2, dst);
+    fn do_sub_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
+        let (src1, src2, dst) = self.prep_bin_op(src1, src2, false, 12);
+        do_bin_op!(self, sub, src1, src2, dst, u32);
         dst
     }
 
-    fn emit_sub_i32(&mut self, sz: Size, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
-        let (src1, src2, dst) = self.prep_bin_op(src1, src2, false);
-        do_bin_op!(self, sub, src1, src2, dst);
+    fn do_and_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
+        let (src1, src2, dst) = self.prep_bin_op_no_imm(src1, src2);
+        do_bin_op!(self, and, src1, src2, dst, u64);
         dst
     }
 
-    fn emit_call(&mut self, reloc_target: RelocationTarget,
+    fn do_le_u_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
+        let (src1, src2, dst) = self.prep_bin_op(src1, src2, false, 12);
+        do_cmp_op!(self, ls, src1, src2, dst);
+        dst
+    }
+
+    fn do_eqz_i32(&mut self, src: Local<Location>) -> Local<Location> {
+        let (src, dst) = self.prep_unary_op(src);
+        let xzr = Local::new(Location::Reg(Reg::XZR));
+        do_cmp_op!(self, eq, src, xzr, dst);
+        dst
+    }
+
+    fn do_load_from_vmctx(&mut self, sz: Size, offset: u32) -> Local<Location> {
+        let reg = self.get_free_reg(&[]);
+        dynasm!(self.assembler ; .arch aarch64 ; ldr X(reg), [x28, offset]);
+        Local::new(Location::Reg(Reg::X(reg)))
+    }
+
+    fn do_deref(&mut self, sz: Size, loc: Local<Self::Location>) -> Local<Location> {
+        // TODO: if loc is in memory, move_to_reg will already deref it. sort out how these things interact! this is definitely a bug
+        let src = self.move_to_reg(loc.clone(), &[]);
+        let dst = if loc.ref_ct() < 2 { src } else { self.get_free_reg(&[src])};
+        
+        match sz {
+            Size::S32 => {
+                dynasm!(self.assembler ; .arch aarch64 ; ldr W(dst), [X(src)]);
+            },
+            Size::S64 => {
+                dynasm!(self.assembler ; .arch aarch64 ; ldr X(dst), [X(src)]);
+            },
+            _ => {
+                unreachable!();
+            },
+        }
+        
+        Local::new(Location::Reg(Reg::X(dst)))
+    }
+
+    fn do_deref_write(&mut self, sz: Size, ptr: Local<Self::Location>, val: Local<Self::Location>) {
+        let ptr_reg = self.move_to_reg(ptr.clone(), &[]);
+        let val_reg = self.move_to_reg(val.clone(), &[ptr_reg]);
+        dynasm!(self.assembler ; .arch aarch64 ; str X(val_reg), [X(ptr_reg)]);
+    }
+
+    fn do_ptr_offset(&mut self, ptr: Local<Self::Location>, offset: i32) -> Local<Location> {
+        let r = self.move_to_reg(ptr, &[]);
+        Local::new(Location::Memory(Reg::X(r), offset))
+    }
+
+    fn do_vmctx_ptr_offset(&mut self, offset: i32) -> Local<Location> {
+        Local::new(Location::Memory(VMCTX, offset))
+    }
+
+    fn do_call(&mut self, reloc_target: RelocationTarget,
         params: &[Local<Location>], return_types: &[WpType]) -> CallInfo<Location> {
 
         let reg_arg_ct = min(params.len(), 7);
@@ -710,7 +775,7 @@ impl Machine for Aarch64Machine {
             dynasm!(self.assembler ; add sp, sp, stack_offset as u32);
         }
         
-        let mut returns: SmallVec<_> = smallvec![];
+        let mut returns: SmallVec<[Local<Location>; 1]> = smallvec![];
 
         if !return_types.is_empty() {
             assert!(return_types.len() == 1);
@@ -727,21 +792,25 @@ impl Machine for Aarch64Machine {
 
         self.relocation_info.push((reloc_target, fn_addr));
 
-        CallInfo { returns, before_call, after_call }
+        CallInfo::<Location> { returns, before_call, after_call }
     }
 
-    fn emit_return(&mut self, ty: WpType, local: Local<Location>) {
+    fn do_return(&mut self, ty: Option<WpType>, ret_val: Option<Local<Location>>, end_label: DynamicLabel) {
         match ty {
-            WpType::F32|WpType::F64 => { unimplemented!(); }
+            Some(WpType::F32|WpType::F64) => { unimplemented!(); }
             _ => {}
         }
         
-        match local.location() {
-            Location::Reg(X0) => {}
-            loc => {
-                self.move_data(Size::S64, loc, Location::Reg(X0));
+        if let Some(ret_val) = ret_val {
+            match ret_val.location() {
+                Location::Reg(X0) => {}
+                loc => {
+                    self.move_data(Size::S64, loc, Location::Reg(X0));
+                }
             }
         }
+
+        dynasm!(self.assembler ; .arch aarch64 ; b =>end_label);
     }
     
     fn finalize(self) -> Vec<u8> {
