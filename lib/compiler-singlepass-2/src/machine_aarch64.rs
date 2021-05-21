@@ -672,6 +672,21 @@ impl Machine for Aarch64Machine {
         self.move_to_reg(loc, &[]);
     }
 
+    fn do_restore_local(&mut self, local: Local<Self::Location>, location: Self::Location) {
+        if local.location() == location {
+            return;
+        }
+
+        if let Location::Reg(_) = local.location() {} else {
+            // we cannot replace the locations of any locals while restoring the locals' states
+            // TODO: Intuitively, I THINK this assertion is always valid. Gotta do more analysis though.
+            assert!(self.free_regs.len() + self.free_callee_save.len() > 0);
+        }
+        
+        self.move_data(Size::S64, local.location(), location);
+        local.replace_location(location);
+    }
+
     fn do_add_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         let (src1, src2, dst) = self.prep_bin_op(src1, src2, true, 12);
         do_bin_op!(self, add, src1, src2, dst, u32);
