@@ -345,7 +345,6 @@ impl Aarch64Machine {
         }
         
         let reg = self.get_free_reg(dont_use);
-        // println!("{:?}", loc.location());
         match loc.location() {
             Location::Imm32(n) => {
                 if n & 0xffff0000 != 0 {

@@ -1016,7 +1016,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         
         {
             // Wasm linear memory -> real memory
-            println!("{:?}\n{:?}", base_ptr, addr);
             let new_addr = self.machine.do_add_i32(base_ptr.clone(), addr.clone());
             new_addr.inc_ref();
             self.maybe_release(addr);
