@@ -295,6 +295,9 @@ comma := ,
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers))
 
+capi_compilers_engines_exclude := singlepass-jit
+capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compilers_engines))
+
 #####
 #
 # Display information.
@@ -334,10 +337,12 @@ ifneq (, $(LIBC))
         $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
 endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
-$(info Compilers + engines pairs (for testing): $(bold)$(green)${compilers_engines}$(reset))
+$(info Testing the following compilers & engines:)
+$(info   * API: $(bold)$(green)${compilers_engines}$(reset))
+$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset))
 $(info Cargo features:)
-$(info     - Compilers for all crates: `$(bold)$(green)${compiler_features}$(reset)`.)
-$(info     - Default for the C API: `$(bold)$(green)${capi_default_features}$(reset)`.)
+$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info   * C-API: `$(bold)$(green)${capi_default_features}$(reset)`.)
 $(info )
 $(info )
 $(info --------------)
@@ -532,13 +537,13 @@ test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(ll
 
 # This test requires building the capi with all the available
 # compilers first
-test-capi: build-capi $(foreach compiler_engine,$(compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
+test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(capi_compilers_engines) test-capi-integration-$(capi_compilers_engines))
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,wasi,middlewares $(capi_default_features) $(compiler_features) -- --nocapture
 
-test-capi-integration-%: package-capi
+test-capi-integration-%:
 	# Test the Wasmer C API tests for C
 	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples
