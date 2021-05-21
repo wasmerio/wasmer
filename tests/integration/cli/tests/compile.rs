@@ -54,7 +54,7 @@ impl Default for WasmerCompile {
 
 impl WasmerCompile {
     fn run(&self) -> anyhow::Result<()> {
-        let output = dbg!(Command::new(&self.wasmer_path)
+        let output = Command::new(&self.wasmer_path)
             .current_dir(&self.current_dir)
             .arg("compile")
             .arg(&self.wasm_path.canonicalize()?)
@@ -63,7 +63,7 @@ impl WasmerCompile {
             .arg("-o")
             .arg(&self.wasm_object_path)
             .arg("--header")
-            .arg(&self.header_output_path))
+            .arg(&self.header_output_path)
             .output()?;
 
         if !output.status.success() {
@@ -90,7 +90,7 @@ fn run_c_compile(
     #[cfg(windows)]
     let c_compiler = "clang++";
 
-    let output = dbg!(Command::new(c_compiler)
+    let output = Command::new(c_compiler)
         .current_dir(current_dir)
         .arg("-O2")
         .arg("-c")
@@ -98,7 +98,7 @@ fn run_c_compile(
         .arg("-I")
         .arg(WASMER_INCLUDE_PATH)
         .arg("-o")
-        .arg(output_name))
+        .arg(output_name)
         .output()?;
 
     if !output.status.success() {
