@@ -36,7 +36,7 @@ pub struct CallInfo<T: Copy> {
 }
 
 pub trait Machine {
-    type Location: MaybeImmediate + Copy + Debug;
+    type Location: MaybeImmediate + Copy + Eq + Debug;
     type Label: Copy;
 
     fn new_state() -> MachineState;
@@ -62,6 +62,7 @@ pub trait Machine {
     fn do_ptr_offset(&mut self, ptr: Local<Self::Location>, offset: i32) -> Local<Self::Location>;
     fn do_vmctx_ptr_offset(&mut self, offset: i32) -> Local<Self::Location>;
     fn do_store(&mut self, local: Local<Self::Location>);
+    fn do_restore_local(&mut self, local: Local<Self::Location>, location: Self::Location);
     fn finalize(self) -> Vec<u8>;
 
     fn gen_std_trampoline(

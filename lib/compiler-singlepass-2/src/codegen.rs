@@ -798,6 +798,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         //     // we already canonicalized at the `Br*` instruction or here previously.
                         // }
                     }
+                    
+                    self.restore_locations(frame);
                 }
             },
             _ => {
@@ -1127,7 +1129,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         macro_rules! record_locations_from_vec {
             ($vec:expr) => {
                 {
-                        for local in $vec.iter().cloned() {
+                    for local in $vec.iter().cloned() {
                         if local.location().is_imm() {
                             self.machine.do_store(local.clone());
                         }
@@ -1141,6 +1143,28 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let stack_locations = record_locations_from_vec!(self.stack);
 
         (local_locations, stack_locations)
+    }
+
+    fn restore_locations(&mut self, frame: ControlFrame<M>) {
+        macro_rules! restore_locations_from_vecs {
+            ($locals:expr, $locations:expr) => {
+                {
+                    for (local, location) in $locals.iter().cloned().zip($locations.iter().copied()) {
+                        if local.location() != location {
+                            self.machine.do_restore_local(local.clone(), location);
+                        }
+                    }
+
+                    // debug assertion
+                    for (local, location) in $locals.iter().cloned().zip($locations) {
+                        assert!(local.location() == location);
+                    }
+                }
+            }
+        }
+        
+        restore_locations_from_vecs!(self.locals, frame.local_locations);
+        restore_locations_from_vecs!(self.stack, frame.stack_locations);
     }
 
     pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
