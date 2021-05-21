@@ -294,12 +294,17 @@ comma := ,
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers))
+capi_compilers_engines_exclude := 
 
 # Define the compiler Cargo features for the C API. It always excludes
-# LLVM for the moment.
+# LLVM for the moment because it causes the linker to fail since llvm is not statically linked.
+# TODO: Reenable llvm in C-API
 capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers)))
+capi_compilers_engines_exclude += llvm-jit llvm-native
 
-capi_compilers_engines_exclude := singlepass-jit
+# We exclude singlepass jit because it doesn't support multivalue (required in wasm-c-api tests)
+capi_compilers_engines_exclude += singlepass-jit
+
 capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compilers_engines))
 
 #####
