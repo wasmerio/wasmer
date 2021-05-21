@@ -124,7 +124,7 @@ pub struct FuncGen<'a, M: Machine> {
     fp_stack: Vec<FloatValue>,
 
     /// A list of frames describing the current control stack.
-    control_stack: Vec<ControlFrame<M::Label>>,
+    control_stack: Vec<ControlFrame<M>>,
 
     /// Low-level machine state.
     machine: M,
@@ -154,6 +154,7 @@ pub struct FuncGen<'a, M: Machine> {
 
     locals: Vec<Local<M::Location>>,
     stack: Vec<Local<M::Location>>,
+    func_index: FunctionIndex,
 }
 
 pub struct SpecialLabelSet<L> {
@@ -305,8 +306,8 @@ pub fn type_to_wp_type(ty: Type) -> WpType {
 }
 
 #[derive(Debug)]
-pub struct ControlFrame<L> {
-    pub label: L,
+pub struct ControlFrame<M: Machine> {
+    pub label: M::Label,
     pub loop_like: bool,
     pub if_else: IfElseState,
     pub returns: SmallVec<[WpType; 1]>,
@@ -314,6 +315,9 @@ pub struct ControlFrame<L> {
     pub fp_stack_depth: usize,
     pub state: MachineState,
     pub state_diff_id: usize,
+
+    pub local_locations: Vec<M::Location>,
+    pub stack_locations: Vec<M::Location>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -399,6 +403,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
             locals: vec![],
             stack: vec![],
+            func_index,
         };
         fg.begin()?;
         Ok(fg)
@@ -634,9 +639,29 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 self.maybe_release(val);
                 self.maybe_release(addr);
             },
-            // Operator::Block { ty } => {
-            //     unimplemented!();
-            // },
+            Operator::Block { ty } => {
+                let (local_locations, stack_locations) = self.record_locations();
+                let frame = ControlFrame {
+                    label: self.machine.new_label(),
+                    loop_like: false,
+                    if_else: IfElseState::None,
+                    returns: match ty {
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
+                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                        _ => {
+                            unimplemented!();
+                        }
+                    },
+                    value_stack_depth: self.stack.len(),
+                    fp_stack_depth: self.fp_stack.len(),
+                    state: self.machine.get_state().clone(),
+                    state_diff_id: 0,
+                    
+                    local_locations,
+                    stack_locations,
+                };
+                self.control_stack.push(frame);
+            },
             // Operator::BrIf { relative_depth: 0 } => {
             //     unimplemented!();
             // },
@@ -733,44 +758,46 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 if self.control_stack.is_empty() {
                     self.relocations = self.machine.func_end(frame.label);
                 } else {
-                    // let released = &self.value_stack[frame.value_stack_depth..];
-                    // self.machine
-                    //     .release_locations(&mut self.assembler, released);
-                    // self.value_stack.truncate(frame.value_stack_depth);
+                    while frame.value_stack_depth > self.stack.len() {
+                        let local = self.pop_stack();
+                        self.maybe_release(local);
+                    }
+
                     // self.fp_stack.truncate(frame.fp_stack_depth);
 
-                    // if !frame.loop_like {
-                    //     self.assembler.emit_label(frame.label);
-                    // }
+                    if !frame.loop_like {
+                        self.machine.block_end(frame.label);
+                    }
 
-                    // if let IfElseState::If(label) = frame.if_else {
-                    //     self.assembler.emit_label(label);
-                    // }
+                    if let IfElseState::If(label) = frame.if_else {
+                        unimplemented!();
+                        // self.assembler.emit_label(label);
+                    }
 
-                    // if !frame.returns.is_empty() {
-                    //     if frame.returns.len() != 1 {
-                    //         return Err(CodegenError {
-                    //             message: "End: incorrect frame.returns".to_string(),
-                    //         });
-                    //     }
-                    //     let loc = self.machine.acquire_locations(
-                    //         &mut self.assembler,
-                    //         &[(
-                    //             frame.returns[0],
-                    //             MachineValue::WasmStack(self.value_stack.len()),
-                    //         )],
-                    //         false,
-                    //     )[0];
-                    //     self.assembler
-                    //         .emit_mov(Size::S64, Location::GPR(GPR::RAX), loc);
-                    //     self.value_stack.push(loc);
-                    //     if frame.returns[0].is_float() {
-                    //         self.fp_stack
-                    //             .push(FloatValue::new(self.value_stack.len() - 1));
-                    //         // we already canonicalized at the `Br*` instruction or here previously.
-                    //     }
-                    // }
-                    unimplemented!();
+                    if !frame.returns.is_empty() {
+                        unimplemented!();
+                        // if frame.returns.len() != 1 {
+                        //     return Err(CodegenError {
+                        //         message: "End: incorrect frame.returns".to_string(),
+                        //     });
+                        // }
+                        // let loc = self.machine.acquire_locations(
+                        //     &mut self.assembler,
+                        //     &[(
+                        //         frame.returns[0],
+                        //         MachineValue::WasmStack(self.value_stack.len()),
+                        //     )],
+                        //     false,
+                        // )[0];
+                        // self.assembler
+                        //     .emit_mov(Size::S64, Location::GPR(GPR::RAX), loc);
+                        // self.value_stack.push(loc);
+                        // if frame.returns[0].is_float() {
+                        //     self.fp_stack
+                        //         .push(FloatValue::new(self.value_stack.len() - 1));
+                        //     // we already canonicalized at the `Br*` instruction or here previously.
+                        // }
+                    }
                 }
             },
             _ => {
@@ -809,6 +836,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             fp_stack_depth: 0,
             state: self.machine.get_state().clone(),
             state_diff_id,
+
+            local_locations: vec![],
+            stack_locations: vec![],
         });
 
         // TODO: Full preemption by explicit signal checking
@@ -860,6 +890,22 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let body = self.machine.finalize();
         let instructions_address_map = self.instructions_address_map;
         let address_map = get_function_address_map(instructions_address_map, data, body.len());
+
+        use std::io::Write;
+        let mut s = String::new();
+        for b in body.iter().copied() {
+            s.push_str(&format!("{:0>2X} ", b));
+        }
+        let asm = std::process::Command::new("cstool")
+            .arg("arm64")
+            .arg(format!("\"{}\"", s))
+            .output()
+            .unwrap()
+            .stdout;
+        let mut f = std::fs::File::create(
+            format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
+            unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
+        f.write_all(&asm).unwrap();
 
         CompiledFunction {
             body: FunctionBody {
@@ -1075,6 +1121,26 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         }
         self.mark_instruction_address_end(begin);
         ret
+    }
+
+    fn record_locations(&mut self) -> (Vec<M::Location>, Vec<M::Location>) {
+        macro_rules! record_locations_from_vec {
+            ($vec:expr) => {
+                {
+                        for local in $vec.iter().cloned() {
+                        if local.location().is_imm() {
+                            self.machine.do_store(local.clone());
+                        }
+                    }
+                    $vec.iter().map(|local| local.location()).collect()
+                }
+            }
+        }
+
+        let local_locations = record_locations_from_vec!(self.locals);
+        let stack_locations = record_locations_from_vec!(self.stack);
+
+        (local_locations, stack_locations)
     }
 
     pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
