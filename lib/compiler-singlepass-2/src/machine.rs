@@ -47,6 +47,7 @@ pub trait Machine {
     fn release_location(&mut self, loc: Local<Self::Location>);
     fn func_begin(&mut self, n_locals: usize, n_params: usize) -> Vec<Local<Self::Location>>;
     fn func_end(&mut self, end_label: Self::Label) -> Vec<Relocation>;
+    fn block_end(&mut self, end_label: Self::Label);
     fn do_add_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_sub_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_le_u_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
@@ -60,6 +61,7 @@ pub trait Machine {
     fn do_deref_write(&mut self, sz: Size, ptr: Local<Self::Location>, val: Local<Self::Location>);
     fn do_ptr_offset(&mut self, ptr: Local<Self::Location>, offset: i32) -> Local<Self::Location>;
     fn do_vmctx_ptr_offset(&mut self, offset: i32) -> Local<Self::Location>;
+    fn do_store(&mut self, local: Local<Self::Location>);
     fn finalize(self) -> Vec<u8>;
 
     fn gen_std_trampoline(

@@ -661,6 +661,17 @@ impl Machine for Aarch64Machine {
         // }
     }
 
+    fn block_end(&mut self, end_label: Self::Label) {
+        dynasm!(self.assembler ; .arch aarch64 ; =>end_label);
+    }
+
+    fn do_store(&mut self, loc: Local<Self::Location>) {
+        if let Location::Imm32(_) = loc.location() {} else {
+            return;
+        }
+        self.move_to_reg(loc, &[]);
+    }
+
     fn do_add_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         let (src1, src2, dst) = self.prep_bin_op(src1, src2, true, 12);
         do_bin_op!(self, add, src1, src2, dst, u32);
@@ -699,7 +710,8 @@ impl Machine for Aarch64Machine {
     }
 
     fn do_deref(&mut self, sz: Size, loc: Local<Self::Location>) -> Local<Location> {
-        // TODO: if loc is in memory, move_to_reg will already deref it. sort out how these things interact! this is definitely a bug
+        assert!(if let Location::Reg(_) = loc.location() { true } else { false });
+        
         let src = self.move_to_reg(loc.clone(), &[]);
         let (dst, dst_local) = if loc.ref_ct() < 1 {
             (src, loc.clone())
