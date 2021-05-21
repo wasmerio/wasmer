@@ -658,6 +658,7 @@ impl Machine for Aarch64Machine {
     fn do_add_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         let (src1, src2, dst) = self.prep_bin_op(src1, src2, true, 12);
         do_bin_op!(self, add, src1, src2, dst, u32);
+        dst
     }
 
     fn do_sub_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
