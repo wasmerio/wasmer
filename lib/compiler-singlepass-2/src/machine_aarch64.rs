@@ -189,7 +189,7 @@ impl Aarch64Machine {
 
     fn prep_unary_op(&mut self, src: Local<Location>) -> (Local<Location>, Local<Location>) {
         let r = self.move_to_reg(src.clone(), &[]);
-        if src.ref_ct() < 2 {
+        if src.ref_ct() < 1 {
             (src.clone(), src)
         } else {
             let dst = self.get_free_reg(&[r]);
@@ -204,9 +204,9 @@ impl Aarch64Machine {
         let r1 = self.move_to_reg(src1.clone(), &[]);
         let r2 = self.move_to_reg(src2.clone(), &[r1]);
 
-        if src1.ref_ct() < 2 {
+        if src1.ref_ct() < 1 {
             (src1.clone(), src2, src1)
-        } else if src2.ref_ct() < 2 {
+        } else if src2.ref_ct() < 1 {
             (src1, src2.clone(), src2)
         } else {
             let dst = self.get_free_reg(&[r1, r2]);
@@ -256,9 +256,9 @@ impl Aarch64Machine {
             }
         }
 
-        if src1.ref_ct() < 2 {
+        if src1.ref_ct() < 1 {
             (src1.clone(), src2, src1)
-        } else if !src2_is_imm && src2.ref_ct() < 2 {
+        } else if !src2_is_imm && src2.ref_ct() < 1 {
             (src1, src2.clone(), src2)
         } else {
             let mut dont_use: SmallVec<[_; 2]> = SmallVec::new();
@@ -520,6 +520,13 @@ impl Machine for Aarch64Machine {
             Location::Memory(FP, offset) => {
                 self.free_stack.push(offset);
             },
+            // Location::Memory(Reg::X(n), _) => {
+            //     if n < 19 {
+            //         self.free_regs.push(n);
+            //     } else {
+            //         self.free_callee_save.push(n);
+            //     }
+            // },
             Location::Imm32(_) => {},
             _ => {
                 unreachable!()
@@ -694,7 +701,12 @@ impl Machine for Aarch64Machine {
     fn do_deref(&mut self, sz: Size, loc: Local<Self::Location>) -> Local<Location> {
         // TODO: if loc is in memory, move_to_reg will already deref it. sort out how these things interact! this is definitely a bug
         let src = self.move_to_reg(loc.clone(), &[]);
-        let dst = if loc.ref_ct() < 2 { src } else { self.get_free_reg(&[src])};
+        let (dst, dst_local) = if loc.ref_ct() < 1 {
+            (src, loc.clone())
+        } else {
+            let r = self.get_free_reg(&[src]);
+            (r, Local::new(Location::Reg(Reg::X(r))))
+        };
         
         match sz {
             Size::S32 => {
@@ -708,7 +720,7 @@ impl Machine for Aarch64Machine {
             },
         }
         
-        Local::new(Location::Reg(Reg::X(dst)))
+        dst_local
     }
 
     fn do_deref_write(&mut self, sz: Size, ptr: Local<Self::Location>, val: Local<Self::Location>) {

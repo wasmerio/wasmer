@@ -957,6 +957,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
         let (base_ptr, bound_ptr) = if self.module.num_imported_memories != 0 {
             // Imported memories require one level of indirection.
+            // TODO: I have not tested to see if imported memories actually work
             let offset = self.vmoffsets.vmctx_vmmemory_import_definition(MemoryIndex::new(0));
             let vmctx_field = self.machine.do_load_from_vmctx(Size::S64, offset);
             vmctx_field.inc_ref();
@@ -971,24 +972,25 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             self.machine.do_vmctx_ptr_offset(offset + 8))
         };
 
-        // // Load bound into temporary register, if needed.
-        // if need_check {
-        //     self.assembler.emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
+        // Load bound into temporary register, if needed.
+        if need_check {
+            unimplemented!();
+            // self.assembler.emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
     
-        //     // Wasm -> Effective.
-        //     // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
-        //     // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+            // // Wasm -> Effective.
+            // // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+            // // since the first page from 0x0 to 0x1000 is not accepted by mmap.
     
-        //     // This `lea` calculates the upper bound allowed for the beginning of the word.
-        //     // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
-        //     // the maximum allowed beginning of word is (inclusively)
-        //     // `tmp_bound + tmp_base - value_size`.
-        //     self.assembler.emit_lea(
-        //         Size::S64,
-        //         Location::MemoryAddTriple(tmp_bound, tmp_base, -(value_size as i32)),
-        //         Location::GPR(tmp_bound),
-        //     );
-        // }
+            // // This `lea` calculates the upper bound allowed for the beginning of the word.
+            // // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
+            // // the maximum allowed beginning of word is (inclusively)
+            // // `tmp_bound + tmp_base - value_size`.
+            // self.assembler.emit_lea(
+            //     Size::S64,
+            //     Location::MemoryAddTriple(tmp_bound, tmp_base, -(value_size as i32)),
+            //     Location::GPR(tmp_bound),
+            // );
+        }
             
         let mut addr = addr;
 
