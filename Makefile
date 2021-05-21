@@ -295,6 +295,10 @@ comma := ,
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers))
 
+# Define the compiler Cargo features for the C API. It always excludes
+# LLVM for the moment.
+capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers)))
+
 capi_compilers_engines_exclude := singlepass-jit
 capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compilers_engines))
 
@@ -418,7 +422,7 @@ build-docs-capi: capi-setup
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,wasi,middlewares $(capi_default_features) $(compiler_features)
+		--no-default-features --features deprecated,wat,jit,native,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
