@@ -212,7 +212,7 @@ fn run_c_compile(
         command
     };
 
-    let output = command.arg("-o").arg(output_name).output()?;
+    let output = dbg!(command.arg("-o").arg(output_name)).output()?;
 
     if !output.status.success() {
         bail!(
