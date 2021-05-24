@@ -2,13 +2,12 @@
 //! This tests checks that the provided functions (both native and
 //! dynamic ones) work properly.
 
-use crate::utils::get_store;
 use wasmer::*;
 
 macro_rules! mvr_test {
     ($test_name:ident, $( $result_type:ty ),* ) => {
         mod $test_name {
-            use super::*;
+            use wasmer::*;
 
             fn get_module(store: &Store) -> anyhow::Result<wasmer::Module> {
                 let wat: String = r#"
@@ -36,10 +35,9 @@ macro_rules! mvr_test {
                 ( $( <$result_type>::expected_value(n) ),* )
             }
 
-            #[test]
-            #[cfg_attr(any(feature = "test-cranelift", feature="test-singlepass"), ignore)]
-            fn native() -> anyhow::Result<()> {
-                let store = get_store(false);
+            #[compiler_test(multi_value_imports)]
+            fn native(config: crate::Config) -> anyhow::Result<()> {
+                let store = config.store();
                 let module = get_module(&store)?;
                 let instance = wasmer::Instance::new(
                     &module,
@@ -57,15 +55,14 @@ macro_rules! mvr_test {
                 Ok(())
             }
 
-            fn dynamic_callback_fn(values: &[wasmer::Value]) -> Result<Vec<wasmer::Val>, wasmer::RuntimeError> {
+            fn dynamic_callback_fn(values: &[wasmer::Value]) -> anyhow::Result<Vec<wasmer::Val>, wasmer::RuntimeError> {
                 assert_eq!(values[0], wasmer::Value::I32(1));
                 Ok(vec![ $( <$result_type>::expected_val(1) ),* ])
             }
 
-            #[test]
-            #[cfg_attr(feature="test-singlepass", ignore)]
-            fn dynamic() -> anyhow::Result<()> {
-                let store = get_store(false);
+            #[compiler_test(multi_value_imports)]
+            fn dynamic(config: crate::Config) -> anyhow::Result<()> {
+                let store = config.store();
                 let module = get_module(&store)?;
                 let callback_fn = wasmer::Function::new(&store, &wasmer::FunctionType::new(vec![wasmer::ValType::I32], vec![ $( <$result_type>::expected_valtype() ),* ]), dynamic_callback_fn);
                 let instance = wasmer::Instance::new(

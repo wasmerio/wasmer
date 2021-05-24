@@ -28,7 +28,7 @@ pub struct CompiledFunction {
 }
 
 pub fn get_function_body_size(data: &[u8]) -> Result<u64, CompileError> {
-    let in_object = object::File::parse(&data).map_err(map_object_err)?;
+    let in_object = object::File::parse(data).map_err(map_object_err)?;
     let section = in_object.section_by_name(FUNCTION_SECTION_NAME);
     match section {
         Some(section) => Ok(section.size()),

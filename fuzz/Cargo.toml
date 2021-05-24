@@ -28,10 +28,6 @@ singlepass = [ "wasmer-compiler-singlepass" ]
 jit = [ "wasmer-engine-jit" ]
 native = [ "wasmer-engine-native" ]
 
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
-
 [[bin]]
 name = "equivalence_jit"
 path = "fuzz_targets/equivalence_jit.rs"

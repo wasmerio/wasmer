@@ -577,6 +577,13 @@ fn build_inline_c_env_vars() {
         L = shared_object_dir.clone(),
     );
 
+    if let Ok(compiler_engine) = env::var("TEST") {
+        println!(
+            "cargo:rustc-env=INLINE_C_RS_TEST={test}",
+            test = compiler_engine
+        );
+    }
+
     println!(
         "cargo:rustc-env=INLINE_C_RS_LDFLAGS={shared_object_dir}/{lib}",
         shared_object_dir = shared_object_dir,

@@ -44,21 +44,16 @@ pub enum RelocationKind {
     X86CallPCRel4,
     /// x86 call to PLT-relative 4-byte
     X86CallPLTRel4,
-    // /// x86 GOT PC-relative 4-byte
-    // X86GOTPCRel4,
-
-    // /// Arm32 call target
-    // Arm32Call,
-
-    // /// Arm64 call target
-    // Arm64Call,
-
+    /// x86 GOT PC-relative 4-byte
+    X86GOTPCRel4,
+    /// Arm32 call target
+    Arm32Call,
+    /// Arm64 call target
+    Arm64Call,
     // /// RISC-V call target
     // RiscvCall,
-
-    // /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
-    // ElfX86_64TlsGd,
-
+    /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
+    ElfX86_64TlsGd,
     // /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
     // MachOX86_64Tlv,
 }
@@ -75,10 +70,9 @@ impl fmt::Display for RelocationKind {
             Self::X86PCRelRodata4 => write!(f, "PCRelRodata4"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
-            // Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
-            // Self::Arm32Call | Self::Arm64Call | Self::RiscvCall => write!(f, "Call"),
-
-            // Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
+            Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
+            Self::Arm32Call | Self::Arm64Call => write!(f, "Call"),
+            Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }

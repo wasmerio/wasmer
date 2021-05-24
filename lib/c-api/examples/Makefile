@@ -1,11 +1,15 @@
+WASMER_DIR:=$(realpath $(WASMER_DIR))
+
 $(info Using provided WASMER_DIR=$(WASMER_DIR))
 
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
 ifeq (,$(wildcard $(WASMER_DIR)/bin/wasmer))
-	CFLAGS = -g -I$(WASMER_DIR)/include
+	CFLAGS = -g -I$(ROOT_DIR)/../tests -I$(WASMER_DIR)/include
 	LDFLAGS = -Wl,-rpath,$(WASMER_DIR)/lib
 	LDLIBS = -L$(WASMER_DIR)/lib -lwasmer
 else
-	CFLAGS = -g -I$(shell $(WASMER_DIR)/bin/wasmer config --includedir)
+	CFLAGS = -g -I$(ROOT_DIR)/../tests -I$(shell $(WASMER_DIR)/bin/wasmer config --includedir)
 	LDFLAGS = -Wl,-rpath,$(shell $(WASMER_DIR)/bin/wasmer config --libdir)
 	LDLIBS = $(shell $(WASMER_DIR)/bin/wasmer config --libs)
 endif

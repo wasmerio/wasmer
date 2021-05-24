@@ -15,9 +15,9 @@ edition = "2018"
 wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["translator"] }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-types = { path = "../types", version = "1.0.2" }
-target-lexicon = { version = "0.11", default-features = false }
+target-lexicon = { version = "0.12", default-features = false }
 smallvec = "1.6"
-object = { version = "0.23", default-features = false, features = ["read"] }
+object = { version = "0.24", default-features = false, features = ["read"] }
 libc = { version = "^0.2", default-features = false }
 byteorder = "1"
 itertools = "0.10"
