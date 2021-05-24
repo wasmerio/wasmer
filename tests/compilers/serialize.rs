@@ -1,10 +1,9 @@
-use crate::utils::{get_headless_store, get_store};
 use anyhow::Result;
 use wasmer::*;
 
-#[test]
-fn test_serialize() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(serialize)]
+fn test_serialize(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module
         (func $hello (import "" "hello"))
@@ -18,9 +17,9 @@ fn test_serialize() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_deserialize() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(serialize)]
+fn test_deserialize(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module $name
             (import "host" "sum_part" (func (param i32 i64 i32 f32 f64) (result i64)))
@@ -38,7 +37,7 @@ fn test_deserialize() -> Result<()> {
     let module = Module::new(&store, wat)?;
     let serialized_bytes = module.serialize()?;
 
-    let headless_store = get_headless_store();
+    let headless_store = config.headless_store();
     let deserialized_module = unsafe { Module::deserialize(&headless_store, &serialized_bytes)? };
     assert_eq!(deserialized_module.name(), Some("name"));
     assert_eq!(

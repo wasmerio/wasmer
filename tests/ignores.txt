@@ -1,35 +1,70 @@
 # Compilers
-singlepass::spec::multi_value
-singlepass::spec::simd
+singlepass spec::multi_value
+singlepass spec::simd
 
-singlepass on windows # Singlepass is not yet supported on Windows
+singlepass+windows *
+singlepass+native *
+windows+native *
+musl+native * # Dynamic loading not supported in Musl
+
+# Traps
+singlepass traps::test_trap_trace
+native     traps::test_trap_trace
+aarch64    traps::test_trap_trace
+singlepass traps::test_trap_stack_overflow
+native     traps::test_trap_stack_overflow
+aarch64    traps::test_trap_stack_overflow
+singlepass traps::trap_display_pretty
+llvm       traps::trap_display_pretty
+native     traps::trap_display_pretty
+aarch64    traps::trap_display_pretty
+singlepass traps::trap_display_multi_module
+llvm       traps::trap_display_multi_module
+native     traps::trap_display_multi_module
+aarch64    traps::trap_display_multi_module
+singlepass traps::call_signature_mismatch
+llvm       traps::call_signature_mismatch
+native     traps::call_signature_mismatch
+macos+aarch64    traps::call_signature_mismatch
+singlepass traps::start_trap_pretty
+llvm       traps::start_trap_pretty
+native     traps::start_trap_pretty
+aarch64    traps::start_trap_pretty
+
+cranelift  multi_value_imports::native
+singlepass multi_value_imports::native
+singlepass multi_value_imports::dynamic
+
+
+# LLVM/JIT doesn't work in macOS M1. Skip all tests
+llvm+jit+macos+aarch64 *
 
 # TODO: We need to fix this. The issue happens only in Cranelift/LLVM and macOS,
 # is caused by libunwind overflowing the stack while creating the stacktrace.
 # https://github.com/rust-lang/backtrace-rs/issues/356
-cranelift::spec::skip_stack_guard_page on darwin
-cranelift::spec::skip_stack_guard_page on linux
-llvm::spec::skip_stack_guard_page on darwin
+cranelift+macos spec::skip_stack_guard_page
+cranelift+linux spec::skip_stack_guard_page
+llvm+macos      spec::skip_stack_guard_page
 
 # https://github.com/wasmerio/wasmer/issues/1722
-llvm::spec::skip_stack_guard_page on native
+llvm+native spec::skip_stack_guard_page
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
-cranelift::spec::linking on native
-cranelift::spec::bulk on native
+cranelift+native spec::linking
+cranelift+native spec::bulk
 
 # Some SIMD opperations are not yet supported by Cranelift
-cranelift::spec::simd::simd_boolean on aarch64
-cranelift::spec::simd::simd_conversions
-cranelift::spec::simd::simd_i16x8_extadd_pairwise_i8x16
-cranelift::spec::simd::simd_i16x8_extmul_i8x16
-cranelift::spec::simd::simd_i16x8_q15mulr_sat_s
-cranelift::spec::simd::simd_i32x4_extadd_pairwise_i16x8
-cranelift::spec::simd::simd_i32x4_extmul_i16x8
-cranelift::spec::simd::simd_i32x4_trunc_sat_f64x2
-cranelift::spec::simd::simd_i64x2_extmul_i32x4
-cranelift::spec::simd::simd_i8x16_arith2
-cranelift::spec::simd::simd_int_to_int_extend
+cranelift+aarch64 spec::simd::simd_boolean
+cranelift spec::simd::simd_conversions
+cranelift spec::simd::simd_i16x8_extadd_pairwise_i8x16
+cranelift spec::simd::simd_i16x8_extmul_i8x16
+cranelift spec::simd::simd_i16x8_q15mulr_sat_s
+cranelift spec::simd::simd_i32x4_extadd_pairwise_i16x8
+cranelift spec::simd::simd_i32x4_extmul_i16x8
+cranelift spec::simd::simd_i32x4_trunc_sat_f64x2
+cranelift spec::simd::simd_i64x2_extmul_i32x4
+cranelift spec::simd::simd_i8x16_arith2
+cranelift spec::simd::simd_int_to_int_extend
 
 # Frontends
 
@@ -66,19 +101,19 @@ wasitests::unstable::poll_oneoff
 ## Failing due to different line endings on Windows
 ## we need a better solution to this problem:
 
-wasitests::snapshot1::file_metadata on windows
-wasitests::snapshot1::fseek on windows
-wasitests::snapshot1::path_link on windows
-wasitests::snapshot1::path_symlink on windows
-wasitests::snapshot1::mapdir_with_leading_slash on windows
-wasitests::unstable::fd_pread on windows
-wasitests::unstable::fd_read on windows
-wasitests::unstable::file_metadata on windows
-wasitests::unstable::fseek on windows
-wasitests::unstable::path_link on windows
-wasitests::unstable::path_symlink on windows
-wasitests::unstable::mapdir_with_leading_slash on windows
+windows wasitests::snapshot1::file_metadata
+windows wasitests::snapshot1::fseek
+windows wasitests::snapshot1::path_link
+windows wasitests::snapshot1::path_symlink
+windows wasitests::snapshot1::mapdir_with_leading_slash
+windows wasitests::unstable::fd_pread
+windows wasitests::unstable::fd_read
+windows wasitests::unstable::file_metadata
+windows wasitests::unstable::fseek
+windows wasitests::unstable::path_link
+windows wasitests::unstable::path_symlink
+windows wasitests::unstable::mapdir_with_leading_slash
 
 # This test is meant to only run on Unix
-wasitests::unstable::unix_open_special_files on windows
-wasitests::snapshot1::unix_open_special_files on windows
+windows wasitests::unstable::unix_open_special_files
+windows wasitests::snapshot1::unix_open_special_files

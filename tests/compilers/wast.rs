@@ -1,12 +1,5 @@
-#![cfg(all(feature = "compiler", feature = "engine"))]
-
-use crate::utils::get_compiler;
+use ::wasmer::Features;
 use std::path::Path;
-use wasmer::{Features, Store};
-#[cfg(feature = "test-jit")]
-use wasmer_engine_jit::JIT;
-#[cfg(feature = "test-native")]
-use wasmer_engine_native::Native;
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:
@@ -28,23 +21,8 @@ fn _native_prefixer(bytes: &[u8]) -> String {
     format!("{}", hash.to_hex())
 }
 
-#[cfg(feature = "test-jit")]
-fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
-    let compiler_config = get_compiler(try_nan_canonicalization);
-    Store::new(&JIT::new(compiler_config).features(features).engine())
-}
-
-#[cfg(feature = "test-native")]
-fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
-    let compiler_config = get_compiler(try_nan_canonicalization);
-    Store::new(&Native::new(compiler_config).features(features).engine())
-}
-
-pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
-    println!(
-        "Running wast `{}` with the {} compiler",
-        wast_path, compiler
-    );
+pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()> {
+    println!("Running wast `{}`", wast_path);
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");
@@ -55,10 +33,13 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if is_simd {
         features.simd(true);
     }
-    if cfg!(feature = "test-singlepass") {
+    if config.compiler == crate::Compiler::Singlepass {
         features.multi_value(false);
     }
-    let store = get_store(features, try_nan_canonicalization);
+    config.set_features(features);
+    config.set_nan_canonicalization(try_nan_canonicalization);
+
+    let store = config.store();
     let mut wast = Wast::new_with_spectest(store);
     // `bulk-memory-operations/bulk.wast` checks for a message that
     // specifies which element is uninitialized, but our traps don't
@@ -66,7 +47,7 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     wast.allow_trap_message("uninitialized element 2", "uninitialized element");
     // `liking.wast` has different wording but the same meaning
     wast.allow_trap_message("out of bounds memory access", "memory out of bounds");
-    if compiler == "cranelift" && cfg!(feature = "test-native") {
+    if config.compiler == crate::Compiler::Cranelift && config.engine == crate::Engine::Native {
         wast.allow_trap_message("call stack exhausted", "out of bounds memory access");
         wast.allow_trap_message("indirect call type mismatch", "call stack exhausted");
         wast.allow_trap_message("integer divide by zero", "call stack exhausted");
@@ -87,7 +68,7 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
             "Validation error: Invalid var_u32",
         ]);
     }
-    if compiler == "singlepass" {
+    if config.compiler == crate::Compiler::Singlepass {
         // We don't support multivalue yet in singlepass
         wast.allow_instantiation_failures(&[
             "Validation error: invalid result arity: func type returns multiple values",

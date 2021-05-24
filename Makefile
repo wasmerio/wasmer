@@ -148,8 +148,17 @@ ifneq ($(ENABLE_LLVM), 0)
 	endif
 endif
 
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
+# Is failing to compile in Linux for some reason
+exclude_tests += --exclude wasmer-wasi-experimental-io-devices
+# We run integration tests separately (it requires building the c-api)
+exclude_tests += --exclude wasmer-integration-tests-cli
+
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
+else
+	# We exclude LLVM from our package testing
+	exclude_tests += --exclude wasmer-compiler-llvm
 endif
 
 ##
@@ -285,11 +294,18 @@ comma := ,
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers))
+capi_compilers_engines_exclude := 
 
 # Define the compiler Cargo features for the C API. It always excludes
-# LLVM for the moment.
+# LLVM for the moment because it causes the linker to fail since llvm is not statically linked.
+# TODO: Reenable llvm in C-API
 capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers)))
+capi_compilers_engines_exclude += llvm-jit llvm-native
 
+# We exclude singlepass jit because it doesn't support multivalue (required in wasm-c-api tests)
+capi_compilers_engines_exclude += singlepass-jit
+
+capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compilers_engines))
 
 #####
 #
@@ -330,11 +346,12 @@ ifneq (, $(LIBC))
         $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
 endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
-$(info Compilers + engines pairs (for testing): $(bold)$(green)${compilers_engines}$(reset))
+$(info Testing the following compilers & engines:)
+$(info   * API: $(bold)$(green)${compilers_engines}$(reset))
+$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset))
 $(info Cargo features:)
-$(info     - Compilers for all crates: `$(bold)$(green)${compiler_features}$(reset)`.)
-$(info     - Compilers for the C API: `$(bold)$(green)${capi_compiler_features}$(reset)`.)
-$(info     - Default for the C API: `$(bold)$(green)${capi_default_features}$(reset)`.)
+$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info   * C-API: `$(bold)$(green)${capi_default_features}$(reset)`.)
 $(info )
 $(info )
 $(info --------------)
@@ -486,25 +503,40 @@ build-capi-headless-all: capi-setup
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
+test: test-compilers test-packages test-examples test-deprecated
+
+test-compilers:
+	cargo test --release --tests $(compiler_features)
+
+test-packages:
+	cargo test --all --release $(exclude_tests)
+	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
+
+########################
+# Testing (Compatible) #
+########################
+
+test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
 test-singlepass-native:
-	cargo test --release --tests $(compiler_features) --features "test-singlepass test-native"
+	cargo test --release --tests $(compiler_features) -- singlepass::native
 
 test-singlepass-jit:
-	cargo test --release --tests $(compiler_features) --features "test-singlepass test-jit"
+	cargo test --release --tests $(compiler_features) -- singlepass::jit
 
 test-cranelift-native:
-	cargo test --release --tests $(compiler_features) --features "test-cranelift test-native"
+	cargo test --release --tests $(compiler_features) -- cranelift::native
 
 test-cranelift-jit:
-	cargo test --release --tests $(compiler_features) --features "test-cranelift test-jit"
+	cargo test --release --tests $(compiler_features) -- cranelift::jit
 
 test-llvm-native:
-	cargo test --release --tests $(compiler_features) --features "test-llvm test-native"
+	cargo test --release --tests $(compiler_features) -- llvm::native
 
 test-llvm-jit:
-	cargo test --release --tests $(compiler_features) --features "test-llvm test-jit"
+	cargo test --release --tests $(compiler_features) -- llvm::jit
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
@@ -512,76 +544,19 @@ test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engi
 
 test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
 
-test-packages:
-	cargo test -p wasmer --release
-	cargo test -p wasmer-vm --release
-	cargo test -p wasmer-types --release
-	cargo test -p wasmer-wasi --release
-	cargo test -p wasmer-object --release
-	cargo test -p wasmer-engine-native --release --no-default-features
-	cargo test -p wasmer-engine-jit --release --no-default-features
-	cargo test -p wasmer-compiler --release
-	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
-	cargo test -p wasmer-cache --release
-	cargo test -p wasmer-engine --release
-	cargo test -p wasmer-derive --release
-	cargo check --manifest-path fuzz/Cargo.toml $(compiler_features) --release
+# This test requires building the capi with all the available
+# compilers first
+test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
 
-
-# We want to run all the tests for all available compilers. The C API
-# and the tests rely on the fact that one and only one default
-# compiler will be selected at compile-time. Therefore, if we want to
-# test exhaustively for all available compilers, we need to build and
-# to test the C API with a different compiler each time.
-#
-# That's exactly what `test-capi` does: it runs `build-capi-*` with
-# one compiler, and then it runs `test-capi-*` for that compiler
-# specifically.
-#
-# Why do we need to run `build-capi-*` exactly? One might think that
-# `cargo test` would generate a static library (`.a`) to link the
-# tests against, but no. `cargo test` has no idea that we need this
-# static library, that's normal the library isn't generated. Hence the
-# need to run `cargo build` prior to testing to get all the build
-# artifacts.
-#
-# Finally, `test-capi` calls `test-capi-all` that runs the tests for
-# the library built with `build-capi`, which is the one we will
-# deliver to the users, i.e. the one that may include multiple
-# compilers.
-test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-$(compiler_engine)) test-capi-all
-
-test-capi-all: build-capi
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+test-capi-crate-%:
+	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features) -- --nocapture
 
-test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,singlepass,wasi,middlewares $(capi_default_features) -- --nocapture
-
-test-capi-cranelift-jit: build-capi-cranelift-jit test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,cranelift,wasi,middlewares $(capi_default_features) -- --nocapture
-
-test-capi-cranelift-native: build-capi-cranelift-native test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,cranelift,wasi,middlewares $(capi_default_features) -- --nocapture
-
-test-capi-llvm-jit: build-capi-llvm-jit test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,llvm,wasi,middlewares $(capi_default_features) -- --nocapture
-
-test-capi-llvm-native: build-capi-llvm-native test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,llvm,wasi,middlewares $(capi_default_features) -- --nocapture
-
-test-capi-tests: package-capi
+test-capi-integration-%:
 	# Test the Wasmer C API tests for C
-	cd lib/c-api/tests; WASMER_DIR=`pwd`/../../../package make test
+	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples
-	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
+	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
@@ -614,7 +589,7 @@ else
 		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
 	fi
 ifeq ($(IS_DARWIN), 1)
-	codesign -s - package/bin/wapm
+	codesign -s - package/bin/wapm || true
 endif
 endif
 
@@ -636,7 +611,7 @@ ifeq ($(IS_WINDOWS), 1)
 else
 	cp $(TARGET_DIR)/wasmer package/bin/
 ifeq ($(IS_DARWIN), 1)
-	codesign -s - package/bin/wasmer
+	codesign -s - package/bin/wasmer || true
 endif
 endif
 
@@ -738,20 +713,8 @@ update-testsuite:
 
 lint-packages: RUSTFLAGS += -D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
 lint-packages:
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-c-api
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-vm
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-types
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-wasi
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-object
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-engine-native
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-engine-jit
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-compiler
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-compiler-cranelift
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-compiler-singlepass
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all $(exclude_tests)
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-cache
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-engine
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features)
 
 lint-formatting:
