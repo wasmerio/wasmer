@@ -1573,9 +1573,9 @@ dependencies = [
 
 [[package]]
 name = "ptr_meta"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6de4703776ff261fe3cbf05c8781f129b284e57ee35a785fe6c92b1dcf93a612"
+checksum = "7424255320182a46c403331afed6f95e0259a7c578f9da54a27e262ef3b60118"
 dependencies = [
  "ptr_meta_derive",
 ]
