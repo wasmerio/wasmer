@@ -23,13 +23,13 @@ leb128 = "0.2"
 libloading = "0.7"
 tempfile = "3.1"
 which = "4.0"
-rkyv = "0.6.1"
+rkyv = "0.6.5"
 loupe = "0.1"
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile
 # and not be only on headless mode.
-compiler = []
+compiler = ["wasmer-compiler/translator"]
 
 [badges]
 maintenance = { status = "actively-developed" }

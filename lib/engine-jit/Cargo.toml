@@ -19,7 +19,7 @@ wasmer-engine = { path = "../engine", version = "1.0.2" }
 region = "2.2"
 cfg-if = "0.1"
 leb128 = "0.2"
-rkyv = "0.6.1"
+rkyv = "0.6.5"
 loupe = "0.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -28,7 +28,7 @@ winapi = { version = "0.3", features = ["winnt", "impl-default"] }
 [features]
 # Enable the `compiler` feature if you want the engine to compile
 # and not be only on headless mode.
-compiler = []
+compiler = ["wasmer-compiler/translator"]
 
 [badges]
 maintenance = { status = "actively-developed" }
