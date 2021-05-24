@@ -15,9 +15,9 @@ edition = "2018"
 wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["translator"], default-features = false }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
-cranelift-entity = { version = "0.73", default-features = false }
-cranelift-codegen = { version = "0.73", default-features = false, features = ["x86", "arm64"] }
-cranelift-frontend = { version = "0.73", default-features = false }
+cranelift-entity = { version = "0.74", default-features = false }
+cranelift-codegen = { version = "0.74", default-features = false, features = ["x86", "arm64"] }
+cranelift-frontend = { version = "0.74", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.9", optional = true }
 rayon = "1.5"
@@ -28,7 +28,7 @@ loupe = "0.1"
 
 [dev-dependencies]
 target-lexicon = { version = "0.12", default-features = false }
-cranelift-codegen = { version = "0.73", features = ["all-arch"] }
+cranelift-codegen = { version = "0.74", features = ["all-arch"] }
 lazy_static = "1.4"
 
 [badges]
