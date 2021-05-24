@@ -44,17 +44,6 @@ pub struct ModuleMetadataSymbolRegistry {
     pub prefix: String,
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(target_endian = "big")] {
-        const HOST_ENDIAN: u8 = b'b';
-    } else if #[cfg(target_endian = "little")] {
-        const HOST_ENDIAN: u8 = b'l';
-    }
-    else {
-        compile_error!("Endian isn't big or little?");
-    }
-}
-
 impl ModuleMetadata {
     pub fn get_symbol_registry(&self) -> ModuleMetadataSymbolRegistry {
         ModuleMetadataSymbolRegistry {
@@ -64,7 +53,7 @@ impl ModuleMetadata {
 
     /// Serialize the Metadata into bytes
     /// The bytes will have the following format:
-    /// RKYV serialization (any length) + POS (8 bytes) + Endian (1 byte)
+    /// RKYV serialization (any length) + POS (8 bytes)
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![]));
         let pos = serializer
@@ -72,13 +61,12 @@ impl ModuleMetadata {
             .map_err(to_serialize_error)? as u64;
         let mut serialized_data = serializer.into_inner().into_inner();
         serialized_data.extend_from_slice(&pos.to_le_bytes());
-        serialized_data.extend_from_slice(&[HOST_ENDIAN]);
         Ok(serialized_data)
     }
 
     /// Deserialize the Metadata from a slice.
     /// The slice must have the following format:
-    /// RKYV serialization (any length) + POS (8 bytes) + Endian (1 byte)
+    /// RKYV serialization (any length) + POS (8 bytes)
     ///
     /// # Safety
     ///
@@ -98,26 +86,16 @@ impl ModuleMetadata {
     unsafe fn archive_from_slice<'a>(
         metadata_slice: &'a [u8],
     ) -> Result<&'a ArchivedModuleMetadata, DeserializeError> {
-        if metadata_slice.len() < 9 {
+        if metadata_slice.len() < 8 {
             return Err(DeserializeError::Incompatible(
                 "invalid serialized data".into(),
             ));
         }
         let mut pos: [u8; 8] = Default::default();
-        let endian = metadata_slice[metadata_slice.len() - 1];
-        if endian != HOST_ENDIAN {
-            return Err(DeserializeError::Incompatible(
-                format!(
-                    "incompatible endian. Received {} but expected {}",
-                    endian, HOST_ENDIAN
-                )
-                .into(),
-            ));
-        }
-        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 9..metadata_slice.len() - 1]);
+        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
         let pos: u64 = u64::from_le_bytes(pos);
         Ok(archived_value::<ModuleMetadata>(
-            &metadata_slice[..metadata_slice.len() - 9],
+            &metadata_slice[..metadata_slice.len() - 8],
             pos as usize,
         ))
     }
