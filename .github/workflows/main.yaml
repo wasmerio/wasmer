@@ -73,7 +73,7 @@ jobs:
             run_integration_tests: true
             use_sccache: true
             run_test: true
-            run_test_capi: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
           #- build: linux-aarch64
           #  os: [self-hosted, linux, ARM64]
           #  random_sccache_port: true
