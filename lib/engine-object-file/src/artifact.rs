@@ -2,7 +2,9 @@
 //! done as separate steps.
 
 use crate::engine::{ObjectFileEngine, ObjectFileEngineInner};
-use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata, ModuleMetadataSymbolRegistry};
+#[cfg(feature = "compiler")]
+use crate::serialize::ArchivedModuleMetadata;
+use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
 use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;

@@ -77,8 +77,7 @@ impl ModuleInfoFrameInfo {
         let (end, func) = self.functions.range(pc..).next()?;
         if func.start <= pc && pc < *end {
             return Some(func);
-        }
-        else {
+        } else {
             None
         }
     }
@@ -164,8 +163,7 @@ impl GlobalFrameInfo {
         let (end, module_info) = self.ranges.range(pc..).next()?;
         if module_info.start <= pc && pc < *end {
             Some(module_info)
-        }
-        else {
+        } else {
             None
         }
     }

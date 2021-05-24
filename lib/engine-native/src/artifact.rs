@@ -2,7 +2,9 @@
 //! done as separate steps.
 
 use crate::engine::{NativeEngine, NativeEngineInner};
-use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata};
+#[cfg(feature = "compiler")]
+use crate::serialize::ArchivedModuleMetadata;
+use crate::serialize::ModuleMetadata;
 use libloading::{Library, Symbol as LibrarySymbol};
 use loupe::MemoryUsage;
 use std::error::Error;
