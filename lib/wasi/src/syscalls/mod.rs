@@ -1886,33 +1886,6 @@ pub fn path_open(
     __WASI_ESUCCESS
 }
 
-// Note: we define path_open_dynamic because native functions with more than 9 params
-// fail on Apple Silicon (with Cranelift).
-pub fn path_open_dynamic(env: &WasiEnv, params: &[Value]) -> Result<Vec<Value>, RuntimeError> {
-    let dirfd: __wasi_fd_t = params[0].unwrap_i32() as _;
-    let dirflags: __wasi_lookupflags_t = params[1].unwrap_i32() as _;
-    let path: WasmPtr<u8, Array> = params[2].unwrap_i32().into();
-    let path_len: u32 = params[3].unwrap_i32() as _;
-    let o_flags: __wasi_oflags_t = params[4].unwrap_i32() as _;
-    let fs_rights_base: __wasi_rights_t = params[5].unwrap_i64() as _;
-    let fs_rights_inheriting: __wasi_rights_t = params[6].unwrap_i64() as _;
-    let fs_flags: __wasi_fdflags_t = params[7].unwrap_i32() as _;
-    let fd: WasmPtr<__wasi_fd_t> = params[8].unwrap_i32().into();
-
-    Ok(vec![Value::I32(path_open(
-        env,
-        dirfd,
-        dirflags,
-        path,
-        path_len,
-        o_flags,
-        fs_rights_base,
-        fs_rights_inheriting,
-        fs_flags,
-        fd,
-    ) as i32)])
-}
-
 /// ### `path_readlink()`
 /// Read the value of a symlink
 /// Inputs:

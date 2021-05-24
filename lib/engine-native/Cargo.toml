@@ -29,7 +29,7 @@ loupe = "0.1"
 [features]
 # Enable the `compiler` feature if you want the engine to compile
 # and not be only on headless mode.
-compiler = []
+compiler = ["wasmer-compiler/translator"]
 
 [badges]
 maintenance = { status = "actively-developed" }

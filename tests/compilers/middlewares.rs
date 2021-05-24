@@ -1,4 +1,3 @@
-use crate::utils::get_store_with_middlewares;
 use anyhow::Result;
 
 use loupe::MemoryUsage;
@@ -89,11 +88,12 @@ impl FunctionMiddleware for Fusion {
     }
 }
 
-#[test]
-fn middleware_basic() -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(
+#[compiler_test(middlewares)]
+fn middleware_basic(mut config: crate::Config) -> Result<()> {
+    config.set_middlewares(vec![
         Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>
-    ));
+    ]);
+    let store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
@@ -111,11 +111,12 @@ fn middleware_basic() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn middleware_one_to_multi() -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(
+#[compiler_test(middlewares)]
+fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
+    config.set_middlewares(vec![
         Arc::new(Add2MulGen { value_off: 1 }) as Arc<dyn ModuleMiddleware>
-    ));
+    ]);
+    let store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
@@ -133,11 +134,10 @@ fn middleware_one_to_multi() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn middleware_multi_to_one() -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(
-        Arc::new(FusionGen) as Arc<dyn ModuleMiddleware>
-    ));
+#[compiler_test(middlewares)]
+fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
+    config.set_middlewares(vec![Arc::new(FusionGen) as Arc<dyn ModuleMiddleware>]);
+    let store = config.store();
     let wat = r#"(module
         (func (export "testfunc") (param i32 i32) (result i32)
            (local.get 0)
@@ -158,15 +158,13 @@ fn middleware_multi_to_one() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn middleware_chain_order_1() -> Result<()> {
-    let store = get_store_with_middlewares(
-        vec![
-            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
-            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
-        ]
-        .into_iter(),
-    );
+#[compiler_test(middlewares)]
+fn middleware_chain_order_1(mut config: crate::Config) -> Result<()> {
+    config.set_middlewares(vec![
+        Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
+        Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
+    ]);
+    let store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
@@ -184,15 +182,13 @@ fn middleware_chain_order_1() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn middleware_chain_order_2() -> Result<()> {
-    let store = get_store_with_middlewares(
-        vec![
-            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
-            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
-        ]
-        .into_iter(),
-    );
+#[compiler_test(middlewares)]
+fn middleware_chain_order_2(mut config: crate::Config) -> Result<()> {
+    config.set_middlewares(vec![
+        Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
+        Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
+    ]);
+    let store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)

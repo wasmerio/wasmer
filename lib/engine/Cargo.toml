@@ -14,7 +14,7 @@ edition = "2018"
 wasmer-types = { path = "../types", version = "1.0.2" }
 wasmer-compiler = { path = "../compiler", version = "1.0.2" }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
-target-lexicon = { version = "0.11", default-features = false }
+target-lexicon = { version = "0.12", default-features = false }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 backtrace = "0.3"
 rustc-demangle = "0.1"
