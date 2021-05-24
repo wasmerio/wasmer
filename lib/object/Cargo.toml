@@ -16,5 +16,5 @@ wasmer-compiler = { path = "../compiler", version = "1.0.2", default-features = 
     "std",
     "translator"
 ] }
-object = { version = "0.23", default-features = false, features = ["write"] }
+object = { version = "0.24", default-features = false, features = ["write"] }
 thiserror = "1.0"

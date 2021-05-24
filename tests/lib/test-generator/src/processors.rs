@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 /// Given a Testsuite and a path, process the path in case is a wast
 /// file.
-pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
+pub fn wast_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let ext = p.extension()?;
     // Only look at wast files.
     if ext != "wast" {
@@ -17,10 +17,9 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     }
 
     let testname = extract_name(&p);
-    let compiler = out.path.get(0).unwrap();
 
     // The implementation of `run_wast` lives in /tests/spectest.rs
-    let body = format!("crate::run_wast(r#\"{}\"#, \"{}\")", p.display(), compiler);
+    let body = format!("crate::run_wast(config, r#\"{}\"#)", p.display());
 
     Some(Test {
         name: testname,
@@ -30,7 +29,7 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
 /// Given a Testsuite and a path, process the path in case is a Emscripten
 /// wasm file.
-pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
+pub fn emscripten_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let ext = p.extension()?;
     // Only look at wast files.
     if ext != "wasm" {
@@ -48,14 +47,12 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     };
 
     let testname = extract_name(&p);
-    let compiler = out.path.get(0).unwrap();
 
     // The implementation of `run_emscripten` lives in /tests/emtest.rs
     let body = format!(
-        "crate::emscripten::run_emscripten(r#\"{}\"#, r#\"{}\"#, \"{}\")",
+        "crate::emscripten::run_emscripten(config, r#\"{}\"#, r#\"{}\"#)",
         p.display(),
-        outfile.display(),
-        compiler
+        outfile.display()
     );
 
     Some(Test {
@@ -66,7 +63,7 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
 /// Given a Testsuite and a path, process the path in case is a WASI
 /// wasm file.
-pub fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
+pub fn wasi_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let ext = p.extension()?;
     // Only look at wast files.
     if ext != "wast" {
@@ -79,14 +76,12 @@ pub fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
         inner
     };
     let testname = extract_name(&p);
-    let compiler = out.path.get(0).unwrap();
 
     // The implementation of `run_wasi` lives in /tests/wasitest.rs
     let body = format!(
-        "crate::run_wasi(r#\"{}\"#, \"{}\", \"{}\")",
+        "crate::run_wasi(config, r#\"{}\"#, \"{}\")",
         p.display(),
         wasm_dir.display(),
-        compiler
     );
 
     Some(Test {

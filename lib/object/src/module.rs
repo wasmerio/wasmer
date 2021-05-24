@@ -1,10 +1,18 @@
 use crate::error::ObjectError;
-use object::write::{Object, Relocation, StandardSection, Symbol as ObjSymbol, SymbolSection};
-use object::{RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope};
-use wasmer_compiler::{
-    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness, RelocationTarget,
-    Symbol, SymbolRegistry, Triple,
+use object::write::{
+    Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
 };
+use object::{
+    elf, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
+};
+use wasmer_compiler::{
+    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
+    RelocationKind as Reloc, RelocationTarget, SectionIndex, Symbol, SymbolRegistry, Triple,
+};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::LocalFunctionIndex;
+
+const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 
 /// Create an object for a given target `Triple`.
 ///
@@ -128,130 +136,184 @@ pub fn emit_compilation(
     let function_call_trampolines = compilation.get_function_call_trampolines();
     let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
 
+    let debug_index = compilation.get_debug().map(|d| d.eh_frame);
+
+    let align = match triple.architecture {
+        Architecture::X86_64 => 1,
+        // In Arm64 is recommended a 4-byte alignment
+        Architecture::Aarch64(_) => 4,
+        _ => 1,
+    };
+
     // Add sections
-    for (section_index, custom_section) in custom_sections.iter() {
-        // TODO: We need to rename the sections corresponding to the DWARF information
-        // to the proper names (like `.eh_frame`)
-        let section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
-        let (section_kind, standard_section) = match custom_section.protection {
-            CustomSectionProtection::ReadExecute => (SymbolKind::Text, StandardSection::Text),
-            // TODO: Fix this to be StandardSection::Data
-            CustomSectionProtection::Read => (SymbolKind::Data, StandardSection::Text),
-        };
-        let symbol_id = obj.add_symbol(ObjSymbol {
-            name: section_name.into_bytes(),
-            value: 0,
-            size: 0,
-            kind: section_kind,
-            scope: SymbolScope::Dynamic,
-            weak: false,
-            section: SymbolSection::Undefined,
-            flags: SymbolFlags::None,
-        });
-        let section_id = obj.section_id(standard_section);
-        obj.add_symbol_data(symbol_id, section_id, custom_section.bytes.as_slice(), 1);
-    }
+    let custom_section_ids = custom_sections
+        .into_iter()
+        .map(|(section_index, custom_section)| {
+            if debug_index.map(|d| d == section_index).unwrap_or(false) {
+                // If this is the debug section
+                let segment = obj.segment_name(StandardSegment::Debug).to_vec();
+                let section_id =
+                    obj.add_section(segment, DWARF_SECTION_NAME.to_vec(), SectionKind::Debug);
+                obj.append_section_data(section_id, custom_section.bytes.as_slice(), align);
+                let section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
+                let symbol_id = obj.add_symbol(ObjSymbol {
+                    name: section_name.into_bytes(),
+                    value: 0,
+                    size: custom_section.bytes.len() as _,
+                    kind: SymbolKind::Data,
+                    scope: SymbolScope::Compilation,
+                    weak: false,
+                    section: SymbolSection::Section(section_id),
+                    flags: SymbolFlags::None,
+                });
+                (section_id, symbol_id)
+            } else {
+                let section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
+                let (section_kind, standard_section) = match custom_section.protection {
+                    CustomSectionProtection::ReadExecute => {
+                        (SymbolKind::Text, StandardSection::Text)
+                    }
+                    CustomSectionProtection::Read => (SymbolKind::Data, StandardSection::Data),
+                };
+                let section_id = obj.section_id(standard_section);
+                let symbol_id = obj.add_symbol(ObjSymbol {
+                    name: section_name.into_bytes(),
+                    value: 0,
+                    size: custom_section.bytes.len() as _,
+                    kind: section_kind,
+                    scope: SymbolScope::Dynamic,
+                    weak: false,
+                    section: SymbolSection::Section(section_id),
+                    flags: SymbolFlags::None,
+                });
+                obj.add_symbol_data(
+                    symbol_id,
+                    section_id,
+                    custom_section.bytes.as_slice(),
+                    align,
+                );
+                (section_id, symbol_id)
+            }
+        })
+        .collect::<PrimaryMap<SectionIndex, _>>();
 
     // Add functions
-    for (function_local_index, function) in function_bodies.into_iter() {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
-        let symbol_id = obj.add_symbol(ObjSymbol {
-            name: function_name.into_bytes(),
-            value: 0,
-            size: 0,
-            kind: SymbolKind::Text,
-            scope: SymbolScope::Dynamic,
-            weak: false,
-            section: SymbolSection::Undefined,
-            flags: SymbolFlags::None,
-        });
-
-        let section_id = obj.section_id(StandardSection::Text);
-        obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
-    }
+    let function_symbol_ids = function_bodies
+        .into_iter()
+        .map(|(function_local_index, function)| {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
+            let section_id = obj.section_id(StandardSection::Text);
+            let symbol_id = obj.add_symbol(ObjSymbol {
+                name: function_name.into_bytes(),
+                value: 0,
+                size: function.body.len() as _,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Dynamic,
+                weak: false,
+                section: SymbolSection::Section(section_id),
+                flags: SymbolFlags::None,
+            });
+            obj.add_symbol_data(symbol_id, section_id, &function.body, align);
+            (section_id, symbol_id)
+        })
+        .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
     // Add function call trampolines
     for (signature_index, function) in function_call_trampolines.into_iter() {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(signature_index));
+        let section_id = obj.section_id(StandardSection::Text);
         let symbol_id = obj.add_symbol(ObjSymbol {
             name: function_name.into_bytes(),
             value: 0,
-            size: 0,
+            size: function.body.len() as _,
             kind: SymbolKind::Text,
             scope: SymbolScope::Dynamic,
             weak: false,
-            section: SymbolSection::Undefined,
+            section: SymbolSection::Section(section_id),
             flags: SymbolFlags::None,
         });
-        let section_id = obj.section_id(StandardSection::Text);
-        obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
+        obj.add_symbol_data(symbol_id, section_id, &function.body, align);
     }
 
     // Add dynamic function trampolines
     for (func_index, function) in dynamic_function_trampolines.into_iter() {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+        let section_id = obj.section_id(StandardSection::Text);
         let symbol_id = obj.add_symbol(ObjSymbol {
             name: function_name.into_bytes(),
             value: 0,
-            size: 0,
+            size: function.body.len() as _,
             kind: SymbolKind::Text,
             scope: SymbolScope::Dynamic,
             weak: false,
-            section: SymbolSection::Undefined,
+            section: SymbolSection::Section(section_id),
             flags: SymbolFlags::None,
         });
-        let section_id = obj.section_id(StandardSection::Text);
-        obj.add_symbol_data(symbol_id, section_id, &function.body, 1);
+        obj.add_symbol_data(symbol_id, section_id, &function.body, align);
     }
 
-    // Add relocations (function and sections)
-    let (relocation_size, relocation_kind, relocation_encoding) = match triple.architecture {
-        Architecture::X86_64 => (
-            32,
-            RelocationKind::PltRelative,
-            RelocationEncoding::X86Branch,
-        ),
-        // Object doesn't fully support it yet
-        // Architecture::Aarch64(_) => (
-        //     32,
-        //     RelocationKind::PltRelative,
-        //     RelocationEncoding::Generic,
-        // ),
-        architecture => {
-            return Err(ObjectError::UnsupportedArchitecture(
-                architecture.to_string(),
-            ))
-        }
-    };
     let mut all_relocations = Vec::new();
 
     for (function_local_index, relocations) in function_relocations.into_iter() {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
-        let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
-        all_relocations.push((symbol_id, relocations))
+        let (section_id, symbol_id) = function_symbol_ids.get(function_local_index).unwrap();
+        all_relocations.push((*section_id, *symbol_id, relocations))
     }
 
     for (section_index, relocations) in custom_section_relocations.into_iter() {
-        let section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
-        let symbol_id = obj.symbol_id(section_name.as_bytes()).unwrap();
-        all_relocations.push((symbol_id, relocations))
+        if !debug_index.map(|d| d == section_index).unwrap_or(false) {
+            // Skip DWARF relocations just yet
+            let (section_id, symbol_id) = custom_section_ids.get(section_index).unwrap();
+            all_relocations.push((*section_id, *symbol_id, relocations));
+        }
     }
 
-    for (symbol_id, relocations) in all_relocations.into_iter() {
+    for (section_id, symbol_id, relocations) in all_relocations.into_iter() {
         let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
-        let section_id = obj.section_id(StandardSection::Text);
 
         for r in relocations {
+            let (relocation_kind, relocation_encoding, relocation_size) = match r.kind {
+                Reloc::Abs4 => (RelocationKind::Absolute, RelocationEncoding::Generic, 32),
+                Reloc::Abs8 => (RelocationKind::Absolute, RelocationEncoding::Generic, 64),
+                Reloc::X86PCRel4 => (RelocationKind::Relative, RelocationEncoding::Generic, 32),
+                Reloc::X86CallPCRel4 => {
+                    (RelocationKind::Relative, RelocationEncoding::X86Branch, 32)
+                }
+                Reloc::X86CallPLTRel4 => (
+                    RelocationKind::PltRelative,
+                    RelocationEncoding::X86Branch,
+                    32,
+                ),
+                Reloc::X86GOTPCRel4 => {
+                    (RelocationKind::GotRelative, RelocationEncoding::Generic, 32)
+                }
+                // Reloc::X86PCRelRodata4 => {
+                // }
+                Reloc::Arm64Call => (
+                    RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                Reloc::ElfX86_64TlsGd => (
+                    RelocationKind::Elf(elf::R_X86_64_TLSGD),
+                    RelocationEncoding::Generic,
+                    32,
+                ),
+                other => {
+                    return Err(ObjectError::UnsupportedArchitecture(format!(
+                        "{} (relocation: {}",
+                        triple.architecture, other
+                    )))
+                }
+            };
+
             let relocation_address = section_offset + r.offset as u64;
 
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {
-                    let target_name = symbol_registry.symbol_to_name(Symbol::LocalFunction(index));
-                    let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
+                    let (_, target_symbol) = function_symbol_ids.get(index).unwrap();
                     obj.add_relocation(
                         section_id,
                         Relocation {
@@ -259,7 +321,7 @@ pub fn emit_compilation(
                             size: relocation_size,
                             kind: relocation_kind,
                             encoding: relocation_encoding,
-                            symbol: target_symbol,
+                            symbol: *target_symbol,
                             addend: r.addend,
                         },
                     )
@@ -294,9 +356,7 @@ pub fn emit_compilation(
                     .map_err(ObjectError::Write)?;
                 }
                 RelocationTarget::CustomSection(section_index) => {
-                    let target_name =
-                        symbol_registry.symbol_to_name(Symbol::Section(section_index));
-                    let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
+                    let (_, target_symbol) = custom_section_ids.get(section_index).unwrap();
                     obj.add_relocation(
                         section_id,
                         Relocation {
@@ -304,7 +364,7 @@ pub fn emit_compilation(
                             size: relocation_size,
                             kind: relocation_kind,
                             encoding: relocation_encoding,
-                            symbol: target_symbol,
+                            symbol: *target_symbol,
                             addend: r.addend,
                         },
                     )
