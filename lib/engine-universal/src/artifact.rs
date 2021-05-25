@@ -1,7 +1,7 @@
-//! Define `JITArtifact` to allow compiling and instantiating to be
+//! Define `UniversalArtifact` to allow compiling and instantiating to be
 //! done as separate steps.
 
-use crate::engine::{JITEngine, JITEngineInner};
+use crate::engine::{UniversalEngine, UniversalEngineInner};
 use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
@@ -27,12 +27,12 @@ use wasmer_vm::{
     VMTrampoline,
 };
 
-const SERIALIZED_METADATA_LENGTH_OFFSET: usize = 16;
+const SERIALIZED_METADATA_LENGTH_OFFSET: usize = 22;
 const SERIALIZED_METADATA_CONTENT_OFFSET: usize = 32;
 
 /// A compiled wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
-pub struct JITArtifact {
+pub struct UniversalArtifact {
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     #[loupe(skip)]
@@ -44,28 +44,28 @@ pub struct JITArtifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
-impl JITArtifact {
-    const MAGIC_HEADER: &'static [u8; 16] = b"\0wasmer-jit\0\0\0\0\0";
+impl UniversalArtifact {
+    const MAGIC_HEADER: &'static [u8; 22] = b"\0wasmer-universal\0\0\0\0\0";
 
-    /// Check if the provided bytes look like a serialized `JITArtifact`.
+    /// Check if the provided bytes look like a serialized `UniversalArtifact`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         bytes.starts_with(Self::MAGIC_HEADER)
     }
 
-    /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
+    /// Compile a data buffer into a `UniversalArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(
-        jit: &JITEngine,
+        engine: &UniversalEngine,
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
-        let mut inner_jit = jit.inner_mut();
-        let features = inner_jit.features();
+        let mut inner_engine = engine.inner_mut();
+        let features = inner_engine.features();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
-        let compiler = inner_jit.compiler()?;
+        let compiler = inner_engine.compiler()?;
 
         // We try to apply the middleware first
         let mut module = translation.module;
@@ -92,7 +92,7 @@ impl JITArtifact {
 
         // Compile the Module
         let compilation = compiler.compile_module(
-            &jit.target(),
+            &engine.target(),
             &compile_info,
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
@@ -128,26 +128,29 @@ impl JITArtifact {
             compile_info,
             data_initializers,
         };
-        Self::from_parts(&mut inner_jit, serializable)
+        Self::from_parts(&mut inner_engine, serializable)
     }
 
-    /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
+    /// Compile a data buffer into a `UniversalArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(_jit: &JITEngine, _data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &UniversalEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
     }
 
-    /// Deserialize a JITArtifact
+    /// Deserialize a UniversalArtifact
     ///
     /// # Safety
     /// This function is unsafe because rkyv reads directly without validating
     /// the data.
-    pub unsafe fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+    pub unsafe fn deserialize(
+        universal: &UniversalEngine,
+        bytes: &[u8],
+    ) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-jit".to_string(),
+                "The provided bytes are not wasmer-universal".to_string(),
             ));
         }
 
@@ -162,12 +165,13 @@ impl JITArtifact {
         );
 
         let serializable = SerializableModule::deserialize(metadata_slice)?;
-        Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
+        Self::from_parts(&mut universal.inner_mut(), serializable)
+            .map_err(DeserializeError::Compiler)
     }
 
-    /// Construct a `JITArtifact` from component parts.
+    /// Construct a `UniversalArtifact` from component parts.
     pub fn from_parts(
-        inner_jit: &mut JITEngineInner,
+        inner_engine: &mut UniversalEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
         let (
@@ -175,7 +179,7 @@ impl JITArtifact {
             finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             custom_sections,
-        ) = inner_jit.allocate(
+        ) = inner_engine.allocate(
             &serializable.compile_info.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
@@ -194,7 +198,7 @@ impl JITArtifact {
 
         // Compute indices into the shared signature table.
         let signatures = {
-            let signature_registry = inner_jit.signatures();
+            let signature_registry = inner_engine.signatures();
             serializable
                 .compile_info
                 .module
@@ -218,9 +222,9 @@ impl JITArtifact {
             None => None,
         };
         // Make all code compiled thus far executable.
-        inner_jit.publish_compiled_code();
+        inner_engine.publish_compiled_code();
 
-        inner_jit.publish_eh_frame(eh_frame)?;
+        inner_engine.publish_eh_frame(eh_frame)?;
 
         let finished_function_lengths = finished_functions
             .values()
@@ -237,7 +241,7 @@ impl JITArtifact {
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
-        let func_data_registry = inner_jit.func_data().clone();
+        let func_data_registry = inner_engine.func_data().clone();
 
         Ok(Self {
             serializable,
@@ -253,12 +257,12 @@ impl JITArtifact {
 
     /// Get the default extension when serializing this artifact
     pub fn get_default_extension(_triple: &Triple) -> &'static str {
-        // `.wjit` is the default extension for all the triples
-        "wjit"
+        // `.wuniversal` is the default extension for all the triples
+        "wuniversal"
     }
 }
 
-impl Artifact for JITArtifact {
+impl Artifact for UniversalArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.serializable.compile_info.module.clone()
     }

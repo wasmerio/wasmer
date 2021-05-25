@@ -11,7 +11,7 @@ pub enum Compiler {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Engine {
     Native,
-    JIT,
+    Universal,
 }
 
 #[derive(Clone)]
@@ -69,9 +69,9 @@ impl Config {
                 }
                 Box::new(engine.engine())
             }
-            #[cfg(feature = "jit")]
-            Engine::JIT => {
-                let mut engine = wasmer_engine_jit::JIT::new(compiler_config);
+            #[cfg(feature = "universal")]
+            Engine::Universal => {
+                let mut engine = wasmer_engine_universal::Universal::new(compiler_config);
                 if let Some(ref features) = self.features {
                     engine = engine.features(features.clone())
                 }
@@ -89,8 +89,8 @@ impl Config {
         match &self.engine {
             #[cfg(feature = "native")]
             Engine::Native => Box::new(wasmer_engine_native::Native::headless().engine()),
-            #[cfg(feature = "jit")]
-            Engine::JIT => Box::new(wasmer_engine_jit::JIT::headless().engine()),
+            #[cfg(feature = "universal")]
+            Engine::Universal => Box::new(wasmer_engine_universal::Universal::headless().engine()),
             #[allow(dead_code)]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",

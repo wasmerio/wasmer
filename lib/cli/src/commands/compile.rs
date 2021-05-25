@@ -47,13 +47,15 @@ impl Compile {
             EngineType::Native => {
                 wasmer_engine_native::NativeArtifact::get_default_extension(target_triple)
             }
-            #[cfg(feature = "jit")]
-            EngineType::JIT => wasmer_engine_jit::JITArtifact::get_default_extension(target_triple),
+            #[cfg(feature = "universal")]
+            EngineType::Universal => {
+                wasmer_engine_universal::UniversalArtifact::get_default_extension(target_triple)
+            }
             #[cfg(feature = "object-file")]
             EngineType::ObjectFile => {
                 wasmer_engine_object_file::ObjectFileArtifact::get_default_extension(target_triple)
             }
-            #[cfg(not(all(feature = "native", feature = "jit", feature = "object-file")))]
+            #[cfg(not(all(feature = "native", feature = "universal", feature = "object-file")))]
             _ => bail!("selected engine type is not compiled in"),
         })
     }

@@ -2436,8 +2436,8 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-derive",
  "wasmer-engine",
- "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
  "wat",
@@ -2455,8 +2455,8 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmprinter",
 ]
@@ -2483,9 +2483,9 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-engine",
- "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
@@ -2503,8 +2503,8 @@ dependencies = [
  "thiserror",
  "wasmer",
  "wasmer-compiler-singlepass",
- "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-engine-universal",
 ]
 
 [[package]]
@@ -2529,9 +2529,9 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-engine",
- "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasi",
@@ -2679,22 +2679,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine-jit"
-version = "1.0.2"
-dependencies = [
- "cfg-if 0.1.10",
- "leb128",
- "loupe",
- "region",
- "rkyv",
- "wasmer-compiler",
- "wasmer-engine",
- "wasmer-types",
- "wasmer-vm",
- "winapi",
-]
-
-[[package]]
 name = "wasmer-engine-native"
 version = "1.0.2"
 dependencies = [
@@ -2731,6 +2715,22 @@ dependencies = [
  "wasmer-object",
  "wasmer-types",
  "wasmer-vm",
+]
+
+[[package]]
+name = "wasmer-engine-universal"
+version = "1.0.2"
+dependencies = [
+ "cfg-if 0.1.10",
+ "leb128",
+ "loupe",
+ "region",
+ "rkyv",
+ "wasmer-compiler",
+ "wasmer-engine",
+ "wasmer-types",
+ "wasmer-vm",
+ "winapi",
 ]
 
 [[package]]
@@ -2862,9 +2862,9 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",
- "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",

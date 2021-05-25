@@ -55,7 +55,7 @@ impl Module {
     ///
     /// Creating a WebAssembly module from bytecode can result in a
     /// [`CompileError`] since this operation requires to transorm the Wasm
-    /// bytecode into code the machine can easily execute (normally through a JIT).
+    /// bytecode into code the machine can easily execute.
     ///
     /// ## Example
     ///

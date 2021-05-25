@@ -1,9 +1,9 @@
 [package]
-name = "wasmer-engine-jit"
+name = "wasmer-engine-universal"
 version = "1.0.2"
-description = "Wasmer JIT Engine"
+description = "Wasmer Universal Engine"
 categories = ["wasm"]
-keywords = ["wasm", "webassembly", "engine", "jit"]
+keywords = ["wasm", "webassembly", "engine", "universal"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception "

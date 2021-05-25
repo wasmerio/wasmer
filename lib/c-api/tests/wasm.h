@@ -32,8 +32,8 @@ wasm_engine_t *wasm_engine_new() {
     abort();
   }
   if (strcmp(wasmer_test_engine, "jit") == 0) {
-    assert(wasmer_is_engine_available(JIT));
-    wasm_config_set_engine(config, JIT);
+    assert(wasmer_is_engine_available(UNIVERSAL));
+    wasm_config_set_engine(config, UNIVERSAL);
   } else if (strcmp(wasmer_test_engine, "native") == 0) {
     assert(wasmer_is_engine_available(NATIVE));
     wasm_config_set_engine(config, NATIVE);

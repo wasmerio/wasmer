@@ -8,7 +8,7 @@
 
 use wasmer::{imports, wat2wasm, Function, Instance, Module, NativeFunc, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 fn main() -> anyhow::Result<()> {
     // First we create a simple Wasm program to use with Wasmer.
@@ -42,9 +42,9 @@ fn main() -> anyhow::Result<()> {
     // You can use `Store::default()` for that.
     //
     // However for the purposes of showing what's happening, we create a compiler
-    // (`Cranelift`) and pass it to an engine (`JIT`). We then pass the engine to
+    // (`Cranelift`) and pass it to an engine (`Universal`). We then pass the engine to
     // the store and are now ready to compile and run WebAssembly!
-    let store = Store::new(&JIT::new(Cranelift::default()).engine());
+    let store = Store::new(&Universal::new(Cranelift::default()).engine());
 
     // We then use our store and Wasm bytes to compile a `Module`.
     // A `Module` is a compiled WebAssembly module that isn't ready to execute yet.

@@ -1,4 +1,4 @@
-//! JIT compilation.
+//! Engine trait and associated types.
 
 use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError};
@@ -14,7 +14,7 @@ use wasmer_vm::{VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex};
 /// A unimplemented Wasmer `Engine`.
 ///
 /// This trait is used by implementors to implement custom engines
-/// such as: JIT or Native.
+/// such as: Universal or Native.
 ///
 /// The product that an `Engine` produces and consumes is the [`Artifact`].
 pub trait Engine: MemoryUsage {

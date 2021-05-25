@@ -8,7 +8,7 @@
 //! What problem does it solve, and what does it mean?
 //!
 //! Once a Wasm module is compiled into executable code and stored
-//! somewhere (e.g. in memory with the JIT engine, or in a native
+//! somewhere (e.g. in memory with the Universal engine, or in a native
 //! object with the native engine), the module can be instantiated and
 //! executed. But imagine for a second the following scenario:
 //!

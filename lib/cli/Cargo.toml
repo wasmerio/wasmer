@@ -31,7 +31,7 @@ wasmer-compiler-singlepass = { version = "1.0.2", path = "../compiler-singlepass
 wasmer-compiler-llvm = { version = "1.0.2", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "1.0.2", path = "../emscripten", optional = true }
 wasmer-engine = { version = "1.0.2", path = "../engine" }
-wasmer-engine-jit = { version = "1.0.2", path = "../engine-jit", optional = true }
+wasmer-engine-universal = { version = "1.0.2", path = "../engine-universal", optional = true }
 wasmer-engine-native = { version = "1.0.2", path = "../engine-native", optional = true }
 wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
 wasmer-vm = { version = "1.0.2", path = "../vm" }
@@ -60,7 +60,7 @@ tempfile = "3"
 default = [
     "wat",
     "wast",
-    "jit",
+    "universal",
     "native",
     "object-file",
     "cache",
@@ -68,8 +68,8 @@ default = [
     "emscripten",
 ]
 engine = []
-jit = [
-    "wasmer-engine-jit",
+universal = [
+    "wasmer-engine-universal",
     "engine",
 ]
 native = [
@@ -87,7 +87,7 @@ emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
-    "wasmer-engine-jit/compiler",
+    "wasmer-engine-universal/compiler",
     "wasmer-engine-native/compiler",
     "wasmer-engine-object-file/compiler",
 ]
@@ -110,4 +110,4 @@ llvm = [
 debug = ["fern", "log", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
 headless = []
-headless-minimal = ["headless", "disable-all-logging", "wasi", "native", "jit"]
+headless-minimal = ["headless", "disable-all-logging", "wasi", "native", "universal"]

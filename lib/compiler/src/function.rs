@@ -3,10 +3,6 @@
 
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
-//!
-//! The `CompiledFunction` will be used mainly by different frontends:
-//! * `jit`: to generate a JIT
-//! * `obj`: to generate a native object
 
 use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};

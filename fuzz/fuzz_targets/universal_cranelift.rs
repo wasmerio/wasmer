@@ -2,9 +2,9 @@
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, Instance, Module, Store};
-use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_jit::JIT;
+use wasmer::{imports, CompilerConfig, Instance, Module, Store};
+use wasmer_compiler_cranelift::Cranelift;
+use wasmer_engine_universal::Universal;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct NoImportsConfig;
@@ -39,19 +39,11 @@ fuzz_target!(|module: WasmSmithModule| {
         return;
     }
 
-    let compiler = Singlepass::default();
-    let store = Store::new(&JIT::new(compiler).engine());
-    let module = Module::new(&store, &wasm_bytes);
-    let module = match module {
-        Ok(m) => m,
-        Err(e) => {
-            let error_message = format!("{}", e);
-            if error_message.contains("Validation error: invalid result arity: func type returns multiple values") || error_message.contains("Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled") || error_message.contains("multi-value returns not yet implemented") {
-                return;
-            }
-            panic!("{}", e);
-        }
-    };
+    let mut compiler = Cranelift::default();
+    compiler.canonicalize_nans(true);
+    compiler.enable_verifier();
+    let store = Store::new(&Universal::new(compiler).engine());
+    let module = Module::new(&store, &wasm_bytes).unwrap();
     match Instance::new(&module, &imports! {}) {
         Ok(_) => {}
         Err(e) => {

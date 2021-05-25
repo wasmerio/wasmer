@@ -115,7 +115,7 @@ impl Ignores {
                             arch = Some(alias.to_string());
                         }
                         // Engines
-                        "jit" | "native" => {
+                        "universal" | "native" => {
                             engine = Some(alias.to_string());
                         }
                         // Compilers
@@ -212,7 +212,7 @@ mod tests {
             os: Some("macos".to_string()),
             arch: None,
             target_env: None,
-            engine: Some("jit".to_string()),
+            engine: Some("universal".to_string()),
             compiler: None,
             pattern_to_ignore: "other".to_string()
         }
@@ -220,7 +220,7 @@ mod tests {
             "macos",
             "unknown",
             "",
-            "jit",
+            "universal",
             "compiler",
             "some::random::text"
         ));

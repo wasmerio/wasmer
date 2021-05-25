@@ -25,7 +25,7 @@ cargo build --release --features "singlepass,cranelift"
 The Wasmer supports the following features:
 * `wat` (default): support for executing WebAssembly text files.
 * `wast`(default): support for running wast test files.
-* `jit` (default): support for the [JIT engine].
+* `universal` (default): support for the [Universal engine].
 * `native` (default): support for the [Native engine].
 * `cache` (default): support or automatically caching compiled artifacts.
 * `wasi` (default): support for [WASI].
@@ -35,7 +35,7 @@ The Wasmer supports the following features:
 * `cranelift`: support for the [Cranelift compiler].
 * `llvm`: support for the [LLVM compiler].
 
-[JIT Engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-jit/
+[Universal Engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal/
 [Native Engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-native/
 [WASI]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi/
 [Emscripten]: https://github.com/wasmerio/wasmer/tree/master/lib/emscripten/
