@@ -200,6 +200,11 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
 
                     finish.push(finish_tokens);
                 }
+                WasmerAttr::Instance {
+                    span,
+                } => {
+                    todo!()
+                }
             }
         }
     }

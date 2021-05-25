@@ -43,7 +43,7 @@ pub use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{
-    ImportFunctionEnv, ImportInitializerFuncPtr, InstanceAllocator, InstanceHandle,
+    ImportFunctionEnv, ImportInitializerFuncPtr, InstanceAllocator, InstanceHandle, WeakInstanceRef
 };
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;

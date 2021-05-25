@@ -15,6 +15,9 @@ pub enum WasmerAttr {
         aliases: Vec<LitStr>,
         span: Span,
     },
+    Instance {
+        span: Span,
+    }
 }
 
 #[derive(Debug)]
@@ -30,6 +33,8 @@ struct ExportOptions {
     optional: bool,
     aliases: Vec<LitStr>,
 }
+
+
 impl Parse for ExportOptions {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let mut name = None;
@@ -97,6 +102,9 @@ impl Parse for ExportExpr {
     }
 }
 
+#[derive(Debug)]
+struct InstanceExpr;
+
 // allows us to handle parens more cleanly
 struct WasmerAttrInner(WasmerAttr);
 
@@ -122,6 +130,11 @@ impl Parse for WasmerAttrInner {
                     optional,
                     aliases,
                     span,
+                }
+            }
+            "instance" => {
+                WasmerAttr::Instance {
+                    span
                 }
             }
             otherwise => abort!(

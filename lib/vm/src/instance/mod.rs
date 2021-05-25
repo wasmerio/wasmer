@@ -1008,6 +1008,11 @@ impl InstanceHandle {
         &self.instance
     }
 
+    /// TODO: document this
+    pub fn weak_ref(&self) -> WeakInstanceRef {
+        self.instance.downgrade()
+    }
+
     /// Finishes the instantiation process started by `Instance::new`.
     ///
     /// # Safety

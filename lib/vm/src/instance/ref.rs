@@ -154,6 +154,11 @@ impl InstanceRef {
         let ptr: *mut InstanceInner = Arc::as_ptr(&self.0) as *mut _;
         (&mut *ptr).as_mut()
     }
+
+    /// TODO: document this
+    pub fn downgrade(&self) -> WeakInstanceRef {
+        WeakInstanceRef(Arc::downgrade(&self.0))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -167,7 +172,7 @@ impl PartialEq for WeakInstanceRef {
 }
 
 impl WeakInstanceRef {
-    // TODO: document this
+    /// TODO: document this
     pub fn upgrade(&self) -> Option<InstanceRef> {
         let inner = self.0.upgrade()?;
         Some(InstanceRef(inner))
@@ -202,7 +207,7 @@ impl WeakOrStrongInstanceRef {
     pub fn get_weak(&self) -> WeakInstanceRef {
         match self {
             Self::Weak(weak) => weak.clone(),
-            Self::Strong(strong) => WeakInstanceRef(Arc::downgrade(&strong.0)),
+            Self::Strong(strong) => strong.downgrade(),
         }
     }
 
