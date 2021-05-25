@@ -50,7 +50,7 @@ pub(crate) mod new {
     #[cfg(feature = "singlepass")]
     pub use wasmer_compiler_singlepass;
     pub use wasmer_engine;
-    pub use wasmer_engine_jit;
+    pub use wasmer_engine_universal;
     pub use wasmer_types;
     pub use wasmer_vm;
 }
@@ -115,7 +115,8 @@ impl GlobalStore {
         }
 
         #[allow(unused_variables)]
-        let update = |engine: new::wasmer_engine_jit::JIT, global_store: &GlobalStore| {
+        let update = |engine: new::wasmer_engine_universal::Universal,
+                      global_store: &GlobalStore| {
             let engine = engine.engine();
             *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&engine));
         };
@@ -123,7 +124,7 @@ impl GlobalStore {
         match compiler {
             #[cfg(feature = "singlepass")]
             Backend::Singlepass => update(
-                new::wasmer_engine_jit::JIT::new(
+                new::wasmer_engine_universal::Universal::new(
                     new::wasmer_compiler_singlepass::Singlepass::default(),
                 ),
                 &self,
@@ -131,7 +132,7 @@ impl GlobalStore {
 
             #[cfg(feature = "cranelift")]
             Backend::Cranelift => update(
-                new::wasmer_engine_jit::JIT::new(
+                new::wasmer_engine_universal::Universal::new(
                     new::wasmer_compiler_cranelift::Cranelift::default(),
                 ),
                 &self,
@@ -139,7 +140,9 @@ impl GlobalStore {
 
             #[cfg(feature = "llvm")]
             Backend::LLVM => update(
-                new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_llvm::LLVM::default()),
+                new::wasmer_engine_universal::Universal::new(
+                    new::wasmer_compiler_llvm::LLVM::default(),
+                ),
                 &self,
             ),
 
