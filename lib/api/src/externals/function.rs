@@ -725,12 +725,12 @@ impl Function {
     }
 }
 
-impl<'a> Exportable<'a> for Function {
+impl Exportable for Function {
     fn to_export(&self) -> Export {
         self.exported.clone().into()
     }
 
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
+    fn get_self_from_extern<'a>(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),

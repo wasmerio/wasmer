@@ -155,12 +155,12 @@ impl Table {
     }
 }
 
-impl<'a> Exportable<'a> for Table {
+impl Exportable for Table {
     fn to_export(&self) -> Export {
         self.vm_table.clone().into()
     }
 
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
+    fn get_self_from_extern<'a>(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Table(table) => Ok(table),
             _ => Err(ExportError::IncompatibleType),

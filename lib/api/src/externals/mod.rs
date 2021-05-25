@@ -58,7 +58,7 @@ impl Extern {
     }
 }
 
-impl<'a> Exportable<'a> for Extern {
+impl Exportable for Extern {
     fn to_export(&self) -> Export {
         match self {
             Self::Function(f) => f.to_export(),
@@ -68,7 +68,7 @@ impl<'a> Exportable<'a> for Extern {
         }
     }
 
-    fn get_self_from_extern(_extern: &'a Self) -> Result<&'a Self, ExportError> {
+    fn get_self_from_extern<'a>(_extern: &'a Self) -> Result<&'a Self, ExportError> {
         // Since this is already an extern, we can just return it.
         Ok(_extern)
     }

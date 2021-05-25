@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use loupe::MemoryUsage;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use thiserror::Error;
 use wasmer_engine::Export;
 
@@ -67,6 +67,19 @@ pub struct Exports {
     map: Arc<IndexMap<String, Extern>>,
 }
 
+/// TODO: document this
+#[derive(Clone, Default)]
+pub struct WeakExports(Weak<IndexMap<String, Extern>>);
+
+impl WeakExports {
+    /// TODO: document this
+    pub fn upgrade(&self) -> Option<Exports> {
+        Some(Exports {
+            map: self.0.upgrade()?,
+        })
+    }
+}
+
 impl Exports {
     /// Creates a new `Exports`.
     pub fn new() -> Self {
@@ -112,7 +125,7 @@ impl Exports {
     ///
     /// If you want to get an export dynamically handling manually
     /// type checking manually, please use `get_extern`.
-    pub fn get<'a, T: Exportable<'a>>(&'a self, name: &str) -> Result<&'a T, ExportError> {
+    pub fn get<'a, T: Exportable>(&'a self, name: &str) -> Result<&'a T, ExportError> {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
             Some(extern_) => T::get_self_from_extern(extern_),
@@ -154,11 +167,11 @@ impl Exports {
     }
 
     /// Hack to get this working with nativefunc too
-    pub fn get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
+    pub fn get_with_generics<T, Args, Rets>(&self, name: &str) -> Result<T, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        T: ExportableWithGenerics<'a, Args, Rets>,
+        T: ExportableWithGenerics<Args, Rets>,
     {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
@@ -168,11 +181,11 @@ impl Exports {
 
     /// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.
     /// This is useful for passing data into `WasmerEnv`, for example.
-    pub fn get_with_generics_weak<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
+    pub fn get_with_generics_weak<T, Args, Rets>(&self, name: &str) -> Result<T, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        T: ExportableWithGenerics<'a, Args, Rets>,
+        T: ExportableWithGenerics<Args, Rets>,
     {
         let mut out: T = self.get_with_generics(name)?;
         out.into_weak_instance_ref();
@@ -197,6 +210,11 @@ impl Exports {
         ExportsIterator {
             iter: self.map.iter(),
         }
+    }
+
+    /// TODO: document this
+    pub fn downgrade(&self) -> WeakExports {
+        WeakExports(Arc::downgrade(&self.map))
     }
 }
 
@@ -295,7 +313,7 @@ impl LikeNamespace for Exports {
 /// This trait is used to mark types as gettable from an [`Instance`].
 ///
 /// [`Instance`]: crate::Instance
-pub trait Exportable<'a>: Sized {
+pub trait Exportable: Sized {
     /// This function is used when providedd the [`Extern`] as exportable, so it
     /// can be used while instantiating the [`Module`].
     ///
@@ -306,7 +324,7 @@ pub trait Exportable<'a>: Sized {
     /// from an [`Instance`] by name.
     ///
     /// [`Instance`]: crate::Instance
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
+    fn get_self_from_extern<'a>(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
 
     /// TODO: this method doesn't belong  here
     fn into_weak_instance_ref(&mut self) {
@@ -317,18 +335,18 @@ pub trait Exportable<'a>: Sized {
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
 /// `Args` and `Rets` parameters so that `NativeFunc` can be accessed directly
 /// as well.
-pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
+pub trait ExportableWithGenerics<Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
-    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
+    fn get_self_from_extern_with_generics(_extern: &Extern) -> Result<Self, ExportError>;
     /// TODO: this method doesn't belong  here
     fn into_weak_instance_ref(&mut self);
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)
 /// with empty `Args` and `Rets`.
-impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
-    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
-        T::get_self_from_extern(_extern).map(|i| i.clone())
+impl<T: Exportable + Clone + 'static> ExportableWithGenerics<(), ()> for T {
+    fn get_self_from_extern_with_generics(_extern: &Extern) -> Result<Self, ExportError> {
+        Self::get_self_from_extern(_extern).map(|i| i.clone())
     }
 
     /// TODO: this method doesn't belong  here

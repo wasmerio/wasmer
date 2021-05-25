@@ -1,4 +1,5 @@
-use crate::{ExportError, Instance};
+use crate::{ExportError, Instance, WeakExports, Exportable, WasmTypeList};
+use crate::exports::ExportableWithGenerics;
 use thiserror::Error;
 
 /// An error while initializing the user supplied host env with the `WasmerEnv` trait.
@@ -218,3 +219,31 @@ impl<T> Default for LazyInit<T> {
 unsafe impl<T: Send> Send for LazyInit<T> {}
 // I thought we could opt out of sync..., look into this
 // unsafe impl<T> !Sync for InitWithInstance<T> {}
+
+/// Test struct to access with weak instance ref
+pub struct InstanceExport {
+    /// Marker
+    _pd: std::marker::PhantomData<T>,
+    exports_ref: WeakExports,
+}
+
+impl<T: Sized + Exportable + Clone + 'static> InstanceExport<T> {
+    /// TODO: document
+    pub fn new(weak_instance: WeakExports) -> Self {
+        Self {
+            _pd: std::marker::PhantomData,
+            exports_ref: weak_instance,
+        }
+    }
+
+    /// TODO: document
+    pub fn get_with_generics<Args, Rets, T2>(&self, name: &str) -> Result<T2, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        T2: ExportableWithGenerics<Args, Rets>,
+    {
+        let exports = self.exports_ref.upgrade().unwrap();
+        exports.get_with_generics::<T2, Args, Rets>(name)
+    }
+}

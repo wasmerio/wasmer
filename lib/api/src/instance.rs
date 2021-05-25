@@ -8,7 +8,7 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use wasmer_engine::Resolver;
-use wasmer_vm::{InstanceHandle, VMContext, WeakInstanceRef};
+use wasmer_vm::{InstanceHandle, VMContext};
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -163,12 +163,6 @@ impl Instance {
     #[doc(hidden)]
     pub fn vmctx_ptr(&self) -> *mut VMContext {
         self.handle.lock().unwrap().vmctx_ptr()
-    }
-
-    /// Get a `WeakInstanceRef`.
-    /// TODO: document this
-    pub fn weak_instance_ref(&self) -> WeakInstanceRef {
-        self.handle.lock().unwrap().weak_ref()
     }
 }
 

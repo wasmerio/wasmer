@@ -30,7 +30,7 @@ pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, Wasi
 
 use thiserror::Error;
 use wasmer::{
-    imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, Module,
+    imports, ChainableNamedResolver, Function, ImportObject, InstanceExport, Memory, Module,
     NamedResolver, Store, WasmerEnv, WeakInstanceRef
 };
 
@@ -57,9 +57,9 @@ pub struct WasiEnv {
     /// to lock this mutex, the program will deadlock.
     pub state: Arc<Mutex<WasiState>>,
     #[wasmer(export)]
-    memory: LazyInit<Memory>,
-    #[wasmer(instance)]
-    instance: LazyInit<WeakInstanceRef>,
+    memory: LazyInit<InstanceExport<Memory>>,
+    //#[wasmer(instance)]
+    //instance: LazyInit<WeakInstanceRef>,
 }
 
 impl WasiEnv {
@@ -67,6 +67,7 @@ impl WasiEnv {
         Self {
             state: Arc::new(Mutex::new(state)),
             memory: LazyInit::new(),
+            //instance: LazyInit::new(),
         }
     }
 

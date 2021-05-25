@@ -227,12 +227,12 @@ impl fmt::Debug for Global {
     }
 }
 
-impl<'a> Exportable<'a> for Global {
+impl Exportable for Global {
     fn to_export(&self) -> Export {
         self.vm_global.clone().into()
     }
 
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
+    fn get_self_from_extern<'a>(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Global(global) => Ok(global),
             _ => Err(ExportError::IncompatibleType),

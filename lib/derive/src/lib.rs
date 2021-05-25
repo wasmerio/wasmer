@@ -136,12 +136,15 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                             identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
                         let mut access_expr = quote_spanned! {
                             f.span() =>
-                                instance.exports.get_with_generics_weak::<#inner_type, _, _>(#item_name)
+                                wasmer::InstanceExport::new(instance.exports.downgrade())
+                                //instance.exports.get_with_generics_weak::<#inner_type, _, _>(#item_name)
                         };
                         for alias in aliases {
                             access_expr = quote_spanned! {
                                 f.span()=>
-                                    #access_expr .or_else(|_| instance.exports.get_with_generics_weak::<#inner_type, _, _>(#alias))
+
+                                    wasmer::InstanceExport::new(instance.exports.downgrade())
+                                    //#access_expr .or_else(|_| instance.exports.get_with_generics_weak::<#inner_type, _, _>(#alias))
                             };
                         }
                         if optional {
@@ -200,10 +203,19 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
 
                     finish.push(finish_tokens);
                 }
-                WasmerAttr::Instance {
-                    span,
-                } => {
-                    todo!()
+                WasmerAttr::Instance { span } => {
+                    let tokens = if let Some(name) = name {
+                        quote_spanned! {
+                            span =>
+                                self.#name.initialize(instance.weak_instance_ref());
+                        }
+                    } else {
+                        quote_spanned! {
+                            span =>
+                                self.#field_idx.initialize(instance.exports.downgrade());
+                        }
+                    };
+                    finish.push(tokens);
                 }
             }
         }

@@ -283,8 +283,8 @@ pub mod internals {
     pub use crate::externals::{WithEnv, WithoutEnv};
 }
 
-pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
-pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
+pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv, InstanceExport};
+pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator, WeakExports};
 pub use crate::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
