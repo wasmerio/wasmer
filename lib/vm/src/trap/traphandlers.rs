@@ -708,6 +708,11 @@ impl<'a> CallThreadState<'a> {
             return 1 as *const _;
         }
 
+        // If this fault wasn't in wasm code, then it's not our problem
+        if unsafe { !IS_WASM_PC(pc as _) } {
+            return ptr::null();
+        }
+
         // TODO: stack overflow can happen at any random time (i.e. in malloc()
         // in memory.grow) and it's really hard to determine if the cause was
         // stack overflow and if it happened in WebAssembly module.

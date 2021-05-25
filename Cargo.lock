@@ -2422,7 +2422,7 @@ name = "wasmer"
 version = "1.0.2"
 dependencies = [
  "anyhow",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "indexmap",
  "libc",
  "loupe",
@@ -2682,7 +2682,7 @@ dependencies = [
 name = "wasmer-engine-jit"
 version = "1.0.2"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "leb128",
  "loupe",
  "region",
@@ -2698,7 +2698,7 @@ dependencies = [
 name = "wasmer-engine-native"
 version = "1.0.2"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "leb128",
  "libloading",
  "loupe",
@@ -2719,7 +2719,7 @@ name = "wasmer-engine-object-file"
 version = "1.0.2"
 dependencies = [
  "bincode",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "leb128",
  "libloading",
  "loupe",
@@ -2778,7 +2778,7 @@ version = "1.0.2"
 dependencies = [
  "backtrace",
  "cc",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "indexmap",
  "libc",
  "loupe",

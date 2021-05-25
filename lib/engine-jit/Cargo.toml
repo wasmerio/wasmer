@@ -17,7 +17,7 @@ wasmer-vm = { path = "../vm", version = "1.0.2", features = ["enable-rkyv"] }
 wasmer-engine = { path = "../engine", version = "1.0.2" }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 region = "2.2"
-cfg-if = "0.1"
+cfg-if = "1.0"
 leb128 = "0.2"
 rkyv = "0.6.1"
 loupe = "0.1"

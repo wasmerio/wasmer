@@ -21,8 +21,8 @@ wasmer-engine = { path = "../engine", version = "1.0.2" }
 wasmer-engine-jit = { path = "../engine-jit", version = "1.0.2", optional = true }
 wasmer-engine-native = { path = "../engine-native", version = "1.0.2", optional = true }
 wasmer-types = { path = "../types", version = "1.0.2" }
-indexmap = { version = "1.4", features = ["serde-1"] }
-cfg-if = "0.1"
+indexmap = { version = "1.6", features = ["serde-1"] }
+cfg-if = "1.0"
 wat = { version = "1.0", optional = true }
 thiserror = "1.0"
 more-asserts = "0.2"
