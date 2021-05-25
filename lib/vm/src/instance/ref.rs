@@ -156,8 +156,10 @@ impl InstanceRef {
     }
 }
 
+/// A weak instance ref. This type does not keep the underlying `Instance` alive
+/// but can be converted into a full `InstanceRef` if the underlying `Instance` hasn't
+/// been deallocated.
 #[derive(Debug, Clone)]
-/// TODO:  document this
 pub struct WeakInstanceRef(Weak<InstanceInner>);
 
 impl PartialEq for WeakInstanceRef {
@@ -167,7 +169,7 @@ impl PartialEq for WeakInstanceRef {
 }
 
 impl WeakInstanceRef {
-    // TODO: document this
+    /// Try to convert into a strong, `InstanceRef`.
     pub fn upgrade(&self) -> Option<InstanceRef> {
         let inner = self.0.upgrade()?;
         Some(InstanceRef(inner))
@@ -175,13 +177,21 @@ impl WeakInstanceRef {
 }
 
 impl MemoryUsage for WeakInstanceRef {
-    fn size_of_val(&self, _tracker: &mut dyn MemoryUsageTracker) -> usize {
-        todo!("Probably missing implementation at crate level for `Weak`. Can be done manually here but I'm focused on other things right now");
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self)
+            + if let Some(ir) = self.upgrade() {
+                ir.size_of_val(tracker)
+            } else {
+                0
+            }
     }
 }
 
+/// An `InstanceRef` that may or may not be keeping the `Instance` alive.
+///
+/// This type is useful for types that conditionally must keep / not keep the
+/// underlying `Instance` alive. For example, to prevent cycles in `WasmerEnv`s.
 #[derive(Debug, Clone, PartialEq, MemoryUsage)]
-/// TODO:  document this
 pub enum WeakOrStrongInstanceRef {
     /// A weak instance ref.
     Weak(WeakInstanceRef),
@@ -206,7 +216,7 @@ impl WeakOrStrongInstanceRef {
         }
     }
 
-    /// TODO: document this
+    /// Convert the existing type directly into a weak reference.
     pub fn into_weak(&mut self) {
         let new = self.get_weak();
         *self = Self::Weak(new);

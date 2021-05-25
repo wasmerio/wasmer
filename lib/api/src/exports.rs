@@ -308,10 +308,10 @@ pub trait Exportable<'a>: Sized {
     /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
 
-    /// TODO: this method doesn't belong  here
-    fn into_weak_instance_ref(&mut self) {
-        todo!("into_weak_instance_ref")
-    }
+    /// Convert the extern internally to hold a weak reference to the `InstanceRef`.
+    /// This is useful for preventing cycles, for example for data stored in a
+    /// type implementing `WasmerEnv`.
+    fn into_weak_instance_ref(&mut self);
 }
 
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
@@ -320,7 +320,9 @@ pub trait Exportable<'a>: Sized {
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
-    /// TODO: this method doesn't belong  here
+    /// Convert the extern internally to hold a weak reference to the `InstanceRef`.
+    /// This is useful for preventing cycles, for example for data stored in a
+    /// type implementing `WasmerEnv`.
     fn into_weak_instance_ref(&mut self);
 }
 
@@ -331,7 +333,6 @@ impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()>
         T::get_self_from_extern(_extern).map(|i| i.clone())
     }
 
-    /// TODO: this method doesn't belong  here
     fn into_weak_instance_ref(&mut self) {
         <Self as Exportable>::into_weak_instance_ref(self);
     }

@@ -55,12 +55,8 @@ pub struct VMFunction {
     pub instance_ref: Option<WeakOrStrongInstanceRef>,
 }
 
-// Is this just a bad idea? We want the default behavior to be converting from weak
-// to strong... but is this just a footgun?
 impl Clone for VMFunction {
     fn clone(&self) -> Self {
-        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
-        // way to express this.
         Self {
             address: self.address.clone(),
             vmctx: self.vmctx.clone(),
@@ -100,12 +96,8 @@ pub struct VMTable {
     pub instance_ref: Option<WeakOrStrongInstanceRef>,
 }
 
-// Is this just a bad idea? We want the default behavior to be converting from weak
-// to strong... but is this just a footgun?
 impl Clone for VMTable {
     fn clone(&self) -> Self {
-        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
-        // way to express this.
         Self {
             from: self.from.clone(),
             instance_ref: self
@@ -162,12 +154,8 @@ pub struct VMMemory {
     pub instance_ref: Option<WeakOrStrongInstanceRef>,
 }
 
-// Is this just a bad idea? We want the default behavior to be converting from weak
-// to strong... but is this just a footgun?
 impl Clone for VMMemory {
     fn clone(&self) -> Self {
-        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
-        // way to express this.
         Self {
             from: self.from.clone(),
             instance_ref: self
@@ -224,12 +212,8 @@ pub struct VMGlobal {
     pub instance_ref: Option<WeakOrStrongInstanceRef>,
 }
 
-// Is this just a bad idea? We want the default behavior to be converting from weak
-// to strong... but is this just a footgun?
 impl Clone for VMGlobal {
     fn clone(&self) -> Self {
-        // REVIEW: panicking in clone, etc  etc. There's probably a much more elegant
-        // way to express this.
         Self {
             from: self.from.clone(),
             instance_ref: self
