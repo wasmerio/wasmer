@@ -11,17 +11,17 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 #[cfg(feature = "compiler")]
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
+use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple, CompiledFunctionFrameInfo, FunctionAddressMap, SourceLoc};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
-    ModuleTranslationState,
+    ModuleTranslationState
 };
-use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
+use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError, register_frame_info, FunctionExtent, GlobalFrameInfoRegistration};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -49,6 +49,7 @@ pub struct NativeArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     func_data_registry: Arc<FuncDataRegistry>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -371,6 +372,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             func_data_registry: Arc::new(FuncDataRegistry::new()),
             signatures: signatures.into_boxed_slice(),
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -475,6 +477,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             func_data_registry: engine_inner.func_data().clone(),
             signatures: signatures.into_boxed_slice(),
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -593,7 +596,72 @@ impl Artifact for NativeArtifact {
     }
 
     fn register_frame_info(&self) {
-        // Do nothing for now
+        let mut info = self.frame_info_registration.lock().unwrap();
+
+        if info.is_some() {
+            return;
+        }
+
+        // The function sizes might not be completely accurate.
+        // Because of that, we (reverse) order all the functions by their pointer.
+        // [f9, f7, f6, f8...] and calculate their potential function body size by
+        // getting the diff in pointers between functions.
+        let mut prev_pointer = usize::MAX;
+
+        let fp = self.finished_functions.clone();
+        let mut function_pointers = fp.into_iter().collect::<Vec<_>>();
+        // Sort the keys by the values in reverse order (function pointers)
+        // This way we can get the maximum function lengths (since functions can't collide in memory)
+        function_pointers.sort_by(|(_k1, v1), (_k2, v2)| v2.cmp(v1));
+        let mut function_pointers = function_pointers
+            .into_iter()
+            .map(|(index, function_pointer)| {
+                let fp = **function_pointer as usize;
+                // This assumes we never lay any functions bodies across the usize::MAX..nullptr
+                // wrapping point.
+                // Which is generally true on most OSes, but certainly doesn't have to be true.
+                //
+                // Further reading: https://lwn.net/Articles/342330/ \
+                // "There is one little problem with that reasoning, though: NULL (zero) can
+                // actually be a valid pointer address."
+                let current_size_by_ptr = prev_pointer - fp;
+                // let function_body_length = &self.metadata.function_body_lengths[index];
+                prev_pointer = fp;
+                // We choose the minimum between the function size given the pointer diff
+                // and the emitted size by the address map
+                let ptr = function_pointer;
+                let length = current_size_by_ptr;
+                // let length = std::cmp::min(frame_info.address_map.body_len, current_size_by_ptr);
+                (index, FunctionExtent { ptr: *ptr, length: length })
+            })
+            .collect::<Vec<_>>();
+        // We sort them by key, again.
+        function_pointers.sort_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
+
+        let frame_infos = function_pointers.iter().map(|(_, extent)| {
+            CompiledFunctionFrameInfo {
+                traps: vec![],
+                address_map: FunctionAddressMap {
+                    instructions: vec![],
+                    start_srcloc: SourceLoc::default(),
+                    end_srcloc: SourceLoc::default(),
+                    body_offset: 0,
+                    body_len: extent.length,
+                }
+            }
+        }).collect::<PrimaryMap<LocalFunctionIndex, _>>();
+
+        let finished_function_extents = function_pointers
+            .into_iter()
+            .map(|(_, function_extent)| function_extent)
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
+        *info = register_frame_info(
+            self.metadata.compile_info.module.clone(),
+            &finished_function_extents,
+            frame_infos,
+        );
     }
 
     fn features(&self) -> &Features {
