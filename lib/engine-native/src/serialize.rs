@@ -63,11 +63,6 @@ impl ModuleMetadata {
         let pos = serializer.serialize_value(self).map_err(to_compile_error)? as u64;
         let mut serialized_data = serializer.into_inner().into_inner();
         serialized_data.extend_from_slice(&pos.to_le_bytes());
-        if cfg!(target_endian = "big") {
-            serialized_data.extend_from_slice(&[b'b']);
-        } else if cfg!(target_endian = "little") {
-            serialized_data.extend_from_slice(&[b'l']);
-        }
         Ok(serialized_data)
     }
 
@@ -80,16 +75,10 @@ impl ModuleMetadata {
         metadata_slice: &'a [u8],
     ) -> Result<&'a ArchivedModuleMetadata, DeserializeError> {
         let mut pos: [u8; 8] = Default::default();
-        let endian = metadata_slice[metadata_slice.len() - 1];
-        if (cfg!(target_endian = "big") && endian == b'l')
-            || (cfg!(target_endian = "little") && endian == b'b')
-        {
-            return Err(DeserializeError::Incompatible("incompatible endian".into()));
-        }
-        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 9..metadata_slice.len() - 1]);
+        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
         let pos: u64 = u64::from_le_bytes(pos);
         Ok(archived_value::<ModuleMetadata>(
-            &metadata_slice[..metadata_slice.len() - 9],
+            &metadata_slice[..metadata_slice.len() - 8],
             pos as usize,
         ))
     }
