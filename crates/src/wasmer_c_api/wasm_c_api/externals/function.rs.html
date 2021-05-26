@@ -252,6 +252,11 @@
 <span id="251">251</span>
 <span id="252">252</span>
 <span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">store</span>::<span class="ident">wasm_store_t</span>;
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">trap</span>::<span class="ident">wasm_trap_t</span>;
@@ -434,6 +439,11 @@
     );
 
     <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_func_t</span>::<span class="ident">new</span>(<span class="ident">function</span>)))
+}
+
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_func_copy</span>(<span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_func_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span> {
+    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">func</span>.<span class="ident">clone</span>())
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
