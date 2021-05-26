@@ -624,7 +624,14 @@ impl Artifact for NativeArtifact {
                 // Further reading: https://lwn.net/Articles/342330/ \
                 // "There is one little problem with that reasoning, though: NULL (zero) can
                 // actually be a valid pointer address."
-                let current_size_by_ptr = prev_pointer - fp;
+                let current_size_by_ptr = if prev_pointer != usize::MAX {
+                    prev_pointer - fp
+                }
+                else {
+                    // We assume a function will have at least 16 bits of difference with
+                    // next functions
+                    16
+                };
                 // let function_body_length = &self.metadata.function_body_lengths[index];
                 prev_pointer = fp;
                 // We choose the minimum between the function size given the pointer diff
