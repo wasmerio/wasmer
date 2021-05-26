@@ -102,6 +102,7 @@ qjs >
 | ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
 |  | [**Swift**][Swift integration] | *no published package* | |
+| ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -169,6 +170,9 @@ qjs >
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
 
 [swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
+
+[zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
+[zig integration]: https://github.com/kubkon/wasmer-zig
 
 ## Contribute
 
