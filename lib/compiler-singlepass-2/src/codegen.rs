@@ -154,7 +154,6 @@ pub struct FuncGen<'a, M: Machine> {
 
     locals: Vec<Local<M::Location>>,
     stack: Vec<Local<M::Location>>,
-    func_index: FunctionIndex,
 }
 
 pub struct SpecialLabelSet<L> {
@@ -403,7 +402,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
             locals: vec![],
             stack: vec![],
-            func_index,
         };
         fg.begin()?;
         Ok(fg)
@@ -709,7 +707,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 val.inc_ref(); val.inc_ref();
 
                 let table_label = self.machine.new_label();
-                // let mut table: Vec<M::Label> = vec![];
                 let default_br = self.machine.new_label();
                 
                 let lim = self.machine.do_const_i32(targets.len() as i32);
@@ -722,7 +719,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 val.dec_ref(); val.dec_ref();
                 
                 let br_size = self.machine.do_const_i32(M::BR_INSTR_SIZE as i32);
-                let val_scaled = self.machine.do_mul_i32(val.clone(), br_size.clone());//, self.control_stack[0].label);
+                let val_scaled = self.machine.do_mul_i32(val.clone(), br_size.clone());
                 let table_label_stored = self.machine.do_load_label(table_label);
                 let jmp_target = self.machine.do_add_p(val_scaled.clone(), table_label_stored.clone());
                 self.maybe_release(val);
@@ -986,22 +983,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let body = self.machine.finalize();
         let instructions_address_map = self.instructions_address_map;
         let address_map = get_function_address_map(instructions_address_map, data, body.len());
-
-        use std::io::Write;
-        let mut s = String::new();
-        for b in body.iter().copied() {
-            s.push_str(&format!("{:0>2X} ", b));
-        }
-        let asm = std::process::Command::new("cstool")
-            .arg("arm64")
-            .arg(format!("\"{}\"", s))
-            .output()
-            .unwrap()
-            .stdout;
-        let mut f = std::fs::File::create(
-            format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
-            unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
-        f.write_all(&asm).unwrap();
 
         CompiledFunction {
             body: FunctionBody {
