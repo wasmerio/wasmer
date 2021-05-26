@@ -1014,6 +1014,9 @@ impl Machine for Aarch64Machine {
             dynasm!(self.assembler ; sub sp, sp, stack_offset as u32);
         }
 
+        // vmctx is always passed as the first argument
+        dynasm!(self.assembler ; mov x0, x28);
+
         for (n, local) in params.iter().enumerate() {
             match n {
                 0..=6 => {
