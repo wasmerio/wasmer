@@ -1183,7 +1183,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 self.maybe_release(addr);
                 imm.clone()
             } else {
-                let new_addr = self.machine.do_add_i32(addr.clone(), imm.clone());
+                let new_addr = self.machine.do_add_p(addr.clone(), imm.clone());
                 new_addr.inc_ref();
                 self.maybe_release(addr);
                 self.maybe_release(imm);
@@ -1198,7 +1198,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         
         {
             // Wasm linear memory -> real memory
-            let new_addr = self.machine.do_add_i32(base_ptr.clone(), addr.clone());
+            let new_addr = self.machine.do_add_p(base_ptr.clone(), addr.clone());
             new_addr.inc_ref();
             self.maybe_release(addr);
             self.maybe_release(base_ptr);
@@ -1265,7 +1265,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         let normalized = self.machine.do_normalize_local($vec[i].clone());
                         if $vec[i].ref_ct() > 1 {
                             $vec[i].dec_ref();
-                            // self.maybe_release($vec[i].clone());
                         }
                         if normalized.ref_ct() < 1 {
                             normalized.inc_ref();
@@ -1335,32 +1334,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         //     println!("{:?}", l.location());
         // }
         // println!("\n\n");
-
-        // assert!(self.locals.len() == frame.local_locations.len());
-
-        // for i in 0..self.locals.len() {
-        //     let restored = self.machine.do_restore_local(self.locals[i].clone(), frame.local_locations[i]);
-        //     if self.locals[i].ref_ct() > 1 {
-        //         self.locals[i].dec_ref();
-        //         self.maybe_release(self.locals[i].clone());
-        //     }
-        //     if restored.ref_ct() < 1 {
-        //         restored.inc_ref();
-        //     } else {
-        //         assert!(restored.ref_ct() == 1);
-        //     }
-        //     self.locals[i] = restored;
-        // }
-        
-        // // debug assertion
-        // for (local, location) in self.locals.iter().cloned().zip(frame.local_locations) {
-        //     if local.location() != location {
-        //         println!("assertion failed: {:?} != {:?}", local.location(), location);
-        //         assert!(false);
-        //     }
-        // }
-
-
 
         restore_locations_from_vecs!(self.stack, &frame.stack_locations);
     }
