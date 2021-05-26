@@ -70,6 +70,12 @@ cranelift spec::simd::simd_int_to_int_extend
 
 ## WASI
 
+### These tests don't pass due to race conditions in the new way we run tests.
+### It's not built to be run in parallel with itself, so we disable it for now.
+
+wasitests::snapshot1::writing
+wasitests::unstable::writing
+
 ### due to hard-coded direct calls into WASI for wasi unstable
 
 wasitests::snapshot1::fd_read
