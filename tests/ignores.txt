@@ -45,9 +45,7 @@ llvm+jit+macos+aarch64 *
 cranelift+macos spec::skip_stack_guard_page
 cranelift+linux spec::skip_stack_guard_page
 llvm+macos      spec::skip_stack_guard_page
-
-# https://github.com/wasmerio/wasmer/issues/1722
-llvm+native spec::skip_stack_guard_page
+llvm+linux      spec::skip_stack_guard_page
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
 cranelift+native spec::linking
