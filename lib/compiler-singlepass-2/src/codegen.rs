@@ -636,6 +636,12 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     |_this, l, r| (l <= r) as i32,
                 );
             },
+            Operator::I32LtU => {
+                self.do_bin_op_i32(
+                    | this, l, r| this.machine.do_lt_u_i32(l.clone(), r.clone()),
+                    |_this, l, r| (l < r) as i32,
+                );
+            },
             Operator::I32And => {
                 self.do_bin_op_i32(
                     | this, l, r| this.machine.do_and_i32(l.clone(), r.clone()),
@@ -692,6 +698,57 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 };
                 self.control_stack.push(frame);
                 self.machine.block_begin();
+            },
+            Operator::BrIf { relative_depth } => {
+                let after = self.machine.new_label();
+                let val = self.pop_stack();
+
+                self.machine.do_br_not_cond_label(val, after);
+            
+                let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
+                if !frame.loop_like && !frame.returns.is_empty() {
+                    unimplemented!();
+                    // if frame.returns.len() != 1 {
+                    //     return Err(CodegenError {
+                    //         message: "BrIf: incorrect frame.returns".to_string(),
+                    //     });
+                    // }
+            
+                    // let first_return = frame.returns[0];
+                    // let loc = *self.value_stack.last().unwrap();
+                    // if first_return.is_float() {
+                    //     let fp = self.fp_stack.peek1()?;
+                    //     if self.assembler.arch_supports_canonicalize_nan()
+                    //         && self.config.enable_nan_canonicalization
+                    //         && fp.canonicalization.is_some()
+                    //     {
+                    //         self.canonicalize_nan(
+                    //             match first_return {
+                    //                 WpType::F32 => Size::S32,
+                    //                 WpType::F64 => Size::S64,
+                    //                 _ => unreachable!(),
+                    //             },
+                    //             loc,
+                    //             Location::GPR(GPR::RAX),
+                    //         );
+                    //     } else {
+                    //         self.emit_relaxed_binop(
+                    //             Assembler::emit_mov,
+                    //             Size::S64,
+                    //             loc,
+                    //             Location::GPR(GPR::RAX),
+                    //         );
+                    //     }
+                    // } else {
+                    //     self.assembler
+                    //         .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    // }
+                }
+                // let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
+                // let released = &self.value_stack[frame.value_stack_depth..];
+                // self.machine.release_locations_keep_state(&mut self.assembler, released);
+                self.machine.do_br_label(frame.label);
+                self.machine.do_emit_label(after);
             },
             Operator::BrTable { table } => {
                 let mut targets = table
@@ -1267,17 +1324,17 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             }
         }
         
-        for l in self.locals.iter().cloned() {
-            println!("{:?}", l.location());
-        }
-        println!("\n\n");
+        // for l in self.locals.iter().cloned() {
+        //     println!("{:?}", l.location());
+        // }
+        // println!("\n\n");
 
         restore_locations_from_vecs!(self.locals, &frame.local_locations);
 
-        for l in self.locals.iter().cloned() {
-            println!("{:?}", l.location());
-        }
-        println!("\n\n");
+        // for l in self.locals.iter().cloned() {
+        //     println!("{:?}", l.location());
+        // }
+        // println!("\n\n");
 
         // assert!(self.locals.len() == frame.local_locations.len());
 
