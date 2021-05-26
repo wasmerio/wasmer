@@ -63,10 +63,7 @@ impl Clone for VMFunction {
             signature: self.signature.clone(),
             kind: self.kind.clone(),
             call_trampoline: self.call_trampoline.clone(),
-            instance_ref: self
-                .instance_ref
-                .as_ref()
-                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+            instance_ref: self.instance_ref.as_ref().map(|v| v.upgrade().unwrap()),
         }
     }
 }
@@ -100,10 +97,7 @@ impl Clone for VMTable {
     fn clone(&self) -> Self {
         Self {
             from: self.from.clone(),
-            instance_ref: self
-                .instance_ref
-                .as_ref()
-                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+            instance_ref: self.instance_ref.as_ref().map(|v| v.upgrade().unwrap()),
         }
     }
 }
@@ -158,10 +152,7 @@ impl Clone for VMMemory {
     fn clone(&self) -> Self {
         Self {
             from: self.from.clone(),
-            instance_ref: self
-                .instance_ref
-                .as_ref()
-                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+            instance_ref: self.instance_ref.as_ref().map(|v| v.upgrade().unwrap()),
         }
     }
 }
@@ -216,10 +207,7 @@ impl Clone for VMGlobal {
     fn clone(&self) -> Self {
         Self {
             from: self.from.clone(),
-            instance_ref: self
-                .instance_ref
-                .as_ref()
-                .map(|v| WeakOrStrongInstanceRef::Strong(v.get_strong().unwrap())),
+            instance_ref: self.instance_ref.as_ref().map(|v| v.upgrade().unwrap()),
         }
     }
 }

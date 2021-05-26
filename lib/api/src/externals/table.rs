@@ -168,6 +168,9 @@ impl<'a> Exportable<'a> for Table {
     }
 
     fn into_weak_instance_ref(&mut self) {
-        self.vm_table.instance_ref.as_mut().map(|v| v.into_weak());
+        self.vm_table
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
     }
 }

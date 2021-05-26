@@ -216,7 +216,7 @@ macro_rules! impl_native_traits {
             }
 
             fn into_weak_instance_ref(&mut self) {
-                self.exported.vm_function.instance_ref.as_mut().map(|v| v.into_weak());
+                self.exported.vm_function.instance_ref.as_mut().map(|v| *v = v.downgrade());
             }
         }
     };

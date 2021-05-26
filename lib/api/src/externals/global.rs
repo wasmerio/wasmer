@@ -240,6 +240,9 @@ impl<'a> Exportable<'a> for Global {
     }
 
     fn into_weak_instance_ref(&mut self) {
-        self.vm_global.instance_ref.as_mut().map(|v| v.into_weak());
+        self.vm_global
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
     }
 }

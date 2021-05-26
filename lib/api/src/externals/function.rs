@@ -742,7 +742,7 @@ impl<'a> Exportable<'a> for Function {
             .vm_function
             .instance_ref
             .as_mut()
-            .map(|v| v.into_weak());
+            .map(|v| *v = v.downgrade());
     }
 }
 

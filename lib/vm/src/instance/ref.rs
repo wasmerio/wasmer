@@ -1,6 +1,7 @@
 use super::Instance;
 use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::alloc::Layout;
+use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::{Arc, Weak};
@@ -200,30 +201,58 @@ pub enum WeakOrStrongInstanceRef {
 }
 
 impl WeakOrStrongInstanceRef {
-    /// Get a strong `InstanceRef`. A return Value of `None` means that the
-    /// `InstanceRef` has been freed and cannot be accessed.
-    pub fn get_strong(&self) -> Option<InstanceRef> {
+    /// Tries to upgrade weak references to a strong reference, returning None
+    /// if it can't be done.
+    pub fn upgrade(&self) -> Option<Self> {
         match self {
-            Self::Weak(weak) => weak.upgrade(),
-            Self::Strong(strong) => Some(strong.clone()),
-        }
-    }
-    /// Get a weak `InstanceRef`.
-    pub fn get_weak(&self) -> WeakInstanceRef {
-        match self {
-            Self::Weak(weak) => weak.clone(),
-            Self::Strong(strong) => WeakInstanceRef(Arc::downgrade(&strong.0)),
+            Self::Weak(weak) => weak.upgrade().map(Self::Strong),
+            Self::Strong(strong) => Some(Self::Strong(strong.clone())),
         }
     }
 
-    /// Convert the existing type directly into a weak reference.
-    pub fn into_weak(&mut self) {
-        let new = self.get_weak();
-        *self = Self::Weak(new);
+    /// Clones self into a weak reference.
+    pub fn downgrade(&self) -> Self {
+        match self {
+            Self::Weak(weak) => Self::Weak(weak.clone()),
+            Self::Strong(strong) => Self::Weak(WeakInstanceRef(Arc::downgrade(&strong.0))),
+        }
     }
 
     /// Check if the reference contained is strong.
     pub fn is_strong(&self) -> bool {
         matches!(self, WeakOrStrongInstanceRef::Strong(_))
+    }
+}
+
+impl TryFrom<WeakOrStrongInstanceRef> for InstanceRef {
+    type Error = &'static str;
+    fn try_from(value: WeakOrStrongInstanceRef) -> Result<Self, Self::Error> {
+        match value {
+            WeakOrStrongInstanceRef::Strong(strong) => Ok(strong),
+            WeakOrStrongInstanceRef::Weak(weak) => {
+                weak.upgrade().ok_or("Failed to upgrade weak reference")
+            }
+        }
+    }
+}
+
+impl From<WeakOrStrongInstanceRef> for WeakInstanceRef {
+    fn from(value: WeakOrStrongInstanceRef) -> Self {
+        match value {
+            WeakOrStrongInstanceRef::Strong(strong) => Self(Arc::downgrade(&strong.0)),
+            WeakOrStrongInstanceRef::Weak(weak) => weak,
+        }
+    }
+}
+
+impl From<WeakInstanceRef> for WeakOrStrongInstanceRef {
+    fn from(value: WeakInstanceRef) -> Self {
+        Self::Weak(value)
+    }
+}
+
+impl From<InstanceRef> for WeakOrStrongInstanceRef {
+    fn from(value: InstanceRef) -> Self {
+        Self::Strong(value)
     }
 }
