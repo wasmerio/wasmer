@@ -708,8 +708,11 @@ impl<'a> CallThreadState<'a> {
             return 1 as *const _;
         }
 
+        let is_wasm_pc = unsafe { IS_WASM_PC(pc as _) };
+        println!("Is wasm PC: {:?} ? {:?}", pc, is_wasm_pc);
+
         // If this fault wasn't in wasm code, then it's not our problem
-        if unsafe { !IS_WASM_PC(pc as _) } {
+        if !is_wasm_pc {
             return ptr::null();
         }
 

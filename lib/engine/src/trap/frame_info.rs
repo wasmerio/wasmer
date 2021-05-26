@@ -203,6 +203,7 @@ pub fn register(
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
+    println!("Finsihed functions, {:?}", finished_functions);
     for (
         i,
         FunctionExtent {
@@ -229,9 +230,11 @@ pub fn register(
     // First up assert that our chunk of jit functions doesn't collide with
     // any other known chunks of jit functions...
     if let Some((_, prev)) = info.ranges.range(max..).next() {
+        println!("Prev: {:?}, max: {}", prev.start, max);
         assert!(prev.start > max);
     }
     if let Some((prev_end, _)) = info.ranges.range(..=min).next_back() {
+        println!("Prev end: {:?}, min: {}", prev_end, min);
         assert!(*prev_end < min);
     }
 
