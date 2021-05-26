@@ -15,13 +15,19 @@ use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple, CompiledFunctionFrameInfo, FunctionAddressMap, SourceLoc};
+use wasmer_compiler::{
+    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem,
+    SourceLoc, Symbol, SymbolRegistry, Triple,
+};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
-    ModuleTranslationState
+    ModuleTranslationState,
 };
-use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError, register_frame_info, FunctionExtent, GlobalFrameInfoRegistration};
+use wasmer_engine::{
+    register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
+    InstantiationError, SerializeError,
+};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -608,8 +614,22 @@ impl Artifact for NativeArtifact {
         // getting the diff in pointers between functions.
         let mut prev_pointer = usize::MAX;
 
+        let min_call_trampolines_pointer = self
+            .finished_function_call_trampolines
+            .values()
+            .map(|t| *t as usize)
+            .min()
+            .unwrap_or(0);
+        let min_dynamic_trampolines_pointer = self
+            .finished_dynamic_function_trampolines
+            .values()
+            .map(|t| **t as usize)
+            .min()
+            .unwrap_or(0);
+
         let fp = self.finished_functions.clone();
         let mut function_pointers = fp.into_iter().collect::<Vec<_>>();
+
         // Sort the keys by the values in reverse order (function pointers)
         // This way we can get the maximum function lengths (since functions can't collide in memory)
         function_pointers.sort_by(|(_k1, v1), (_k2, v2)| v2.cmp(v1));
@@ -617,20 +637,37 @@ impl Artifact for NativeArtifact {
             .into_iter()
             .map(|(index, function_pointer)| {
                 let fp = **function_pointer as usize;
-                // This assumes we never lay any functions bodies across the usize::MAX..nullptr
-                // wrapping point.
-                // Which is generally true on most OSes, but certainly doesn't have to be true.
-                //
-                // Further reading: https://lwn.net/Articles/342330/ \
-                // "There is one little problem with that reasoning, though: NULL (zero) can
-                // actually be a valid pointer address."
                 let current_size_by_ptr = if prev_pointer != usize::MAX {
+                    // This assumes we never lay any functions bodies across the usize::MAX..nullptr
+                    // wrapping point.
+                    // Which is generally true on most OSes, but certainly doesn't have to be true.
+                    //
+                    // Further reading: https://lwn.net/Articles/342330/ \
+                    // "There is one little problem with that reasoning, though: NULL (zero) can
+                    // actually be a valid pointer address."
                     prev_pointer - fp
-                }
-                else {
-                    // We assume a function will have at least 16 bits of difference with
-                    // next functions
-                    16
+                } else {
+                    // We try to determine the size based on any of the trampolines that usually
+                    // go after that function (the   last defined in Wasm)
+                    if fp < min_call_trampolines_pointer {
+                        if min_call_trampolines_pointer < min_dynamic_trampolines_pointer
+                            || min_dynamic_trampolines_pointer == 0
+                        {
+                            min_call_trampolines_pointer - fp
+                        } else {
+                            min_dynamic_trampolines_pointer - fp
+                        }
+                    } else if fp < min_dynamic_trampolines_pointer {
+                        min_dynamic_trampolines_pointer - fp
+                    } else {
+                        // The trampoline pointers are before the function.
+                        // We can safely assume the function will be at least 16 bits of length.
+                        // This is a very hacky assumption, but it makes collisions work perfectly
+                        // Since DLOpen simlinks will always be > 16 bits of difference between
+                        // two different libraries for the same symbol.
+                        // Note: the minmum Mach-O file is 0x1000 bytes and the minimum ELF is 0x0060 bytes
+                        16
+                    }
                 };
                 // let function_body_length = &self.metadata.function_body_lengths[index];
                 prev_pointer = fp;
@@ -639,14 +676,21 @@ impl Artifact for NativeArtifact {
                 let ptr = function_pointer;
                 let length = current_size_by_ptr;
                 // let length = std::cmp::min(frame_info.address_map.body_len, current_size_by_ptr);
-                (index, FunctionExtent { ptr: *ptr, length: length })
+                (
+                    index,
+                    FunctionExtent {
+                        ptr: *ptr,
+                        length: length,
+                    },
+                )
             })
             .collect::<Vec<_>>();
         // We sort them by key, again.
         function_pointers.sort_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
 
-        let frame_infos = function_pointers.iter().map(|(_, extent)| {
-            CompiledFunctionFrameInfo {
+        let frame_infos = function_pointers
+            .iter()
+            .map(|(_, extent)| CompiledFunctionFrameInfo {
                 traps: vec![],
                 address_map: FunctionAddressMap {
                     instructions: vec![],
@@ -654,9 +698,9 @@ impl Artifact for NativeArtifact {
                     end_srcloc: SourceLoc::default(),
                     body_offset: 0,
                     body_len: extent.length,
-                }
-            }
-        }).collect::<PrimaryMap<LocalFunctionIndex, _>>();
+                },
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let finished_function_extents = function_pointers
             .into_iter()
