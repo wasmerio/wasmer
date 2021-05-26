@@ -993,6 +993,12 @@
 <span id="990">990</span>
 <span id="991">991</span>
 <span id="992">992</span>
+<span id="993">993</span>
+<span id="994">994</span>
+<span id="995">995</span>
+<span id="996">996</span>
+<span id="997">997</span>
+<span id="998">998</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1206,7 +1212,13 @@
                 } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>))]</span> {
                     <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">cx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">ucontext_t</span>);
                     <span class="ident">cx</span>.<span class="ident">uc_mcontext</span>.<span class="ident">gregs</span>[<span class="ident">libc</span>::<span class="ident">REG_EIP</span> <span class="kw">as</span> <span class="ident">usize</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>))]</span> {
+                    <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">cx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">ucontext_t</span>);
+                    <span class="ident">cx</span>.<span class="ident">uc_mcontext</span>.<span class="ident">gregs</span>[<span class="ident">libc</span>::<span class="ident">REG_EIP</span> <span class="kw">as</span> <span class="ident">usize</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>
                 } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>))]</span> {
+                    <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">cx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">ucontext_t</span>);
+                    <span class="ident">cx</span>.<span class="ident">uc_mcontext</span>.<span class="ident">pc</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>))]</span> {
                     <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">cx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">ucontext_t</span>);
                     <span class="ident">cx</span>.<span class="ident">uc_mcontext</span>.<span class="ident">pc</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>
                 } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span> {
