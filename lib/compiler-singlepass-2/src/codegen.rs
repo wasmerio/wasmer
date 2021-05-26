@@ -419,6 +419,37 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CodegenError> {
+        let was_unreachable;
+
+        if self.unreachable_depth > 0 {
+            was_unreachable = true;
+
+            match op {
+                Operator::Block { .. } /*| Operator::Loop { .. } | Operator::If { .. }*/ => {
+                    self.unreachable_depth += 1;
+                }
+                Operator::End => {
+                    self.unreachable_depth -= 1;
+                }
+                // Operator::Else => {
+                //     // We are in a reachable true branch
+                //     if self.unreachable_depth == 1 {
+                //         if let Some(IfElseState::If(_)) =
+                //             self.control_stack.last().map(|x| x.if_else)
+                //         {
+                //             self.unreachable_depth -= 1;
+                //         }
+                //     }
+                // }
+                _ => {}
+            }
+            if self.unreachable_depth > 0 {
+                return Ok(());
+            }
+        } else {
+            was_unreachable = false;
+        }
+        
         match op {
             Operator::Call { function_index } => {
                 let function_index = function_index as usize;
@@ -554,12 +585,12 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 self.push_stack(local);
             },
             Operator::LocalSet { local_index } => {
-                let from_stack = self.pop_stack();
+                let from_stack = self.stack.pop().unwrap();
 
                 let local = self.locals[local_index as usize].clone();
                 local.dec_ref();
                 self.maybe_release(local);
-
+                
                 self.locals[local_index as usize] = from_stack;
 
                 // if self.local_types[local_index].is_float() {
@@ -640,7 +671,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 self.maybe_release(addr);
             },
             Operator::Block { ty } => {
-                let (local_locations, stack_locations) = self.record_locations();
+                // println!("{:?}\n\n\n{:?}", self.locals, self.stack);
+                let (local_locations, stack_locations) = self.normalize_locations();
                 let frame = ControlFrame {
                     label: self.machine.new_label(),
                     loop_like: false,
@@ -661,6 +693,108 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     stack_locations,
                 };
                 self.control_stack.push(frame);
+                self.machine.block_begin();
+            },
+            Operator::BrTable { table } => {
+                let mut targets = table
+                    .targets()
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| CodegenError {
+                        message: format!("BrTable read_table: {:?}", e),
+                    })?;
+                let default_target = targets.pop().unwrap().0;
+                
+                let val = self.pop_stack();
+                // we can't let it get overwritten yet
+                val.inc_ref(); val.inc_ref();
+
+                let table_label = self.machine.new_label();
+                // let mut table: Vec<M::Label> = vec![];
+                let default_br = self.machine.new_label();
+                
+                let lim = self.machine.do_const_i32(targets.len() as i32);
+                let cond = self.machine.do_ge_u_i32(val.clone(), lim.clone());
+                self.maybe_release(lim);
+                self.machine.do_br_cond_label(cond.clone(), default_br);
+                self.maybe_release(cond); // TODO: is this OK?
+                
+                // now we won't need it any more after this
+                val.dec_ref(); val.dec_ref();
+                
+                let br_size = self.machine.do_const_i32(M::BR_INSTR_SIZE as i32);
+                let val_scaled = self.machine.do_mul_i32(val.clone(), br_size.clone());//, self.control_stack[0].label);
+                let table_label_stored = self.machine.do_load_label(table_label);
+                let jmp_target = self.machine.do_add_p(val_scaled.clone(), table_label_stored.clone());
+                self.maybe_release(val);
+                self.maybe_release(br_size);
+                self.maybe_release(val_scaled);
+                self.maybe_release(table_label_stored);
+                
+                self.machine.do_br_location(jmp_target.clone());
+                self.maybe_release(jmp_target);
+                
+                let labels: Vec<_> = targets.iter().map(|_| self.machine.new_label()).collect();
+
+                let it = targets.iter()
+                    .map(|t| t.0)
+                    .zip(labels.iter().cloned())
+                    .chain(iter::once((default_target, default_br)));
+                
+                for (target, label) in it {
+                    self.machine.do_emit_label(label);
+                    let frame = &self.control_stack[self.control_stack.len() - 1 - (target as usize)];
+                    if !frame.loop_like && !frame.returns.is_empty() {
+                        unimplemented!();
+                        // if frame.returns.len() != 1 {
+                        //     return Err(CodegenError {
+                        //         message: format!(
+                        //             "BrTable: incorrect frame.returns for {:?}",
+                        //             target
+                        //         ),
+                        //     });
+                        // }
+            
+                        // let first_return = frame.returns[0];
+                        // let loc = *self.value_stack.last().unwrap();
+                        // if first_return.is_float() {
+                        //     let fp = self.fp_stack.peek1()?;
+                        //     if self.assembler.arch_supports_canonicalize_nan()
+                        //         && self.config.enable_nan_canonicalization
+                        //         && fp.canonicalization.is_some()
+                        //     {
+                        //         self.canonicalize_nan(
+                        //             match first_return {
+                        //                 WpType::F32 => Size::S32,
+                        //                 WpType::F64 => Size::S64,
+                        //                 _ => unreachable!(),
+                        //             },
+                        //             loc,
+                        //             Location::GPR(GPR::RAX),
+                        //         );
+                        //     } else {
+                        //         self.emit_relaxed_binop(
+                        //             Assembler::emit_mov,
+                        //             Size::S64,
+                        //             loc,
+                        //             Location::GPR(GPR::RAX),
+                        //         );
+                        //     }
+                        // } else {
+                        //     self.assembler
+                        //         .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                        // }
+                    }
+                    // let frame = &self.control_stack[self.control_stack.len() - 1 - (target as usize)];
+                    // let released = &self.value_stack[frame.value_stack_depth..];
+                    // self.machine.release_locations_keep_state(&mut self.assembler, released);
+                    self.machine.do_br_label(frame.label);
+                }
+
+                self.machine.do_emit_label(table_label);
+                for label in labels {
+                    self.machine.do_br_label(label);
+                }
+                self.unreachable_depth = 1;
             },
             // Operator::BrIf { relative_depth: 0 } => {
             //     unimplemented!();
@@ -669,57 +803,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             //     unimplemented!();
             // },
             Operator::Return => {
-                let frame = &self.control_stack[0];
-                if !frame.returns.is_empty() {
-                    if frame.returns.len() != 1 {
-                        unimplemented!();
-                    }
-                    let loc = self.stack.pop().unwrap();
-                    loc.dec_ref();
-                    self.machine.do_return(Some(frame.returns[0]), Some(loc.clone()), frame.label);
-                    self.maybe_release(loc);
-                    // if first_return.is_float() {
-                    //     let fp = self.fp_stack.peek1()?;
-                    //     if self.assembler.arch_supports_canonicalize_nan()
-                    //         && self.config.enable_nan_canonicalization
-                    //         && fp.canonicalization.is_some()
-                    //     {
-                    //         self.canonicalize_nan(
-                    //             match first_return {
-                    //                 WpType::F32 => Size::S32,
-                    //                 WpType::F64 => Size::S64,
-                    //                 _ => unreachable!(),
-                    //             },
-                    //             loc,
-                    //             Location::GPR(GPR::RAX),
-                    //         );
-                    //     } else {
-                    //         self.emit_relaxed_binop(
-                    //             Assembler::emit_mov,
-                    //             Size::S64,
-                    //             loc,
-                    //             Location::GPR(GPR::RAX),
-                    //         );
-                    //     }
-                    // } else {
-                    //     self.emit_relaxed_binop(
-                    //         Assembler::emit_mov,
-                    //         Size::S64,
-                    //         loc,
-                    //         Location::GPR(GPR::RAX),
-                    //     );
-                    // }
-                } else {
-                    self.machine.do_return(None, None, frame.label);
-                }
-                // let frame = &self.control_stack[0];
-                // let released = &self.value_stack[frame.value_stack_depth..];
-                // self.machine
-                //     .release_locations_keep_state(&mut self.assembler, released);
-                self.unreachable_depth = 1;
+                self.do_return();
             },
             Operator::End => {
-                let frame = self.control_stack.pop().unwrap();
                 // if /* !was_unreachable &&*/ !frame.returns.is_empty() {
                 //     assert!(frame.returns.len() == 1);
                 //     if frame.returns[0].is_float() {
@@ -755,15 +841,22 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 //     }
                 // }
 
-                if self.control_stack.is_empty() {
+                if self.control_stack.len() == 1 {
+                    if !was_unreachable {
+                        self.do_return();
+                    }
+                    let frame = self.control_stack.pop().unwrap();
                     self.relocations = self.machine.func_end(frame.label);
                 } else {
-                    while frame.value_stack_depth > self.stack.len() {
+                    let frame = self.control_stack.pop().unwrap();
+                    while self.stack.len() > frame.value_stack_depth {
                         let local = self.pop_stack();
                         self.maybe_release(local);
                     }
 
                     // self.fp_stack.truncate(frame.fp_stack_depth);
+                    
+                    self.restore_locations(&frame);
 
                     if !frame.loop_like {
                         self.machine.block_end(frame.label);
@@ -798,8 +891,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         //     // we already canonicalized at the `Br*` instruction or here previously.
                         // }
                     }
-                    
-                    self.restore_locations(frame);
                 }
             },
             _ => {
@@ -811,6 +902,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
     pub fn begin(&mut self) -> Result<(), CodegenError> {
         self.locals = self.machine.func_begin(self.local_types.len(), self.signature.params().len());
+        for local in self.locals.iter().cloned() {
+            local.inc_ref();
+        }
 
         // // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
         // self.machine.state.register_values
@@ -1125,46 +1219,163 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         ret
     }
 
-    fn record_locations(&mut self) -> (Vec<M::Location>, Vec<M::Location>) {
-        macro_rules! record_locations_from_vec {
+    fn normalize_locations(&mut self) -> (Vec<M::Location>, Vec<M::Location>) {
+        macro_rules! normalize_locations_from_vec {
             ($vec:expr) => {
                 {
-                    for local in $vec.iter().cloned() {
-                        if local.location().is_imm() {
-                            self.machine.do_store(local.clone());
+                    for i in 0..$vec.len() {
+                        let normalized = self.machine.do_normalize_local($vec[i].clone());
+                        if $vec[i].ref_ct() > 1 {
+                            $vec[i].dec_ref();
+                            // self.maybe_release($vec[i].clone());
                         }
+                        if normalized.ref_ct() < 1 {
+                            normalized.inc_ref();
+                        }
+                        $vec[i] = normalized;
                     }
-                    $vec.iter().map(|local| local.location()).collect()
+                    $vec.iter().map(|local| local.location()).collect::<Vec<_>>()
                 }
             }
         }
 
-        let local_locations = record_locations_from_vec!(self.locals);
-        let stack_locations = record_locations_from_vec!(self.stack);
+        // for l in self.locals.iter().cloned() {
+        //     println!("{:?}", l.location());
+        // }
+        // println!("\n\n");
+
+        let local_locations = normalize_locations_from_vec!(self.locals);
+        let stack_locations = normalize_locations_from_vec!(self.stack);
+        
+        // for l in self.locals.iter().cloned() {
+        //     println!("{:?}", l.location());
+        // }
+        // println!("\n\n");
 
         (local_locations, stack_locations)
     }
 
-    fn restore_locations(&mut self, frame: ControlFrame<M>) {
+    fn restore_locations(&mut self, frame: &ControlFrame<M>) {
         macro_rules! restore_locations_from_vecs {
             ($locals:expr, $locations:expr) => {
                 {
-                    for (local, location) in $locals.iter().cloned().zip($locations.iter().copied()) {
-                        if local.location() != location {
-                            self.machine.do_restore_local(local.clone(), location);
-                        }
-                    }
+                    assert!($locals.len() == $locations.len());
 
+                    for i in 0..$locals.len() {
+                        let restored = self.machine.do_restore_local($locals[i].clone(), $locations[i]);
+                        if $locals[i].ref_ct() > 1 {
+                            $locals[i].dec_ref();
+                            self.maybe_release($locals[i].clone());
+                        }
+                        if restored.ref_ct() < 1 {
+                            restored.inc_ref();
+                        } else {
+                            assert!(restored.ref_ct() == 1);
+                        }
+                        $locals[i] = restored;
+                    }
+                    
                     // debug assertion
                     for (local, location) in $locals.iter().cloned().zip($locations) {
-                        assert!(local.location() == location);
+                        if local.location() != *location {
+                            println!("assertion failed: {:?} != {:?}", local.location(), location);
+                            assert!(false);
+                        }
                     }
                 }
             }
         }
         
-        restore_locations_from_vecs!(self.locals, frame.local_locations);
-        restore_locations_from_vecs!(self.stack, frame.stack_locations);
+        for l in self.locals.iter().cloned() {
+            println!("{:?}", l.location());
+        }
+        println!("\n\n");
+
+        restore_locations_from_vecs!(self.locals, &frame.local_locations);
+
+        for l in self.locals.iter().cloned() {
+            println!("{:?}", l.location());
+        }
+        println!("\n\n");
+
+        // assert!(self.locals.len() == frame.local_locations.len());
+
+        // for i in 0..self.locals.len() {
+        //     let restored = self.machine.do_restore_local(self.locals[i].clone(), frame.local_locations[i]);
+        //     if self.locals[i].ref_ct() > 1 {
+        //         self.locals[i].dec_ref();
+        //         self.maybe_release(self.locals[i].clone());
+        //     }
+        //     if restored.ref_ct() < 1 {
+        //         restored.inc_ref();
+        //     } else {
+        //         assert!(restored.ref_ct() == 1);
+        //     }
+        //     self.locals[i] = restored;
+        // }
+        
+        // // debug assertion
+        // for (local, location) in self.locals.iter().cloned().zip(frame.local_locations) {
+        //     if local.location() != location {
+        //         println!("assertion failed: {:?} != {:?}", local.location(), location);
+        //         assert!(false);
+        //     }
+        // }
+
+
+
+        restore_locations_from_vecs!(self.stack, &frame.stack_locations);
+    }
+
+    fn do_return(&mut self) {
+        let frame = &self.control_stack[0];
+        if !frame.returns.is_empty() {
+            if frame.returns.len() != 1 {
+                unimplemented!();
+            }
+            let loc = self.stack.pop().unwrap();
+            loc.dec_ref();
+            self.machine.do_return(Some(frame.returns[0]), Some(loc.clone()), frame.label);
+            self.maybe_release(loc);
+            // if first_return.is_float() {
+            //     let fp = self.fp_stack.peek1()?;
+            //     if self.assembler.arch_supports_canonicalize_nan()
+            //         && self.config.enable_nan_canonicalization
+            //         && fp.canonicalization.is_some()
+            //     {
+            //         self.canonicalize_nan(
+            //             match first_return {
+            //                 WpType::F32 => Size::S32,
+            //                 WpType::F64 => Size::S64,
+            //                 _ => unreachable!(),
+            //             },
+            //             loc,
+            //             Location::GPR(GPR::RAX),
+            //         );
+            //     } else {
+            //         self.emit_relaxed_binop(
+            //             Assembler::emit_mov,
+            //             Size::S64,
+            //             loc,
+            //             Location::GPR(GPR::RAX),
+            //         );
+            //     }
+            // } else {
+            //     self.emit_relaxed_binop(
+            //         Assembler::emit_mov,
+            //         Size::S64,
+            //         loc,
+            //         Location::GPR(GPR::RAX),
+            //     );
+            // }
+        } else {
+            self.machine.do_return(None, None, frame.label);
+        }
+        // let frame = &self.control_stack[0];
+        // let released = &self.value_stack[frame.value_stack_depth..];
+        // self.machine
+        //     .release_locations_keep_state(&mut self.assembler, released);
+        self.unreachable_depth = 1;
     }
 
     pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
