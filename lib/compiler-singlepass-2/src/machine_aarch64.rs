@@ -902,9 +902,15 @@ impl Machine for Aarch64Machine {
         dst
     }
 
+    fn do_lt_u_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
+        let (src1, src2, dst) = self.prep_bin_op(src1, src2, false, 12);
+        do_cmp_op_i32!(self, lo, src1, src2, dst);
+        dst
+    }
+
     fn do_ge_u_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         let (src1, src2, dst) = self.prep_bin_op(src1, src2, false, 12);
-        do_cmp_op_i32!(self, cs, src1, src2, dst);
+        do_cmp_op_i32!(self, hs, src1, src2, dst);
         dst
     }
 
@@ -918,6 +924,11 @@ impl Machine for Aarch64Machine {
     fn do_br_cond_label(&mut self, cond: Local<Location>, label: DynamicLabel) {
         let r = self.move_to_reg(cond, &[]);
         dynasm!(self.assembler ; cmp X(r), xzr ; b.ne =>label);
+    }
+
+    fn do_br_not_cond_label(&mut self, cond: Local<Location>, label: DynamicLabel) {
+        let r = self.move_to_reg(cond, &[]);
+        dynasm!(self.assembler ; cmp X(r), xzr ; b.eq =>label);
     }
 
     fn do_br_location(&mut self, loc: Local<Location>) {
@@ -989,12 +1000,11 @@ impl Machine for Aarch64Machine {
     fn do_call(&mut self, reloc_target: RelocationTarget,
         params: &[Local<Location>], return_types: &[WpType]) -> CallInfo<Location> {
 
-        let reg_arg_ct = min(params.len(), 7);
+        // let reg_arg_ct = min(params.len(), 7);
         let stack_arg_ct  = params.len().saturating_sub(7);
         let stack_offset = stack_arg_ct * 8 + if stack_arg_ct % 2 == 1 { 8 } else { 0 };
 
-        // we save one extra because vmctx is passed as the first arg
-        for n in 0..=reg_arg_ct {
+        for n in 0..=18 {
             if let Some(local) = self.regs[n].upgrade() {
                 self.move_to_stack(local);
             }
@@ -1042,7 +1052,7 @@ impl Machine for Aarch64Machine {
             
             match return_types[0] {
                 WpType::I32|WpType::I64 => {
-                    returns.push(Local::new(Location::Reg(Reg::X(0))));
+                    returns.push(self.new_local_from_reg(0));
                 },
                 _ => {
                     unimplemented!();

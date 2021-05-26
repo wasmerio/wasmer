@@ -55,6 +55,7 @@ pub trait Machine {
     fn do_sub_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_mul_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_le_u_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
+    fn do_lt_u_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_ge_u_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_and_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_eqz_i32(&mut self, src: Local<Self::Location>) -> Local<Self::Location>;
@@ -64,6 +65,7 @@ pub trait Machine {
     fn do_load_label(&mut self, label: Self::Label) -> Local<Self::Location>;
     fn do_br_label(&mut self, label: Self::Label);
     fn do_br_cond_label(&mut self, cond: Local<Self::Location>, label: Self::Label);
+    fn do_br_not_cond_label(&mut self, cond: Local<Self::Location>, label: Self::Label);
     fn do_br_location(&mut self, loc: Local<Self::Location>);
     fn do_load_from_vmctx(&mut self, sz: Size, offset: u32) -> Local<Self::Location>;
     fn do_deref(&mut self, sz: Size, ptr: Local<Self::Location>) -> Local<Self::Location>;
