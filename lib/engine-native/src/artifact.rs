@@ -612,7 +612,6 @@ impl Artifact for NativeArtifact {
         // [f9, f6, f7, f8...] and calculate their potential function body size by
         // getting the diff in pointers between functions (since they are all located
         // in the same __text section).
-        let mut prev_pointer = usize::MAX;
 
         let min_call_trampolines_pointer = self
             .finished_function_call_trampolines
@@ -633,58 +632,74 @@ impl Artifact for NativeArtifact {
         // Sort the keys by the funciton pointer values in reverse order.
         // This way we can get the maximum function lengths (since functions can't overlap in memory)
         function_pointers.sort_by(|(_k1, v1), (_k2, v2)| v2.cmp(v1));
-        let mut function_pointers = function_pointers
-            .into_iter()
+        let mut iter = function_pointers.into_iter();
+        let mut function_pointers = iter
+            .next()
             .map(|(index, function_pointer)| {
                 let fp = **function_pointer as usize;
-                let current_size_by_ptr = if prev_pointer != usize::MAX {
-                    // This assumes we never lay any functions bodies across the usize::MAX..nullptr
-                    // wrapping point.
-                    // Which is generally true on most OSes, but certainly doesn't have to be true.
-                    //
-                    // Further reading: https://lwn.net/Articles/342330/ \
-                    // "There is one little problem with that reasoning, though: NULL (zero) can
-                    // actually be a valid pointer address."
-                    prev_pointer - fp
-                } else {
-                    // In case we are in the first function pointer (the one with the highest pointer)
-                    // we try to determine it's bounds (function size) by using the other function trampoline
-                    // locations.
-                    if fp < min_call_trampolines_pointer {
-                        if min_call_trampolines_pointer < min_dynamic_trampolines_pointer
-                            || min_dynamic_trampolines_pointer == 0
-                        {
-                            min_call_trampolines_pointer - fp
-                        } else {
-                            min_dynamic_trampolines_pointer - fp
-                        }
-                    } else if fp < min_dynamic_trampolines_pointer {
-                        min_dynamic_trampolines_pointer - fp
+                // In case we are in the first function pointer (the one with the highest pointer)
+                // we try to determine it's bounds (function size) by using the other function trampoline
+                // locations.
+                let current_size_by_ptr = if fp < min_call_trampolines_pointer {
+                    if min_call_trampolines_pointer < min_dynamic_trampolines_pointer
+                        || min_dynamic_trampolines_pointer == 0
+                    {
+                        min_call_trampolines_pointer - fp
                     } else {
-                        // The trampoline pointers are before the function.
-                        // We can safely assume the function will be at least 16 bits of length.
-                        // This is a very hacky assumption, but it makes collisions work perfectly
-                        // Since DLOpen simlinks will always be > 16 bits of difference between
-                        // two different libraries for the same symbol.
-                        // Note: the minmum Mach-O file is 0x1000 bytes and the minimum ELF is 0x0060 bytes
-                        16
+                        min_dynamic_trampolines_pointer - fp
                     }
+                } else if fp < min_dynamic_trampolines_pointer {
+                    min_dynamic_trampolines_pointer - fp
+                } else {
+                    // The trampoline pointers are before the function.
+                    // We can safely assume the function will be at least 16 bits of length.
+                    // This is a very hacky assumption, but it makes collisions work perfectly
+                    // Since DLOpen simlinks will always be > 16 bits of difference between
+                    // two different libraries for the same symbol.
+                    // Note: the minmum Mach-O file is 0x1000 bytes and the minimum ELF is 0x0060 bytes
+                    16
                 };
-                // let function_body_length = &self.metadata.function_body_lengths[index];
-                prev_pointer = fp;
+                let mut prev_pointer = fp;
                 // We choose the minimum between the function size given the pointer diff
                 // and the emitted size by the address map
                 let ptr = function_pointer;
                 let length = current_size_by_ptr;
-                (
+                let first = (
                     index,
                     FunctionExtent {
                         ptr: *ptr,
                         length: length,
                     },
-                )
+                );
+                std::iter::once(first)
+                    .chain(iter.map(|(index, function_pointer)| {
+                        let fp = **function_pointer as usize;
+                        // This assumes we never lay any functions bodies across the usize::MAX..nullptr
+                        // wrapping point.
+                        // Which is generally true on most OSes, but certainly doesn't have to be true.
+                        //
+                        // Further reading: https://lwn.net/Articles/342330/ \
+                        // "There is one little problem with that reasoning, though: NULL (zero) can
+                        // actually be a valid pointer address."
+                        let current_size_by_ptr = prev_pointer - fp;
+
+                        prev_pointer = fp;
+                        // We choose the minimum between the function size given the pointer diff
+                        // and the emitted size by the address map
+                        let ptr = function_pointer;
+                        let length = current_size_by_ptr;
+                        (
+                            index,
+                            FunctionExtent {
+                                ptr: *ptr,
+                                length: length,
+                            },
+                        )
+                    }))
+                    .collect::<Vec<_>>()
             })
-            .collect::<Vec<_>>();
+            .unwrap_or_default();
+
         // We sort them again, by key this time
         function_pointers.sort_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
 
