@@ -11,17 +11,23 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 #[cfg(feature = "compiler")]
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
+use wasmer_compiler::{
+    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem, Symbol,
+    SymbolRegistry, Triple,
+};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
     ModuleTranslationState,
 };
-use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
+use wasmer_engine::{
+    register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
+    InstantiationError, SerializeError,
+};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -49,6 +55,7 @@ pub struct NativeArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     func_data_registry: Arc<FuncDataRegistry>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -371,6 +378,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             func_data_registry: Arc::new(FuncDataRegistry::new()),
             signatures: signatures.into_boxed_slice(),
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -475,6 +483,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             func_data_registry: engine_inner.func_data().clone(),
             signatures: signatures.into_boxed_slice(),
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -593,7 +602,129 @@ impl Artifact for NativeArtifact {
     }
 
     fn register_frame_info(&self) {
-        // Do nothing for now
+        let mut info = self.frame_info_registration.lock().unwrap();
+
+        if info.is_some() {
+            return;
+        }
+
+        // We (reverse) order all the functions by their pointer location.
+        // [f9, f6, f7, f8...] and calculate their potential function body size by
+        // getting the diff in pointers between functions (since they are all located
+        // in the same __text section).
+
+        let min_call_trampolines_pointer = self
+            .finished_function_call_trampolines
+            .values()
+            .map(|t| *t as usize)
+            .min()
+            .unwrap_or(0);
+        let min_dynamic_trampolines_pointer = self
+            .finished_dynamic_function_trampolines
+            .values()
+            .map(|t| **t as usize)
+            .min()
+            .unwrap_or(0);
+
+        let fp = self.finished_functions.clone();
+        let mut function_pointers = fp.into_iter().collect::<Vec<_>>();
+
+        // Sort the keys by the funciton pointer values in reverse order.
+        // This way we can get the maximum function lengths (since functions can't overlap in memory)
+        function_pointers.sort_by(|(_k1, v1), (_k2, v2)| v2.cmp(v1));
+        let mut iter = function_pointers.into_iter();
+        let mut function_pointers = iter
+            .next()
+            .map(|(index, function_pointer)| {
+                let fp = **function_pointer as usize;
+                // In case we are in the first function pointer (the one with the highest pointer)
+                // we try to determine it's bounds (function size) by using the other function trampoline
+                // locations.
+                let current_size_by_ptr = if fp < min_call_trampolines_pointer {
+                    if min_call_trampolines_pointer < min_dynamic_trampolines_pointer
+                        || min_dynamic_trampolines_pointer == 0
+                    {
+                        min_call_trampolines_pointer - fp
+                    } else {
+                        min_dynamic_trampolines_pointer - fp
+                    }
+                } else if fp < min_dynamic_trampolines_pointer {
+                    min_dynamic_trampolines_pointer - fp
+                } else {
+                    // The trampoline pointers are before the function.
+                    // We can safely assume the function will be at least 16 bits of length.
+                    // This is a very hacky assumption, but it makes collisions work perfectly
+                    // Since DLOpen simlinks will always be > 16 bits of difference between
+                    // two different libraries for the same symbol.
+                    // Note: the minmum Mach-O file is 0x1000 bytes and the minimum ELF is 0x0060 bytes
+                    16
+                };
+                let mut prev_pointer = fp;
+                // We choose the minimum between the function size given the pointer diff
+                // and the emitted size by the address map
+                let ptr = function_pointer;
+                let length = current_size_by_ptr;
+                let first = (
+                    index,
+                    FunctionExtent {
+                        ptr: *ptr,
+                        length: length,
+                    },
+                );
+                std::iter::once(first)
+                    .chain(iter.map(|(index, function_pointer)| {
+                        let fp = **function_pointer as usize;
+                        // This assumes we never lay any functions bodies across the usize::MAX..nullptr
+                        // wrapping point.
+                        // Which is generally true on most OSes, but certainly doesn't have to be true.
+                        //
+                        // Further reading: https://lwn.net/Articles/342330/ \
+                        // "There is one little problem with that reasoning, though: NULL (zero) can
+                        // actually be a valid pointer address."
+                        let current_size_by_ptr = prev_pointer - fp;
+
+                        prev_pointer = fp;
+                        // We choose the minimum between the function size given the pointer diff
+                        // and the emitted size by the address map
+                        let ptr = function_pointer;
+                        let length = current_size_by_ptr;
+                        (
+                            index,
+                            FunctionExtent {
+                                ptr: *ptr,
+                                length: length,
+                            },
+                        )
+                    }))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        // We sort them again, by key this time
+        function_pointers.sort_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
+
+        let frame_infos = function_pointers
+            .iter()
+            .map(|(_, extent)| CompiledFunctionFrameInfo {
+                traps: vec![],
+                address_map: FunctionAddressMap {
+                    body_len: extent.length,
+                    ..Default::default()
+                },
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+
+        let finished_function_extents = function_pointers
+            .into_iter()
+            .map(|(_, function_extent)| function_extent)
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
+        *info = register_frame_info(
+            self.metadata.compile_info.module.clone(),
+            &finished_function_extents,
+            frame_infos,
+        );
     }
 
     fn features(&self) -> &Features {

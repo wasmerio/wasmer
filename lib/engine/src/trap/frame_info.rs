@@ -59,6 +59,7 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
+#[derive(Debug)]
 struct ModuleInfoFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
@@ -74,10 +75,11 @@ impl ModuleInfoFrameInfo {
     /// Gets a function given a pc
     fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
-        if pc < func.start || *end < pc {
-            return None;
+        if func.start <= pc && pc <= *end {
+            return Some(func);
+        } else {
+            None
         }
-        Some(func)
     }
 }
 
@@ -127,14 +129,12 @@ impl GlobalFrameInfo {
             }
         };
 
-        // In debug mode for now assert that we found a mapping for `pc` within
-        // the function, because otherwise something is buggy along the way and
-        // not accounting for all the instructions. This isn't super critical
-        // though so we can omit this check in release mode.
-        debug_assert!(pos.is_some(), "failed to find instruction for {:x}", pc);
-
         let instr = match pos {
             Some(pos) => instr_map.instructions[pos].srcloc,
+            // Some compilers don't emit yet the full trap information for each of
+            // the instructions (such as LLVM).
+            // In case no specific instruction is found, we return by default the
+            // start offset of the function.
             None => instr_map.start_srcloc,
         };
         let func_index = module.module.func_index(func.local_index);
@@ -161,10 +161,11 @@ impl GlobalFrameInfo {
     /// Gets a module given a pc
     fn module_info(&self, pc: usize) -> Option<&ModuleInfoFrameInfo> {
         let (end, module_info) = self.ranges.range(pc..).next()?;
-        if pc < module_info.start || *end < pc {
-            return None;
+        if module_info.start <= pc && pc <= *end {
+            Some(module_info)
+        } else {
+            None
         }
-        Some(module_info)
     }
 }
 

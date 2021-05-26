@@ -17,7 +17,7 @@ wasmer-vm = { path = "../vm", version = "1.0.2", features = ["enable-rkyv"] }
 wasmer-engine = { path = "../engine", version = "1.0.2" }
 wasmer-object = { path = "../object", version = "1.0.2" }
 serde = { version = "1.0", features = ["derive", "rc"] }
-cfg-if = "0.1"
+cfg-if = "1.0"
 tracing = "0.1"
 leb128 = "0.2"
 libloading = "0.7"

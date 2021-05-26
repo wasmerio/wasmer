@@ -39,15 +39,11 @@ singlepass multi_value_imports::dynamic
 # LLVM/JIT doesn't work in macOS M1. Skip all tests
 llvm+jit+macos+aarch64 *
 
-# TODO: We need to fix this. The issue happens only in Cranelift/LLVM and macOS,
-# is caused by libunwind overflowing the stack while creating the stacktrace.
+# TODO: We need to fix this. The issue is caused by libunwind overflowing
+# the stack while creating the stacktrace.
 # https://github.com/rust-lang/backtrace-rs/issues/356
-cranelift+macos spec::skip_stack_guard_page
-cranelift+linux spec::skip_stack_guard_page
-llvm+macos      spec::skip_stack_guard_page
-
-# https://github.com/wasmerio/wasmer/issues/1722
-llvm+native spec::skip_stack_guard_page
+cranelift spec::skip_stack_guard_page
+llvm      spec::skip_stack_guard_page
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
 cranelift+native spec::linking
