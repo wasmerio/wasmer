@@ -16,8 +16,8 @@ use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasmer_compiler::{
-    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem,
-    SourceLoc, Symbol, SymbolRegistry, Triple,
+    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem, Symbol,
+    SymbolRegistry, Triple,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
@@ -608,10 +608,10 @@ impl Artifact for NativeArtifact {
             return;
         }
 
-        // The function sizes might not be completely accurate.
-        // Because of that, we (reverse) order all the functions by their pointer.
-        // [f9, f7, f6, f8...] and calculate their potential function body size by
-        // getting the diff in pointers between functions.
+        // We (reverse) order all the functions by their pointer location.
+        // [f9, f6, f7, f8...] and calculate their potential function body size by
+        // getting the diff in pointers between functions (since they are all located
+        // in the same __text section).
         let mut prev_pointer = usize::MAX;
 
         let min_call_trampolines_pointer = self
@@ -630,8 +630,8 @@ impl Artifact for NativeArtifact {
         let fp = self.finished_functions.clone();
         let mut function_pointers = fp.into_iter().collect::<Vec<_>>();
 
-        // Sort the keys by the values in reverse order (function pointers)
-        // This way we can get the maximum function lengths (since functions can't collide in memory)
+        // Sort the keys by the funciton pointer values in reverse order.
+        // This way we can get the maximum function lengths (since functions can't overlap in memory)
         function_pointers.sort_by(|(_k1, v1), (_k2, v2)| v2.cmp(v1));
         let mut function_pointers = function_pointers
             .into_iter()
@@ -647,8 +647,9 @@ impl Artifact for NativeArtifact {
                     // actually be a valid pointer address."
                     prev_pointer - fp
                 } else {
-                    // We try to determine the size based on any of the trampolines that usually
-                    // go after that function (the   last defined in Wasm)
+                    // In case we are in the first function pointer (the one with the highest pointer)
+                    // we try to determine it's bounds (function size) by using the other function trampoline
+                    // locations.
                     if fp < min_call_trampolines_pointer {
                         if min_call_trampolines_pointer < min_dynamic_trampolines_pointer
                             || min_dynamic_trampolines_pointer == 0
@@ -675,7 +676,6 @@ impl Artifact for NativeArtifact {
                 // and the emitted size by the address map
                 let ptr = function_pointer;
                 let length = current_size_by_ptr;
-                // let length = std::cmp::min(frame_info.address_map.body_len, current_size_by_ptr);
                 (
                     index,
                     FunctionExtent {
@@ -685,7 +685,7 @@ impl Artifact for NativeArtifact {
                 )
             })
             .collect::<Vec<_>>();
-        // We sort them by key, again.
+        // We sort them again, by key this time
         function_pointers.sort_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
 
         let frame_infos = function_pointers
@@ -693,11 +693,8 @@ impl Artifact for NativeArtifact {
             .map(|(_, extent)| CompiledFunctionFrameInfo {
                 traps: vec![],
                 address_map: FunctionAddressMap {
-                    instructions: vec![],
-                    start_srcloc: SourceLoc::default(),
-                    end_srcloc: SourceLoc::default(),
-                    body_offset: 0,
                     body_len: extent.length,
+                    ..Default::default()
                 },
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
