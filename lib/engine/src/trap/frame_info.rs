@@ -75,7 +75,7 @@ impl ModuleInfoFrameInfo {
     /// Gets a function given a pc
     fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
-        if func.start <= pc && pc < *end {
+        if func.start <= pc && pc <= *end {
             return Some(func);
         } else {
             None
@@ -161,7 +161,7 @@ impl GlobalFrameInfo {
     /// Gets a module given a pc
     fn module_info(&self, pc: usize) -> Option<&ModuleInfoFrameInfo> {
         let (end, module_info) = self.ranges.range(pc..).next()?;
-        if module_info.start <= pc && pc < *end {
+        if module_info.start <= pc && pc <= *end {
             Some(module_info)
         } else {
             None
