@@ -257,8 +257,9 @@ impl UniversalArtifact {
 
     /// Get the default extension when serializing this artifact
     pub fn get_default_extension(_triple: &Triple) -> &'static str {
-        // `.wuniversal` is the default extension for all the triples
-        "wuniversal"
+        // `.wasmu` is the default extension for all the triples. It
+        // stands for “Wasm Universal”.
+        "wasmu"
     }
 }
 
