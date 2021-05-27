@@ -10,6 +10,7 @@ Looking for changes to the Wasmer CLI and the Rust API? See our [Primary Changel
 ## **[Unreleased]**
 
 ### Added
+- [#2346](https://github.com/wasmerio/wasmer/pull/2346) Add missing `wasm_func_copy` function.
 - [#2208](https://github.com/wasmerio/wasmer/pull/2208) Add a new CHANGELOG.md specific to our C API to make it easier for users primarily consuming our C API to keep up to date with changes that affect them.
 
 ### Changed

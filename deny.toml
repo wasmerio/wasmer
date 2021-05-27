@@ -169,7 +169,7 @@ deny = [
 ]
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    { name = "cfg-if", version = "=0.1.10" },
+    { name = "cfg-if", version = "0.1.10" },
     { name = "strsim", version = "=0.8.0" },
     { name = "semver", version = "=0.9.0" },
     { name = "semver-parser", version = "=0.7.0" },

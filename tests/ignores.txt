@@ -39,15 +39,11 @@ singlepass multi_value_imports::dynamic
 # LLVM/Universal doesn't work in macOS M1. Skip all tests
 llvm+universal+macos+aarch64 *
 
-# TODO: We need to fix this. The issue happens only in Cranelift/LLVM and macOS,
-# is caused by libunwind overflowing the stack while creating the stacktrace.
+# TODO: We need to fix this. The issue is caused by libunwind overflowing
+# the stack while creating the stacktrace.
 # https://github.com/rust-lang/backtrace-rs/issues/356
-cranelift+macos spec::skip_stack_guard_page
-cranelift+linux spec::skip_stack_guard_page
-llvm+macos      spec::skip_stack_guard_page
-
-# https://github.com/wasmerio/wasmer/issues/1722
-llvm+native spec::skip_stack_guard_page
+cranelift spec::skip_stack_guard_page
+llvm      spec::skip_stack_guard_page
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
 cranelift+native spec::linking
@@ -69,6 +65,12 @@ cranelift spec::simd::simd_int_to_int_extend
 # Frontends
 
 ## WASI
+
+### These tests don't pass due to race conditions in the new way we run tests.
+### It's not built to be run in parallel with itself, so we disable it for now.
+
+wasitests::snapshot1::writing
+wasitests::unstable::writing
 
 ### due to hard-coded direct calls into WASI for wasi unstable
 

@@ -210,7 +210,13 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "linux", target_arch = "x86"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.gregs[libc::REG_EIP as usize] as *const u8
+                } else if #[cfg(all(target_os = "android", target_arch = "x86"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.gregs[libc::REG_EIP as usize] as *const u8
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.pc as *const u8
+                } else if #[cfg(all(target_os = "android", target_arch = "aarch64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.pc as *const u8
                 } else if #[cfg(all(target_os = "macos", target_arch = "x86_64"))] {
@@ -706,6 +712,11 @@ impl<'a> CallThreadState<'a> {
         // return that the trap was handled.
         if self.trap_handler.custom_trap_handler(&call_handler) {
             return 1 as *const _;
+        }
+
+        // If this fault wasn't in wasm code, then it's not our problem
+        if unsafe { !IS_WASM_PC(pc as _) } {
+            return ptr::null();
         }
 
         // TODO: stack overflow can happen at any random time (i.e. in malloc()
