@@ -11,4 +11,4 @@ target-lexicon = "0.12"
 
 [features]
 test-native = []
-test-jit = []
+test-universal = []

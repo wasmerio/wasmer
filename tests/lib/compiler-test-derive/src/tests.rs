@@ -62,10 +62,10 @@ gen_tests! {
                 use super::*;
                 #[test]
                 #[cold]
-                #[cfg(feature = "jit")]
-                fn jit() {
+                #[cfg(feature = "universal")]
+                fn universal() {
                     add(crate::Config::new(
-                        crate::Engine::JIT,
+                        crate::Engine::Universal,
                         crate::Compiler::Singlepass
                     ))
                 }
@@ -85,10 +85,10 @@ gen_tests! {
                 use super::*;
                 #[test]
                 #[cold]
-                #[cfg(feature = "jit")]
-                fn jit() {
+                #[cfg(feature = "universal")]
+                fn universal() {
                     add(crate::Config::new(
-                        crate::Engine::JIT,
+                        crate::Engine::Universal,
                         crate::Compiler::Cranelift
                     ))
                 }
@@ -108,10 +108,10 @@ gen_tests! {
                 use super::*;
                 #[test]
                 #[cold]
-                #[cfg(feature = "jit")]
-                fn jit() {
+                #[cfg(feature = "universal")]
+                fn universal() {
                     add(crate::Config::new(
-                        crate::Engine::JIT,
+                        crate::Engine::Universal,
                         crate::Compiler::LLVM
                     ))
                 }
@@ -127,10 +127,4 @@ gen_tests! {
             }
         }
     };
-
-    // basic_expansion:
-    // stringify! {
-    //    ...
-    // };
-
 }

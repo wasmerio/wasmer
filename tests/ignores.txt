@@ -36,8 +36,8 @@ singlepass multi_value_imports::native
 singlepass multi_value_imports::dynamic
 
 
-# LLVM/JIT doesn't work in macOS M1. Skip all tests
-llvm+jit+macos+aarch64 *
+# LLVM/Universal doesn't work in macOS M1. Skip all tests
+llvm+universal+macos+aarch64 *
 
 # TODO: We need to fix this. The issue is caused by libunwind overflowing
 # the stack while creating the stacktrace.

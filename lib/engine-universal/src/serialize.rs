@@ -30,7 +30,7 @@ pub struct SerializableCompilation {
 }
 
 /// Serializable struct that is able to serialize from and to
-/// a `JITArtifactInfo`.
+/// a `UniversalArtifactInfo`.
 #[derive(MemoryUsage, Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,

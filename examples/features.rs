@@ -12,7 +12,7 @@
 
 use wasmer::{imports, wat2wasm, Features, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 fn main() -> anyhow::Result<()> {
     // Let's declare the Wasm module with the text representation.
@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
     features.multi_value(true);
 
     // Set up the engine. That's where we define the features!
-    let engine = JIT::new(compiler).features(features);
+    let engine = Universal::new(compiler).features(features);
 
     // Now, let's define the store, and compile the module.
     let store = Store::new(&engine.engine());

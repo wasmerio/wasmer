@@ -1,16 +1,16 @@
-use crate::JITEngine;
+use crate::UniversalEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
-/// The JIT builder
-pub struct JIT {
+/// The Universal builder
+pub struct Universal {
     #[allow(dead_code)]
     compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl JIT {
-    /// Create a new JIT
+impl Universal {
+    /// Create a new Universal
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -22,7 +22,7 @@ impl JIT {
         }
     }
 
-    /// Create a new headless JIT
+    /// Create a new headless Universal
     pub fn headless() -> Self {
         Self {
             compiler_config: None,
@@ -43,24 +43,24 @@ impl JIT {
         self
     }
 
-    /// Build the `JITEngine` for this configuration
+    /// Build the `UniversalEngine` for this configuration
     #[cfg(feature = "compiler")]
-    pub fn engine(self) -> JITEngine {
+    pub fn engine(self) -> UniversalEngine {
         let target = self.target.unwrap_or_default();
         if let Some(compiler_config) = self.compiler_config {
             let features = self
                 .features
                 .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
             let compiler = compiler_config.compiler();
-            JITEngine::new(compiler, target, features)
+            UniversalEngine::new(compiler, target, features)
         } else {
-            JITEngine::headless()
+            UniversalEngine::headless()
         }
     }
 
-    /// Build the `JITEngine` for this configuration
+    /// Build the `UniversalEngine` for this configuration
     #[cfg(not(feature = "compiler"))]
-    pub fn engine(self) -> JITEngine {
-        JITEngine::headless()
+    pub fn engine(self) -> UniversalEngine {
+        UniversalEngine::headless()
     }
 }

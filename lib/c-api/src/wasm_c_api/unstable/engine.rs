@@ -119,7 +119,7 @@ pub extern "C" fn wasmer_is_headless() -> bool {
 #[no_mangle]
 pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
     match engine {
-        wasmer_engine_t::JIT if cfg!(feature = "jit") => true,
+        wasmer_engine_t::UNIVERSAL if cfg!(feature = "universal") => true,
         wasmer_engine_t::NATIVE if cfg!(feature = "native") => true,
         wasmer_engine_t::OBJECT_FILE if cfg!(feature = "object-file") => true,
         _ => false,
@@ -194,7 +194,14 @@ mod tests {
 
     #[test]
     fn test_wasmer_is_engine_available() {
-        set_var("JIT", if cfg!(feature = "jit") { "1" } else { "0" });
+        set_var(
+            "UNIVERSAL",
+            if cfg!(feature = "universal") {
+                "1"
+            } else {
+                "0"
+            },
+        );
         set_var("NATIVE", if cfg!(feature = "native") { "1" } else { "0" });
         set_var(
             "OBJECT_FILE",
@@ -210,7 +217,7 @@ mod tests {
             #include <stdlib.h>
 
             int main() {
-                assert(wasmer_is_engine_available(JIT) == (getenv("JIT")[0] == '1'));
+                assert(wasmer_is_engine_available(UNIVERSAL) == (getenv("UNIVERSAL")[0] == '1'));
                 assert(wasmer_is_engine_available(NATIVE) == (getenv("NATIVE")[0] == '1'));
                 assert(wasmer_is_engine_available(OBJECT_FILE) == (getenv("OBJECT_FILE")[0] == '1'));
 
@@ -219,7 +226,7 @@ mod tests {
         })
         .success();
 
-        remove_var("JIT");
+        remove_var("UNIVERSAL");
         remove_var("NATIVE");
         remove_var("OBJECT_FILE");
     }

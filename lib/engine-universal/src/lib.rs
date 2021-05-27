@@ -1,4 +1,4 @@
-//! JIT backend for Wasmer compilers.
+//! Universal backend for Wasmer compilers.
 //!
 //! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
 //! it generates the compiled machine code, and publishes it into
@@ -32,10 +32,10 @@ mod link;
 mod serialize;
 mod unwind;
 
-pub use crate::artifact::JITArtifact;
-pub use crate::builder::JIT;
+pub use crate::artifact::UniversalArtifact;
+pub use crate::builder::Universal;
 pub use crate::code_memory::CodeMemory;
-pub use crate::engine::JITEngine;
+pub use crate::engine::UniversalEngine;
 pub use crate::link::link_module;
 
 /// Version number of this crate.

@@ -110,7 +110,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let construct_compiler_test =
         |func: &::syn::ItemFn, compiler_name: &str| -> ::proc_macro2::TokenStream {
             let mod_name = ::quote::format_ident!("{}", compiler_name.to_lowercase());
-            let jit_engine_test = construct_engine_test(func, compiler_name, "JIT");
+            let universal_engine_test = construct_engine_test(func, compiler_name, "Universal");
             let native_engine_test = construct_engine_test(func, compiler_name, "Native");
             let compiler_name_lowercase = compiler_name.to_lowercase();
 
@@ -119,7 +119,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
                 mod #mod_name {
                     use super::*;
 
-                    #jit_engine_test
+                    #universal_engine_test
                     #native_engine_test
                 }
             }

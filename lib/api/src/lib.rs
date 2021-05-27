@@ -215,7 +215,7 @@
 //! enable new functionality and features that set defaults.
 //!
 //! The features that enable new functionality are:
-//! - `jit` - enable the JIT engine. (See [wasmer-jit][])
+//! - `universal` - enable the Universal engine. (See [wasmer-universal][])
 //! - `native` - enable the native engine. (See [wasmer-native][])
 //! - `cranelift` - enable Wasmer's Cranelift compiler. (See [wasmer-cranelift][])
 //! - `llvm` - enable Wasmer's LLVM compiler. (See [wasmer-llvm][])
@@ -230,12 +230,12 @@
 //! - `default-singlepass` - set Wasmer's Singlepass compiler as the default.
 //!
 //! The next set is the default engine set:
-//! - `default-jit` - set the JIT engine as the default.
+//! - `default-universal` - set the Universal engine as the default.
 //! - `default-native` - set the native engine as the default.
 //!
 //! --------
 //!
-//! By default the `wat`, `default-cranelift`, and `default-jit` features
+//! By default the `wat`, `default-cranelift`, and `default-universal` features
 //! are enabled.
 //!
 //!
@@ -247,7 +247,7 @@
 //! [wasmer-cranelift]: https://docs.rs/wasmer-compiler-cranelift/*/wasmer_compiler_cranelift/
 //! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/
 //! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/
-//! [wasmer-jit]: https://docs.rs/wasmer-engine-jit/*/wasmer_engine_jit/
+//! [wasmer-universal]: https://docs.rs/wasmer-engine-universal/*/wasmer_engine_universal/
 //! [wasmer-native]: https://docs.rs/wasmer-engine-native/*/wasmer_engine_native/
 //! [wasmer-singlepass]: https://docs.rs/wasmer-compiler-singlepass/*/wasmer_compiler_singlepass/
 //! [wasmer-llvm]: https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/
@@ -348,9 +348,9 @@ compile_error!(
 If you wish to use more than one compiler, you can simply create the own store. Eg.:
 
 ```
-use wasmer::{Store, JIT, Singlepass};
+use wasmer::{Store, Universal, Singlepass};
 
-let engine = JIT::new(Singlepass::default()).engine();
+let engine = Universal::new(Singlepass::default()).engine();
 let store = Store::new(&engine);
 ```"#
 );
@@ -364,8 +364,8 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
-#[cfg(feature = "jit")]
-pub use wasmer_engine_jit::{JITArtifact, JITEngine, JIT};
+#[cfg(feature = "universal")]
+pub use wasmer_engine_universal::{Universal, UniversalArtifact, UniversalEngine};
 
 #[cfg(feature = "native")]
 pub use wasmer_engine_native::{Native, NativeArtifact, NativeEngine};

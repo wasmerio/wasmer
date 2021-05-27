@@ -126,8 +126,8 @@ impl Default for Store {
         #[allow(unreachable_code, unused_mut)]
         fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "default-jit")] {
-                    wasmer_engine_jit::JIT::new(config)
+                if #[cfg(feature = "default-universal")] {
+                    wasmer_engine_universal::Universal::new(config)
                         .engine()
                 } else if #[cfg(feature = "default-native")] {
                     wasmer_engine_native::Native::new(config)
