@@ -11,7 +11,7 @@ use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
 #[cfg(feature = "singlepass")]
 use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct ExportedFunctionConfig;
@@ -48,7 +48,7 @@ impl std::fmt::Debug for WasmSmithModule {
 #[cfg(feature = "singlepass")]
 fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let compiler = Singlepass::default();
-    let store = Store::new(&JIT::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes);
     let module = match module {
         Ok(m) => m,
@@ -69,7 +69,7 @@ fn maybe_instantiate_cranelift(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let store = Store::new(&JIT::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes)?;
     let instance = Instance::new(&module, &imports! {})?;
     Ok(Some(instance))
@@ -80,7 +80,7 @@ fn maybe_instantiate_llvm(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let store = Store::new(&JIT::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes)?;
     let instance = Instance::new(&module, &imports! {})?;
     Ok(Some(instance))

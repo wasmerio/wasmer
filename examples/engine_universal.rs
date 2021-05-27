@@ -1,26 +1,26 @@
 //! Defining an engine in Wasmer is one of the fundamental steps.
 //!
-//! This example illustrates how to use the `wasmer_engine_jit`, aka
-//! the JIT engine. An engine applies roughly 2 steps:
+//! This example illustrates how to use the `wasmer_engine_universal`,
+//! aka the Universal engine. An engine applies roughly 2 steps:
 //!
 //!   1. It compiles the Wasm module bytes to executable code, through
 //!      the intervention of a compiler,
 //!   2. It stores the executable code somewhere.
 //!
-//! In the particular context of the JIT engine, the executable code
-//! is stored in memory.
+//! In the particular context of the Universal engine, the executable
+//! code is stored in memory.
 //!
 //! You can run the example directly by executing in Wasmer root:
 //!
 //! ```shell
-//! cargo run --example engine-jit --release --features "cranelift"
+//! cargo run --example engine-universal --release --features "cranelift"
 //! ```
 //!
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -44,12 +44,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile the Wasm module into executable code.
     let compiler_config = Cranelift::default();
 
-    println!("Creating JIT engine...");
+    println!("Creating Universal engine...");
     // Define the engine that will drive everything.
     //
-    // In this case, the engine is `wasmer_engine_jit` which roughly
+    // In this case, the engine is `wasmer_engine_universal` which roughly
     // means that the executable code will live in memory.
-    let engine = JIT::new(compiler_config).engine();
+    let engine = Universal::new(compiler_config).engine();
 
     // Create a store, that holds the engine.
     let store = Store::new(&engine);
@@ -86,6 +86,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_engine_jit() -> Result<(), Box<dyn std::error::Error>> {
+fn test_engine_universal() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

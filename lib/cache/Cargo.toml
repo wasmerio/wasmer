@@ -21,7 +21,7 @@ criterion = "0.3"
 tempfile = "3"
 rand = "0.8.3"
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.2" }
-wasmer-engine-jit = { path = "../engine-jit", version = "1.0.2" }
+wasmer-engine-universal = { path = "../engine-universal", version = "1.0.2" }
 wasmer-engine-native = { path = "../engine-native", version = "1.0.2" }
 
 [[bench]]

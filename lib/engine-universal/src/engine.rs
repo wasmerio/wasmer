@@ -1,6 +1,6 @@
-//! JIT compilation.
+//! Universal compilation.
 
-use crate::{CodeMemory, JITArtifact};
+use crate::{CodeMemory, UniversalArtifact};
 use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
@@ -17,21 +17,21 @@ use wasmer_vm::{
     VMCallerCheckedAnyfunc, VMFuncRef, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
-/// A WebAssembly `JIT` Engine.
+/// A WebAssembly `Universal` Engine.
 #[derive(Clone, MemoryUsage)]
-pub struct JITEngine {
-    inner: Arc<Mutex<JITEngineInner>>,
+pub struct UniversalEngine {
+    inner: Arc<Mutex<UniversalEngineInner>>,
     /// The target for the compiler
     target: Arc<Target>,
     engine_id: EngineId,
 }
 
-impl JITEngine {
-    /// Create a new `JITEngine` with the given config
+impl UniversalEngine {
+    /// Create a new `UniversalEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(JITEngineInner {
+            inner: Arc::new(Mutex::new(UniversalEngineInner {
                 compiler: Some(compiler),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
@@ -43,7 +43,7 @@ impl JITEngine {
         }
     }
 
-    /// Create a headless `JITEngine`
+    /// Create a headless `UniversalEngine`
     ///
     /// A headless engine is an engine without any compiler attached.
     /// This is useful for assuring a minimal runtime for running
@@ -58,7 +58,7 @@ impl JITEngine {
     /// they just take already processed Modules (via `Module::serialize`).
     pub fn headless() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(JITEngineInner {
+            inner: Arc::new(Mutex::new(UniversalEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
                 code_memory: vec![],
@@ -71,16 +71,16 @@ impl JITEngine {
         }
     }
 
-    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, UniversalEngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, JITEngineInner> {
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, UniversalEngineInner> {
         self.inner.lock().unwrap()
     }
 }
 
-impl Engine for JITEngine {
+impl Engine for UniversalEngine {
     /// The target
     fn target(&self) -> &Target {
         &self.target
@@ -115,7 +115,7 @@ impl Engine for JITEngine {
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(JITArtifact::new(&self, binary, tunables)?))
+        Ok(Arc::new(UniversalArtifact::new(&self, binary, tunables)?))
     }
 
     /// Compile a WebAssembly binary
@@ -126,14 +126,14 @@ impl Engine for JITEngine {
         _tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
         Err(CompileError::Codegen(
-            "The JITEngine is operating in headless mode, so it can not compile Modules."
+            "The UniversalEngine is operating in headless mode, so it can not compile Modules."
                 .to_string(),
         ))
     }
 
     /// Deserializes a WebAssembly module
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(JITArtifact::deserialize(&self, &bytes)?))
+        Ok(Arc::new(UniversalArtifact::deserialize(&self, &bytes)?))
     }
 
     fn id(&self) -> &EngineId {
@@ -145,9 +145,9 @@ impl Engine for JITEngine {
     }
 }
 
-/// The inner contents of `JITEngine`
+/// The inner contents of `UniversalEngine`
 #[derive(MemoryUsage)]
-pub struct JITEngineInner {
+pub struct UniversalEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler>>,
@@ -165,12 +165,12 @@ pub struct JITEngineInner {
     func_data: Arc<FuncDataRegistry>,
 }
 
-impl JITEngineInner {
+impl UniversalEngineInner {
     /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
-            return Err(CompileError::Codegen("The JITEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
+            return Err(CompileError::Codegen("The UniversalEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
         }
         Ok(&**self.compiler.as_ref().unwrap())
     }
@@ -185,7 +185,7 @@ impl JITEngineInner {
     #[cfg(not(feature = "compiler"))]
     pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
-            "The JITEngine is not compiled with compiler support, which is required for validating"
+            "The UniversalEngine is not compiled with compiler support, which is required for validating"
                 .to_string(),
         ))
     }

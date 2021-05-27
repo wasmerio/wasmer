@@ -16,7 +16,7 @@ wasmer = { path = "../lib/api" }
 wasmer-compiler-cranelift = { path = "../lib/compiler-cranelift", optional = true }
 wasmer-compiler-llvm = { path = "../lib/compiler-llvm", optional = true }
 wasmer-compiler-singlepass = { path = "../lib/compiler-singlepass", optional = true }
-wasmer-engine-jit = { path = "../lib/engine-jit", optional = true }
+wasmer-engine-universal = { path = "../lib/engine-universal", optional = true }
 wasmer-engine-native = { path = "../lib/engine-native", optional = true }
 wasmer-middlewares = { path = "../lib/middlewares" }
 wasmprinter = "0.2"
@@ -25,37 +25,33 @@ wasmprinter = "0.2"
 cranelift = [ "wasmer-compiler-cranelift" ]
 llvm = [ "wasmer-compiler-llvm" ]
 singlepass = [ "wasmer-compiler-singlepass" ]
-jit = [ "wasmer-engine-jit" ]
+universal = [ "wasmer-engine-universal" ]
 native = [ "wasmer-engine-native" ]
 
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
+[[bin]]
+name = "equivalence_universal"
+path = "fuzz_targets/equivalence_universal.rs"
+required-features = ["universal"]
 
 [[bin]]
-name = "equivalence_jit"
-path = "fuzz_targets/equivalence_jit.rs"
-required-features = ["jit"]
+name = "universal_cranelift"
+path = "fuzz_targets/universal_cranelift.rs"
+required-features = ["universal", "cranelift"]
 
 [[bin]]
-name = "jit_cranelift"
-path = "fuzz_targets/jit_cranelift.rs"
-required-features = ["jit", "cranelift"]
+name = "universal_llvm"
+path = "fuzz_targets/universal_llvm.rs"
+required-features = ["universal", "llvm"]
 
 [[bin]]
-name = "jit_llvm"
-path = "fuzz_targets/jit_llvm.rs"
-required-features = ["jit", "llvm"]
-
-[[bin]]
-name = "jit_singlepass"
-path = "fuzz_targets/jit_singlepass.rs"
-required-features = ["jit", "singlepass"]
+name = "universal_singlepass"
+path = "fuzz_targets/universal_singlepass.rs"
+required-features = ["universal", "singlepass"]
 
 [[bin]]
 name = "metering"
 path = "fuzz_targets/metering.rs"
-required-features = ["jit", "cranelift"]
+required-features = ["universal", "cranelift"]
 
 [[bin]]
 name = "native_cranelift"

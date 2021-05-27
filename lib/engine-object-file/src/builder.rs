@@ -76,13 +76,13 @@ mod tests {
     #[cfg(feature = "compiler")]
     use std::sync::Arc;
     #[cfg(feature = "compiler")]
-    use wasmer_compiler::{Compiler, FunctionMiddlewareGenerator};
+    use wasmer_compiler::{Compiler, ModuleMiddleware};
 
     #[cfg(feature = "compiler")]
     #[derive(Default)]
     pub struct TestCompilerConfig {
         pub enabled_pic: bool,
-        pub middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+        pub middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     }
 
     #[cfg(feature = "compiler")]
@@ -91,11 +91,11 @@ mod tests {
             self.enabled_pic = true;
         }
 
-        fn compiler(&self) -> Box<dyn Compiler> {
+        fn compiler(self: Box<Self>) -> Box<dyn Compiler> {
             unimplemented!("compiler not implemented");
         }
 
-        fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+        fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
             self.middlewares.push(middleware);
         }
     }
@@ -104,8 +104,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "compiler not implemented")]
     fn build_engine() {
-        let mut compiler_config = TestCompilerConfig::default();
-        let object_file = ObjectFile::new(&mut compiler_config);
+        let compiler_config = TestCompilerConfig::default();
+        let object_file = ObjectFile::new(compiler_config);
         let _engine = object_file.engine();
     }
 

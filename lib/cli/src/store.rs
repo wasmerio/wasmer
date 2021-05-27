@@ -19,16 +19,16 @@ pub struct StoreOptions {
     #[clap(flatten)]
     compiler: CompilerOptions,
 
-    /// Use JIT Engine.
+    /// Use Universal Engine.
     #[clap(long, conflicts_with_all = &["native", "object-file"])]
-    jit: bool,
+    universal: bool,
 
     /// Use Native Engine.
-    #[clap(long, conflicts_with_all = &["jit", "object-file"])]
+    #[clap(long, conflicts_with_all = &["universal", "object-file"])]
     native: bool,
 
     /// Use ObjectFile Engine.
-    #[clap(long, conflicts_with_all = &["jit", "native"])]
+    #[clap(long, conflicts_with_all = &["universal", "native"])]
     object_file: bool,
 }
 
@@ -136,9 +136,9 @@ impl CompilerOptions {
     ) -> Result<Box<dyn Engine + Send + Sync>> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
         let engine: Box<dyn Engine + Send + Sync> = match engine_type {
-            #[cfg(feature = "jit")]
-            EngineType::JIT => Box::new(
-                wasmer_engine_jit::JIT::new(compiler_config)
+            #[cfg(feature = "universal")]
+            EngineType::Universal => Box::new(
+                wasmer_engine_universal::Universal::new(compiler_config)
                     .features(features)
                     .target(target)
                     .engine(),
@@ -157,7 +157,7 @@ impl CompilerOptions {
                     .features(features)
                     .engine(),
             ),
-            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
+            #[cfg(not(all(feature = "universal", feature = "native", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -360,8 +360,8 @@ impl FromStr for CompilerType {
 /// The engine used for the store
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum EngineType {
-    /// JIT Engine
-    JIT,
+    /// Universal Engine
+    Universal,
     /// Native Engine
     Native,
     /// Object File Engine
@@ -371,7 +371,7 @@ pub enum EngineType {
 impl ToString for EngineType {
     fn to_string(&self) -> String {
         match self {
-            Self::JIT => "jit".to_string(),
+            Self::Universal => "universal".to_string(),
             Self::Native => "native".to_string(),
             Self::ObjectFile => "objectfile".to_string(),
         }
@@ -414,16 +414,16 @@ impl StoreOptions {
 #[cfg(feature = "engine")]
 impl StoreOptions {
     fn get_engine(&self) -> Result<EngineType> {
-        if self.jit {
-            Ok(EngineType::JIT)
+        if self.universal {
+            Ok(EngineType::Universal)
         } else if self.native {
             Ok(EngineType::Native)
         } else if self.object_file {
             Ok(EngineType::ObjectFile)
         } else {
             // Auto mode, we choose the best engine for that platform
-            if cfg!(feature = "jit") {
-                Ok(EngineType::JIT)
+            if cfg!(feature = "universal") {
+                Ok(EngineType::Universal)
             } else if cfg!(feature = "native") {
                 Ok(EngineType::Native)
             } else if cfg!(feature = "object-file") {
@@ -441,15 +441,17 @@ impl StoreOptions {
     fn get_engine_headless(&self) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
-            #[cfg(feature = "jit")]
-            EngineType::JIT => Arc::new(wasmer_engine_jit::JIT::headless().engine()),
+            #[cfg(feature = "universal")]
+            EngineType::Universal => {
+                Arc::new(wasmer_engine_universal::Universal::headless().engine())
+            }
             #[cfg(feature = "native")]
             EngineType::Native => Arc::new(wasmer_engine_native::Native::headless().engine()),
             #[cfg(feature = "object-file")]
             EngineType::ObjectFile => {
                 Arc::new(wasmer_engine_object_file::ObjectFile::headless().engine())
             }
-            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
+            #[cfg(not(all(feature = "universal", feature = "native", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()

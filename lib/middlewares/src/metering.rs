@@ -288,7 +288,7 @@ mod tests {
     use super::*;
 
     use std::sync::Arc;
-    use wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, JIT};
+    use wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, Universal};
 
     fn cost_function(operator: &Operator) -> u64 {
         match operator {
@@ -319,7 +319,7 @@ mod tests {
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering.clone());
-        let store = Store::new(&JIT::new(compiler_config).engine());
+        let store = Store::new(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
 
         // Instantiate
@@ -364,7 +364,7 @@ mod tests {
         let metering = Arc::new(Metering::new(10, cost_function));
         let mut compiler_config = Cranelift::default();
         compiler_config.push_middleware(metering.clone());
-        let store = Store::new(&JIT::new(compiler_config).engine());
+        let store = Store::new(&Universal::new(compiler_config).engine());
         let module = Module::new(&store, bytecode()).unwrap();
 
         // Instantiate

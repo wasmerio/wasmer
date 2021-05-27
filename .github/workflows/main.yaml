@@ -44,6 +44,8 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            run_test: true
+            run_test_capi: true
             run_integration_tests: true
             use_sccache: true
           - build: macos-x64
@@ -51,20 +53,27 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            run_integration_tests: true
+            run_test: true
+            run_test_capi: true
             use_sccache: true
+            run_integration_tests: true
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: true
+            run_test: false
+            run_test_capi: false
           - build: windows-x64
             os: windows-latest
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
+            llvm_choco_version: 11.1.0
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
             use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
           #- build: linux-aarch64
           #  os: [self-hosted, linux, ARM64]
           #  random_sccache_port: true
@@ -76,7 +85,9 @@ jobs:
             os: ubuntu-latest
             container: alpine:latest
             artifact_name: 'wasmer-linux-musl-amd64'
-            run_integration_tests: true
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
             use_sccache: false
     container: ${{ matrix.container }}
     env:
@@ -103,11 +114,14 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v1
         if: matrix.use_sccache != true
-      - name: Install LLVM (Windows)
-        if: matrix.os == 'windows-latest' && !matrix.llvm_url
-        shell: cmd
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
         run: |
-          choco install llvm
+          choco install llvm --version ${{ matrix.llvm_choco_version }}
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_110_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-11.0' && !matrix.llvm_url
         run: |
@@ -187,11 +201,11 @@ jobs:
       - name: Test
         run: |
           make test
-        if: matrix.build != 'macos-arm64'
+        if: matrix.run_test
       - name: Test C API
         run: |
           make test-capi
-        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin' # we can't test yet on Apple Silicon or Windows
+        if: matrix.run_test_capi
       - name: Build C API
         run: |
           make build-capi

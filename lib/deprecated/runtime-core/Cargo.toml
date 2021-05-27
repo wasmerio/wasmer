@@ -22,7 +22,7 @@ wasmer-compiler-llvm = { path = "../../compiler-llvm", version = "1.0.2", option
 wasmer-compiler-cranelift = { path = "../../compiler-cranelift", version = "1.0.2", optional = true }
 wasmer-compiler-singlepass = { path = "../../compiler-singlepass", version = "1.0.2", optional = true }
 wasmer-engine = { path = "../../engine", version = "1.0.2" }
-wasmer-engine-jit = { path = "../../engine-jit", version = "1.0.2" }
+wasmer-engine-universal = { path = "../../engine-universal", version = "1.0.2" }
 wasmer-vm = { path = "../../vm", version = "1.0.2" }
 lazy_static = "1.4"
 

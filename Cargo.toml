@@ -17,7 +17,7 @@ wasmer-compiler-singlepass = { version = "1.0.2", path = "lib/compiler-singlepas
 wasmer-compiler-llvm = { version = "1.0.2", path = "lib/compiler-llvm", optional = true }
 wasmer-emscripten = { version = "1.0.2", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "1.0.2", path = "lib/engine" }
-wasmer-engine-jit = { version = "1.0.2", path = "lib/engine-jit", optional = true }
+wasmer-engine-universal = { version = "1.0.2", path = "lib/engine-universal", optional = true }
 wasmer-engine-native = { version = "1.0.2", path = "lib/engine-native", optional = true }
 wasmer-engine-object-file = { version = "1.0.2", path = "lib/engine-object-file", optional = true }
 wasmer-wasi = { version = "1.0.2", path = "lib/wasi", optional = true }
@@ -40,7 +40,7 @@ members = [
     "lib/derive",
     "lib/emscripten",
     "lib/engine",
-    "lib/engine-jit",
+    "lib/engine-universal",
     "lib/engine-native",
     "lib/engine-object-file",
     "lib/object",
@@ -49,7 +49,9 @@ members = [
     "lib/wasi-experimental-io-devices",
     "lib/types",
     "tests/lib/wast",
+    "tests/lib/compiler-test-derive",
     "tests/integration/cli",
+    "fuzz",
 ]
 exclude = [
     "lib/deprecated",
@@ -67,7 +69,9 @@ anyhow = "1.0"
 blake3 = "0.3"
 criterion = "0.3"
 lazy_static = "1.4"
+serial_test = "0.5"
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
+compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.1"
 loupe = "0.1"
 
@@ -77,7 +81,7 @@ loupe = "0.1"
 default = [
     "wat",
     "wast",
-    "jit",
+    "universal",
     "native",
     "object-file",
     "cache",
@@ -86,8 +90,8 @@ default = [
     "middlewares",
 ]
 engine = []
-jit = [
-    "wasmer-engine-jit",
+universal = [
+    "wasmer-engine-universal",
     "engine",
 ]
 native = [
@@ -106,7 +110,7 @@ wat = ["wasmer/wat"]
 compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
-    "wasmer-engine-jit/compiler",
+    "wasmer-engine-universal/compiler",
     "wasmer-engine-native/compiler",
     "wasmer-engine-object-file/compiler",
 ]
@@ -139,9 +143,9 @@ test-native = [
     "native",
     "test-generator/test-native",
 ]
-test-jit = [
-    "jit",
-    "test-generator/test-jit",
+test-universal = [
+    "universal",
+    "test-generator/test-universal",
 ]
 
 # Specifies that we're running in coverage testing mode. This disables tests
@@ -161,8 +165,8 @@ path = "examples/early_exit.rs"
 required-features = ["cranelift"]
 
 [[example]]
-name = "engine-jit"
-path = "examples/engine_jit.rs"
+name = "engine-universal"
+path = "examples/engine_universal.rs"
 required-features = ["cranelift"]
 
 [[example]]

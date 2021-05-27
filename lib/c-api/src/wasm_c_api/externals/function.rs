@@ -182,6 +182,11 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 }
 
 #[no_mangle]
+pub extern "C" fn wasm_func_copy(func: &wasm_func_t) -> Box<wasm_func_t> {
+    Box::new(func.clone())
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 
 #[no_mangle]

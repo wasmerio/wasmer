@@ -36,7 +36,7 @@ const PRE_HEADER: &'static str = r#"
 "#;
 
 #[allow(unused)]
-const JIT_FEATURE_AS_C_DEFINE: &'static str = "WASMER_JIT_ENABLED";
+const UNIVERSAL_FEATURE_AS_C_DEFINE: &'static str = "WASMER_UNIVERSAL_ENABLED";
 
 #[allow(unused)]
 const COMPILER_FEATURE_AS_C_DEFINE: &'static str = "WASMER_COMPILER_ENABLED";
@@ -138,7 +138,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
         pre_header = PRE_HEADER
     );
 
-    map_feature_as_c_define!("jit", JIT_FEATURE_AS_C_DEFINE, pre_header);
+    map_feature_as_c_define!("universal", UNIVERSAL_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("middlewares", MIDDLEWARES_FEATURE_AS_C_DEFINE, pre_header);
@@ -294,7 +294,7 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_documentation(false)
         .with_define("target_family", "windows", "_WIN32")
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
-        .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
+        .with_define("feature", "universal", UNIVERSAL_FEATURE_AS_C_DEFINE)
         .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
         .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
         .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE);
@@ -576,6 +576,13 @@ fn build_inline_c_env_vars() {
         I = include_dir,
         L = shared_object_dir.clone(),
     );
+
+    if let Ok(compiler_engine) = env::var("TEST") {
+        println!(
+            "cargo:rustc-env=INLINE_C_RS_TEST={test}",
+            test = compiler_engine
+        );
+    }
 
     println!(
         "cargo:rustc-env=INLINE_C_RS_LDFLAGS={shared_object_dir}/{lib}",
