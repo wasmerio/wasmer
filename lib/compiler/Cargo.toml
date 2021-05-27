@@ -21,7 +21,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6" 
-rkyv = { version = "0.6.1", optional = true }
+rkyv = { version = "0.6.6", optional = true }
 loupe = "0.1"
 
 [features]
