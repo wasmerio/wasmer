@@ -9,7 +9,7 @@
 //!
 //! Once a Wasm module is compiled into executable code and stored
 //! somewhere (e.g. in memory with the Universal engine, or in a native
-//! object with the native engine), the module can be instantiated and
+//! shared object file with the native engine), the module can be instantiated and
 //! executed. But imagine for a second the following scenario:
 //!
 //!   * Modules are compiled ahead of time, to be instantiated later

@@ -35,7 +35,7 @@ The Wasmer supports the following features:
 * `cranelift`: support for the [Cranelift compiler].
 * `llvm`: support for the [LLVM compiler].
 
-[Universal Engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal/
+[Universal engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal/
 [Native Engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-native/
 [WASI]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi/
 [Emscripten]: https://github.com/wasmerio/wasmer/tree/master/lib/emscripten/
