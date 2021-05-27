@@ -327,6 +327,7 @@
 <span id="324">324</span>
 <span id="325">325</span>
 <span id="326">326</span>
+<span id="327">327</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
@@ -389,6 +390,7 @@
     <span class="ident">key</span>: <span class="ident">usize</span>,
 }
 
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">struct</span> <span class="ident">ModuleInfoFrameInfo</span> {
     <span class="ident">start</span>: <span class="ident">usize</span>,
     <span class="ident">functions</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">FunctionInfo</span><span class="op">&gt;</span>,
@@ -404,10 +406,11 @@
     <span class="doccomment">/// Gets a function given a pc</span>
     <span class="kw">fn</span> <span class="ident">function_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionInfo</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">end</span>, <span class="ident">func</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">range</span>(<span class="ident">pc</span>..).<span class="ident">next</span>()<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">pc</span> <span class="op">&lt;</span> <span class="ident">func</span>.<span class="ident">start</span> <span class="op">|</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">end</span> <span class="op">&lt;</span> <span class="ident">pc</span> {
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+        <span class="kw">if</span> <span class="ident">func</span>.<span class="ident">start</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">pc</span> <span class="op">&amp;&amp;</span> <span class="ident">pc</span> <span class="op">&lt;</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">end</span> {
+            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">func</span>);
+        } <span class="kw">else</span> {
+            <span class="prelude-val">None</span>
         }
-        <span class="prelude-val">Some</span>(<span class="ident">func</span>)
     }
 }
 
@@ -457,14 +460,12 @@
             }
         };
 
-        <span class="comment">// In debug mode for now assert that we found a mapping for `pc` within</span>
-        <span class="comment">// the function, because otherwise something is buggy along the way and</span>
-        <span class="comment">// not accounting for all the instructions. This isn&#39;t super critical</span>
-        <span class="comment">// though so we can omit this check in release mode.</span>
-        <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">pos</span>.<span class="ident">is_some</span>(), <span class="string">&quot;failed to find instruction for {:x}&quot;</span>, <span class="ident">pc</span>);
-
         <span class="kw">let</span> <span class="ident">instr</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pos</span> {
             <span class="prelude-val">Some</span>(<span class="ident">pos</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instr_map</span>.<span class="ident">instructions</span>[<span class="ident">pos</span>].<span class="ident">srcloc</span>,
+            <span class="comment">// Some compilers don&#39;t emit yet the full trap information for each of</span>
+            <span class="comment">// the instructions (such as LLVM).</span>
+            <span class="comment">// In case no specific instruction is found, we return by default the</span>
+            <span class="comment">// start offset of the function.</span>
             <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instr_map</span>.<span class="ident">start_srcloc</span>,
         };
         <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">module</span>.<span class="ident">func_index</span>(<span class="ident">func</span>.<span class="ident">local_index</span>);
@@ -491,10 +492,11 @@
     <span class="doccomment">/// Gets a module given a pc</span>
     <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ModuleInfoFrameInfo</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">end</span>, <span class="ident">module_info</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">ranges</span>.<span class="ident">range</span>(<span class="ident">pc</span>..).<span class="ident">next</span>()<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">pc</span> <span class="op">&lt;</span> <span class="ident">module_info</span>.<span class="ident">start</span> <span class="op">|</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">end</span> <span class="op">&lt;</span> <span class="ident">pc</span> {
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+        <span class="kw">if</span> <span class="ident">module_info</span>.<span class="ident">start</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">pc</span> <span class="op">&amp;&amp;</span> <span class="ident">pc</span> <span class="op">&lt;</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">end</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">module_info</span>)
+        } <span class="kw">else</span> {
+            <span class="prelude-val">None</span>
         }
-        <span class="prelude-val">Some</span>(<span class="ident">module_info</span>)
     }
 }
 
