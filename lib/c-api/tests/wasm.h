@@ -34,9 +34,9 @@ wasm_engine_t *wasm_engine_new() {
   if (strcmp(wasmer_test_engine, "universal") == 0) {
     assert(wasmer_is_engine_available(UNIVERSAL));
     wasm_config_set_engine(config, UNIVERSAL);
-  } else if (strcmp(wasmer_test_engine, "native") == 0) {
-    assert(wasmer_is_engine_available(NATIVE));
-    wasm_config_set_engine(config, NATIVE);
+  } else if (strcmp(wasmer_test_engine, "shared-object") == 0) {
+    assert(wasmer_is_engine_available(SHARED_OBJECT));
+    wasm_config_set_engine(config, SHARED_OBJECT);
   } else if (wasmer_test_engine) {
     printf("Engine %s not recognized\n", wasmer_test_engine);
     abort();

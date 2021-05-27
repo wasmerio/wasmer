@@ -1183,7 +1183,7 @@ dependencies = [
  "wasmer-derive",
  "wasmer-engine",
  "wasmer-engine-universal",
- "wasmer-engine-native",
+ "wasmer-engine-shared-object",
  "wasmer-types",
  "wasmer-vm",
  "wat",
@@ -1321,7 +1321,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine-native"
+name = "wasmer-engine-shared-object"
 version = "1.0.2"
 dependencies = [
  "cfg-if 0.1.10",

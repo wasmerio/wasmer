@@ -6,7 +6,7 @@ use wasmer::{Module, Store};
 use wasmer_cache::Cache;
 use wasmer_cache::{FileSystemCache, Hash};
 use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_native::Native;
+use wasmer_engine_shared_object::SharedObject;
 use wasmer_engine_universal::Universal;
 
 fn random_key() -> Hash {

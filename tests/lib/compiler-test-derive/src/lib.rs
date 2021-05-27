@@ -107,23 +107,24 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
 
-    let construct_compiler_test =
-        |func: &::syn::ItemFn, compiler_name: &str| -> ::proc_macro2::TokenStream {
-            let mod_name = ::quote::format_ident!("{}", compiler_name.to_lowercase());
-            let universal_engine_test = construct_engine_test(func, compiler_name, "Universal");
-            let native_engine_test = construct_engine_test(func, compiler_name, "Native");
-            let compiler_name_lowercase = compiler_name.to_lowercase();
+    let construct_compiler_test = |func: &::syn::ItemFn,
+                                   compiler_name: &str|
+     -> ::proc_macro2::TokenStream {
+        let mod_name = ::quote::format_ident!("{}", compiler_name.to_lowercase());
+        let universal_engine_test = construct_engine_test(func, compiler_name, "Universal");
+        let shared_object_engine_test = construct_engine_test(func, compiler_name, "SharedObject");
+        let compiler_name_lowercase = compiler_name.to_lowercase();
 
-            quote! {
-                #[cfg(feature = #compiler_name_lowercase)]
-                mod #mod_name {
-                    use super::*;
+        quote! {
+            #[cfg(feature = #compiler_name_lowercase)]
+            mod #mod_name {
+                use super::*;
 
-                    #universal_engine_test
-                    #native_engine_test
-                }
+                #universal_engine_test
+                #shared_object_engine_test
             }
-        };
+        }
+    };
 
     let singlepass_compiler_test = construct_compiler_test(&my_fn, "Singlepass");
     let cranelift_compiler_test = construct_compiler_test(&my_fn, "Cranelift");

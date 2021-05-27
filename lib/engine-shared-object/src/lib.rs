@@ -1,4 +1,4 @@
-//! Native backend for Wasmer compilers.
+//! Shared Object Engine for Wasmer compilers.
 //!
 //! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
 //! it generates a shared object file (`.so` or `.dylib` depending on
@@ -27,9 +27,9 @@ mod builder;
 mod engine;
 mod serialize;
 
-pub use crate::artifact::NativeArtifact;
-pub use crate::builder::Native;
-pub use crate::engine::NativeEngine;
+pub use crate::artifact::SharedObjectArtifact;
+pub use crate::builder::SharedObject;
+pub use crate::engine::SharedObjectEngine;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

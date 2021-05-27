@@ -11,7 +11,7 @@ Wasmer Engines are mainly responsible for two things:
 It currently has three implementations:
 
 1. Universal with [`wasmer-engine-universal`],
-2. Native with [`wasmer-engine-native`],
+2. Native with [`wasmer-engine-shared-object`],
 3. Object with [`wasmer-engine-object-file`].
 
 ## Example Implementation
@@ -29,7 +29,7 @@ attributions of the project.
 
 
 [`wasmer-engine-universal`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal
-[`wasmer-engine-native`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-native
+[`wasmer-engine-shared-object`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-shared-object
 [`wasmer-engine-object-file`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-object-file
 [`wasmer-engine-dummy`]: https://github.com/wasmerio/wasmer/tree/master/tests/lib/engine-dummy
 [`wasmtime-api`]: https://crates.io/crates/wasmtime

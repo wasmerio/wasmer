@@ -22,7 +22,7 @@ impl Compiler {
 #[derive(Debug, Copy, Clone)]
 pub enum Engine {
     Universal,
-    Native,
+    SharedObject,
     ObjectFile,
 }
 
@@ -30,7 +30,7 @@ impl Engine {
     pub const fn to_flag(self) -> &'static str {
         match self {
             Engine::Universal => "--universal",
-            Engine::Native => "--native",
+            Engine::SharedObject => "--shared-object",
             Engine::ObjectFile => "--object-file",
         }
     }

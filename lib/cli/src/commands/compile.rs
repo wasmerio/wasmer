@@ -43,9 +43,11 @@ impl Compile {
         target_triple: &Triple,
     ) -> Result<&'static str> {
         Ok(match engine_type {
-            #[cfg(feature = "native")]
-            EngineType::Native => {
-                wasmer_engine_native::NativeArtifact::get_default_extension(target_triple)
+            #[cfg(feature = "shared-object")]
+            EngineType::SharedObject => {
+                wasmer_engine_shared_object::SharedObjectArtifact::get_default_extension(
+                    target_triple,
+                )
             }
             #[cfg(feature = "universal")]
             EngineType::Universal => {
@@ -55,7 +57,11 @@ impl Compile {
             EngineType::ObjectFile => {
                 wasmer_engine_object_file::ObjectFileArtifact::get_default_extension(target_triple)
             }
-            #[cfg(not(all(feature = "native", feature = "universal", feature = "object-file")))]
+            #[cfg(not(all(
+                feature = "shared-object",
+                feature = "universal",
+                feature = "object-file"
+            )))]
             _ => bail!("selected engine type is not compiled in"),
         })
     }

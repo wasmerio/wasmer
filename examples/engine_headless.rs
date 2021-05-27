@@ -52,7 +52,7 @@ use wasmer::Module;
 use wasmer::Store;
 use wasmer::Value;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_native::Native;
+use wasmer_engine_shared_object::SharedObject;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First step, let's compile the Wasm module and serialize it.
@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Creating Native engine...");
         // Define the engine that will drive everything.
         //
-        // In this case, the engine is `wasmer_engine_native` which
+        // In this case, the engine is `wasmer_engine_shared_object` which
         // means that a native object is going to be generated. So
         // when we are going to serialize the compiled Wasm module, we
         // are going to store it in a file with the `.so` extension

@@ -115,7 +115,7 @@ impl Ignores {
                             arch = Some(alias.to_string());
                         }
                         // Engines
-                        "universal" | "native" => {
+                        "universal" | "shared-object" => {
                             engine = Some(alias.to_string());
                         }
                         // Compilers

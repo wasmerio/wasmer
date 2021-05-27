@@ -1,16 +1,16 @@
-use crate::NativeEngine;
+use crate::SharedObjectEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
-/// The Native builder
-pub struct Native {
+/// The Shared Object builder
+pub struct SharedObject {
     compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl Native {
+impl SharedObject {
     #[cfg(feature = "compiler")]
-    /// Create a new Native
+    /// Create a new Shared Object builder.
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -25,7 +25,7 @@ impl Native {
         }
     }
 
-    /// Create a new headless Native
+    /// Create a new headless Shared Object builder.
     pub fn headless() -> Self {
         Self {
             compiler_config: None,
@@ -46,8 +46,8 @@ impl Native {
         self
     }
 
-    /// Build the `NativeEngine` for this configuration
-    pub fn engine(self) -> NativeEngine {
+    /// Build the `SharedObjectEngine` for this configuration
+    pub fn engine(self) -> SharedObjectEngine {
         if let Some(_compiler_config) = self.compiler_config {
             #[cfg(feature = "compiler")]
             {
@@ -57,15 +57,15 @@ impl Native {
                     .features
                     .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
                 let compiler = compiler_config.compiler();
-                NativeEngine::new(compiler, target, features)
+                SharedObjectEngine::new(compiler, target, features)
             }
 
             #[cfg(not(feature = "compiler"))]
             {
-                unreachable!("Cannot call `NativeEngine::new` without the `compiler` feature")
+                unreachable!("Cannot call `SharedObjectEngine::new` without the `compiler` feature")
             }
         } else {
-            NativeEngine::headless()
+            SharedObjectEngine::headless()
         }
     }
 }
@@ -105,13 +105,13 @@ mod tests {
     #[should_panic(expected = "compiler not implemented")]
     fn build_engine() {
         let compiler_config = TestCompilerConfig::default();
-        let native = Native::new(compiler_config);
-        let _engine = native.engine();
+        let shared_object = SharedObject::new(compiler_config);
+        let _engine = shared_object.engine();
     }
 
     #[test]
     fn build_headless_engine() {
-        let native = Native::headless();
-        let _engine = native.engine();
+        let shared_object = SharedObject::headless();
+        let _engine = shared_object.engine();
     }
 }

@@ -1,7 +1,7 @@
-//! Define `NativeArtifact` to allow compiling and instantiating to be
-//! done as separate steps.
+//! Define `SharedObjectArtifact` to allow compiling and instantiating
+//! to be done as separate steps.
 
-use crate::engine::{NativeEngine, NativeEngineInner};
+use crate::engine::{SharedObjectEngine, SharedObjectEngineInner};
 use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata};
 use libloading::{Library, Symbol as LibrarySymbol};
 use loupe::MemoryUsage;
@@ -44,10 +44,10 @@ use wasmer_vm::{
     VMSharedSignatureIndex, VMTrampoline,
 };
 
-/// A compiled wasm module, ready to be instantiated.
+/// A compiled Wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
-pub struct NativeArtifact {
-    sharedobject_path: PathBuf,
+pub struct SharedObjectArtifact {
+    shared_object_path: PathBuf,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     #[loupe(skip)]
@@ -64,7 +64,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
-impl NativeArtifact {
+impl SharedObjectArtifact {
     // Mach-O header in Mac
     #[allow(dead_code)]
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
@@ -81,7 +81,7 @@ impl NativeArtifact {
     #[allow(dead_code)]
     const MAGIC_HEADER_COFF_64: &'static [u8] = &[b'M', b'Z'];
 
-    /// Check if the provided bytes look like `NativeArtifact`.
+    /// Check if the provided bytes look like `SharedObjectArtifact`.
     ///
     /// This means, if the bytes look like a shared object file in the target
     /// system.
@@ -154,10 +154,11 @@ impl NativeArtifact {
         ))
     }
 
-    /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
+    /// Compile a data buffer into a `SharedObjectArtifact`, which may
+    /// then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(
-        engine: &NativeEngine,
+        engine: &SharedObjectEngine,
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
@@ -223,7 +224,7 @@ impl NativeArtifact {
             Some(obj_bytes) => {
                 let obj_bytes = obj_bytes?;
                 let file = tempfile::Builder::new()
-                    .prefix("wasmer_native")
+                    .prefix("wasmer_shared_object_")
                     .suffix(".o")
                     .tempfile()
                     .map_err(to_compile_error)?;
@@ -251,7 +252,7 @@ impl NativeArtifact {
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 let file = tempfile::Builder::new()
-                    .prefix("wasmer_native")
+                    .prefix("wasmer_shared_object_")
                     .suffix(".o")
                     .tempfile()
                     .map_err(to_compile_error)?;
@@ -268,7 +269,7 @@ impl NativeArtifact {
         let shared_filepath = {
             let suffix = format!(".{}", Self::get_default_extension(&target_triple));
             let shared_file = tempfile::Builder::new()
-                .prefix("wasmer_native")
+                .prefix("wasmer_shared_object_")
                 .suffix(&suffix)
                 .tempfile()
                 .map_err(to_compile_error)?;
@@ -357,10 +358,10 @@ impl NativeArtifact {
         }
     }
 
-    /// Construct a `NativeArtifact` from component parts.
+    /// Construct a `SharedObjectArtifact` from component parts.
     pub fn from_parts_crosscompiled(
         metadata: ModuleMetadata,
-        sharedobject_path: PathBuf,
+        shared_object_path: PathBuf,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
         let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
@@ -369,7 +370,7 @@ impl NativeArtifact {
             PrimaryMap::new();
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
-            sharedobject_path,
+            shared_object_path,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -382,11 +383,11 @@ impl NativeArtifact {
         })
     }
 
-    /// Construct a `NativeArtifact` from component parts.
+    /// Construct a `SharedObjectArtifact` from component parts.
     pub fn from_parts(
-        engine_inner: &mut NativeEngineInner,
+        engine_inner: &mut SharedObjectEngineInner,
         metadata: ModuleMetadata,
-        sharedobject_path: PathBuf,
+        shared_object_path: PathBuf,
         lib: Library,
     ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
@@ -474,7 +475,7 @@ impl NativeArtifact {
         engine_inner.add_library(lib);
 
         Ok(Self {
-            sharedobject_path,
+            shared_object_path,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -487,21 +488,22 @@ impl NativeArtifact {
         })
     }
 
-    /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
+    /// Compile a data buffer into a `SharedObjectArtifact`, which may
+    /// then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(_engine: &NativeEngine, _data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &SharedObjectEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
     }
 
-    /// Deserialize a `NativeArtifact` from bytes.
+    /// Deserialize a `SharedObjectArtifact` from bytes.
     ///
     /// # Safety
     ///
     /// The bytes must represent a serialized WebAssembly module.
     pub unsafe fn deserialize(
-        engine: &NativeEngine,
+        engine: &SharedObjectEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(&bytes) {
@@ -518,13 +520,13 @@ impl NativeArtifact {
         Self::deserialize_from_file_unchecked(&engine, &path)
     }
 
-    /// Deserialize a `NativeArtifact` from a file path.
+    /// Deserialize a `SharedObjectArtifact` from a file path.
     ///
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file(
-        engine: &NativeEngine,
+        engine: &SharedObjectEngine,
         path: &Path,
     ) -> Result<Self, DeserializeError> {
         let mut file = File::open(&path)?;
@@ -539,13 +541,13 @@ impl NativeArtifact {
         Self::deserialize_from_file_unchecked(&engine, &path)
     }
 
-    /// Deserialize a `NativeArtifact` from a file path (unchecked).
+    /// Deserialize a `SharedObjectArtifact` from a file path (unchecked).
     ///
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file_unchecked(
-        engine: &NativeEngine,
+        engine: &SharedObjectEngine,
         path: &Path,
     ) -> Result<Self, DeserializeError> {
         let lib = Library::new(&path).map_err(|e| {
@@ -588,7 +590,7 @@ impl NativeArtifact {
     }
 }
 
-impl Artifact for NativeArtifact {
+impl Artifact for SharedObjectArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -767,8 +769,8 @@ impl Artifact for NativeArtifact {
         Ok(())
     }
 
-    /// Serialize a NativeArtifact
+    /// Serialize a `SharedObjectArtifact`.
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(std::fs::read(&self.sharedobject_path)?)
+        Ok(std::fs::read(&self.shared_object_path)?)
     }
 }

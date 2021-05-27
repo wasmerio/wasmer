@@ -71,10 +71,10 @@ gen_tests! {
                 }
                 #[test]
                 #[cold]
-                #[cfg(feature = "native")]
-                fn native() {
+                #[cfg(feature = "shared-object")]
+                fn shared_object() {
                     add(crate::Config::new(
-                        crate::Engine::Native,
+                        crate::Engine::SharedObject,
                         crate::Compiler::Singlepass
                     ))
                 }
@@ -94,10 +94,10 @@ gen_tests! {
                 }
                 #[test]
                 #[cold]
-                #[cfg(feature = "native")]
-                fn native() {
+                #[cfg(feature = "shared-object")]
+                fn shared_object() {
                     add(crate::Config::new(
-                        crate::Engine::Native,
+                        crate::Engine::SharedObject,
                         crate::Compiler::Cranelift
                     ))
                 }
@@ -117,10 +117,10 @@ gen_tests! {
                 }
                 #[test]
                 #[cold]
-                #[cfg(feature = "native")]
-                fn native() {
+                #[cfg(feature = "shared-object")]
+                fn shared_object() {
                     add(crate::Config::new(
-                        crate::Engine::Native,
+                        crate::Engine::SharedObject,
                         crate::Compiler::LLVM
                     ))
                 }

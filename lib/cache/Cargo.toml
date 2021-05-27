@@ -22,7 +22,7 @@ tempfile = "3"
 rand = "0.8.3"
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.2" }
 wasmer-engine-universal = { path = "../engine-universal", version = "1.0.2" }
-wasmer-engine-native = { path = "../engine-native", version = "1.0.2" }
+wasmer-engine-shared-object = { path = "../engine-shared-object", version = "1.0.2" }
 
 [[bench]]
 name = "bench_filesystem_cache"

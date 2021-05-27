@@ -1,6 +1,6 @@
-//! Native Engine.
+//! Shared Object Engine.
 
-use crate::NativeArtifact;
+use crate::SharedObjectArtifact;
 use libloading::Library;
 use loupe::MemoryUsage;
 use std::path::Path;
@@ -17,24 +17,24 @@ use wasmer_vm::{
     FuncDataRegistry, SignatureRegistry, VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex,
 };
 
-/// A WebAssembly `Native` Engine.
+/// A WebAssembly `SharedObject` Engine.
 #[derive(Clone, MemoryUsage)]
-pub struct NativeEngine {
-    inner: Arc<Mutex<NativeEngineInner>>,
+pub struct SharedObjectEngine {
+    inner: Arc<Mutex<SharedObjectEngineInner>>,
     /// The target for the compiler
     target: Arc<Target>,
     engine_id: EngineId,
 }
 
-impl NativeEngine {
-    /// Create a new `NativeEngine` with the given config
+impl SharedObjectEngine {
+    /// Create a new `SharedObjectEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         let is_cross_compiling = *target.triple() != Triple::host();
         let linker = Linker::find_linker(is_cross_compiling);
 
         Self {
-            inner: Arc::new(Mutex::new(NativeEngineInner {
+            inner: Arc::new(Mutex::new(SharedObjectEngineInner {
                 compiler: Some(compiler),
                 signatures: SignatureRegistry::new(),
                 func_data: Arc::new(FuncDataRegistry::new()),
@@ -49,7 +49,7 @@ impl NativeEngine {
         }
     }
 
-    /// Create a headless `NativeEngine`
+    /// Create a headless `SharedObjectEngine`
     ///
     /// A headless engine is an engine without any compiler attached.
     /// This is useful for assuring a minimal runtime for running
@@ -64,7 +64,7 @@ impl NativeEngine {
     /// they just take already processed Modules (via `Module::serialize`).
     pub fn headless() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(NativeEngineInner {
+            inner: Arc::new(Mutex::new(SharedObjectEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
                 #[cfg(feature = "compiler")]
@@ -99,16 +99,16 @@ impl NativeEngine {
         inner.prefixer = Some(Box::new(prefixer));
     }
 
-    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, NativeEngineInner> {
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, SharedObjectEngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, NativeEngineInner> {
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, SharedObjectEngineInner> {
         self.inner.lock().unwrap()
     }
 }
 
-impl Engine for NativeEngine {
+impl Engine for SharedObjectEngine {
     /// The target
     fn target(&self) -> &Target {
         &self.target
@@ -143,7 +143,9 @@ impl Engine for NativeEngine {
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(NativeArtifact::new(&self, binary, tunables)?))
+        Ok(Arc::new(SharedObjectArtifact::new(
+            &self, binary, tunables,
+        )?))
     }
 
     /// Compile a WebAssembly binary (it will fail because the `compiler` flag is disabled).
@@ -154,14 +156,14 @@ impl Engine for NativeEngine {
         _tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
         Err(CompileError::Codegen(
-            "The `NativeEngine` is operating in headless mode, so it cannot compile a module."
+            "The `SharedObjectEngine` is operating in headless mode, so it cannot compile a module."
                 .to_string(),
         ))
     }
 
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(NativeArtifact::deserialize(&self, &bytes)?))
+        Ok(Arc::new(SharedObjectArtifact::deserialize(&self, &bytes)?))
     }
 
     /// Deserializes a WebAssembly module from a path
@@ -170,7 +172,7 @@ impl Engine for NativeEngine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(NativeArtifact::deserialize_from_file(
+        Ok(Arc::new(SharedObjectArtifact::deserialize_from_file(
             &self, &file_ref,
         )?))
     }
@@ -210,7 +212,7 @@ impl Linker {
             .next()
             .unwrap_or_else(|| {
                 panic!(
-                    "Need {} installed in order to use `NativeEngine` when {}cross-compiling",
+                    "Need {} installed in order to use `SharedObjectEngine` when {}cross-compiling",
                     requirements,
                     if is_cross_compiling { "" } else { "not " }
                 )
@@ -228,9 +230,9 @@ impl Linker {
     }
 }
 
-/// The inner contents of `NativeEngine`
+/// The inner contents of `SharedObjectEngine`
 #[derive(MemoryUsage)]
-pub struct NativeEngineInner {
+pub struct SharedObjectEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler>>,
@@ -249,12 +251,12 @@ pub struct NativeEngineInner {
     func_data: Arc<FuncDataRegistry>,
 
     /// The prefixer returns the a String to prefix each of
-    /// the functions in the shared object generated by the `NativeEngine`,
+    /// the functions in the shared object generated by the `SharedObjectEngine`,
     /// so we can assure no collisions.
     #[loupe(skip)]
     prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>>,
 
-    /// Whether the native engine will cross-compile.
+    /// Whether the shared object engine will cross-compile.
     is_cross_compiling: bool,
 
     /// The linker to use.
@@ -265,12 +267,12 @@ pub struct NativeEngineInner {
     libraries: Vec<Library>,
 }
 
-impl NativeEngineInner {
+impl SharedObjectEngineInner {
     /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
-            return Err(CompileError::Codegen("The `NativeEngine` is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
+            return Err(CompileError::Codegen("The `SharedObjectEngine` is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
         }
         Ok(&**self
             .compiler
@@ -302,7 +304,7 @@ impl NativeEngineInner {
     #[cfg(not(feature = "compiler"))]
     pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
-            "The `NativeEngine` is not compiled with compiler support, which is required for validating".to_string(),
+            "The `SharedObjectEngine` is not compiled with compiler support, which is required for validating".to_string(),
         ))
     }
 

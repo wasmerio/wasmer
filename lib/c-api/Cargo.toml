@@ -22,7 +22,7 @@ wasmer-compiler-llvm = { version = "1.0.2", path = "../compiler-llvm", optional 
 wasmer-emscripten = { version = "1.0.2", path = "../emscripten", optional = true }
 wasmer-engine = { version = "1.0.2", path = "../engine" }
 wasmer-engine-universal = { version = "1.0.2", path = "../engine-universal", optional = true }
-wasmer-engine-native = { version = "1.0.2", path = "../engine-native", optional = true }
+wasmer-engine-shared-object = { version = "1.0.2", path = "../engine-shared-object", optional = true }
 wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
 wasmer-middlewares = { version = "1.0.2", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "1.0.2", path = "../wasi", optional = true }
@@ -59,8 +59,8 @@ universal = [
     "wasmer-engine-universal",
     "engine",
 ]
-native = [
-    "wasmer-engine-native",
+shared-object = [
+    "wasmer-engine-shared-object",
     "engine",
 ]
 object-file = [
@@ -70,7 +70,7 @@ object-file = [
 compiler = [
     "wasmer/compiler",
     "wasmer-engine-universal/compiler",
-    "wasmer-engine-native/compiler",
+    "wasmer-engine-shared-object/compiler",
     "wasmer-engine-object-file/compiler"
 ]
 singlepass = [

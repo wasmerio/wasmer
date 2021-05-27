@@ -19,7 +19,7 @@ wasmer-compiler = { path = "../compiler", version = "1.0.2" }
 wasmer-derive = { path = "../derive", version = "1.0.2" }
 wasmer-engine = { path = "../engine", version = "1.0.2" }
 wasmer-engine-universal = { path = "../engine-universal", version = "1.0.2", optional = true }
-wasmer-engine-native = { path = "../engine-native", version = "1.0.2", optional = true }
+wasmer-engine-shared-object = { path = "../engine-shared-object", version = "1.0.2", optional = true }
 wasmer-types = { path = "../types", version = "1.0.2" }
 indexmap = { version = "1.6", features = ["serde-1"] }
 cfg-if = "1.0"
@@ -47,15 +47,15 @@ default = ["wat", "default-cranelift", "default-universal"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-universal/compiler",
-    "wasmer-engine-native/compiler",
+    "wasmer-engine-shared-object/compiler",
 ]
 engine = []
 universal = [
     "wasmer-engine-universal",
     "engine"
 ]
-native = [
-    "wasmer-engine-native",
+shared-object = [
+    "wasmer-engine-shared-object",
     "engine"
 ]
 singlepass = [
@@ -91,8 +91,8 @@ default-universal = [
     "universal",
     "default-engine"
 ]
-default-native = [
-    "native",
+default-shared-object = [
+    "shared-object",
     "default-engine"
 ]
 
