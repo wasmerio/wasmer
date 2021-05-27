@@ -18,7 +18,7 @@ wasmer-compiler-llvm = { path = "../compiler-llvm", version = "1.0.2", optional 
 wasmer-compiler = { path = "../compiler", version = "1.0.2" }
 wasmer-derive = { path = "../derive", version = "1.0.2" }
 wasmer-engine = { path = "../engine", version = "1.0.2" }
-wasmer-engine-jit = { path = "../engine-jit", version = "1.0.2", optional = true }
+wasmer-engine-universal = { path = "../engine-universal", version = "1.0.2", optional = true }
 wasmer-engine-native = { path = "../engine-native", version = "1.0.2", optional = true }
 wasmer-types = { path = "../types", version = "1.0.2" }
 indexmap = { version = "1.6", features = ["serde-1"] }
@@ -43,15 +43,15 @@ anyhow = "1.0"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["wat", "default-cranelift", "default-jit"]
+default = ["wat", "default-cranelift", "default-universal"]
 compiler = [
     "wasmer-compiler/translator",
-    "wasmer-engine-jit/compiler",
+    "wasmer-engine-universal/compiler",
     "wasmer-engine-native/compiler",
 ]
 engine = []
-jit = [
-    "wasmer-engine-jit",
+universal = [
+    "wasmer-engine-universal",
     "engine"
 ]
 native = [
@@ -87,8 +87,8 @@ default-llvm = [
     "llvm",
     "default-compiler"
 ]
-default-jit = [
-    "jit",
+default-universal = [
+    "universal",
     "default-engine"
 ]
 default-native = [

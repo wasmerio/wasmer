@@ -6,25 +6,25 @@ use wasmer::{Module, Store};
 use wasmer_cache::Cache;
 use wasmer_cache::{FileSystemCache, Hash};
 use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_jit::JIT;
 use wasmer_engine_native::Native;
+use wasmer_engine_universal::Universal;
 
 fn random_key() -> Hash {
     Hash::new(rand::thread_rng().gen::<[u8; 32]>())
 }
 
-pub fn store_cache_jit(c: &mut Criterion) {
+pub fn store_cache_universal(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&JIT::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
     )
     .unwrap();
 
-    c.bench_function("store jit module in filesystem cache", |b| {
+    c.bench_function("store universal module in filesystem cache", |b| {
         b.iter(|| {
             let key = random_key();
             fs_cache.store(key, &module).unwrap()
@@ -32,11 +32,11 @@ pub fn store_cache_jit(c: &mut Criterion) {
     });
 }
 
-pub fn load_cache_jit(c: &mut Criterion) {
+pub fn load_cache_universal(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&JIT::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
@@ -45,7 +45,7 @@ pub fn load_cache_jit(c: &mut Criterion) {
     let key = Hash::new([0u8; 32]);
     fs_cache.store(key, &module).unwrap();
 
-    c.bench_function("load jit module in filesystem cache", |b| {
+    c.bench_function("load universal module in filesystem cache", |b| {
         b.iter(|| unsafe { fs_cache.load(&store, key.clone()).unwrap() })
     });
 }
@@ -90,6 +90,6 @@ pub fn load_cache_native(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default().sample_size(300);
-    targets = store_cache_jit, load_cache_jit, store_cache_native, load_cache_native
+    targets = store_cache_universal, load_cache_universal, store_cache_native, load_cache_native
 }
 criterion_main!(benches);

@@ -214,10 +214,10 @@ impl Run {
                 return Ok(module);
             }
         }
-        #[cfg(feature = "jit")]
+        #[cfg(feature = "universal")]
         {
-            if wasmer_engine_jit::JITArtifact::is_deserializable(&contents) {
-                let engine = wasmer_engine_jit::JIT::headless().engine();
+            if wasmer_engine_universal::UniversalArtifact::is_deserializable(&contents) {
+                let engine = wasmer_engine_universal::Universal::headless().engine();
                 let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
@@ -305,9 +305,10 @@ impl Run {
                 wasmer_engine_native::NativeArtifact::get_default_extension(&Triple::host())
                     .to_string()
             }
-            #[cfg(feature = "jit")]
-            EngineType::JIT => {
-                wasmer_engine_jit::JITArtifact::get_default_extension(&Triple::host()).to_string()
+            #[cfg(feature = "universal")]
+            EngineType::Universal => {
+                wasmer_engine_universal::UniversalArtifact::get_default_extension(&Triple::host())
+                    .to_string()
             }
             // We use the compiler type as the default extension
             _ => compiler_type.to_string(),

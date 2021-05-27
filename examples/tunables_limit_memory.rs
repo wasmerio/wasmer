@@ -9,7 +9,7 @@ use wasmer::{
     Tunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 /// A custom tunables that allows you to set a memory limit.
 ///
@@ -144,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Any compiler and any engine do the job here
     let compiler = Cranelift::default();
-    let engine = JIT::new(compiler).engine();
+    let engine = Universal::new(compiler).engine();
 
     // Here is where the fun begins
 

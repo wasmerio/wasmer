@@ -13,9 +13,9 @@ This allows Wasmer to achieve *blazing fast* **native startup times**.
 *Note: you can find a [full working example using the Native engine
 here][example].*
 
-### Difference with `wasmer-engine-jit`
+### Difference with `wasmer-engine-universal`
 
-The Native Engine and JIT engine mainly differ on how the Modules are loaded/stored.
+The Native Engine and Universal Engine mainly differ on how the Modules are loaded/stored.
 Using the same compilers, both will have the same runtime speed.
 
 However, the Native engine uses the Operating System shared library loader (via `dlopen`)

@@ -220,18 +220,18 @@ example.
 
 ### Engines
 
-1. [**JIT engine**][engine-jit], explains what an engine is, what the
-   JIT engine is, and how to set it up. The example completes itself
+1. [**Universal engine**][engine-universal], explains what an engine is, what the
+   Universal engine is, and how to set it up. The example completes itself
    with the compilation of the Wasm module, its instantiation, and
    finally, by calling an exported function.
    
-   _Keywords_: JIT, engine, in-memory, executable code.
+   _Keywords_: Universal, engine, in-memory, executable code.
    
    <details>
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example engine-jit --release --features "cranelift"
+   $ cargo run --example engine-universal --release --features "cranelift"
    ```
 
    </details>
@@ -375,7 +375,7 @@ example.
    </details>
 
 [hello-world]: ./hello_world.rs
-[engine-jit]: ./engine_jit.rs
+[engine-universal]: ./engine_universal.rs
 [engine-native]: ./engine_native.rs
 [engine-headless]: ./engine_headless.rs
 [compiler-singlepass]: ./compiler_singlepass.rs

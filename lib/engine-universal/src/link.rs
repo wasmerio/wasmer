@@ -1,4 +1,4 @@
-//! Linking for JIT-compiled code.
+//! Linking for Universal-compiled code.
 
 use std::ptr::write_unaligned;
 use wasmer_compiler::{

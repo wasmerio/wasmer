@@ -20,7 +20,7 @@ use wasmer::wasmparser::Operator;
 use wasmer::CompilerConfig;
 use wasmer::{imports, wat2wasm, Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 use wasmer_middlewares::{
     metering::{get_remaining_points, set_remaining_points, MeteringPoints},
     Metering,
@@ -69,8 +69,8 @@ fn main() -> anyhow::Result<()> {
     // Create a Store.
     //
     // We use our previously create compiler configuration
-    // with the JIT engine.
-    let store = Store::new(&JIT::new(compiler_config).engine());
+    // with the Universal engine.
+    let store = Store::new(&Universal::new(compiler_config).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
