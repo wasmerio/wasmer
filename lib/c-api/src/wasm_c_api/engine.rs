@@ -65,7 +65,7 @@ impl Default for wasmer_compiler_t {
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum wasmer_engine_t {
-    /// Variant to represent the universal engine. See the
+    /// Variant to represent the Universal engine. See the
     /// [`wasmer_engine_universal`] Rust crate.
     UNIVERSAL = 0,
 
