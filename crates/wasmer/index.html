@@ -153,7 +153,7 @@ for each Wasm function.</p>
 enable new functionality and features that set defaults.</p>
 <p>The features that enable new functionality are:</p>
 <ul>
-<li><code>jit</code> - enable the JIT engine. (See <a href="https://docs.rs/wasmer-engine-jit/*/wasmer_engine_jit/">wasmer-jit</a>)</li>
+<li><code>universal</code> - enable the Universal engine. (See <a href="https://docs.rs/wasmer-engine-universal/*/wasmer_engine_universal/">wasmer-universal</a>)</li>
 <li><code>native</code> - enable the native engine. (See <a href="https://docs.rs/wasmer-engine-native/*/wasmer_engine_native/">wasmer-native</a>)</li>
 <li><code>cranelift</code> - enable Wasmer's Cranelift compiler. (See <a href="https://docs.rs/wasmer-compiler-cranelift/*/wasmer_compiler_cranelift/">wasmer-cranelift</a>)</li>
 <li><code>llvm</code> - enable Wasmer's LLVM compiler. (See <a href="https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/">wasmer-llvm</a>)</li>
@@ -169,11 +169,11 @@ enable new functionality and features that set defaults.</p>
 </ul>
 <p>The next set is the default engine set:</p>
 <ul>
-<li><code>default-jit</code> - set the JIT engine as the default.</li>
+<li><code>default-universal</code> - set the Universal engine as the default.</li>
 <li><code>default-native</code> - set the native engine as the default.</li>
 </ul>
 <hr />
-<p>By default the <code>wat</code>, <code>default-cranelift</code>, and <code>default-jit</code> features
+<p>By default the <code>wat</code>, <code>default-cranelift</code>, and <code>default-universal</code> features
 are enabled.</p>
 </div><h2 id="reexports" class="section-header"><a href="#reexports">Re-exports</a></h2>
 <table><tr><td><code>pub use wasmer_compiler::wasmparser;</code></td></tr></table><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
@@ -215,9 +215,6 @@ in a Wasm module or exposed to Wasm by the host.</p>
 instance of a WebAssembly <a href="../wasmer/module/struct.Module.html" title="Module"><code>Module</code></a>.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.Item.html" title="wasmer::Item struct">Item</a></td><td class="docblock-short"><p>The <code>Item</code> marker type. This is the default and does not usually need to be
 specified.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.JIT.html" title="wasmer::JIT struct">JIT</a></td><td class="docblock-short"><p>The JIT builder</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.JITArtifact.html" title="wasmer::JITArtifact struct">JITArtifact</a></td><td class="docblock-short"><p>A compiled wasm module, ready to be instantiated.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.JITEngine.html" title="wasmer::JITEngine struct">JITEngine</a></td><td class="docblock-short"><p>A WebAssembly <code>JIT</code> Engine.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.LazyInit.html" title="wasmer::LazyInit struct">LazyInit</a></td><td class="docblock-short"><p>Lazily init an item</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.LocalFunctionIndex.html" title="wasmer::LocalFunctionIndex struct">LocalFunctionIndex</a></td><td class="docblock-short"><p>Index type of a function defined locally inside the WebAssembly module.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.Memory.html" title="wasmer::Memory struct">Memory</a></td><td class="docblock-short"><p>A WebAssembly <code>memory</code> instance.</p>
@@ -244,6 +241,9 @@ have been allocated during the lifetime of the abstract machine.</p>
 the WebAssembly ModuleInfo, and then run it.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.Triple.html" title="wasmer::Triple struct">Triple</a></td><td class="docblock-short"><p>A target &quot;triple&quot;. Historically such things had three fields, though they've
 added additional fields over time.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.Universal.html" title="wasmer::Universal struct">Universal</a></td><td class="docblock-short"><p>The Universal builder</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.UniversalArtifact.html" title="wasmer::UniversalArtifact struct">UniversalArtifact</a></td><td class="docblock-short"><p>A compiled wasm module, ready to be instantiated.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.UniversalEngine.html" title="wasmer::UniversalEngine struct">UniversalEngine</a></td><td class="docblock-short"><p>A WebAssembly <code>Universal</code> Engine.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.WasmPtr.html" title="wasmer::WasmPtr struct">WasmPtr</a></td><td class="docblock-short"><p>A zero-cost type that represents a pointer to something in Wasm linear
 memory.</p>
 </td></tr></table><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>

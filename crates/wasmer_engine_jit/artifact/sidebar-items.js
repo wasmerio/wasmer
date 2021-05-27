@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["SERIALIZED_METADATA_CONTENT_OFFSET",""],["SERIALIZED_METADATA_LENGTH_OFFSET",""]],"fn":[["pad_and_extend","It pads the data with the desired alignment"]],"struct":[["JITArtifact","A compiled wasm module, ready to be instantiated."]]});

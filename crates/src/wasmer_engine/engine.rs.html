@@ -104,7 +104,7 @@
 <span id="101">101</span>
 <span id="102">102</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! JIT compilation.</span>
+<span class="doccomment">//! Engine trait and associated types.</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">tunables</span>::<span class="ident">Tunables</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>};
@@ -120,7 +120,7 @@
 <span class="doccomment">/// A unimplemented Wasmer `Engine`.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This trait is used by implementors to implement custom engines</span>
-<span class="doccomment">/// such as: JIT or Native.</span>
+<span class="doccomment">/// such as: Universal or Native.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// The product that an `Engine` produces and consumes is the [`Artifact`].</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Engine</span>: <span class="ident">MemoryUsage</span> {

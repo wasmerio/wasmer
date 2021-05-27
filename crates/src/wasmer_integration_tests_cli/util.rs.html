@@ -87,7 +87,7 @@
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Engine</span> {
-    <span class="ident">Jit</span>,
+    <span class="ident">Universal</span>,
     <span class="ident">Native</span>,
     <span class="ident">ObjectFile</span>,
 }
@@ -95,7 +95,7 @@
 <span class="kw">impl</span> <span class="ident">Engine</span> {
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">to_flag</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Engine</span>::<span class="ident">Jit</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--jit&quot;</span>,
+            <span class="ident">Engine</span>::<span class="ident">Universal</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--universal&quot;</span>,
             <span class="ident">Engine</span>::<span class="ident">Native</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--native&quot;</span>,
             <span class="ident">Engine</span>::<span class="ident">ObjectFile</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--object-file&quot;</span>,
         }

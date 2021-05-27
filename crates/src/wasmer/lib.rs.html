@@ -591,7 +591,7 @@
 <span class="doccomment">//! enable new functionality and features that set defaults.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The features that enable new functionality are:</span>
-<span class="doccomment">//! - `jit` - enable the JIT engine. (See [wasmer-jit][])</span>
+<span class="doccomment">//! - `universal` - enable the Universal engine. (See [wasmer-universal][])</span>
 <span class="doccomment">//! - `native` - enable the native engine. (See [wasmer-native][])</span>
 <span class="doccomment">//! - `cranelift` - enable Wasmer&#39;s Cranelift compiler. (See [wasmer-cranelift][])</span>
 <span class="doccomment">//! - `llvm` - enable Wasmer&#39;s LLVM compiler. (See [wasmer-llvm][])</span>
@@ -606,12 +606,12 @@
 <span class="doccomment">//! - `default-singlepass` - set Wasmer&#39;s Singlepass compiler as the default.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The next set is the default engine set:</span>
-<span class="doccomment">//! - `default-jit` - set the JIT engine as the default.</span>
+<span class="doccomment">//! - `default-universal` - set the Universal engine as the default.</span>
 <span class="doccomment">//! - `default-native` - set the native engine as the default.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! --------</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! By default the `wat`, `default-cranelift`, and `default-jit` features</span>
+<span class="doccomment">//! By default the `wat`, `default-cranelift`, and `default-universal` features</span>
 <span class="doccomment">//! are enabled.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!</span>
@@ -623,7 +623,7 @@
 <span class="doccomment">//! [wasmer-cranelift]: https://docs.rs/wasmer-compiler-cranelift/*/wasmer_compiler_cranelift/</span>
 <span class="doccomment">//! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/</span>
 <span class="doccomment">//! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/</span>
-<span class="doccomment">//! [wasmer-jit]: https://docs.rs/wasmer-engine-jit/*/wasmer_engine_jit/</span>
+<span class="doccomment">//! [wasmer-universal]: https://docs.rs/wasmer-engine-universal/*/wasmer_engine_universal/</span>
 <span class="doccomment">//! [wasmer-native]: https://docs.rs/wasmer-engine-native/*/wasmer_engine_native/</span>
 <span class="doccomment">//! [wasmer-singlepass]: https://docs.rs/wasmer-compiler-singlepass/*/wasmer_compiler_singlepass/</span>
 <span class="doccomment">//! [wasmer-llvm]: https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/</span>
@@ -724,9 +724,9 @@
 If you wish to use more than one compiler, you can simply create the own store. Eg.:
 
 ```
-use wasmer::{Store, JIT, Singlepass};
+use wasmer::{Store, Universal, Singlepass};
 
-let engine = JIT::new(Singlepass::default()).engine();
+let engine = Universal::new(Singlepass::default()).engine();
 let store = Store::new(&amp;engine);
 ```&quot;#</span>
 );
@@ -740,8 +740,8 @@ let store = Store::new(&amp;engine);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler_llvm</span>::{<span class="ident">LLVMOptLevel</span>, <span class="ident">LLVM</span>};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_jit</span>::{<span class="ident">JITArtifact</span>, <span class="ident">JITEngine</span>, <span class="ident">JIT</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_universal</span>::{<span class="ident">Universal</span>, <span class="ident">UniversalArtifact</span>, <span class="ident">UniversalEngine</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_native</span>::{<span class="ident">Native</span>, <span class="ident">NativeArtifact</span>, <span class="ident">NativeEngine</span>};

@@ -348,7 +348,7 @@
                             <span class="ident">arch</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">alias</span>.<span class="ident">to_string</span>());
                         }
                         <span class="comment">// Engines</span>
-                        <span class="string">&quot;jit&quot;</span> <span class="op">|</span> <span class="string">&quot;native&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="string">&quot;universal&quot;</span> <span class="op">|</span> <span class="string">&quot;native&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="ident">engine</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">alias</span>.<span class="ident">to_string</span>());
                         }
                         <span class="comment">// Compilers</span>
@@ -445,7 +445,7 @@
             <span class="ident">os</span>: <span class="prelude-val">Some</span>(<span class="string">&quot;macos&quot;</span>.<span class="ident">to_string</span>()),
             <span class="ident">arch</span>: <span class="prelude-val">None</span>,
             <span class="ident">target_env</span>: <span class="prelude-val">None</span>,
-            <span class="ident">engine</span>: <span class="prelude-val">Some</span>(<span class="string">&quot;jit&quot;</span>.<span class="ident">to_string</span>()),
+            <span class="ident">engine</span>: <span class="prelude-val">Some</span>(<span class="string">&quot;universal&quot;</span>.<span class="ident">to_string</span>()),
             <span class="ident">compiler</span>: <span class="prelude-val">None</span>,
             <span class="ident">pattern_to_ignore</span>: <span class="string">&quot;other&quot;</span>.<span class="ident">to_string</span>()
         }
@@ -453,7 +453,7 @@
             <span class="string">&quot;macos&quot;</span>,
             <span class="string">&quot;unknown&quot;</span>,
             <span class="string">&quot;&quot;</span>,
-            <span class="string">&quot;jit&quot;</span>,
+            <span class="string">&quot;universal&quot;</span>,
             <span class="string">&quot;compiler&quot;</span>,
             <span class="string">&quot;some::random::text&quot;</span>
         ));

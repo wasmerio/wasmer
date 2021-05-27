@@ -7,9 +7,9 @@
     <span class="comment">// Create the configuration.</span>
     <span class="ident">wasm_config_t</span><span class="op">*</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">wasm_config_new</span>();
 
-    <span class="comment">// Use the JIT engine, if available.</span>
-    <span class="kw">if</span> (<span class="ident">wasmer_is_engine_available</span>(<span class="ident">JIT</span>)) {
-        <span class="ident">wasm_config_set_engine</span>(<span class="ident">config</span>, <span class="ident">JIT</span>);
+    <span class="comment">// Use the Universal engine, if available.</span>
+    <span class="kw">if</span> (<span class="ident">wasmer_is_engine_available</span>(<span class="ident">UNIVERSAL</span>)) {
+        <span class="ident">wasm_config_set_engine</span>(<span class="ident">config</span>, <span class="ident">UNIVERSAL</span>);
     }
     <span class="comment">// Or maybe the Native engine?</span>
     <span class="kw">else</span> <span class="kw">if</span> (<span class="ident">wasmer_is_engine_available</span>(<span class="ident">NATIVE</span>)) {

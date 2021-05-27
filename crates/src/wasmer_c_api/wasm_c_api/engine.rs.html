@@ -646,12 +646,12 @@
 <span class="kw">use</span> <span class="ident">cfg_if</span>::<span class="ident">cfg_if</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">Engine</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_engine_jit</span>::<span class="ident">JIT</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_engine_native</span>::<span class="ident">Native</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_engine_object_file</span>::<span class="ident">ObjectFile</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasmer_engine_universal</span>::<span class="ident">Universal</span>;
 
 <span class="doccomment">/// Kind of compilers that can be used by the engines.</span>
 <span class="doccomment">///</span>
@@ -699,9 +699,9 @@
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">wasmer_engine_t</span> {
-    <span class="doccomment">/// Variant to represent the JIT engine. See the</span>
-    <span class="doccomment">/// [`wasmer_engine_jit`] Rust crate.</span>
-    <span class="ident">JIT</span> <span class="op">=</span> <span class="number">0</span>,
+    <span class="doccomment">/// Variant to represent the Universal engine. See the</span>
+    <span class="doccomment">/// [`wasmer_engine_universal`] Rust crate.</span>
+    <span class="ident">UNIVERSAL</span> <span class="op">=</span> <span class="number">0</span>,
 
     <span class="doccomment">/// Variant to represent the Native engine. See the</span>
     <span class="doccomment">/// [`wasmer_engine_native`] Rust crate.</span>
@@ -715,8 +715,8 @@
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">wasmer_engine_t</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="macro">cfg_if</span><span class="macro">!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>)]</span> {
-                <span class="self">Self</span>::<span class="ident">JIT</span>
+            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span> {
+                <span class="self">Self</span>::<span class="ident">UNIVERSAL</span>
             } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span> {
                 <span class="self">Self</span>::<span class="ident">NATIVE</span>
             } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span> {
@@ -879,9 +879,9 @@
 <span class="doccomment">///     // Create the configuration.</span>
 <span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     // Use the JIT engine, if available.</span>
-<span class="doccomment">///     if (wasmer_is_engine_available(JIT)) {</span>
-<span class="doccomment">///         wasm_config_set_engine(config, JIT);</span>
+<span class="doccomment">///     // Use the Universal engine, if available.</span>
+<span class="doccomment">///     if (wasmer_is_engine_available(UNIVERSAL)) {</span>
+<span class="doccomment">///         wasm_config_set_engine(config, UNIVERSAL);</span>
 <span class="doccomment">///     }</span>
 <span class="doccomment">///     // Or maybe the Native engine?</span>
 <span class="doccomment">///     else if (wasmer_is_engine_available(NATIVE)) {</span>
@@ -918,9 +918,9 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>,
 }
 
-<span class="comment">// Compiler JIT</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">CompilerConfig</span>;
+
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">fn</span> <span class="ident">get_default_compiler_config</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> {
     <span class="macro">cfg_if</span><span class="macro">!</span> {
@@ -937,8 +937,8 @@
 }
 
 <span class="macro">cfg_if</span><span class="macro">!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span> {
-        <span class="doccomment">/// Creates a new JIT engine with the default compiler.</span>
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span> {
+        <span class="doccomment">/// Creates a new Universal engine with the default compiler.</span>
         <span class="doccomment">///</span>
         <span class="doccomment">/// # Example</span>
         <span class="doccomment">///</span>
@@ -948,11 +948,11 @@
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">get_default_compiler_config</span>();
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">JIT</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Universal</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>)]</span> {
-        <span class="doccomment">/// Creates a new headless JIT engine.</span>
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span> {
+        <span class="doccomment">/// Creates a new headless Universal engine.</span>
         <span class="doccomment">///</span>
         <span class="doccomment">/// # Example</span>
         <span class="doccomment">///</span>
@@ -961,7 +961,7 @@
         <span class="doccomment">/// cbindgen:ignore</span>
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">JIT</span>::<span class="ident">headless</span>().<span class="ident">engine</span>());
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Universal</span>::<span class="ident">headless</span>().<span class="ident">engine</span>());
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
     } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span> {
@@ -1017,7 +1017,7 @@
         <span class="doccomment">/// cbindgen:ignore</span>
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature jit`&quot;</span>);
+            <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature universal`&quot;</span>);
         }
     }
 }
@@ -1117,10 +1117,10 @@
             }
 
             <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">config</span>.<span class="ident">engine</span> {
-                <span class="ident">wasmer_engine_t</span>::<span class="ident">JIT</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">wasmer_engine_t</span>::<span class="ident">UNIVERSAL</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">cfg_if</span><span class="macro">!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">JIT</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>);
+                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span> {
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Universal</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>);
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
@@ -1132,7 +1132,7 @@
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `jit` feature.&quot;</span>);
+                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `universal` feature.&quot;</span>);
                         }
                     }
                 },
@@ -1180,10 +1180,10 @@
             <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span> }))
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">config</span>.<span class="ident">engine</span> {
-                <span class="ident">wasmer_engine_t</span>::<span class="ident">JIT</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">wasmer_engine_t</span>::<span class="ident">UNIVERSAL</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">cfg_if</span><span class="macro">!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">JIT</span>::<span class="ident">headless</span>();
+                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span> {
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Universal</span>::<span class="ident">headless</span>();
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
@@ -1195,7 +1195,7 @@
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `jit` feature.&quot;</span>);
+                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `universal` feature.&quot;</span>);
                         }
                     }
                 },

@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["JITEngine","A WebAssembly `JIT` Engine."],["JITEngineInner","The inner contents of `JITEngine`"]]});
