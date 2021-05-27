@@ -31,7 +31,7 @@ wasm_engine_t *wasm_engine_new() {
     printf("Compiler %s not recognized\n", wasmer_test_compiler);
     abort();
   }
-  if (strcmp(wasmer_test_engine, "jit") == 0) {
+  if (strcmp(wasmer_test_engine, "universal") == 0) {
     assert(wasmer_is_engine_available(UNIVERSAL));
     wasm_config_set_engine(config, UNIVERSAL);
   } else if (strcmp(wasmer_test_engine, "native") == 0) {
