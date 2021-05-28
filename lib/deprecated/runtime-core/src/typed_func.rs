@@ -216,6 +216,10 @@ where
             _ => Err(ExportError::IncompatibleType),
         }
     }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.new_function.into_weak_instance_ref();
+    }
 }
 
 /// Represents a type-erased function provided by either the host or the WebAssembly program.
@@ -324,6 +328,10 @@ impl<'a> new::wasmer::Exportable<'a> for DynamicFunc {
             ),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.new_function.into_weak_instance_ref();
     }
 }
 

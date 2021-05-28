@@ -35,6 +35,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2149](https://github.com/wasmerio/wasmer/pull/2144) `wasmer-engine-native` looks for clang-11 instead of clang-10.
 
 ### Fixed
+- [#2327](https://github.com/wasmerio/wasmer/pull/2327) Fix memory leak preventing internal instance memory from being freed when a WasmerEnv contained an exported extern (e.g. Memory, etc.).
 - [#2247](https://github.com/wasmerio/wasmer/pull/2247) Internal WasiFS logic updated to be closer to what WASI libc does when finding a preopened fd for a path.
 - [#2208](https://github.com/wasmerio/wasmer/pull/2208) Fix ownership in Wasm C API of `wasm_extern_as_func`, `wasm_extern_as_memory`, `wasm_extern_as_table`, `wasm_extern_as_global`, `wasm_func_as_extern`, `wasm_memory_as_extern`, `wasm_table_as_extern`, and `wasm_global_as_extern`. These functions no longer allocate memory and thus their results should not be freed. This is a breaking change to align more closely with the Wasm C API's stated ownership.
 - [#2210](https://github.com/wasmerio/wasmer/pull/2210) Fix a memory leak in the Wasm C API in the strings used to identify imports and exports coming from user code.

@@ -85,6 +85,10 @@ impl<'a> new::wasmer::Exportable<'a> for Table {
             _ => Err(ExportError::IncompatibleType),
         }
     }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.new_table.into_weak_instance_ref();
+    }
 }
 
 #[cfg(test)]

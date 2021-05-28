@@ -1167,7 +1167,7 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 name = "wasmer"
 version = "1.0.2"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "indexmap",
  "loupe",
  "more-asserts",
@@ -1305,7 +1305,7 @@ dependencies = [
 name = "wasmer-engine-native"
 version = "1.0.2"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "leb128",
  "libloading",
  "loupe",
@@ -1325,7 +1325,7 @@ dependencies = [
 name = "wasmer-engine-universal"
 version = "1.0.2"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "leb128",
  "loupe",
  "region",
@@ -1382,7 +1382,7 @@ version = "1.0.2"
 dependencies = [
  "backtrace",
  "cc",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "indexmap",
  "libc",
  "loupe",

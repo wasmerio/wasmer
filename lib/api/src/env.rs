@@ -72,12 +72,16 @@ impl From<ExportError> for HostEnvInitError {
 ///
 /// impl WasmerEnv for MyEnv {
 ///     fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
-///         let memory = instance.exports.get_memory("memory").unwrap();
+///         let memory: Memory = instance.exports.get_with_generics_weak("memory").unwrap();
 ///         self.memory.initialize(memory.clone());
 ///         Ok(())
 ///     }
 /// }
 /// ```
+///
+/// When implementing the trait manually, it's important to get a "weak" export to
+/// prevent a cyclic reference leaking memory. You can access a "weak" export with
+/// a method like `get_with_generics_weak`.
 pub trait WasmerEnv: Clone + Send + Sync {
     /// The function that Wasmer will call on your type to let it finish
     /// setting up the environment with data from the `Instance`.
