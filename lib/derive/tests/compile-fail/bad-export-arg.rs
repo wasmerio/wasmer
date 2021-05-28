@@ -1,10 +1,11 @@
 extern crate wasmer;
 
-use wasmer::{LazyInit, WasmerEnv, Memory};
+use wasmer::{LazyInit, Memory, WasmerEnv};
 
 #[derive(WasmerEnv)]
 struct BadExportArg {
-    #[wasmer(export(this_is_not_a_real_argument="hello, world"))] //~ Unrecognized argument in export options: expected `name` found `this_is_not_a_real_argument
+    #[wasmer(export(this_is_not_a_real_argument = "hello, world"))]
+    //~ Unrecognized argument in export options: expected `name` found `this_is_not_a_real_argument
     memory: LazyInit<Memory>,
 }
 

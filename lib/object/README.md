@@ -3,8 +3,8 @@
 The Wasmer Native Object crate aims at cross-generating native objects
 for various platforms.
 
-This crate is the foundation of [the `wasmer-engine-native`
-crate](../engine-native/). Given a compilation result, i.e. the result
+This crate is the foundation of [the `wasmer-engine-dylib`
+crate](../engine-dylib/). Given a compilation result, i.e. the result
 of `wasmer_compiler::Compiler::compile_module`, this crate exposes
 functions to create an `Object` file for a given target. It is a
 useful thin layer on top of [the `object`

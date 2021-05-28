@@ -1,9 +1,9 @@
 [package]
-name = "wasmer-engine-native"
+name = "wasmer-engine-dylib"
 version = "1.0.2"
-description = "Wasmer Native Engine"
+description = "Wasmer Dylib Engine"
 categories = ["wasm"]
-keywords = ["wasm", "webassembly", "engine", "native"]
+keywords = ["wasm", "webassembly", "engine", "dylib"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"

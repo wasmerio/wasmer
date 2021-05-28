@@ -19,16 +19,16 @@ pub struct StoreOptions {
     #[clap(flatten)]
     compiler: CompilerOptions,
 
-    /// Use Universal Engine.
-    #[clap(long, conflicts_with_all = &["native", "object-file"])]
+    /// Use the Universal Engine.
+    #[clap(long, conflicts_with_all = &["dylib", "object-file"])]
     universal: bool,
 
-    /// Use Native Engine.
+    /// Use the Dylib Engine.
     #[clap(long, conflicts_with_all = &["universal", "object-file"])]
-    native: bool,
+    dylib: bool,
 
-    /// Use ObjectFile Engine.
-    #[clap(long, conflicts_with_all = &["universal", "native"])]
+    /// Use the ObjectFile Engine.
+    #[clap(long, conflicts_with_all = &["universal", "dylib"])]
     object_file: bool,
 }
 
@@ -143,9 +143,9 @@ impl CompilerOptions {
                     .target(target)
                     .engine(),
             ),
-            #[cfg(feature = "native")]
-            EngineType::Native => Box::new(
-                wasmer_engine_native::Native::new(compiler_config)
+            #[cfg(feature = "dylib")]
+            EngineType::Dylib => Box::new(
+                wasmer_engine_dylib::Dylib::new(compiler_config)
                     .target(target)
                     .features(features)
                     .engine(),
@@ -157,7 +157,7 @@ impl CompilerOptions {
                     .features(features)
                     .engine(),
             ),
-            #[cfg(not(all(feature = "universal", feature = "native", feature = "object-file")))]
+            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -362,8 +362,8 @@ impl FromStr for CompilerType {
 pub enum EngineType {
     /// Universal Engine
     Universal,
-    /// Native Engine
-    Native,
+    /// Dylib Engine
+    Dylib,
     /// Object File Engine
     ObjectFile,
 }
@@ -372,7 +372,7 @@ impl ToString for EngineType {
     fn to_string(&self) -> String {
         match self {
             Self::Universal => "universal".to_string(),
-            Self::Native => "native".to_string(),
+            Self::Dylib => "dylib".to_string(),
             Self::ObjectFile => "objectfile".to_string(),
         }
     }
@@ -416,16 +416,16 @@ impl StoreOptions {
     fn get_engine(&self) -> Result<EngineType> {
         if self.universal {
             Ok(EngineType::Universal)
-        } else if self.native {
-            Ok(EngineType::Native)
+        } else if self.dylib {
+            Ok(EngineType::Dylib)
         } else if self.object_file {
             Ok(EngineType::ObjectFile)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "universal") {
                 Ok(EngineType::Universal)
-            } else if cfg!(feature = "native") {
-                Ok(EngineType::Native)
+            } else if cfg!(feature = "dylib") {
+                Ok(EngineType::Dylib)
             } else if cfg!(feature = "object-file") {
                 Ok(EngineType::ObjectFile)
             } else {
@@ -445,13 +445,13 @@ impl StoreOptions {
             EngineType::Universal => {
                 Arc::new(wasmer_engine_universal::Universal::headless().engine())
             }
-            #[cfg(feature = "native")]
-            EngineType::Native => Arc::new(wasmer_engine_native::Native::headless().engine()),
+            #[cfg(feature = "dylib")]
+            EngineType::Dylib => Arc::new(wasmer_engine_dylib::Dylib::headless().engine()),
             #[cfg(feature = "object-file")]
             EngineType::ObjectFile => {
                 Arc::new(wasmer_engine_object_file::ObjectFile::headless().engine())
             }
-            #[cfg(not(all(feature = "universal", feature = "native", feature = "object-file")))]
+            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
