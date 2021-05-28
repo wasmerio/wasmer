@@ -3634,7 +3634,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32Clz => {
                 let (input, info) = self.state.pop1_extra()?;
                 let input = self.apply_pending_canonicalization(input, info);
-                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let is_zero_undef = self.intrinsics.i1_zero;
                 let res = self
                     .builder
                     .build_call(
@@ -3650,7 +3650,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64Clz => {
                 let (input, info) = self.state.pop1_extra()?;
                 let input = self.apply_pending_canonicalization(input, info);
-                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let is_zero_undef = self.intrinsics.i1_zero;
                 let res = self
                     .builder
                     .build_call(
@@ -3666,7 +3666,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32Ctz => {
                 let (input, info) = self.state.pop1_extra()?;
                 let input = self.apply_pending_canonicalization(input, info);
-                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let is_zero_undef = self.intrinsics.i1_zero;
                 let res = self
                     .builder
                     .build_call(
@@ -3682,7 +3682,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I64Ctz => {
                 let (input, info) = self.state.pop1_extra()?;
                 let input = self.apply_pending_canonicalization(input, info);
-                let is_zero_undef = self.intrinsics.i1_zero.as_basic_value_enum();
+                let is_zero_undef = self.intrinsics.i1_zero;
                 let res = self
                     .builder
                     .build_call(
@@ -4646,8 +4646,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f32x4(v1, i1);
                 let (v2, _) = self.v128_into_f32x4(v2, i2);
-                let v1 = v1.as_basic_value_enum();
-                let v2 = v2.as_basic_value_enum();
 
                 let v1_is_nan = self
                     .builder
@@ -4716,18 +4714,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let res = self.builder.build_select(
                     v1_is_nan,
-                    self.quiet_nan(v1).into_vector_value(),
+                    self.quiet_nan(v1.into()).into_vector_value(),
                     self.builder
                         .build_select(
                             v2_is_nan,
-                            self.quiet_nan(v2).into_vector_value(),
+                            self.quiet_nan(v2.into()).into_vector_value(),
                             self.builder
                                 .build_select(
                                     v1_lt_v2,
-                                    v1,
+                                    v1.into(),
                                     self.builder.build_select(
                                         v1_gt_v2,
-                                        v2,
+                                        v2.into(),
                                         self.builder.build_bitcast(
                                             self.builder.build_or(
                                                 self.builder
@@ -4774,8 +4772,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f64x2(v1, i1);
                 let (v2, _) = self.v128_into_f64x2(v2, i2);
-                let v1 = v1.as_basic_value_enum();
-                let v2 = v2.as_basic_value_enum();
 
                 let v1_is_nan = self
                     .builder
@@ -4844,18 +4840,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let res = self.builder.build_select(
                     v1_is_nan,
-                    self.quiet_nan(v1).into_vector_value(),
+                    self.quiet_nan(v1.into()).into_vector_value(),
                     self.builder
                         .build_select(
                             v2_is_nan,
-                            self.quiet_nan(v2).into_vector_value(),
+                            self.quiet_nan(v2.into()).into_vector_value(),
                             self.builder
                                 .build_select(
                                     v1_lt_v2,
-                                    v1,
+                                    v1.into(),
                                     self.builder.build_select(
                                         v1_gt_v2,
-                                        v2,
+                                        v2.into(),
                                         self.builder.build_bitcast(
                                             self.builder.build_or(
                                                 self.builder
@@ -5120,8 +5116,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f32x4(v1, i1);
                 let (v2, _) = self.v128_into_f32x4(v2, i2);
-                let v1 = v1.as_basic_value_enum();
-                let v2 = v2.as_basic_value_enum();
 
                 let v1_is_nan = self
                     .builder
@@ -5190,18 +5184,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let res = self.builder.build_select(
                     v1_is_nan,
-                    self.quiet_nan(v1).into_vector_value(),
+                    self.quiet_nan(v1.into()).into_vector_value(),
                     self.builder
                         .build_select(
                             v2_is_nan,
-                            self.quiet_nan(v2).into_vector_value(),
+                            self.quiet_nan(v2.into()).into_vector_value(),
                             self.builder
                                 .build_select(
                                     v1_lt_v2,
-                                    v2,
+                                    v2.into(),
                                     self.builder.build_select(
                                         v1_gt_v2,
-                                        v1,
+                                        v1.into(),
                                         self.builder.build_bitcast(
                                             self.builder.build_and(
                                                 self.builder
@@ -5249,8 +5243,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f64x2(v1, i1);
                 let (v2, _) = self.v128_into_f64x2(v2, i2);
-                let v1 = v1.as_basic_value_enum();
-                let v2 = v2.as_basic_value_enum();
 
                 let v1_is_nan = self
                     .builder
@@ -5319,18 +5311,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let res = self.builder.build_select(
                     v1_is_nan,
-                    self.quiet_nan(v1).into_vector_value(),
+                    self.quiet_nan(v1.into()).into_vector_value(),
                     self.builder
                         .build_select(
                             v2_is_nan,
-                            self.quiet_nan(v2).into_vector_value(),
+                            self.quiet_nan(v2.into()).into_vector_value(),
                             self.builder
                                 .build_select(
                                     v1_lt_v2,
-                                    v2,
+                                    v2.into(),
                                     self.builder.build_select(
                                         v1_gt_v2,
-                                        v1,
+                                        v1.into(),
                                         self.builder.build_bitcast(
                                             self.builder.build_and(
                                                 self.builder
@@ -10946,13 +10938,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let mem = self
                     .intrinsics
                     .i32_ty
-                    .const_int(mem.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(mem.into(), false);
                 let segment = self
                     .intrinsics
                     .i32_ty
-                    .const_int(segment.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(segment.into(), false);
                 self.builder.build_call(
                     self.intrinsics.memory_init,
                     &[
@@ -10970,8 +10960,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let segment = self
                     .intrinsics
                     .i32_ty
-                    .const_int(segment.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(segment.into(), false);
                 self.builder.build_call(
                     self.intrinsics.data_drop,
                     &[vmctx.as_basic_value_enum().into(), segment.into()],
@@ -10994,8 +10983,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let src_index = self
                     .intrinsics
                     .i32_ty
-                    .const_int(src.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(src.into(), false);
                 self.builder.build_call(
                     memory_copy,
                     &[
@@ -11022,8 +11010,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let mem_index = self
                     .intrinsics
                     .i32_ty
-                    .const_int(mem.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(mem.into(), false);
                 self.builder.build_call(
                     memory_fill,
                     &[
@@ -11057,8 +11044,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let index = self
                     .intrinsics
                     .i32_ty
-                    .const_int(function_index.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(function_index.into(), false);
                 let value = self
                     .builder
                     .build_call(
@@ -11075,8 +11061,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let table_index = self
                     .intrinsics
                     .i32_ty
-                    .const_int(table.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(table.into(), false);
                 let elem = self.state.pop1()?;
                 let table_get = if let Some(_) = self
                     .wasm_module
@@ -11114,8 +11099,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let table_index = self
                     .intrinsics
                     .i32_ty
-                    .const_int(table.into(), false)
-                    .as_basic_value_enum();
+                    .const_int(table.into(), false);
                 let (elem, value) = self.state.pop2()?;
                 let value = self
                     .builder
@@ -11147,13 +11131,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let dst_table = self
                     .intrinsics
                     .i32_ty
-                    .const_int(dst_table as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(dst_table as u64, false);
                 let src_table = self
                     .intrinsics
                     .i32_ty
-                    .const_int(src_table as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(src_table as u64, false);
                 self.builder.build_call(
                     self.intrinsics.table_copy,
                     &[
@@ -11172,13 +11154,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let segment = self
                     .intrinsics
                     .i32_ty
-                    .const_int(segment as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(segment as u64, false);
                 let table = self
                     .intrinsics
                     .i32_ty
-                    .const_int(table as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(table as u64, false);
                 self.builder.build_call(
                     self.intrinsics.table_init,
                     &[
@@ -11196,8 +11176,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let segment = self
                     .intrinsics
                     .i32_ty
-                    .const_int(segment as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(segment as u64, false);
                 self.builder.build_call(
                     self.intrinsics.elem_drop,
                     &[self.ctx.basic().into(), segment.into()],
@@ -11208,8 +11187,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let table = self
                     .intrinsics
                     .i32_ty
-                    .const_int(table as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(table as u64, false);
                 let (start, elem, len) = self.state.pop3()?;
                 let elem = self
                     .builder
@@ -11242,8 +11220,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let table_index = self
                     .intrinsics
                     .i32_ty
-                    .const_int(table_index as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(table_index as u64, false);
                 let size = self
                     .builder
                     .build_call(
@@ -11273,8 +11250,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let table_index = self
                     .intrinsics
                     .i32_ty
-                    .const_int(table_index as u64, false)
-                    .as_basic_value_enum();
+                    .const_int(table_index as u64, false);
                 let size = self
                     .builder
                     .build_call(
