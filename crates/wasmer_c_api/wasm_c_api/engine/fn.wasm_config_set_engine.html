@@ -11,9 +11,9 @@
     <span class="kw">if</span> (<span class="ident">wasmer_is_engine_available</span>(<span class="ident">UNIVERSAL</span>)) {
         <span class="ident">wasm_config_set_engine</span>(<span class="ident">config</span>, <span class="ident">UNIVERSAL</span>);
     }
-    <span class="comment">// Or maybe the Native engine?</span>
-    <span class="kw">else</span> <span class="kw">if</span> (<span class="ident">wasmer_is_engine_available</span>(<span class="ident">NATIVE</span>)) {
-        <span class="ident">wasm_config_set_engine</span>(<span class="ident">config</span>, <span class="ident">NATIVE</span>);
+    <span class="comment">// Or maybe the Dylib engine?</span>
+    <span class="kw">else</span> <span class="kw">if</span> (<span class="ident">wasmer_is_engine_available</span>(<span class="ident">DYLIB</span>)) {
+        <span class="ident">wasm_config_set_engine</span>(<span class="ident">config</span>, <span class="ident">DYLIB</span>);
     }
     <span class="comment">// OK, let&#39;s do not specify any particular engine.</span>
 

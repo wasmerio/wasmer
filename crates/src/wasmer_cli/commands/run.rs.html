@@ -415,6 +415,7 @@
 <span id="414">414</span>
 <span id="415">415</span>
 <span id="416">416</span>
+<span id="417">417</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">common</span>::<span class="ident">get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
@@ -623,10 +624,10 @@
 
     <span class="kw">fn</span> <span class="ident">get_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">contents</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">read</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
         {
-            <span class="kw">if</span> <span class="ident">wasmer_engine_native</span>::<span class="ident">NativeArtifact</span>::<span class="ident">is_deserializable</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>) {
-                <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasmer_engine_native</span>::<span class="ident">Native</span>::<span class="ident">headless</span>().<span class="ident">engine</span>();
+            <span class="kw">if</span> <span class="ident">wasmer_engine_dylib</span>::<span class="ident">DylibArtifact</span>::<span class="ident">is_deserializable</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>) {
+                <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasmer_engine_dylib</span>::<span class="ident">Dylib</span>::<span class="ident">headless</span>().<span class="ident">engine</span>();
                 <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>);
                 <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module</span>::<span class="ident">deserialize_from_file</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>)<span class="question-mark">?</span> };
                 <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">module</span>);
@@ -713,14 +714,15 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache_dir_root</span> <span class="op">=</span> <span class="ident">get_cache_dir</span>();
         <span class="ident">cache_dir_root</span>.<span class="ident">push</span>(<span class="ident">compiler_type</span>.<span class="ident">to_string</span>());
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">FileSystemCache</span>::<span class="ident">new</span>(<span class="ident">cache_dir_root</span>)<span class="question-mark">?</span>;
-        <span class="comment">// Important: Native files need to have a `.dll` extension on Windows, otherwise</span>
-        <span class="comment">// they will not load, so we just add an extension always to make it easier</span>
-        <span class="comment">// to recognize as well.</span>
+
+        <span class="comment">// Important: Dylib files need to have a `.dll` extension on</span>
+        <span class="comment">// Windows, otherwise they will not load, so we just add an</span>
+        <span class="comment">// extension always to make it easier to recognize as well.</span>
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_patterns</span>)]</span>
         <span class="kw">let</span> <span class="ident">extension</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">engine_type</span> {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
-            <span class="ident">EngineType</span>::<span class="ident">Native</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">wasmer_engine_native</span>::<span class="ident">NativeArtifact</span>::<span class="ident">get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">Triple</span>::<span class="ident">host</span>())
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
+            <span class="ident">EngineType</span>::<span class="ident">Dylib</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">wasmer_engine_dylib</span>::<span class="ident">DylibArtifact</span>::<span class="ident">get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">Triple</span>::<span class="ident">host</span>())
                     .<span class="ident">to_string</span>()
             }
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>

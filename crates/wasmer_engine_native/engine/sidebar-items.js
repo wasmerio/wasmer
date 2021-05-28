@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Linker",""]],"struct":[["NativeEngine","A WebAssembly `Native` Engine."],["NativeEngineInner","The inner contents of `NativeEngine`"]]});

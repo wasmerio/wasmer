@@ -646,8 +646,8 @@
 <span class="kw">use</span> <span class="ident">cfg_if</span>::<span class="ident">cfg_if</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">Engine</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_engine_native</span>::<span class="ident">Native</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasmer_engine_dylib</span>::<span class="ident">Dylib</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_engine_object_file</span>::<span class="ident">ObjectFile</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
@@ -703,9 +703,9 @@
     <span class="doccomment">/// [`wasmer_engine_universal`] Rust crate.</span>
     <span class="ident">UNIVERSAL</span> <span class="op">=</span> <span class="number">0</span>,
 
-    <span class="doccomment">/// Variant to represent the Native engine. See the</span>
-    <span class="doccomment">/// [`wasmer_engine_native`] Rust crate.</span>
-    <span class="ident">NATIVE</span> <span class="op">=</span> <span class="number">1</span>,
+    <span class="doccomment">/// Variant to represent the Dylib engine. See the</span>
+    <span class="doccomment">/// [`wasmer_engine_dylib`] Rust crate.</span>
+    <span class="ident">DYLIB</span> <span class="op">=</span> <span class="number">1</span>,
 
     <span class="doccomment">/// Variant to represent the Object File engine. See the</span>
     <span class="doccomment">/// [`wasmer_engine_object_file`] Rust crate.</span>
@@ -717,8 +717,8 @@
         <span class="macro">cfg_if</span><span class="macro">!</span> {
             <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span> {
                 <span class="self">Self</span>::<span class="ident">UNIVERSAL</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span> {
-                <span class="self">Self</span>::<span class="ident">NATIVE</span>
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
+                <span class="self">Self</span>::<span class="ident">DYLIB</span>
             } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span> {
                 <span class="self">Self</span>::<span class="ident">OBJECT_FILE</span>
             } <span class="kw">else</span> {
@@ -883,9 +883,9 @@
 <span class="doccomment">///     if (wasmer_is_engine_available(UNIVERSAL)) {</span>
 <span class="doccomment">///         wasm_config_set_engine(config, UNIVERSAL);</span>
 <span class="doccomment">///     }</span>
-<span class="doccomment">///     // Or maybe the Native engine?</span>
-<span class="doccomment">///     else if (wasmer_is_engine_available(NATIVE)) {</span>
-<span class="doccomment">///         wasm_config_set_engine(config, NATIVE);</span>
+<span class="doccomment">///     // Or maybe the Dylib engine?</span>
+<span class="doccomment">///     else if (wasmer_is_engine_available(DYLIB)) {</span>
+<span class="doccomment">///         wasm_config_set_engine(config, DYLIB);</span>
 <span class="doccomment">///     }</span>
 <span class="doccomment">///     // OK, let&#39;s do not specify any particular engine.</span>
 <span class="doccomment">///</span>
@@ -964,8 +964,8 @@
             <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Universal</span>::<span class="ident">headless</span>().<span class="ident">engine</span>());
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span> {
-        <span class="doccomment">/// Creates a new native engine with the default compiler.</span>
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span> {
+        <span class="doccomment">/// Creates a new Dylib engine with the default compiler.</span>
         <span class="doccomment">///</span>
         <span class="doccomment">/// # Example</span>
         <span class="doccomment">///</span>
@@ -975,11 +975,11 @@
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">get_default_compiler_config</span>();
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Native</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Dylib</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span> {
-        <span class="doccomment">/// Creates a new headless native engine.</span>
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
+        <span class="doccomment">/// Creates a new headless Dylib engine.</span>
         <span class="doccomment">///</span>
         <span class="doccomment">/// # Example</span>
         <span class="doccomment">///</span>
@@ -988,7 +988,7 @@
         <span class="doccomment">/// cbindgen:ignore</span>
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Native</span>::<span class="ident">headless</span>().<span class="ident">engine</span>());
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Dylib</span>::<span class="ident">headless</span>().<span class="ident">engine</span>());
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
     }
@@ -1136,10 +1136,10 @@
                         }
                     }
                 },
-                <span class="ident">wasmer_engine_t</span>::<span class="ident">NATIVE</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">wasmer_engine_t</span>::<span class="ident">DYLIB</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">cfg_if</span><span class="macro">!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Native</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>);
+                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Dylib</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>);
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
@@ -1151,7 +1151,7 @@
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `native` feature.&quot;</span>);
+                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `dylib` feature.&quot;</span>);
                         }
                     }
                 },
@@ -1199,10 +1199,10 @@
                         }
                     }
                 },
-                <span class="ident">wasmer_engine_t</span>::<span class="ident">NATIVE</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">wasmer_engine_t</span>::<span class="ident">DYLIB</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">cfg_if</span><span class="macro">!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Native</span>::<span class="ident">headless</span>();
+                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Dylib</span>::<span class="ident">headless</span>();
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
@@ -1214,7 +1214,7 @@
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `native` feature.&quot;</span>);
+                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `dylib` feature.&quot;</span>);
                         }
                     }
                 },

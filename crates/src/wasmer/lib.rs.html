@@ -624,7 +624,7 @@
 <span class="doccomment">//! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/</span>
 <span class="doccomment">//! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/</span>
 <span class="doccomment">//! [wasmer-universal]: https://docs.rs/wasmer-engine-universal/*/wasmer_engine_universal/</span>
-<span class="doccomment">//! [wasmer-native]: https://docs.rs/wasmer-engine-native/*/wasmer_engine_native/</span>
+<span class="doccomment">//! [wasmer-native]: https://docs.rs/wasmer-engine-dylib/*/wasmer_engine_dylib/</span>
 <span class="doccomment">//! [wasmer-singlepass]: https://docs.rs/wasmer-compiler-singlepass/*/wasmer_compiler_singlepass/</span>
 <span class="doccomment">//! [wasmer-llvm]: https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/</span>
 <span class="doccomment">//! [wasmer-wasi]: https://docs.rs/wasmer-wasi/*/wasmer_wasi/</span>
@@ -743,8 +743,8 @@ let store = Store::new(&amp;engine);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_universal</span>::{<span class="ident">Universal</span>, <span class="ident">UniversalArtifact</span>, <span class="ident">UniversalEngine</span>};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_native</span>::{<span class="ident">Native</span>, <span class="ident">NativeArtifact</span>, <span class="ident">NativeEngine</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_dylib</span>::{<span class="ident">Dylib</span>, <span class="ident">DylibArtifact</span>, <span class="ident">DylibEngine</span>};
 
 <span class="doccomment">/// Version number of this crate.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);

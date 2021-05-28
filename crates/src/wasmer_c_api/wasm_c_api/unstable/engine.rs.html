@@ -355,7 +355,7 @@
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_engine_available</span>(<span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">match</span> <span class="ident">engine</span> {
         <span class="ident">wasmer_engine_t</span>::<span class="ident">UNIVERSAL</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-        <span class="ident">wasmer_engine_t</span>::<span class="ident">NATIVE</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="ident">wasmer_engine_t</span>::<span class="ident">DYLIB</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
         <span class="ident">wasmer_engine_t</span>::<span class="ident">OBJECT_FILE</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
     }
@@ -437,7 +437,7 @@
                 <span class="string">&quot;0&quot;</span>
             },
         );
-        <span class="ident">set_var</span>(<span class="string">&quot;NATIVE&quot;</span>, <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> });
+        <span class="ident">set_var</span>(<span class="string">&quot;DYLIB&quot;</span>, <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> });
         <span class="ident">set_var</span>(
             <span class="string">&quot;OBJECT_FILE&quot;</span>,
             <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>) {
@@ -453,7 +453,7 @@
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">assert</span>(<span class="ident">wasmer_is_engine_available</span>(<span class="ident">UNIVERSAL</span>) <span class="op">=</span><span class="op">=</span> (<span class="ident">getenv</span>(<span class="string">&quot;UNIVERSAL&quot;</span>)[<span class="number">0</span>] <span class="op">=</span><span class="op">=</span> <span class="string">&#39;1&#39;</span>));
-                <span class="ident">assert</span>(<span class="ident">wasmer_is_engine_available</span>(<span class="ident">NATIVE</span>) <span class="op">=</span><span class="op">=</span> (<span class="ident">getenv</span>(<span class="string">&quot;NATIVE&quot;</span>)[<span class="number">0</span>] <span class="op">=</span><span class="op">=</span> <span class="string">&#39;1&#39;</span>));
+                <span class="ident">assert</span>(<span class="ident">wasmer_is_engine_available</span>(<span class="ident">DYLIB</span>) <span class="op">=</span><span class="op">=</span> (<span class="ident">getenv</span>(<span class="string">&quot;DYLIB&quot;</span>)[<span class="number">0</span>] <span class="op">=</span><span class="op">=</span> <span class="string">&#39;1&#39;</span>));
                 <span class="ident">assert</span>(<span class="ident">wasmer_is_engine_available</span>(<span class="ident">OBJECT_FILE</span>) <span class="op">=</span><span class="op">=</span> (<span class="ident">getenv</span>(<span class="string">&quot;OBJECT_FILE&quot;</span>)[<span class="number">0</span>] <span class="op">=</span><span class="op">=</span> <span class="string">&#39;1&#39;</span>));
 
                 <span class="kw">return</span> <span class="number">0</span>;
@@ -462,7 +462,7 @@
         .<span class="ident">success</span>();
 
         <span class="ident">remove_var</span>(<span class="string">&quot;UNIVERSAL&quot;</span>);
-        <span class="ident">remove_var</span>(<span class="string">&quot;NATIVE&quot;</span>);
+        <span class="ident">remove_var</span>(<span class="string">&quot;DYLIB&quot;</span>);
         <span class="ident">remove_var</span>(<span class="string">&quot;OBJECT_FILE&quot;</span>);
     }
 }
