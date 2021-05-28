@@ -172,7 +172,7 @@ qjs >
 [swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
 
 [zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
-[zig integration]: https://github.com/kubkon/wasmer-zig
+[zig integration]: https://github.com/zigwasm/wasmer-zig
 
 ## Contribute
 
