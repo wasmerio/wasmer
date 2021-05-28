@@ -152,6 +152,10 @@ test-universal = [
 # that raise signals because that interferes with tarpaulin.
 coverage = []
 
+# Deprecated features.
+jit = ["universal"]
+native = ["dylib"]
+
 [profile.dev]
 split-debuginfo = "unpacked"
 

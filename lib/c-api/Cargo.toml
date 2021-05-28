@@ -91,10 +91,12 @@ system-libffi = ["libffi/system"]
 # TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]
 
-# This is for compatibility for old usage
+# Deprecated features.
 singlepass-backend = ["singlepass"]
 cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
+jit = ["universal"]
+native = ["dylib"]
 
 [build-dependencies]
 cbindgen = "0.18"

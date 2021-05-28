@@ -30,3 +30,16 @@ pub mod utils;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[cfg(any(feature = "jit", feature = "native"))]
+compile_error!(
+    r#"At least one deprecated feature has been used, and cannot not
+be used any longer. Please refer to the following table:
+
+| Deprecated feature | New feature to use instead |
+|--------------------|----------------------------|
+| `jit`              | `universal`                |
+| `native`           | `dylib`                    |
+
+"#
+);
