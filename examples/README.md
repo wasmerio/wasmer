@@ -236,7 +236,7 @@ example.
 
    </details>
 
-2. [**Native engine**][engine-native], explains what a native engine
+2. [**Dylib engine**][engine-dylib], explains what a Dylib engine
    is, and how to set it up. The example completes itself with the
    compilation of the Wasm module, its instantiation, and finally, by
    calling an exported function.
@@ -248,7 +248,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example engine-native --release --features "cranelift"
+   $ cargo run --example engine-dylib --release --features "cranelift"
    ```
 
    </details>
@@ -376,7 +376,7 @@ example.
 
 [hello-world]: ./hello_world.rs
 [engine-universal]: ./engine_universal.rs
-[engine-native]: ./engine_native.rs
+[engine-dylib]: ./engine_dylib.rs
 [engine-headless]: ./engine_headless.rs
 [compiler-singlepass]: ./compiler_singlepass.rs
 [compiler-cranelift]: ./compiler_cranelift.rs

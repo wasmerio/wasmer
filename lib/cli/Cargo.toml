@@ -32,7 +32,7 @@ wasmer-compiler-llvm = { version = "1.0.2", path = "../compiler-llvm", optional 
 wasmer-emscripten = { version = "1.0.2", path = "../emscripten", optional = true }
 wasmer-engine = { version = "1.0.2", path = "../engine" }
 wasmer-engine-universal = { version = "1.0.2", path = "../engine-universal", optional = true }
-wasmer-engine-native = { version = "1.0.2", path = "../engine-native", optional = true }
+wasmer-engine-dylib = { version = "1.0.2", path = "../engine-dylib", optional = true }
 wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
 wasmer-vm = { version = "1.0.2", path = "../vm" }
 wasmer-wasi = { version = "1.0.2", path = "../wasi", default-features = false, optional = true }
@@ -61,7 +61,7 @@ default = [
     "wat",
     "wast",
     "universal",
-    "native",
+    "dylib",
     "object-file",
     "cache",
     "wasi",
@@ -72,8 +72,8 @@ universal = [
     "wasmer-engine-universal",
     "engine",
 ]
-native = [
-    "wasmer-engine-native",
+dylib = [
+    "wasmer-engine-dylib",
     "engine",
 ]
 object-file = [
@@ -88,7 +88,7 @@ wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-universal/compiler",
-    "wasmer-engine-native/compiler",
+    "wasmer-engine-dylib/compiler",
     "wasmer-engine-object-file/compiler",
 ]
 experimental-io-devices = [
@@ -110,4 +110,4 @@ llvm = [
 debug = ["fern", "log", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
 headless = []
-headless-minimal = ["headless", "disable-all-logging", "wasi", "native", "universal"]
+headless-minimal = ["headless", "disable-all-logging", "wasi", "dylib", "universal"]

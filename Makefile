@@ -13,7 +13,7 @@ SHELL=/bin/bash
 # | Compiler   ⨯ Engine    ⨯ Platform ⨯ Architecture ⨯ libc  |
 # |------------|-----------|----------|--------------|-------|
 # | Cranelift  | Universal | Linux    | amd64        | glibc |
-# | LLVM       | Native    | Darwin   | aarch64      | musl  |
+# | LLVM       | Dylib     | Darwin   | aarch64      | musl  |
 # | Singlepass |           | Windows  |              |       |
 # |------------|-----------|----------|--------------|-------|
 #
@@ -21,19 +21,19 @@ SHELL=/bin/bash
 #
 # * Cranelift with the Universal engine works everywhere,
 #
-# * Cranelift with the Native engine works on Linux+Darwin/`amd64`,
-#   but it doesn't work on */`aarch64` or Windows/*.
+# * Cranelift with the Dylib engine works on Linux+Darwin/`amd64`, but
+#   it doesn't work on */`aarch64` or Windows/*.
 #
 # * LLVM with the Universal engine works on Linux+Darwin/`amd64`,
 #   but it doesn't work on */`aarch64` or Windows/*.
 #
-# * LLVM with the Native engine works on
+# * LLVM with the Dylib engine works on
 #   Linux+Darwin/`amd64`+`aarch64`, but it doesn't work on Windows/*.
 #
 # * Singlepass with the Universal engine works on Linux+Darwin/`amd64`, but
 #   it doesn't work on */`aarch64` or Windows/*.
 #
-# * Singlepass with the Native engine doesn't work because it doesn't
+# * Singlepass with the Dylib engine doesn't work because it doesn't
 #   know how to output object files for the moment.
 #
 # * Windows isn't tested on `aarch64`, that's why we consider it's not
@@ -210,12 +210,12 @@ ifeq ($(ENABLE_CRANELIFT), 1)
 	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			ifneq ($(LIBC), musl)
-				compilers_engines += cranelift-native
+				compilers_engines += cranelift-dylib
 			endif
 		else ifeq ($(IS_AARCH64), 1)
 			# The object crate doesn't support yet Darwin + Aarch64 relocations
 			ifneq ($(IS_DARWIN), 1)
-				compilers_engines += cranelift-native
+				compilers_engines += cranelift-dylib
 			endif
 		endif
 	endif
@@ -229,9 +229,9 @@ ifeq ($(ENABLE_LLVM), 1)
 	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-universal
-			compilers_engines += llvm-native
+			compilers_engines += llvm-dylib
 		else ifeq ($(IS_AARCH64), 1)
-			compilers_engines += llvm-native
+			compilers_engines += llvm-dylib
 		endif
 	endif
 endif
@@ -297,10 +297,10 @@ compiler_features := --features $(subst $(space),$(comma),$(compilers))
 capi_compilers_engines_exclude := 
 
 # Define the compiler Cargo features for the C API. It always excludes
-# LLVM for the moment because it causes the linker to fail since llvm is not statically linked.
-# TODO: Reenable llvm in C-API
+# LLVM for the moment because it causes the linker to fail since LLVM is not statically linked.
+# TODO: Reenable LLVM in C-API
 capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers)))
-capi_compilers_engines_exclude += llvm-universal llvm-native
+capi_compilers_engines_exclude += llvm-universal llvm-dylib
 
 # We exclude singlepass-universal because it doesn't support multivalue (required in wasm-c-api tests)
 capi_compilers_engines_exclude += singlepass-universal
@@ -423,23 +423,23 @@ endif
 
 build-docs-capi: capi-setup
 	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
-	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,object-file,native,cranelift,wasi $(capi_default_features)
+	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,object-file,dylib,cranelift,wasi $(capi_default_features)
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,native,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features)
+		--no-default-features --features deprecated,wat,universal,dylib,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,native,object-file,singlepass,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,object-file,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-singlepass-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,universal,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-native: capi-setup
+build-capi-singlepass-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,singlepass,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,dylib,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-singlepass-object-file: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -447,35 +447,35 @@ build-capi-singlepass-object-file: capi-setup
 
 build-capi-cranelift: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift-system-libffi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,native,object-file,cranelift,wasi,middlewares,system-libffi $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,object-file,cranelift,wasi,middlewares,system-libffi $(capi_default_features)
 
 build-capi-cranelift-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,universal,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-native: capi-setup
+build-capi-cranelift-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,cranelift,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,dylib,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift-object-file: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,dylib,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,native,object-file,llvm,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,object-file,llvm,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,universal,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-native: capi-setup
+build-capi-llvm-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,llvm,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,dylib,llvm,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm-object-file: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -487,9 +487,9 @@ build-capi-headless-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,wasi
 
-build-capi-headless-native: capi-setup
+build-capi-headless-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features native,wasi
+		--no-default-features --features dylib,wasi
 
 build-capi-headless-object-file: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -497,7 +497,7 @@ build-capi-headless-object-file: capi-setup
 
 build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features universal,native,object-file,wasi
+		--no-default-features --features universal,dylib,object-file,wasi
 
 ###########
 # Testing #
@@ -520,20 +520,20 @@ test-packages:
 
 test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
-test-singlepass-native:
-	cargo test --release --tests $(compiler_features) -- singlepass::native
+test-singlepass-dylib:
+	cargo test --release --tests $(compiler_features) -- singlepass::dylib
 
 test-singlepass-universal:
 	cargo test --release --tests $(compiler_features) -- singlepass::universal
 
-test-cranelift-native:
-	cargo test --release --tests $(compiler_features) -- cranelift::native
+test-cranelift-dylib:
+	cargo test --release --tests $(compiler_features) -- cranelift::dylib
 
 test-cranelift-universal:
 	cargo test --release --tests $(compiler_features) -- cranelift::universal
 
-test-llvm-native:
-	cargo test --release --tests $(compiler_features) -- llvm::native
+test-llvm-dylib:
+	cargo test --release --tests $(compiler_features) -- llvm::dylib
 
 test-llvm-universal:
 	cargo test --release --tests $(compiler_features) -- llvm::universal
@@ -550,7 +550,7 @@ test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_en
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,native,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features) -- --nocapture
+		--no-default-features --features deprecated,wat,universal,dylib,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
 	# Test the Wasmer C API tests for C

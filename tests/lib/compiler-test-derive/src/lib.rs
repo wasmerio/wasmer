@@ -1,16 +1,16 @@
 #[cfg(not(test))]
 extern crate proc_macro;
 #[cfg(not(test))]
-use ::proc_macro::TokenStream;
+use proc_macro::TokenStream;
 #[cfg(test)]
-use ::proc_macro2::TokenStream;
-use ::quote::quote;
-#[cfg(not(test))]
-use ::syn::parse;
-#[cfg(test)]
-use ::syn::parse2 as parse;
-use ::syn::*;
+use proc_macro2::TokenStream;
+use quote::quote;
 use std::path::PathBuf;
+#[cfg(not(test))]
+use syn::parse;
+#[cfg(test)]
+use syn::parse2 as parse;
+use syn::*;
 
 mod ignores;
 
@@ -70,12 +70,12 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
     };
     let construct_engine_test = |func: &::syn::ItemFn,
                                  compiler_name: &str,
-                                 engine_name: &str|
+                                 engine_name: &str,
+                                 engine_feature_name: &str|
      -> ::proc_macro2::TokenStream {
         let config_compiler = ::quote::format_ident!("{}", compiler_name);
         let config_engine = ::quote::format_ident!("{}", engine_name);
-        let engine_name_lowercase = engine_name.to_lowercase();
-        let test_name = ::quote::format_ident!("{}", engine_name_lowercase);
+        let test_name = ::quote::format_ident!("{}", engine_name.to_lowercase());
         let mut new_sig = func.sig.clone();
         let attrs = func
             .attrs
@@ -87,7 +87,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
         let f = quote! {
             #[test]
             #attrs
-            #[cfg(feature = #engine_name_lowercase)]
+            #[cfg(feature = #engine_feature_name)]
             #new_sig {
                 #fn_name(crate::Config::new(crate::Engine::#config_engine, crate::Compiler::#config_compiler))
             }
@@ -110,8 +110,9 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let construct_compiler_test =
         |func: &::syn::ItemFn, compiler_name: &str| -> ::proc_macro2::TokenStream {
             let mod_name = ::quote::format_ident!("{}", compiler_name.to_lowercase());
-            let universal_engine_test = construct_engine_test(func, compiler_name, "Universal");
-            let native_engine_test = construct_engine_test(func, compiler_name, "Native");
+            let universal_engine_test =
+                construct_engine_test(func, compiler_name, "Universal", "universal");
+            let dylib_engine_test = construct_engine_test(func, compiler_name, "Dylib", "dylib");
             let compiler_name_lowercase = compiler_name.to_lowercase();
 
             quote! {
@@ -120,7 +121,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
                     use super::*;
 
                     #universal_engine_test
-                    #native_engine_test
+                    #dylib_engine_test
                 }
             }
         };

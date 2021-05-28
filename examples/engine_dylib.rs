@@ -1,27 +1,26 @@
 //! Defining an engine in Wasmer is one of the fundamental steps.
 //!
-//! This example illustrates how to use the `wasmer_engine_native`,
-//! aka the native engine. An engine applies roughly 2 steps:
+//! This example illustrates how to use the `wasmer_engine_dylib`,
+//! aka the Dylib engine. An engine applies roughly 2 steps:
 //!
 //!   1. It compiles the Wasm module bytes to executable code, through
 //!      the intervention of a compiler,
 //!   2. It stores the executable code somewhere.
 //!
-//! In the particular context of the native engine, the executable
-//! code is stored in a native object, more precisely in a dynamic
-//! library.
+//! In the particular context of the Dylib engine, the executable code
+//! is stored in a shared object (`.dylib`, `.so` or `.dll` file).
 //!
 //! You can run the example directly by executing in Wasmer root:
 //!
 //! ```shell
-//! cargo run --example engine-native --release --features "cranelift"
+//! cargo run --example engine-dylib --release --features "cranelift"
 //! ```
 //!
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_native::Native;
+use wasmer_engine_dylib::Dylib;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -45,12 +44,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile the Wasm module into executable code.
     let compiler_config = Cranelift::default();
 
-    println!("Creating Native engine...");
+    println!("Creating Dylib engine...");
     // Define the engine that will drive everything.
     //
-    // In this case, the engine is `wasmer_engine_native` which means
-    // that a native object is going to be generated.
-    let engine = Native::new(compiler_config).engine();
+    // In this case, the engine is `wasmer_engine_dylib` which means
+    // that a shared object is going to be generated.
+    let engine = Dylib::new(compiler_config).engine();
 
     // Create a store, that holds the engine.
     let store = Store::new(&engine);
@@ -61,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's compile the Wasm module. It is at this step that the Wasm
     // text is transformed into Wasm bytes (if necessary), and then
     // compiled to executable code by the compiler, which is then
-    // stored into a native object by the engine.
+    // stored into a shared object by the engine.
     let module = Module::new(&store, wasm_bytes)?;
 
     // Congrats, the Wasm module is compiled! Now let's execute it for
@@ -88,6 +87,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 #[cfg(not(any(target_arch = "aarch64", target_env = "musl")))]
-fn test_engine_native() -> Result<(), Box<dyn std::error::Error>> {
+fn test_engine_dylib() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }
