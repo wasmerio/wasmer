@@ -1,6 +1,6 @@
 extern crate wasmer;
 
-use wasmer::{LazyInit, WasmerEnv, Memory};
+use wasmer::{LazyInit, Memory, WasmerEnv};
 
 #[derive(WasmerEnv)]
 struct ExportNotWrappedInLazyInit {

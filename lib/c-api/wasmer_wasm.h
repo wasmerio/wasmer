@@ -125,7 +125,7 @@ typedef enum wasmer_compiler_t {
 
 typedef enum wasmer_engine_t {
   UNIVERSAL = 0,
-  SHARED_OBJECT = 1,
+  DYLIB = 1,
   OBJECT_FILE = 2,
 } wasmer_engine_t;
 

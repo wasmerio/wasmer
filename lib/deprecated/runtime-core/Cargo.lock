@@ -1179,7 +1179,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-derive",
  "wasmer-engine",
- "wasmer-engine-shared-object",
+ "wasmer-engine-dylib",
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
@@ -1302,7 +1302,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine-shared-object"
+name = "wasmer-engine-dylib"
 version = "1.0.2"
 dependencies = [
  "cfg-if 0.1.10",

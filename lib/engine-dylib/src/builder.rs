@@ -1,16 +1,16 @@
-use crate::SharedObjectEngine;
+use crate::DylibEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
-/// The Shared Object builder
-pub struct SharedObject {
+/// The Dylib builder
+pub struct Dylib {
     compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl SharedObject {
+impl Dylib {
     #[cfg(feature = "compiler")]
-    /// Create a new Shared Object builder.
+    /// Create a new Dylib builder.
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -25,7 +25,7 @@ impl SharedObject {
         }
     }
 
-    /// Create a new headless Shared Object builder.
+    /// Create a new headless Dylib builder.
     pub fn headless() -> Self {
         Self {
             compiler_config: None,
@@ -46,8 +46,8 @@ impl SharedObject {
         self
     }
 
-    /// Build the `SharedObjectEngine` for this configuration
-    pub fn engine(self) -> SharedObjectEngine {
+    /// Build the `DylibEngine` for this configuration
+    pub fn engine(self) -> DylibEngine {
         if let Some(_compiler_config) = self.compiler_config {
             #[cfg(feature = "compiler")]
             {
@@ -57,15 +57,15 @@ impl SharedObject {
                     .features
                     .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
                 let compiler = compiler_config.compiler();
-                SharedObjectEngine::new(compiler, target, features)
+                DylibEngine::new(compiler, target, features)
             }
 
             #[cfg(not(feature = "compiler"))]
             {
-                unreachable!("Cannot call `SharedObjectEngine::new` without the `compiler` feature")
+                unreachable!("Cannot call `DylibEngine::new` without the `compiler` feature")
             }
         } else {
-            SharedObjectEngine::headless()
+            DylibEngine::headless()
         }
     }
 }
@@ -105,13 +105,13 @@ mod tests {
     #[should_panic(expected = "compiler not implemented")]
     fn build_engine() {
         let compiler_config = TestCompilerConfig::default();
-        let shared_object = SharedObject::new(compiler_config);
-        let _engine = shared_object.engine();
+        let dylib = Dylib::new(compiler_config);
+        let _engine = dylib.engine();
     }
 
     #[test]
     fn build_headless_engine() {
-        let shared_object = SharedObject::headless();
-        let _engine = shared_object.engine();
+        let dylib = Dylib::headless();
+        let _engine = dylib.engine();
     }
 }

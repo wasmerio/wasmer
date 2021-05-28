@@ -3,36 +3,36 @@ singlepass spec::multi_value
 singlepass spec::simd
 
 singlepass+windows *
-singlepass+shared-object *
-windows+shared-object *
-musl+shared-object * # Dynamic loading not supported in Musl
+singlepass+dylib *
+windows+dylib *
+musl+dylib * # Dynamic loading not supported in Musl
 
 # Traps
 singlepass traps::test_trap_trace
-shared-object     traps::test_trap_trace
+dylib     traps::test_trap_trace
 aarch64    traps::test_trap_trace
 singlepass traps::test_trap_stack_overflow
-shared-object     traps::test_trap_stack_overflow
+dylib     traps::test_trap_stack_overflow
 aarch64    traps::test_trap_stack_overflow
 singlepass traps::trap_display_pretty
 llvm       traps::trap_display_pretty
-shared-object     traps::trap_display_pretty
+dylib     traps::trap_display_pretty
 aarch64    traps::trap_display_pretty
 singlepass traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
-shared-object     traps::trap_display_multi_module
+dylib     traps::trap_display_multi_module
 aarch64    traps::trap_display_multi_module
 singlepass traps::call_signature_mismatch
 llvm       traps::call_signature_mismatch
-shared-object     traps::call_signature_mismatch
+dylib     traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch
 singlepass traps::start_trap_pretty
 llvm       traps::start_trap_pretty
-shared-object     traps::start_trap_pretty
+dylib     traps::start_trap_pretty
 aarch64    traps::start_trap_pretty
 
-cranelift  multi_value_imports::shared-object
-singlepass multi_value_imports::shared-object
+cranelift  multi_value_imports::dylib
+singlepass multi_value_imports::dylib
 singlepass multi_value_imports::dynamic
 
 
@@ -45,9 +45,9 @@ llvm+universal+macos+aarch64 *
 cranelift spec::skip_stack_guard_page
 llvm      spec::skip_stack_guard_page
 
-# TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in shared-object engine
-cranelift+shared-object spec::linking
-cranelift+shared-object spec::bulk
+# TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in dylib engine
+cranelift+dylib spec::linking
+cranelift+dylib spec::bulk
 
 # Some SIMD opperations are not yet supported by Cranelift
 cranelift+aarch64 spec::simd::simd_boolean

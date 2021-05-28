@@ -10,5 +10,5 @@ anyhow = "1.0"
 target-lexicon = "0.12"
 
 [features]
-test-shared-object = []
+test-dylib = []
 test-universal = []

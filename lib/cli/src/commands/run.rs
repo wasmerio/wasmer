@@ -205,10 +205,10 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        #[cfg(feature = "shared-object")]
+        #[cfg(feature = "dylib")]
         {
-            if wasmer_engine_shared_object::SharedObjectArtifact::is_deserializable(&contents) {
-                let engine = wasmer_engine_shared_object::SharedObject::headless().engine();
+            if wasmer_engine_dylib::DylibArtifact::is_deserializable(&contents) {
+                let engine = wasmer_engine_dylib::Dylib::headless().engine();
                 let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
@@ -296,18 +296,15 @@ impl Run {
         cache_dir_root.push(compiler_type.to_string());
         let mut cache = FileSystemCache::new(cache_dir_root)?;
 
-        // Important: Shared object files need to have a `.dll`
-        // extension on Windows, otherwise they will not load, so we
-        // just add an extension always to make it easier to recognize
-        // as well.
+        // Important: Dylib files need to have a `.dll` extension on
+        // Windows, otherwise they will not load, so we just add an
+        // extension always to make it easier to recognize as well.
         #[allow(unreachable_patterns)]
         let extension = match *engine_type {
-            #[cfg(feature = "shared-object")]
-            EngineType::SharedObject => {
-                wasmer_engine_shared_object::SharedObjectArtifact::get_default_extension(
-                    &Triple::host(),
-                )
-                .to_string()
+            #[cfg(feature = "dylib")]
+            EngineType::Dylib => {
+                wasmer_engine_dylib::DylibArtifact::get_default_extension(&Triple::host())
+                    .to_string()
             }
             #[cfg(feature = "universal")]
             EngineType::Universal => {

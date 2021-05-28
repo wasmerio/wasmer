@@ -1,7 +1,7 @@
-//! Define `SharedObjectArtifact` to allow compiling and instantiating
+//! Define `DylibArtifact` to allow compiling and instantiating
 //! to be done as separate steps.
 
-use crate::engine::{SharedObjectEngine, SharedObjectEngineInner};
+use crate::engine::{DylibEngine, DylibEngineInner};
 use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata};
 use libloading::{Library, Symbol as LibrarySymbol};
 use loupe::MemoryUsage;
@@ -46,8 +46,8 @@ use wasmer_vm::{
 
 /// A compiled Wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
-pub struct SharedObjectArtifact {
-    shared_object_path: PathBuf,
+pub struct DylibArtifact {
+    dylib_path: PathBuf,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     #[loupe(skip)]
@@ -64,7 +64,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
-impl SharedObjectArtifact {
+impl DylibArtifact {
     // Mach-O header in Mac
     #[allow(dead_code)]
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
@@ -81,7 +81,7 @@ impl SharedObjectArtifact {
     #[allow(dead_code)]
     const MAGIC_HEADER_COFF_64: &'static [u8] = &[b'M', b'Z'];
 
-    /// Check if the provided bytes look like `SharedObjectArtifact`.
+    /// Check if the provided bytes look like `DylibArtifact`.
     ///
     /// This means, if the bytes look like a shared object file in the target
     /// system.
@@ -154,11 +154,11 @@ impl SharedObjectArtifact {
         ))
     }
 
-    /// Compile a data buffer into a `SharedObjectArtifact`, which may
+    /// Compile a data buffer into a `DylibArtifact`, which may
     /// then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(
-        engine: &SharedObjectEngine,
+        engine: &DylibEngine,
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
@@ -224,7 +224,7 @@ impl SharedObjectArtifact {
             Some(obj_bytes) => {
                 let obj_bytes = obj_bytes?;
                 let file = tempfile::Builder::new()
-                    .prefix("wasmer_shared_object_")
+                    .prefix("wasmer_dylib_")
                     .suffix(".o")
                     .tempfile()
                     .map_err(to_compile_error)?;
@@ -252,7 +252,7 @@ impl SharedObjectArtifact {
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 let file = tempfile::Builder::new()
-                    .prefix("wasmer_shared_object_")
+                    .prefix("wasmer_dylib_")
                     .suffix(".o")
                     .tempfile()
                     .map_err(to_compile_error)?;
@@ -269,7 +269,7 @@ impl SharedObjectArtifact {
         let shared_filepath = {
             let suffix = format!(".{}", Self::get_default_extension(&target_triple));
             let shared_file = tempfile::Builder::new()
-                .prefix("wasmer_shared_object_")
+                .prefix("wasmer_dylib_")
                 .suffix(&suffix)
                 .tempfile()
                 .map_err(to_compile_error)?;
@@ -358,10 +358,10 @@ impl SharedObjectArtifact {
         }
     }
 
-    /// Construct a `SharedObjectArtifact` from component parts.
+    /// Construct a `DylibArtifact` from component parts.
     pub fn from_parts_crosscompiled(
         metadata: ModuleMetadata,
-        shared_object_path: PathBuf,
+        dylib_path: PathBuf,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
         let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
@@ -370,7 +370,7 @@ impl SharedObjectArtifact {
             PrimaryMap::new();
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
-            shared_object_path,
+            dylib_path,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -383,11 +383,11 @@ impl SharedObjectArtifact {
         })
     }
 
-    /// Construct a `SharedObjectArtifact` from component parts.
+    /// Construct a `DylibArtifact` from component parts.
     pub fn from_parts(
-        engine_inner: &mut SharedObjectEngineInner,
+        engine_inner: &mut DylibEngineInner,
         metadata: ModuleMetadata,
-        shared_object_path: PathBuf,
+        dylib_path: PathBuf,
         lib: Library,
     ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
@@ -475,7 +475,7 @@ impl SharedObjectArtifact {
         engine_inner.add_library(lib);
 
         Ok(Self {
-            shared_object_path,
+            dylib_path,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -488,22 +488,22 @@ impl SharedObjectArtifact {
         })
     }
 
-    /// Compile a data buffer into a `SharedObjectArtifact`, which may
+    /// Compile a data buffer into a `DylibArtifact`, which may
     /// then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(_engine: &SharedObjectEngine, _data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &DylibEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
     }
 
-    /// Deserialize a `SharedObjectArtifact` from bytes.
+    /// Deserialize a `DylibArtifact` from bytes.
     ///
     /// # Safety
     ///
     /// The bytes must represent a serialized WebAssembly module.
     pub unsafe fn deserialize(
-        engine: &SharedObjectEngine,
+        engine: &DylibEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(&bytes) {
@@ -520,13 +520,13 @@ impl SharedObjectArtifact {
         Self::deserialize_from_file_unchecked(&engine, &path)
     }
 
-    /// Deserialize a `SharedObjectArtifact` from a file path.
+    /// Deserialize a `DylibArtifact` from a file path.
     ///
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file(
-        engine: &SharedObjectEngine,
+        engine: &DylibEngine,
         path: &Path,
     ) -> Result<Self, DeserializeError> {
         let mut file = File::open(&path)?;
@@ -541,13 +541,13 @@ impl SharedObjectArtifact {
         Self::deserialize_from_file_unchecked(&engine, &path)
     }
 
-    /// Deserialize a `SharedObjectArtifact` from a file path (unchecked).
+    /// Deserialize a `DylibArtifact` from a file path (unchecked).
     ///
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file_unchecked(
-        engine: &SharedObjectEngine,
+        engine: &DylibEngine,
         path: &Path,
     ) -> Result<Self, DeserializeError> {
         let lib = Library::new(&path).map_err(|e| {
@@ -590,7 +590,7 @@ impl SharedObjectArtifact {
     }
 }
 
-impl Artifact for SharedObjectArtifact {
+impl Artifact for DylibArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -769,8 +769,8 @@ impl Artifact for SharedObjectArtifact {
         Ok(())
     }
 
-    /// Serialize a `SharedObjectArtifact`.
+    /// Serialize a `DylibArtifact`.
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(std::fs::read(&self.shared_object_path)?)
+        Ok(std::fs::read(&self.dylib_path)?)
     }
 }

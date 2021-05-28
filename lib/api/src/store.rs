@@ -130,7 +130,7 @@ impl Default for Store {
                     wasmer_engine_universal::Universal::new(config)
                         .engine()
                 } else if #[cfg(feature = "default-native")] {
-                    wasmer_engine_shared_object::SharedObject::new(config)
+                    wasmer_engine_dylib::Dylib::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")

@@ -1,4 +1,3 @@
-
 #[derive(Debug, Clap, Clone)]
 /// LLVM backend flags.
 pub struct LLVMCLIOptions {
@@ -14,7 +13,6 @@ pub struct LLVMCLIOptions {
     #[clap(long = "llvm-object-file", parse(from_os_str))]
     obj_file: Option<PathBuf>,
 }
-
 
 impl LLVMCallbacks for LLVMCLIOptions {
     fn preopt_ir_callback(&mut self, module: &InkwellModule) {

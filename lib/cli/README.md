@@ -26,7 +26,7 @@ The Wasmer supports the following features:
 * `wat` (default): support for executing WebAssembly text files.
 * `wast`(default): support for running wast test files.
 * `universal` (default): support for the [Universal engine].
-* `shared-object` (default): support for the [Shared Object engine].
+* `dylib` (default): support for the [Dylib engine].
 * `cache` (default): support or automatically caching compiled artifacts.
 * `wasi` (default): support for [WASI].
 * `experimental-io-devices`: support for experimental IO devices in WASI.
@@ -36,7 +36,7 @@ The Wasmer supports the following features:
 * `llvm`: support for the [LLVM compiler].
 
 [Universal engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal/
-[Shared Object engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-shared-object/
+[Dylib engine]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-dylib/
 [WASI]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi/
 [Emscripten]: https://github.com/wasmerio/wasmer/tree/master/lib/emscripten/
 [Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass/
@@ -62,7 +62,7 @@ wasmer run myfile.wasm
 Compile a WebAssembly file:
 
 ```bash
-wasmer compile myfile.wasm -o myfile.so --shared-object
+wasmer compile myfile.wasm -o myfile.so --dylib
 ```
 
 Run a compiled WebAssembly file (fastest):

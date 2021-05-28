@@ -4,7 +4,7 @@ use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{imports, Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_shared_object::SharedObject;
+use wasmer_engine_dylib::Dylib;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct NoImportsConfig;
@@ -41,12 +41,12 @@ fuzz_target!(|module: WasmSmithModule| {
         }
 
         let compiler = Cranelift::default();
-        let store = Store::new(&SharedObject::new(compiler).engine());
+        let store = Store::new(&Dylib::new(compiler).engine());
         let module = Module::new(&store, &wasm_bytes).unwrap();
         module.serialize().unwrap()
     };
 
-    let engine = SharedObject::headless().engine();
+    let engine = Dylib::headless().engine();
     let store = Store::new(&engine);
     let module = unsafe { Module::deserialize(&store, serialized.as_slice()) }.unwrap();
     match Instance::new(&module, &imports! {}) {

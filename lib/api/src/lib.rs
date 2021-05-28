@@ -248,7 +248,7 @@
 //! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/
 //! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/
 //! [wasmer-universal]: https://docs.rs/wasmer-engine-universal/*/wasmer_engine_universal/
-//! [wasmer-native]: https://docs.rs/wasmer-engine-shared-object/*/wasmer_engine_shared_object/
+//! [wasmer-native]: https://docs.rs/wasmer-engine-dylib/*/wasmer_engine_dylib/
 //! [wasmer-singlepass]: https://docs.rs/wasmer-compiler-singlepass/*/wasmer_compiler_singlepass/
 //! [wasmer-llvm]: https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/
 //! [wasmer-wasi]: https://docs.rs/wasmer-wasi/*/wasmer_wasi/
@@ -367,8 +367,8 @@ pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 #[cfg(feature = "universal")]
 pub use wasmer_engine_universal::{Universal, UniversalArtifact, UniversalEngine};
 
-#[cfg(feature = "shared-object")]
-pub use wasmer_engine_shared_object::{SharedObject, SharedObjectArtifact, SharedObjectEngine};
+#[cfg(feature = "dylib")]
+pub use wasmer_engine_dylib::{Dylib, DylibArtifact, DylibEngine};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

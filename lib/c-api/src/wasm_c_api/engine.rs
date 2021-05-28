@@ -12,10 +12,10 @@ use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer::Engine;
+#[cfg(feature = "dylib")]
+use wasmer_engine_dylib::Dylib;
 #[cfg(feature = "object-file")]
 use wasmer_engine_object_file::ObjectFile;
-#[cfg(feature = "shared-object")]
-use wasmer_engine_shared_object::SharedObject;
 #[cfg(feature = "universal")]
 use wasmer_engine_universal::Universal;
 
@@ -69,9 +69,9 @@ pub enum wasmer_engine_t {
     /// [`wasmer_engine_universal`] Rust crate.
     UNIVERSAL = 0,
 
-    /// Variant to represent the Shared Object engine. See the
-    /// [`wasmer_engine_shared_object`] Rust crate.
-    SHARED_OBJECT = 1,
+    /// Variant to represent the Dylib engine. See the
+    /// [`wasmer_engine_dylib`] Rust crate.
+    DYLIB = 1,
 
     /// Variant to represent the Object File engine. See the
     /// [`wasmer_engine_object_file`] Rust crate.
@@ -83,8 +83,8 @@ impl Default for wasmer_engine_t {
         cfg_if! {
             if #[cfg(feature = "universal")] {
                 Self::UNIVERSAL
-            } else if #[cfg(feature = "shared-object")] {
-                Self::SHARED_OBJECT
+            } else if #[cfg(feature = "dylib")] {
+                Self::DYLIB
             } else if #[cfg(feature = "object-file")] {
                 Self::OBJECT_FILE
             } else {
@@ -249,9 +249,9 @@ pub extern "C" fn wasm_config_set_compiler(
 ///     if (wasmer_is_engine_available(UNIVERSAL)) {
 ///         wasm_config_set_engine(config, UNIVERSAL);
 ///     }
-///     // Or maybe the Shared Object engine?
-///     else if (wasmer_is_engine_available(SHARED_OBJECT)) {
-///         wasm_config_set_engine(config, SHARED_OBJECT);
+///     // Or maybe the Dylib engine?
+///     else if (wasmer_is_engine_available(DYLIB)) {
+///         wasm_config_set_engine(config, DYLIB);
 ///     }
 ///     // OK, let's do not specify any particular engine.
 ///
@@ -330,8 +330,8 @@ cfg_if! {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Universal::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    } else if #[cfg(all(feature = "shared-object", feature = "compiler"))] {
-        /// Creates a new shared object engine with the default compiler.
+    } else if #[cfg(all(feature = "dylib", feature = "compiler"))] {
+        /// Creates a new Dylib engine with the default compiler.
         ///
         /// # Example
         ///
@@ -341,11 +341,11 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(SharedObject::new(compiler_config).engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Dylib::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    } else if #[cfg(feature = "shared-object")] {
-        /// Creates a new headless shared object engine.
+    } else if #[cfg(feature = "dylib")] {
+        /// Creates a new headless Dylib engine.
         ///
         /// # Example
         ///
@@ -354,7 +354,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(SharedObject::headless().engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Dylib::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -502,10 +502,10 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::SHARED_OBJECT => {
+                wasmer_engine_t::DYLIB => {
                     cfg_if! {
-                        if #[cfg(feature = "shared-object")] {
-                            let mut builder = SharedObject::new(compiler_config);
+                        if #[cfg(feature = "dylib")] {
+                            let mut builder = Dylib::new(compiler_config);
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -517,7 +517,7 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `shared-object` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `dylib` feature.");
                         }
                     }
                 },
@@ -565,10 +565,10 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::SHARED_OBJECT => {
+                wasmer_engine_t::DYLIB => {
                     cfg_if! {
-                        if #[cfg(feature = "shared-object")] {
-                            let mut builder = SharedObject::headless();
+                        if #[cfg(feature = "dylib")] {
+                            let mut builder = Dylib::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -580,7 +580,7 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `shared-object` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `dylib` feature.");
                         }
                     }
                 },

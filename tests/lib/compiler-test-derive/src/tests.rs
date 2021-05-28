@@ -1,5 +1,5 @@
 use super::*;
-use ::pretty_assertions::assert_eq;
+use pretty_assertions::assert_eq;
 
 macro_rules! gen_tests {(
     $(
@@ -71,10 +71,10 @@ gen_tests! {
                 }
                 #[test]
                 #[cold]
-                #[cfg(feature = "shared-object")]
-                fn shared_object() {
+                #[cfg(feature = "dylib")]
+                fn dylib() {
                     add(crate::Config::new(
-                        crate::Engine::SharedObject,
+                        crate::Engine::Dylib,
                         crate::Compiler::Singlepass
                     ))
                 }
@@ -94,10 +94,10 @@ gen_tests! {
                 }
                 #[test]
                 #[cold]
-                #[cfg(feature = "shared-object")]
-                fn shared_object() {
+                #[cfg(feature = "dylib")]
+                fn dylib() {
                     add(crate::Config::new(
-                        crate::Engine::SharedObject,
+                        crate::Engine::Dylib,
                         crate::Compiler::Cranelift
                     ))
                 }
@@ -117,10 +117,10 @@ gen_tests! {
                 }
                 #[test]
                 #[cold]
-                #[cfg(feature = "shared-object")]
-                fn shared_object() {
+                #[cfg(feature = "dylib")]
+                fn dylib() {
                     add(crate::Config::new(
-                        crate::Engine::SharedObject,
+                        crate::Engine::Dylib,
                         crate::Compiler::LLVM
                     ))
                 }

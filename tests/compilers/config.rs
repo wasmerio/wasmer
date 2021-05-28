@@ -10,7 +10,7 @@ pub enum Compiler {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Engine {
-    SharedObject,
+    Dylib,
     Universal,
 }
 
@@ -61,9 +61,9 @@ impl Config {
         #[cfg(not(feature = "engine"))]
         compile_error!("Plese enable at least one engine via the features");
         match &self.engine {
-            #[cfg(feature = "shared-object")]
-            Engine::SharedObject => {
-                let mut engine = wasmer_engine_shared_object::SharedObject::new(compiler_config);
+            #[cfg(feature = "dylib")]
+            Engine::Dylib => {
+                let mut engine = wasmer_engine_dylib::Dylib::new(compiler_config);
                 if let Some(ref features) = self.features {
                     engine = engine.features(features.clone())
                 }
@@ -87,10 +87,8 @@ impl Config {
 
     pub fn engine_headless(&self) -> Box<dyn WasmerEngine> {
         match &self.engine {
-            #[cfg(feature = "shared-object")]
-            Engine::SharedObject => {
-                Box::new(wasmer_engine_shared_object::SharedObject::headless().engine())
-            }
+            #[cfg(feature = "dylib")]
+            Engine::Dylib => Box::new(wasmer_engine_dylib::Dylib::headless().engine()),
             #[cfg(feature = "universal")]
             Engine::Universal => Box::new(wasmer_engine_universal::Universal::headless().engine()),
             #[allow(dead_code)]

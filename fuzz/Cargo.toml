@@ -17,7 +17,7 @@ wasmer-compiler-cranelift = { path = "../lib/compiler-cranelift", optional = tru
 wasmer-compiler-llvm = { path = "../lib/compiler-llvm", optional = true }
 wasmer-compiler-singlepass = { path = "../lib/compiler-singlepass", optional = true }
 wasmer-engine-universal = { path = "../lib/engine-universal", optional = true }
-wasmer-engine-shared-object = { path = "../lib/engine-shared-object", optional = true }
+wasmer-engine-dylib = { path = "../lib/engine-dylib", optional = true }
 wasmer-middlewares = { path = "../lib/middlewares" }
 wasmprinter = "0.2"
 
@@ -26,7 +26,7 @@ cranelift = [ "wasmer-compiler-cranelift" ]
 llvm = [ "wasmer-compiler-llvm" ]
 singlepass = [ "wasmer-compiler-singlepass" ]
 universal = [ "wasmer-engine-universal" ]
-shared-object = [ "wasmer-engine-shared-object" ]
+dylib = [ "wasmer-engine-dylib" ]
 
 [[bin]]
 name = "equivalence_universal"
@@ -54,6 +54,6 @@ path = "fuzz_targets/metering.rs"
 required-features = ["universal", "cranelift"]
 
 [[bin]]
-name = "shared_object_cranelift"
-path = "fuzz_targets/shared_object_cranelift.rs"
-required-features = ["shared-object", "cranelift"]
+name = "dylib_cranelift"
+path = "fuzz_targets/dylib_cranelift.rs"
+required-features = ["dylib", "cranelift"]

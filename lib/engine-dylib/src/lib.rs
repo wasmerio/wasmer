@@ -1,9 +1,10 @@
-//! Shared Object Engine for Wasmer compilers.
+//! Ddylib Engine for Wasmer compilers.
 //!
 //! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
-//! it generates a shared object file (`.so` or `.dylib` depending on
-//! the target), saves it temporarily to disk and uses it natively
-//! via `dlopen` and `dlsym` (using the `libloading` library).
+//! it generates a dylib/shared object file (`.so` or `.dylib`
+//! depending on the target), saves it temporarily to disk and uses it
+//! natively via `dlopen` and `dlsym` (using the `libloading`
+//! library).
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
@@ -27,9 +28,9 @@ mod builder;
 mod engine;
 mod serialize;
 
-pub use crate::artifact::SharedObjectArtifact;
-pub use crate::builder::SharedObject;
-pub use crate::engine::SharedObjectEngine;
+pub use crate::artifact::DylibArtifact;
+pub use crate::builder::Dylib;
+pub use crate::engine::DylibEngine;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
