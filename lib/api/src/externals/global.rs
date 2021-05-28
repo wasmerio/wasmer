@@ -17,7 +17,7 @@ use wasmer_vm::{Global as RuntimeGlobal, VMGlobal};
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-#[derive(Clone, MemoryUsage)]
+#[derive(MemoryUsage)]
 pub struct Global {
     store: Store,
     vm_global: VMGlobal,
@@ -219,6 +219,18 @@ impl Global {
     #[doc(hidden)]
     pub unsafe fn get_vm_global(&self) -> &VMGlobal {
         &self.vm_global
+    }
+}
+
+impl Clone for Global {
+    fn clone(&self) -> Self {
+        let mut vm_global = self.vm_global.clone();
+        vm_global.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_global,
+        }
     }
 }
 

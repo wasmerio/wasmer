@@ -18,7 +18,7 @@ use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-#[derive(Clone, MemoryUsage)]
+#[derive(MemoryUsage)]
 pub struct Table {
     store: Store,
     vm_table: VMTable,
@@ -157,6 +157,18 @@ impl Table {
     #[doc(hidden)]
     pub unsafe fn get_vm_table(&self) -> &VMTable {
         &self.vm_table
+    }
+}
+
+impl Clone for Table {
+    fn clone(&self) -> Self {
+        let mut vm_table = self.vm_table.clone();
+        vm_table.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_table,
+        }
     }
 }
 

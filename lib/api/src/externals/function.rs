@@ -39,7 +39,7 @@ use wasmer_vm::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(Clone, PartialEq, MemoryUsage)]
+#[derive(PartialEq, MemoryUsage)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) exported: ExportFunction,
@@ -744,6 +744,18 @@ impl<'a> Exportable<'a> for Function {
             .instance_ref
             .as_mut()
             .map(|v| *v = v.downgrade());
+    }
+}
+
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        let mut exported = self.exported.clone();
+        exported.vm_function.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            exported,
+        }
     }
 }
 

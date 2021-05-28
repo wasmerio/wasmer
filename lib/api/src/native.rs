@@ -18,7 +18,6 @@ use wasmer_vm::{VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
-#[derive(Clone)]
 pub struct NativeFunc<Args = (), Rets = ()> {
     store: Store,
     exported: ExportFunction,
@@ -87,6 +86,19 @@ where
         }
     }
 }*/
+
+impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for NativeFunc<Args, Rets> {
+    fn clone(&self) -> Self {
+        let mut exported = self.exported.clone();
+        exported.vm_function.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            exported,
+            _phantom: PhantomData,
+        }
+    }
+}
 
 impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
 where

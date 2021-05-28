@@ -24,7 +24,7 @@ use wasmer_vm::{MemoryError, VMMemory};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, MemoryUsage)]
 pub struct Memory {
     store: Store,
     vm_memory: VMMemory,
@@ -259,6 +259,18 @@ impl Memory {
     #[doc(hidden)]
     pub unsafe fn get_vm_memory(&self) -> &VMMemory {
         &self.vm_memory
+    }
+}
+
+impl Clone for Memory {
+    fn clone(&self) -> Self {
+        let mut vm_memory = self.vm_memory.clone();
+        vm_memory.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_memory,
+        }
     }
 }
 
