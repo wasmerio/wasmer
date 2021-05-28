@@ -401,6 +401,33 @@ fn function_outlives_instance() -> Result<()> {
 }
 
 #[test]
+fn weak_instance_ref_externs_after_instance() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+  (memory (export "mem") 1)
+  (type $sum_t (func (param i32 i32) (result i32)))
+  (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
+    local.get $x
+    local.get $y
+    i32.add)
+  (export "sum" (func $sum_f)))
+"#;
+
+    let f = {
+        let module = Module::new(&store, wat)?;
+        let instance = Instance::new(&module, &imports! {})?;
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_with_generics_weak("sum")?;
+
+        assert_eq!(f.call(4, 5)?, 9);
+        f
+    };
+
+    assert_eq!(f.call(4, 5)?, 9);
+
+    Ok(())
+}
+
+#[test]
 fn manually_generate_wasmer_env() -> Result<()> {
     let store = Store::default();
     #[derive(WasmerEnv, Clone)]

@@ -18,7 +18,7 @@ use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-#[derive(Clone, MemoryUsage)]
+#[derive(MemoryUsage)]
 pub struct Table {
     store: Store,
     vm_table: VMTable,
@@ -146,6 +146,30 @@ impl Table {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.vm_table.from, &other.vm_table.from)
     }
+
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_table(&self) -> &VMTable {
+        &self.vm_table
+    }
+}
+
+impl Clone for Table {
+    fn clone(&self) -> Self {
+        let mut vm_table = self.vm_table.clone();
+        vm_table.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_table,
+        }
+    }
 }
 
 impl<'a> Exportable<'a> for Table {
@@ -158,5 +182,12 @@ impl<'a> Exportable<'a> for Table {
             Extern::Table(table) => Ok(table),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.vm_table
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
     }
 }

@@ -18,7 +18,6 @@ use wasmer_vm::{VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
-#[derive(Clone)]
 pub struct NativeFunc<Args = (), Rets = ()> {
     store: Store,
     exported: ExportFunction,
@@ -55,6 +54,18 @@ where
     pub(crate) fn arg_kind(&self) -> VMFunctionKind {
         self.exported.vm_function.kind
     }
+
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_function(&self) -> &wasmer_vm::VMFunction {
+        &self.exported.vm_function
+    }
 }
 
 /*
@@ -75,6 +86,19 @@ where
         }
     }
 }*/
+
+impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for NativeFunc<Args, Rets> {
+    fn clone(&self) -> Self {
+        let mut exported = self.exported.clone();
+        exported.vm_function.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            exported,
+            _phantom: PhantomData,
+        }
+    }
+}
 
 impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
 where
@@ -194,8 +218,8 @@ macro_rules! impl_native_traits {
                         }
                     }
                 }
-
             }
+
         }
 
         #[allow(unused_parens)]
@@ -207,6 +231,10 @@ macro_rules! impl_native_traits {
             fn get_self_from_extern_with_generics(_extern: &crate::externals::Extern) -> Result<Self, crate::exports::ExportError> {
                 use crate::exports::Exportable;
                 crate::Function::get_self_from_extern(_extern)?.native().map_err(|_| crate::exports::ExportError::IncompatibleType)
+            }
+
+            fn into_weak_instance_ref(&mut self) {
+                self.exported.vm_function.instance_ref.as_mut().map(|v| *v = v.downgrade());
             }
         }
     };

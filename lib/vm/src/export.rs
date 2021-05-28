@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 use crate::global::Global;
-use crate::instance::InstanceRef;
+use crate::instance::WeakOrStrongInstanceRef;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
@@ -27,7 +27,7 @@ pub enum VMExtern {
 }
 
 /// A function export value.
-#[derive(Debug, Clone, PartialEq, MemoryUsage)]
+#[derive(Clone, Debug, PartialEq, MemoryUsage)]
 pub struct VMFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
@@ -52,7 +52,18 @@ pub struct VMFunction {
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host function.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
+}
+
+impl VMFunction {
+    /// Converts the stored instance ref into a strong `InstanceRef` if it is weak.
+    /// Returns None if it cannot be upgraded.
+    pub fn upgrade_instance_ref(&mut self) -> Option<()> {
+        if let Some(ref mut ir) = self.instance_ref {
+            *ir = ir.upgrade()?;
+        }
+        Some(())
+    }
 }
 
 /// # Safety
@@ -70,14 +81,14 @@ impl From<VMFunction> for VMExtern {
 }
 
 /// A table export value.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Clone, Debug, MemoryUsage)]
 pub struct VMTable {
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host table.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
 }
 
 /// # Safety
@@ -107,6 +118,15 @@ impl VMTable {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
     }
+
+    /// Converts the stored instance ref into a strong `InstanceRef` if it is weak.
+    /// Returns None if it cannot be upgraded.
+    pub fn upgrade_instance_ref(&mut self) -> Option<()> {
+        if let Some(ref mut ir) = self.instance_ref {
+            *ir = ir.upgrade()?;
+        }
+        Some(())
+    }
 }
 
 impl From<VMTable> for VMExtern {
@@ -123,7 +143,7 @@ pub struct VMMemory {
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host memory.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
 }
 
 /// # Safety
@@ -153,6 +173,15 @@ impl VMMemory {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
     }
+
+    /// Converts the stored instance ref into a strong `InstanceRef` if it is weak.
+    /// Returns None if it cannot be upgraded.
+    pub fn upgrade_instance_ref(&mut self) -> Option<()> {
+        if let Some(ref mut ir) = self.instance_ref {
+            *ir = ir.upgrade()?;
+        }
+        Some(())
+    }
 }
 
 impl From<VMMemory> for VMExtern {
@@ -169,7 +198,7 @@ pub struct VMGlobal {
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host global.
-    pub instance_ref: Option<InstanceRef>,
+    pub instance_ref: Option<WeakOrStrongInstanceRef>,
 }
 
 /// # Safety
@@ -188,6 +217,15 @@ impl VMGlobal {
     /// Returns whether or not the two `VMGlobal`s refer to the same Global.
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.from, &other.from)
+    }
+
+    /// Converts the stored instance ref into a strong `InstanceRef` if it is weak.
+    /// Returns None if it cannot be upgraded.
+    pub fn upgrade_instance_ref(&mut self) -> Option<()> {
+        if let Some(ref mut ir) = self.instance_ref {
+            *ir = ir.upgrade()?;
+        }
+        Some(())
     }
 }
 

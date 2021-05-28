@@ -123,6 +123,10 @@ impl<'a> new::wasmer::Exportable<'a> for Memory {
             _ => Err(ExportError::IncompatibleType),
         }
     }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.new_memory.into_weak_instance_ref();
+    }
 }
 
 #[cfg(test)]

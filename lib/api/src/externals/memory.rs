@@ -24,7 +24,7 @@ use wasmer_vm::{MemoryError, VMMemory};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, MemoryUsage)]
 pub struct Memory {
     store: Store,
     vm_memory: VMMemory,
@@ -248,6 +248,30 @@ impl Memory {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.vm_memory.from, &other.vm_memory.from)
     }
+
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_memory(&self) -> &VMMemory {
+        &self.vm_memory
+    }
+}
+
+impl Clone for Memory {
+    fn clone(&self) -> Self {
+        let mut vm_memory = self.vm_memory.clone();
+        vm_memory.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_memory,
+        }
+    }
 }
 
 impl<'a> Exportable<'a> for Memory {
@@ -260,5 +284,12 @@ impl<'a> Exportable<'a> for Memory {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.vm_memory
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
     }
 }

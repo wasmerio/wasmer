@@ -39,7 +39,7 @@ use wasmer_vm::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(Clone, PartialEq, MemoryUsage)]
+#[derive(PartialEq, MemoryUsage)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) exported: ExportFunction,
@@ -712,6 +712,18 @@ impl Function {
     fn closures_unsupported_panic() -> ! {
         unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
+
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_function(&self) -> &VMFunction {
+        &self.exported.vm_function
+    }
 }
 
 impl<'a> Exportable<'a> for Function {
@@ -723,6 +735,26 @@ impl<'a> Exportable<'a> for Function {
         match _extern {
             Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),
+        }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.exported
+            .vm_function
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
+    }
+}
+
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        let mut exported = self.exported.clone();
+        exported.vm_function.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            exported,
         }
     }
 }

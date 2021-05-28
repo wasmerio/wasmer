@@ -17,7 +17,7 @@ use wasmer_vm::{Global as RuntimeGlobal, VMGlobal};
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-#[derive(Clone, MemoryUsage)]
+#[derive(MemoryUsage)]
 pub struct Global {
     store: Store,
     vm_global: VMGlobal,
@@ -208,6 +208,30 @@ impl Global {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.vm_global.from, &other.vm_global.from)
     }
+
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_global(&self) -> &VMGlobal {
+        &self.vm_global
+    }
+}
+
+impl Clone for Global {
+    fn clone(&self) -> Self {
+        let mut vm_global = self.vm_global.clone();
+        vm_global.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_global,
+        }
+    }
 }
 
 impl fmt::Debug for Global {
@@ -230,5 +254,12 @@ impl<'a> Exportable<'a> for Global {
             Extern::Global(global) => Ok(global),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.vm_global
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
     }
 }
