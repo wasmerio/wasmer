@@ -1,5 +1,6 @@
 use anyhow::Result;
 use wasmer::*;
+use wasmer_vm::WeakOrStrongInstanceRef;
 
 const MEM_WAT: &str = "
     (module
@@ -42,6 +43,63 @@ const FUNCTION_WAT: &str = "
       )
 ";
 
+fn is_memory_instance_ref_strong(memory: &Memory) -> Option<bool> {
+    // This is safe because we're calling it from a test to test the internals
+    unsafe {
+        memory
+            .get_vm_memory()
+            .instance_ref
+            .as_ref()
+            .map(|v| matches!(v, WeakOrStrongInstanceRef::Strong(_)))
+    }
+}
+
+fn is_table_instance_ref_strong(table: &Table) -> Option<bool> {
+    // This is safe because we're calling it from a test to test the internals
+    unsafe {
+        table
+            .get_vm_table()
+            .instance_ref
+            .as_ref()
+            .map(|v| matches!(v, WeakOrStrongInstanceRef::Strong(_)))
+    }
+}
+
+fn is_global_instance_ref_strong(global: &Global) -> Option<bool> {
+    // This is safe because we're calling it from a test to test the internals
+    unsafe {
+        global
+            .get_vm_global()
+            .instance_ref
+            .as_ref()
+            .map(|v| matches!(v, WeakOrStrongInstanceRef::Strong(_)))
+    }
+}
+
+fn is_function_instance_ref_strong(f: &Function) -> Option<bool> {
+    // This is safe because we're calling it from a test to test the internals
+    unsafe {
+        f.get_vm_function()
+            .instance_ref
+            .as_ref()
+            .map(|v| matches!(v, WeakOrStrongInstanceRef::Strong(_)))
+    }
+}
+
+fn is_native_function_instance_ref_strong<Args, Rets>(f: &NativeFunc<Args, Rets>) -> Option<bool>
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    // This is safe because we're calling it from a test to test the internals
+    unsafe {
+        f.get_vm_function()
+            .instance_ref
+            .as_ref()
+            .map(|v| matches!(v, WeakOrStrongInstanceRef::Strong(_)))
+    }
+}
+
 #[test]
 fn strong_weak_behavior_works_memory() -> Result<()> {
     #[derive(Clone, Debug, WasmerEnv, Default)]
@@ -52,10 +110,10 @@ fn strong_weak_behavior_works_memory() -> Result<()> {
 
     let host_fn = |env: &MemEnv| {
         let mem = env.memory_ref().unwrap();
-        assert_eq!(mem.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_memory_instance_ref_strong(&mem), Some(false));
         let mem_clone = mem.clone();
-        assert_eq!(mem_clone.is_strong_instance_ref(), Some(true));
-        assert_eq!(mem.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_memory_instance_ref_strong(&mem_clone), Some(true));
+        assert_eq!(is_memory_instance_ref_strong(&mem), Some(false));
     };
 
     let f: NativeFunc<(), ()> = {
@@ -74,7 +132,7 @@ fn strong_weak_behavior_works_memory() -> Result<()> {
 
         {
             let mem = instance.exports.get_memory("memory")?;
-            assert_eq!(mem.is_strong_instance_ref(), Some(true));
+            assert_eq!(is_memory_instance_ref_strong(&mem), Some(true));
         }
 
         let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -96,10 +154,10 @@ fn strong_weak_behavior_works_global() -> Result<()> {
 
     let host_fn = |env: &GlobalEnv| {
         let global = env.global_ref().unwrap();
-        assert_eq!(global.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_global_instance_ref_strong(&global), Some(false));
         let global_clone = global.clone();
-        assert_eq!(global_clone.is_strong_instance_ref(), Some(true));
-        assert_eq!(global.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_global_instance_ref_strong(&global_clone), Some(true));
+        assert_eq!(is_global_instance_ref_strong(&global), Some(false));
     };
 
     let f: NativeFunc<(), ()> = {
@@ -118,7 +176,7 @@ fn strong_weak_behavior_works_global() -> Result<()> {
 
         {
             let global = instance.exports.get_global("global")?;
-            assert_eq!(global.is_strong_instance_ref(), Some(true));
+            assert_eq!(is_global_instance_ref_strong(&global), Some(true));
         }
 
         let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -140,10 +198,10 @@ fn strong_weak_behavior_works_table() -> Result<()> {
 
     let host_fn = |env: &TableEnv| {
         let table = env.table_ref().unwrap();
-        assert_eq!(table.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_table_instance_ref_strong(&table), Some(false));
         let table_clone = table.clone();
-        assert_eq!(table_clone.is_strong_instance_ref(), Some(true));
-        assert_eq!(table.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_table_instance_ref_strong(&table_clone), Some(true));
+        assert_eq!(is_table_instance_ref_strong(&table), Some(false));
     };
 
     let f: NativeFunc<(), ()> = {
@@ -162,7 +220,7 @@ fn strong_weak_behavior_works_table() -> Result<()> {
 
         {
             let table = instance.exports.get_table("table")?;
-            assert_eq!(table.is_strong_instance_ref(), Some(true));
+            assert_eq!(is_table_instance_ref_strong(&table), Some(true));
         }
 
         let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -184,10 +242,10 @@ fn strong_weak_behavior_works_function() -> Result<()> {
 
     let host_fn = |env: &FunctionEnv| {
         let function = env.call_host_fn_ref().unwrap();
-        assert_eq!(function.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_function_instance_ref_strong(&function), Some(false));
         let function_clone = function.clone();
-        assert_eq!(function_clone.is_strong_instance_ref(), Some(true));
-        assert_eq!(function.is_strong_instance_ref(), Some(false));
+        assert_eq!(is_function_instance_ref_strong(&function_clone), Some(true));
+        assert_eq!(is_function_instance_ref_strong(&function), Some(false));
     };
 
     let f: NativeFunc<(), ()> = {
@@ -206,7 +264,7 @@ fn strong_weak_behavior_works_function() -> Result<()> {
 
         {
             let function = instance.exports.get_function("call_host_fn")?;
-            assert_eq!(function.is_strong_instance_ref(), Some(true));
+            assert_eq!(is_function_instance_ref_strong(&function), Some(true));
         }
 
         let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
@@ -228,10 +286,19 @@ fn strong_weak_behavior_works_native_function() -> Result<()> {
 
     let host_fn = |env: &FunctionEnv| {
         let function = env.call_host_fn_ref().unwrap();
-        assert_eq!(function.is_strong_instance_ref(), Some(false));
+        assert_eq!(
+            is_native_function_instance_ref_strong(&function),
+            Some(false)
+        );
         let function_clone = function.clone();
-        assert_eq!(function_clone.is_strong_instance_ref(), Some(true));
-        assert_eq!(function.is_strong_instance_ref(), Some(false));
+        assert_eq!(
+            is_native_function_instance_ref_strong(&function_clone),
+            Some(true)
+        );
+        assert_eq!(
+            is_native_function_instance_ref_strong(&function),
+            Some(false)
+        );
     };
 
     let f: NativeFunc<(), ()> = {
@@ -251,7 +318,10 @@ fn strong_weak_behavior_works_native_function() -> Result<()> {
         {
             let function: NativeFunc<(), ()> =
                 instance.exports.get_native_function("call_host_fn")?;
-            assert_eq!(function.is_strong_instance_ref(), Some(true));
+            assert_eq!(
+                is_native_function_instance_ref_strong(&function),
+                Some(true)
+            );
         }
 
         let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;

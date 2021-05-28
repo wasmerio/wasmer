@@ -713,15 +713,16 @@ impl Function {
         unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
 
-    /// Check if the function holds a strong `InstanceRef`.
-    /// None means there's no `InstanceRef`, strong or weak.
-    // TODO: maybe feature gate this, we only need it for tests...
-    pub fn is_strong_instance_ref(&self) -> Option<bool> {
-        self.exported
-            .vm_function
-            .instance_ref
-            .as_ref()
-            .map(|v| v.is_strong())
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_function(&self) -> &VMFunction {
+        &self.exported.vm_function
     }
 }
 

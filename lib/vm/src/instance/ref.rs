@@ -217,11 +217,6 @@ impl WeakOrStrongInstanceRef {
             Self::Strong(strong) => Self::Weak(WeakInstanceRef(Arc::downgrade(&strong.0))),
         }
     }
-
-    /// Check if the reference contained is strong.
-    pub fn is_strong(&self) -> bool {
-        matches!(self, WeakOrStrongInstanceRef::Strong(_))
-    }
 }
 
 impl TryFrom<WeakOrStrongInstanceRef> for InstanceRef {
