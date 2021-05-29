@@ -1488,7 +1488,7 @@
 <span class="kw">mod</span> <span class="ident">r#ref</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">allocator</span>::<span class="ident">InstanceAllocator</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">r#ref</span>::<span class="ident">InstanceRef</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">r#ref</span>::{<span class="ident">InstanceRef</span>, <span class="ident">WeakInstanceRef</span>, <span class="ident">WeakOrStrongInstanceRef</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">export</span>::<span class="ident">VMExtern</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">func_data_registry</span>::{<span class="ident">FuncDataRegistry</span>, <span class="ident">VMFuncRef</span>};
@@ -2577,7 +2577,7 @@
                     <span class="ident">signature</span>,
                     <span class="ident">vmctx</span>,
                     <span class="ident">call_trampoline</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">instance</span>),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }
@@ -2590,7 +2590,7 @@
                 };
                 <span class="ident">VMTable</span> {
                     <span class="ident">from</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">instance</span>),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }
@@ -2603,7 +2603,7 @@
                 };
                 <span class="ident">VMMemory</span> {
                     <span class="ident">from</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">instance</span>),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }
@@ -2618,7 +2618,7 @@
                 };
                 <span class="ident">VMGlobal</span> {
                     <span class="ident">from</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">instance</span>),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }

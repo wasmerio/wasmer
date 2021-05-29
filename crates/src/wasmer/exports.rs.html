@@ -312,6 +312,32 @@
 <span id="311">311</span>
 <span id="312">312</span>
 <span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::{<span class="ident">Extern</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">import_object</span>::<span class="ident">LikeNamespace</span>;
@@ -481,6 +507,19 @@
         }
     }
 
+    <span class="doccomment">/// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.</span>
+    <span class="doccomment">/// This is useful for passing data into `WasmerEnv`, for example.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_with_generics_weak</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>
+    <span class="kw">where</span>
+        <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
+        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+        <span class="ident">T</span>: <span class="ident">ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>,
+    {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span>: <span class="ident">T</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_with_generics</span>(<span class="ident">name</span>)<span class="question-mark">?</span>;
+        <span class="ident">out</span>.<span class="ident">into_weak_instance_ref</span>();
+        <span class="prelude-val">Ok</span>(<span class="ident">out</span>)
+    }
+
     <span class="doccomment">/// Get an export as an `Extern`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Extern</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">name</span>)
@@ -609,6 +648,11 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// [`Instance`]: crate::Instance</span>
     <span class="kw">fn</span> <span class="ident">get_self_from_extern</span>(<span class="ident">_extern</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">Self</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Convert the extern internally to hold a weak reference to the `InstanceRef`.</span>
+    <span class="doccomment">/// This is useful for preventing cycles, for example for data stored in a</span>
+    <span class="doccomment">/// type implementing `WasmerEnv`.</span>
+    <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
 }
 
 <span class="doccomment">/// A trait for accessing exports (like [`Exportable`]) but it takes generic</span>
@@ -617,6 +661,10 @@
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>, <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span><span class="op">&gt;</span>: <span class="ident">Sized</span> {
     <span class="doccomment">/// Get an export with the given generics.</span>
     <span class="kw">fn</span> <span class="ident">get_self_from_extern_with_generics</span>(<span class="ident">_extern</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Convert the extern internally to hold a weak reference to the `InstanceRef`.</span>
+    <span class="doccomment">/// This is useful for preventing cycles, for example for data stored in a</span>
+    <span class="doccomment">/// type implementing `WasmerEnv`.</span>
+    <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
 }
 
 <span class="doccomment">/// We implement it for all concrete [`Exportable`] types (that are `Clone`)</span>
@@ -624,6 +672,10 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, (), ()<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">T</span> {
     <span class="kw">fn</span> <span class="ident">get_self_from_extern_with_generics</span>(<span class="ident">_extern</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
         <span class="ident">T</span>::<span class="ident">get_self_from_extern</span>(<span class="ident">_extern</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">clone</span>())
+    }
+
+    <span class="kw">fn</span> <span class="ident">into_weak_instance_ref</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="op">&lt;</span><span class="self">Self</span> <span class="kw">as</span> <span class="ident">Exportable</span><span class="op">&gt;</span>::<span class="ident">into_weak_instance_ref</span>(<span class="self">self</span>);
     }
 }
 </pre></div>

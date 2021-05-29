@@ -102,6 +102,7 @@
 <span id="99"> 99</span>
 <span id="100">100</span>
 <span id="101">101</span>
+<span id="102">102</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Runtime library support for Wasmer.</span>
 
@@ -149,6 +150,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">imports</span>::<span class="ident">Imports</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">instance</span>::{
     <span class="ident">ImportFunctionEnv</span>, <span class="ident">ImportInitializerFuncPtr</span>, <span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>,
+    <span class="ident">WeakOrStrongInstanceRef</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">memory</span>::{<span class="ident">LinearMemory</span>, <span class="ident">Memory</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">mmap</span>::<span class="ident">Mmap</span>;
