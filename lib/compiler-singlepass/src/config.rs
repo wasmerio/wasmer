@@ -38,10 +38,10 @@ impl Singlepass {
         self
     }
 
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
+    fn enable_nan_canonicalization(&mut self) {
+        self.enable_nan_canonicalization = true;
+    }
+
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
         self
