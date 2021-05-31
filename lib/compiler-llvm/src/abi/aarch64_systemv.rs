@@ -85,8 +85,8 @@ impl Abi for Aarch64SystemV {
             [] => (
                 intrinsics.void_ty.fn_type(
                     param_types
-                        .map(|v| v.unwrap().into())
-                        .collect::<Vec<BasicMetadataTypeEnum>>()
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                         .as_slice(),
                     false,
                 ),
@@ -97,8 +97,8 @@ impl Abi for Aarch64SystemV {
                 (
                     type_to_llvm(intrinsics, single_value)?.fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -110,8 +110,8 @@ impl Abi for Aarch64SystemV {
                 (
                     context.struct_type(&[f32_ty, f32_ty], false).fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -123,8 +123,8 @@ impl Abi for Aarch64SystemV {
                 (
                     context.struct_type(&[f64_ty, f64_ty], false).fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -138,8 +138,8 @@ impl Abi for Aarch64SystemV {
                         .struct_type(&[f32_ty, f32_ty, f32_ty], false)
                         .fn_type(
                             param_types
-                                .map(|v| v.unwrap().into())
-                                .collect::<Vec<BasicMetadataTypeEnum>>()
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                                 .as_slice(),
                             false,
                         ),
@@ -153,8 +153,8 @@ impl Abi for Aarch64SystemV {
                         .struct_type(&[f32_ty, f32_ty, f32_ty, f32_ty], false)
                         .fn_type(
                             param_types
-                                .map(|v| v.unwrap().into())
-                                .collect::<Vec<BasicMetadataTypeEnum>>()
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                                 .as_slice(),
                             false,
                         ),
@@ -176,8 +176,8 @@ impl Abi for Aarch64SystemV {
                     [32, 32] => (
                         intrinsics.i64_ty.fn_type(
                             param_types
-                                .map(|v| v.unwrap().into())
-                                .collect::<Vec<BasicMetadataTypeEnum>>()
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                                 .as_slice(),
                             false,
                         ),
@@ -192,8 +192,8 @@ impl Abi for Aarch64SystemV {
                     | [32, 32, 32, 32] => (
                         intrinsics.i64_ty.array_type(2).fn_type(
                             param_types
-                                .map(|v| v.unwrap().into())
-                                .collect::<Vec<BasicMetadataTypeEnum>>()
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                                 .as_slice(),
                             false,
                         ),
@@ -225,8 +225,8 @@ impl Abi for Aarch64SystemV {
                         (
                             intrinsics.void_ty.fn_type(
                                 param_types
-                                    .map(|v| v.unwrap().into())
-                                    .collect::<Vec<BasicMetadataTypeEnum>>()
+                                    .map(|v| v.map(Into::into))
+                                    .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                                     .as_slice(),
                                 false,
                             ),

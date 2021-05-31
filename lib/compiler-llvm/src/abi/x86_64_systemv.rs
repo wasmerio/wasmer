@@ -100,8 +100,8 @@ impl Abi for X86_64SystemV {
             [] => (
                 intrinsics.void_ty.fn_type(
                     param_types
-                        .map(|v| v.unwrap().into())
-                        .collect::<Vec<BasicMetadataTypeEnum>>()
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                         .as_slice(),
                     false,
                 ),
@@ -112,8 +112,8 @@ impl Abi for X86_64SystemV {
                 (
                     type_to_llvm(intrinsics, single_value)?.fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -130,8 +130,8 @@ impl Abi for X86_64SystemV {
                 (
                     context.struct_type(&basic_types, false).fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -141,8 +141,8 @@ impl Abi for X86_64SystemV {
             [32, 32] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
                 intrinsics.f32_ty.vec_type(2).fn_type(
                     param_types
-                        .map(|v| v.unwrap().into())
-                        .collect::<Vec<BasicMetadataTypeEnum>>()
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                         .as_slice(),
                     false,
                 ),
@@ -151,8 +151,8 @@ impl Abi for X86_64SystemV {
             [32, 32] => (
                 intrinsics.i64_ty.fn_type(
                     param_types
-                        .map(|v| v.unwrap().into())
-                        .collect::<Vec<BasicMetadataTypeEnum>>()
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                         .as_slice(),
                     false,
                 ),
@@ -169,8 +169,8 @@ impl Abi for X86_64SystemV {
                     )
                     .fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -187,8 +187,8 @@ impl Abi for X86_64SystemV {
                     )
                     .fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -205,8 +205,8 @@ impl Abi for X86_64SystemV {
                     )
                     .fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -223,8 +223,8 @@ impl Abi for X86_64SystemV {
                     )
                     .fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -249,8 +249,8 @@ impl Abi for X86_64SystemV {
                     )
                     .fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),
@@ -278,8 +278,8 @@ impl Abi for X86_64SystemV {
                 (
                     intrinsics.void_ty.fn_type(
                         param_types
-                            .map(|v| v.unwrap().into())
-                            .collect::<Vec<BasicMetadataTypeEnum>>()
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
                             .as_slice(),
                         false,
                     ),

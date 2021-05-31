@@ -2229,7 +2229,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     func,
                     params
                         .iter()
-                        .map(|v| (*v).into())
+                        .copied()
+                        .map(Into::into)
                         .collect::<Vec<BasicMetadataValueEnum>>()
                         .as_slice(),
                     "",
@@ -2520,7 +2521,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     typed_func_ptr,
                     params
                         .iter()
-                        .map(|v| (*v).into())
+                        .copied()
+                        .map(Into::into)
                         .collect::<Vec<BasicMetadataValueEnum>>()
                         .as_slice(),
                     "indirect_call",
@@ -10935,14 +10937,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::MemoryInit { segment, mem } => {
                 let (dest, src, len) = self.state.pop3()?;
-                let mem = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(mem.into(), false);
-                let segment = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(segment.into(), false);
+                let mem = self.intrinsics.i32_ty.const_int(mem.into(), false);
+                let segment = self.intrinsics.i32_ty.const_int(segment.into(), false);
                 self.builder.build_call(
                     self.intrinsics.memory_init,
                     &[
@@ -10957,10 +10953,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
             }
             Operator::DataDrop { segment } => {
-                let segment = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(segment.into(), false);
+                let segment = self.intrinsics.i32_ty.const_int(segment.into(), false);
                 self.builder.build_call(
                     self.intrinsics.data_drop,
                     &[vmctx.as_basic_value_enum().into(), segment.into()],
@@ -10980,10 +10973,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 };
 
                 let (dest_pos, src_pos, len) = self.state.pop3()?;
-                let src_index = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(src.into(), false);
+                let src_index = self.intrinsics.i32_ty.const_int(src.into(), false);
                 self.builder.build_call(
                     memory_copy,
                     &[
@@ -11007,10 +10997,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 };
 
                 let (dst, val, len) = self.state.pop3()?;
-                let mem_index = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(mem.into(), false);
+                let mem_index = self.intrinsics.i32_ty.const_int(mem.into(), false);
                 self.builder.build_call(
                     memory_fill,
                     &[
@@ -11058,10 +11045,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(value);
             }
             Operator::TableGet { table } => {
-                let table_index = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(table.into(), false);
+                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let elem = self.state.pop1()?;
                 let table_get = if let Some(_) = self
                     .wasm_module
@@ -11096,10 +11080,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(value);
             }
             Operator::TableSet { table } => {
-                let table_index = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(table.into(), false);
+                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let (elem, value) = self.state.pop2()?;
                 let value = self
                     .builder
@@ -11128,14 +11109,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 src_table,
             } => {
                 let (dst, src, len) = self.state.pop3()?;
-                let dst_table = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(dst_table as u64, false);
-                let src_table = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(src_table as u64, false);
+                let dst_table = self.intrinsics.i32_ty.const_int(dst_table as u64, false);
+                let src_table = self.intrinsics.i32_ty.const_int(src_table as u64, false);
                 self.builder.build_call(
                     self.intrinsics.table_copy,
                     &[
@@ -11151,14 +11126,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::TableInit { segment, table } => {
                 let (dst, src, len) = self.state.pop3()?;
-                let segment = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(segment as u64, false);
-                let table = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(table as u64, false);
+                let segment = self.intrinsics.i32_ty.const_int(segment as u64, false);
+                let table = self.intrinsics.i32_ty.const_int(table as u64, false);
                 self.builder.build_call(
                     self.intrinsics.table_init,
                     &[
@@ -11173,10 +11142,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
             }
             Operator::ElemDrop { segment } => {
-                let segment = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(segment as u64, false);
+                let segment = self.intrinsics.i32_ty.const_int(segment as u64, false);
                 self.builder.build_call(
                     self.intrinsics.elem_drop,
                     &[self.ctx.basic().into(), segment.into()],
@@ -11184,10 +11150,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
             }
             Operator::TableFill { table } => {
-                let table = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(table as u64, false);
+                let table = self.intrinsics.i32_ty.const_int(table as u64, false);
                 let (start, elem, len) = self.state.pop3()?;
                 let elem = self
                     .builder
@@ -11217,10 +11180,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 } else {
                     (self.intrinsics.imported_table_grow, table)
                 };
-                let table_index = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(table_index as u64, false);
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 let size = self
                     .builder
                     .build_call(
@@ -11247,10 +11207,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 } else {
                     (self.intrinsics.imported_table_size, table)
                 };
-                let table_index = self
-                    .intrinsics
-                    .i32_ty
-                    .const_int(table_index as u64, false);
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 let size = self
                     .builder
                     .build_call(
