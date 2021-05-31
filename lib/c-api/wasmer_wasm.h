@@ -772,6 +772,8 @@ bool wasi_get_unordered_imports(const wasm_store_t *store,
 enum wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
+void wasm_config_canonicalize_nans(wasm_config_t *config, bool enable);
+
 void wasm_config_push_middleware(wasm_config_t *config, struct wasmer_middleware_t *middleware);
 
 #if defined(WASMER_COMPILER_ENABLED)

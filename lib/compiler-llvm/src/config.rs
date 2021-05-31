@@ -65,15 +65,6 @@ impl LLVM {
         }
     }
 
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
-        self.enable_nan_canonicalization = enable;
-        self
-    }
-
     /// The optimization levels when optimizing the IR.
     pub fn opt_level(&mut self, opt_level: LLVMOptLevel) -> &mut Self {
         self.opt_level = opt_level;
@@ -207,6 +198,14 @@ impl CompilerConfig for LLVM {
     /// Whether to verify compiler IR.
     fn enable_verifier(&mut self) {
         self.enable_verifier = true;
+    }
+
+    fn enable_nan_canonicalization(&mut self) {
+        self.enable_nan_canonicalization = true;
+    }
+
+    fn canonicalize_nans(&mut self, enable: bool) {
+        self.enable_nan_canonicalization = enable;
     }
 
     /// Transform it into the compiler.
