@@ -185,6 +185,14 @@ impl CompilerConfig for Cranelift {
         self.enable_verifier = true;
     }
 
+    fn enable_nan_canonicalization(&mut self) {
+        self.enable_nan_canonicalization = true;
+    }
+
+    fn canonicalize_nans(&mut self, enable: bool) {
+        self.enable_nan_canonicalization = enable;
+    }
+
     /// Transform it into the compiler
     fn compiler(self: Box<Self>) -> Box<dyn Compiler> {
         Box::new(CraneliftCompiler::new(*self))
