@@ -121,10 +121,10 @@
         <span class="self">self</span>
     }
 
-    <span class="doccomment">/// Enable NaN canonicalization.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// NaN canonicalization is useful when trying to run WebAssembly</span>
-    <span class="doccomment">/// deterministically across different architectures.</span>
+    <span class="kw">fn</span> <span class="ident">enable_nan_canonicalization</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    }
+
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">canonicalize_nans</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="ident">enable</span>;
         <span class="self">self</span>

@@ -631,6 +631,11 @@
 <span id="630">630</span>
 <span id="631">631</span>
 <span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">engine</span>::{
     <span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_compiler_available</span>,
@@ -739,6 +744,7 @@
     <span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>,
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">middlewares</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">wasmer_middleware_t</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">nan_canonicalization</span>: <span class="ident">bool</span>,
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
@@ -1114,6 +1120,10 @@
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
             <span class="kw">for</span> <span class="ident">middleware</span> <span class="kw">in</span> <span class="ident">config</span>.<span class="ident">middlewares</span> {
                 <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">middleware</span>.<span class="ident">inner</span>);
+            }
+
+            <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">nan_canonicalization</span> {
+                <span class="ident">compiler_config</span>.<span class="ident">canonicalize_nans</span>(<span class="bool-val">true</span>);
             }
 
             <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">config</span>.<span class="ident">engine</span> {

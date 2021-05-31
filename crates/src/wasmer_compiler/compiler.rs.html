@@ -151,6 +151,25 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom</span>
 <span class="doccomment">//! compilers will need to implement.</span>
@@ -187,6 +206,25 @@
     <span class="doccomment">/// For compilers capable of doing so, this enables internal consistency</span>
     <span class="doccomment">/// checking.</span>
     <span class="kw">fn</span> <span class="ident">enable_verifier</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="comment">// By default we do nothing, each backend will need to customize this</span>
+        <span class="comment">// in case they create an IR that they can verify.</span>
+    }
+
+    <span class="doccomment">/// Enable NaN canonicalization.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// NaN canonicalization is useful when trying to run WebAssembly</span>
+    <span class="doccomment">/// deterministically across different architectures.</span>
+    <span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use the canonicalize_nans instead&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">enable_nan_canonicalization</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="comment">// By default we do nothing, each backend will need to customize this</span>
+        <span class="comment">// in case they create an IR that they can verify.</span>
+    }
+
+    <span class="doccomment">/// Enable NaN canonicalization.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// NaN canonicalization is useful when trying to run WebAssembly</span>
+    <span class="doccomment">/// deterministically across different architectures.</span>
+    <span class="kw">fn</span> <span class="ident">canonicalize_nans</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_enable</span>: <span class="ident">bool</span>) {
         <span class="comment">// By default we do nothing, each backend will need to customize this</span>
         <span class="comment">// in case they create an IR that they can verify.</span>
     }
