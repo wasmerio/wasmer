@@ -1,4 +1,4 @@
-use crate::ObjectFileArtifact;
+use crate::StaticlibArtifact;
 use loupe::MemoryUsage;
 use std::io::Read;
 use std::path::Path;
@@ -14,21 +14,21 @@ use wasmer_vm::{
     FuncDataRegistry, SignatureRegistry, VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex,
 };
 
-/// A WebAssembly `ObjectFile` Engine.
+/// A WebAssembly `Staticlib` Engine.
 #[derive(Clone, MemoryUsage)]
-pub struct ObjectFileEngine {
-    inner: Arc<Mutex<ObjectFileEngineInner>>,
+pub struct StaticlibEngine {
+    inner: Arc<Mutex<StaticlibEngineInner>>,
     /// The target for the compiler
     target: Arc<Target>,
     engine_id: EngineId,
 }
 
-impl ObjectFileEngine {
-    /// Create a new `ObjectFileEngine` with the given config
+impl StaticlibEngine {
+    /// Create a new `StaticlibEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(ObjectFileEngineInner {
+            inner: Arc::new(Mutex::new(StaticlibEngineInner {
                 compiler: Some(compiler),
                 signatures: SignatureRegistry::new(),
                 func_data: Arc::new(FuncDataRegistry::new()),
@@ -40,7 +40,7 @@ impl ObjectFileEngine {
         }
     }
 
-    /// Create a headless `ObjectFileEngine`
+    /// Create a headless `StaticlibEngine`
     ///
     /// A headless engine is an engine without any compiler attached.
     /// This is useful for assuring a minimal runtime for running
@@ -55,7 +55,7 @@ impl ObjectFileEngine {
     /// they just take already processed Modules (via `Module::serialize`).
     pub fn headless() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(ObjectFileEngineInner {
+            inner: Arc::new(Mutex::new(StaticlibEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
                 #[cfg(feature = "compiler")]
@@ -69,16 +69,17 @@ impl ObjectFileEngine {
         }
     }
 
-    /// Sets a prefixer for the wasm module, so we can avoid any collisions
-    /// in the exported function names on the generated shared object.
+    /// Sets a prefixer for the Wasm module, so we can avoid any
+    /// collisions in the exported function names on the generated
+    /// object.
     ///
-    /// This, allows us to rather than have functions named `wasmer_function_1`
-    /// to be named `wasmer_function_PREFIX_1`.
+    /// This, allows us to rather than have functions named
+    /// `wasmer_function_1` to be named `wasmer_function_PREFIX_1`.
     ///
     /// # Important
     ///
-    /// This prefixer function should be deterministic, so the compilation
-    /// remains deterministic.
+    /// This prefixer function should be deterministic, so the
+    /// compilation remains deterministic.
     pub fn set_deterministic_prefixer<F>(&mut self, prefixer: F)
     where
         F: Fn(&[u8]) -> String + Send + 'static,
@@ -87,16 +88,16 @@ impl ObjectFileEngine {
         inner.prefixer = Some(Box::new(prefixer));
     }
 
-    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, ObjectFileEngineInner> {
+    pub(crate) fn inner(&self) -> std::sync::MutexGuard<'_, StaticlibEngineInner> {
         self.inner.lock().unwrap()
     }
 
-    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, ObjectFileEngineInner> {
+    pub(crate) fn inner_mut(&self) -> std::sync::MutexGuard<'_, StaticlibEngineInner> {
         self.inner.lock().unwrap()
     }
 }
 
-impl Engine for ObjectFileEngine {
+impl Engine for StaticlibEngine {
     /// The target
     fn target(&self) -> &Target {
         &self.target
@@ -131,7 +132,7 @@ impl Engine for ObjectFileEngine {
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(ObjectFileArtifact::new(&self, binary, tunables)?))
+        Ok(Arc::new(StaticlibArtifact::new(&self, binary, tunables)?))
     }
 
     /// Compile a WebAssembly binary (it will fail because the `compiler` flag is disabled).
@@ -142,18 +143,20 @@ impl Engine for ObjectFileEngine {
         _tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
         Err(CompileError::Codegen(
-            "The `ObjectFileEngine` is operating in headless mode, so it cannot compile a module."
+            "The `StaticlibEngine` is operating in headless mode, so it cannot compile a module."
                 .to_string(),
         ))
     }
 
-    /// Deserializes a WebAssembly module (binary content of a Shared Object file)
+    /// Deserializes a WebAssembly module (binary content of a static object file)
     unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(ObjectFileArtifact::deserialize(&self, &bytes)?))
+        Ok(Arc::new(StaticlibArtifact::deserialize(&self, &bytes)?))
     }
 
     /// Deserializes a WebAssembly module from a path
-    /// It should point to a Shared Object file generated by this engine.
+    ///
+    /// It should point to a static object file generated by this
+    /// engine.
     unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
@@ -174,9 +177,9 @@ impl Engine for ObjectFileEngine {
     }
 }
 
-/// The inner contents of `ObjectFileEngine`
+/// The inner contents of `StaticlibEngine`
 #[derive(MemoryUsage)]
-pub struct ObjectFileEngineInner {
+pub struct StaticlibEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler>>,
@@ -194,19 +197,19 @@ pub struct ObjectFileEngineInner {
     /// It also guarantees that the `VMFuncRef`s stay valid until the engine is dropped.
     func_data: Arc<FuncDataRegistry>,
 
-    /// The prefixer returns the a String to prefix each of
-    /// the functions in the shared object generated by the `ObjectFileEngine`,
-    /// so we can assure no collisions.
+    /// The prefixer returns the a String to prefix each of the
+    /// functions in the static object generated by the
+    /// `StaticlibEngine`, so we can assure no collisions.
     #[loupe(skip)]
     prefixer: Option<Box<dyn Fn(&[u8]) -> String + Send>>,
 }
 
-impl ObjectFileEngineInner {
+impl StaticlibEngineInner {
     /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
-            return Err(CompileError::Codegen("The `ObjectFileEngine` is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
+            return Err(CompileError::Codegen("The `StaticlibEngine` is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
         }
         Ok(&**self
             .compiler
@@ -238,7 +241,7 @@ impl ObjectFileEngineInner {
     #[cfg(not(feature = "compiler"))]
     pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
-            "The `ObjectFileEngine` is not compiled with compiler support, which is required for validating".to_string(),
+            "The `StaticlibEngine` is not compiled with compiler support, which is required for validating".to_string(),
         ))
     }
 

@@ -33,7 +33,7 @@ wasmer-emscripten = { version = "1.0.2", path = "../emscripten", optional = true
 wasmer-engine = { version = "1.0.2", path = "../engine" }
 wasmer-engine-universal = { version = "1.0.2", path = "../engine-universal", optional = true }
 wasmer-engine-dylib = { version = "1.0.2", path = "../engine-dylib", optional = true }
-wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
+wasmer-engine-staticlib = { version = "1.0.2", path = "../engine-staticlib", optional = true }
 wasmer-vm = { version = "1.0.2", path = "../vm" }
 wasmer-wasi = { version = "1.0.2", path = "../wasi", default-features = false, optional = true }
 wasmer-wasi-experimental-io-devices = { version = "1.0.2", path = "../wasi-experimental-io-devices", optional = true }
@@ -62,7 +62,7 @@ default = [
     "wast",
     "universal",
     "dylib",
-    "object-file",
+    "staticlib",
     "cache",
     "wasi",
     "emscripten",
@@ -76,8 +76,8 @@ dylib = [
     "wasmer-engine-dylib",
     "engine",
 ]
-object-file = [
-    "wasmer-engine-object-file",
+staticlib = [
+    "wasmer-engine-staticlib",
     "engine",
 ]
 cache = ["wasmer-cache"]
@@ -89,7 +89,7 @@ compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-universal/compiler",
     "wasmer-engine-dylib/compiler",
-    "wasmer-engine-object-file/compiler",
+    "wasmer-engine-staticlib/compiler",
 ]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",

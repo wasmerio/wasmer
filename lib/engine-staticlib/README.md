@@ -1,30 +1,34 @@
-# Wasmer Engine Object File
+# Wasmer Engine Staticlib
 
-This is an [engine](https://crates.io/crates/wasmer-engine) for the [wasmer](https://crates.io/crates/wasmer) WebAssembly VM.
+This is an [engine](https://crates.io/crates/wasmer-engine) for the
+[wasmer](https://crates.io/crates/wasmer) WebAssembly VM.
 
-This engine is used to produce a native object file that can be linked
-against providing a sandboxed WebAssembly runtime environment for the
-compiled module with no need for runtime compilation.
+This engine is used to produce a native static object library that can
+be linked against providing a sandboxed WebAssembly runtime
+environment for the compiled module with no need for runtime
+compilation.
 
 ## Example of use
 
 First we compile our WebAssembly file with Wasmer
+
 ```sh
-wasmer compile path/to/wasm/file.wasm --llvm --object-file -o my_wasm.o --header my_wasm.h
+wasmer compile path/to/wasm/file.wasm --llvm --staticlib -o my_wasm.o --header my_wasm.h
 ```
 
 You will then see output like:
+
 ```
-Engine: objectfile
+Engine: staticlib
 Compiler: llvm
 Target: x86_64-apple-darwin
 ✔ File compiled successfully to `my_wasm.o`.
 ✔ Header file generated successfully at `my_wasm.h`.
 ```
 
-Now lets create a program to link with this object file.
+Now let's create a program to link with this static object file.
 
-```C
+```c
 #include "wasmer_wasm.h"
 #include "wasm.h"
 #include "my_wasm.h"
@@ -47,11 +51,11 @@ static void print_wasmer_error()
 int main() {
         printf("Initializing...\n");
         wasm_config_t* config = wasm_config_new();
-        wasm_config_set_engine(config, OBJECT_FILE);
+        wasm_config_set_engine(config, STATICLIB);
         wasm_engine_t* engine = wasm_engine_new_with_config(config);
         wasm_store_t* store = wasm_store_new(engine);
 
-        wasm_module_t* module = wasmer_object_file_engine_new(store, "qjs.wasm");
+        wasm_module_t* module = wasmer_staticlib_engine_new(store, "qjs.wasm");
         if (!module) {
                 printf("Failed to create module\n");
                 print_wasmer_error();
@@ -130,6 +134,6 @@ Now we just need to link everything together:
 clang -O2 test.o my_wasm.o libwasmer_c_api.a
 ```
 
-We link the object file we created with our C code, the object file we
-generated with Wasmer, and `libwasmer_c_api` together and produce an
-executable that can call into our compiled WebAssembly!
+We link the static object file we created with our C code, the object
+file we generated with Wasmer, and `libwasmer_c_api` together and
+produce an executable that can call into our compiled WebAssembly!
