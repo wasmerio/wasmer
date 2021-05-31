@@ -469,39 +469,14 @@
 <span id="468">468</span>
 <span id="469">469</span>
 <span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
-<span id="489">489</span>
-<span id="490">490</span>
-<span id="491">491</span>
-<span id="492">492</span>
-<span id="493">493</span>
-<span id="494">494</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">common</span>::<span class="ident">WasmFeatures</span>;
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Error</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span>;
 <span class="kw">use</span> <span class="ident">clap</span>::<span class="ident">Clap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">FromStr</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">string</span>::<span class="ident">ToString</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
@@ -532,15 +507,15 @@
 <span class="doccomment">/// The compiler options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompilerOptions</span> {
     <span class="doccomment">/// Use Singlepass compiler.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;cranelift&quot;</span>, <span class="string">&quot;llvm&quot;</span>, <span class="string">&quot;backend&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;cranelift&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
     <span class="ident">singlepass</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use Cranelift compiler.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;llvm&quot;</span>, <span class="string">&quot;backend&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
     <span class="ident">cranelift</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use LLVM compiler.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;cranelift&quot;</span>, <span class="string">&quot;backend&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;cranelift&quot;</span>]</span>)]
     <span class="ident">llvm</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable compiler internal verification.</span>
@@ -550,10 +525,6 @@
     <span class="doccomment">/// LLVM debug directory, where IR and object files will be written to.</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">llvm_debug_dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-
-    <span class="doccomment">/// The deprecated backend flag - Please do not use</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;backend&quot;</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;cranelift&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
-    <span class="ident">backend</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">features</span>: <span class="ident">WasmFeatures</span>,
@@ -568,12 +539,6 @@
             <span class="prelude-val">Ok</span>(<span class="ident">CompilerType</span>::<span class="ident">LLVM</span>)
         } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">singlepass</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">CompilerType</span>::<span class="ident">Singlepass</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">backend</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">backend</span>.<span class="ident">clone</span>() {
-            <span class="macro">warning</span><span class="macro">!</span>(
-                <span class="string">&quot;the `--backend={0}` flag is deprecated, please use `--{0}` instead&quot;</span>,
-                <span class="ident">backend</span>
-            );
-            <span class="ident">CompilerType</span>::<span class="ident">from_str</span>(<span class="kw-2">&amp;</span><span class="ident">backend</span>)
         } <span class="kw">else</span> {
             <span class="comment">// Auto mode, we choose the best compiler for that platform</span>
             <span class="ident">cfg_if</span>::<span class="macro">cfg_if</span><span class="macro">!</span> {
@@ -836,19 +801,6 @@
             <span class="self">Self</span>::<span class="ident">Cranelift</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;cranelift&quot;</span>.<span class="ident">to_string</span>(),
             <span class="self">Self</span>::<span class="ident">LLVM</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;llvm&quot;</span>.<span class="ident">to_string</span>(),
             <span class="self">Self</span>::<span class="ident">Headless</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;headless&quot;</span>.<span class="ident">to_string</span>(),
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">CompilerType</span> {
-    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">Error</span>;
-    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">s</span> {
-            <span class="string">&quot;singlepass&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">Singlepass</span>),
-            <span class="string">&quot;cranelift&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">Cranelift</span>),
-            <span class="string">&quot;llvm&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">LLVM</span>),
-            <span class="string">&quot;headless&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">Headless</span>),
-            <span class="ident">backend</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;The `{}` compiler does not exist.&quot;</span>, <span class="ident">backend</span>),
         }
     }
 }

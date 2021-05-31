@@ -572,8 +572,6 @@
 <span id="571">571</span>
 <span id="572">572</span>
 <span id="573">573</span>
-<span id="574">574</span>
-<span id="575">575</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.</span>
 
@@ -938,8 +936,6 @@
 
         <span class="comment">// self.preopens are checked in [`PreopenDirBuilder::build`]</span>
 
-        <span class="comment">// this deprecation warning only applies to external callers</span>
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">deprecated</span>)]</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_fs</span> <span class="op">=</span> <span class="ident">WasiFs</span>::<span class="ident">new_with_preopen</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">preopens</span>)
             .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError</span>::<span class="ident">WasiFsCreationError</span>)<span class="question-mark">?</span>;
         <span class="comment">// set up the file system, overriding base files and calling the setup function</span>
