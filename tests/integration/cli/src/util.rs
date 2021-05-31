@@ -23,7 +23,7 @@ impl Compiler {
 pub enum Engine {
     Universal,
     Dylib,
-    ObjectFile,
+    Staticlib,
 }
 
 impl Engine {
@@ -31,7 +31,7 @@ impl Engine {
         match self {
             Engine::Universal => "--universal",
             Engine::Dylib => "--dylib",
-            Engine::ObjectFile => "--object-file",
+            Engine::Staticlib => "--staticlib",
         }
     }
 }

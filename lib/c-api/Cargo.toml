@@ -23,7 +23,7 @@ wasmer-emscripten = { version = "1.0.2", path = "../emscripten", optional = true
 wasmer-engine = { version = "1.0.2", path = "../engine" }
 wasmer-engine-universal = { version = "1.0.2", path = "../engine-universal", optional = true }
 wasmer-engine-dylib = { version = "1.0.2", path = "../engine-dylib", optional = true }
-wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
+wasmer-engine-staticlib = { version = "1.0.2", path = "../engine-staticlib", optional = true }
 wasmer-middlewares = { version = "1.0.2", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "1.0.2", path = "../wasi", optional = true }
 wasmer-types = { version = "1.0.2", path = "../types" }
@@ -60,15 +60,15 @@ dylib = [
     "wasmer-engine-dylib",
     "engine",
 ]
-object-file = [
-    "wasmer-engine-object-file",
+staticlib = [
+    "wasmer-engine-staticlib",
     "engine",
 ]
 compiler = [
     "wasmer/compiler",
     "wasmer-engine-universal/compiler",
     "wasmer-engine-dylib/compiler",
-    "wasmer-engine-object-file/compiler"
+    "wasmer-engine-staticlib/compiler"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",

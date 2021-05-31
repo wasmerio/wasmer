@@ -14,7 +14,7 @@ SHELL=/bin/bash
 # |------------|-----------|----------|--------------|-------|
 # | Cranelift  | Universal | Linux    | amd64        | glibc |
 # | LLVM       | Dylib     | Darwin   | aarch64      | musl  |
-# | Singlepass |           | Windows  |              |       |
+# | Singlepass | Staticlib | Windows  |              |       |
 # |------------|-----------|----------|--------------|-------|
 #
 # Here is what works and what doesn't:
@@ -391,15 +391,15 @@ ifeq ($(IS_WINDOWS), 1)
 endif
 
 build-docs-capi: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,object-file,dylib,cranelift,wasi
+	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,dylib,object-file,wasi,middlewares $(capi_compiler_features)
+		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,dylib,object-file,singlepass,wasi,middlewares
+		--no-default-features --features wat,universal,dylib,staticlib,singlepass,wasi,middlewares
 
 build-capi-singlepass-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -409,13 +409,13 @@ build-capi-singlepass-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,dylib,singlepass,wasi,middlewares
 
-build-capi-singlepass-object-file: capi-setup
+build-capi-singlepass-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,object-file,singlepass,wasi,middlewares
+		--no-default-features --features wat,staticlib,singlepass,wasi,middlewares
 
 build-capi-cranelift: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,dylib,object-file,cranelift,wasi,middlewares
+		--no-default-features --features wat,universal,dylib,staticlib,cranelift,wasi,middlewares
 
 build-capi-cranelift-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -425,13 +425,13 @@ build-capi-cranelift-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,dylib,cranelift,wasi,middlewares
 
-build-capi-cranelift-object-file: capi-setup
+build-capi-cranelift-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,dylib,object-file,cranelift,wasi,middlewares
+		--no-default-features --features wat,dylib,staticlib,cranelift,wasi,middlewares
 
 build-capi-llvm: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,dylib,object-file,llvm,wasi,middlewares
+		--no-default-features --features wat,universal,dylib,staticlib,llvm,wasi,middlewares
 
 build-capi-llvm-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -441,9 +441,9 @@ build-capi-llvm-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,dylib,llvm,wasi,middlewares
 
-build-capi-llvm-object-file: capi-setup
+build-capi-llvm-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,object-file,llvm,wasi,middlewares
+		--no-default-features --features wat,staticlib,llvm,wasi,middlewares
 
 # Headless (we include the minimal to be able to run)
 
@@ -455,13 +455,13 @@ build-capi-headless-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features dylib,wasi
 
-build-capi-headless-object-file: capi-setup
+build-capi-headless-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features object-file,wasi
+		--no-default-features --features staticlib,wasi
 
 build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features universal,dylib,object-file,wasi
+		--no-default-features --features universal,dylib,staticlib,wasi
 
 ###########
 # Testing #
@@ -514,7 +514,7 @@ test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_en
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,dylib,object-file,wasi,middlewares $(capi_compiler_features) -- --nocapture
+		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
 	# Test the Wasmer C API tests for C

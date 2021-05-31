@@ -1,10 +1,10 @@
-//! Generate a header file for the object file produced by the ObjectFile engine.
+//! Generate a header file for the object file produced by the Staticlib engine.
 
 use super::{generate_c, CStatement, CType};
 use wasmer_compiler::{Symbol, SymbolRegistry};
 use wasmer_vm::ModuleInfo;
 
-/// Helper functions to simplify the usage of the object file engine.
+/// Helper functions to simplify the usage of the Staticlib engine.
 const HELPER_FUNCTIONS: &str = r#"
 wasm_byte_vec_t generate_serialized_data() {
         // We need to pass all the bytes as one big buffer so we have to do all this logic to memcpy
@@ -58,7 +58,7 @@ wasm_byte_vec_t generate_serialized_data() {
         return module_byte_vec;
 }
 
-wasm_module_t* wasmer_object_file_engine_new(wasm_store_t* store, const char* wasm_name) {
+wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm_name) {
         // wasm_name intentionally unused for now: will be used in the future.
         wasm_byte_vec_t module_byte_vec = generate_serialized_data();
         wasm_module_t* module = wasm_module_deserialize(store, &module_byte_vec);

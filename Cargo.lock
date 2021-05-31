@@ -2436,7 +2436,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dylib",
- "wasmer-engine-object-file",
+ "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
@@ -2482,7 +2482,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dylib",
- "wasmer-engine-object-file",
+ "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
@@ -2651,7 +2651,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine-object-file"
+name = "wasmer-engine-staticlib"
 version = "1.0.2"
 dependencies = [
  "bincode",
@@ -2815,7 +2815,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-dummy",
  "wasmer-engine-dylib",
- "wasmer-engine-object-file",
+ "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
