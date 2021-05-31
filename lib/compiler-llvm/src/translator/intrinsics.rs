@@ -12,7 +12,8 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     types::{
-        BasicType, BasicMetadataTypeEnum, BasicTypeEnum, FloatType, IntType, PointerType, StructType, VectorType, VoidType,
+        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType, PointerType,
+        StructType, VectorType, VoidType,
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
@@ -322,7 +323,7 @@ impl<'ctx> Intrinsics<'ctx> {
 
         let md_ty = context.metadata_type();
 
-        let i8_ptr_ty_basic= i8_ptr_ty.as_basic_type_enum();
+        let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
 
         let i1_ty_basic_md: BasicMetadataTypeEnum = i1_ty.into();
         let i32_ty_basic_md: BasicMetadataTypeEnum = i32_ty.into();
@@ -382,36 +383,76 @@ impl<'ctx> Intrinsics<'ctx> {
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic_md, i1_ty_basic_md], false);
 
         let ret_i1_take_f32_f32_md_md = i1_ty.fn_type(
-            &[f32_ty_basic_md, f32_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f32_ty_basic_md,
+                f32_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
         let ret_i1_take_f64_f64_md_md = i1_ty.fn_type(
-            &[f64_ty_basic_md, f64_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f64_ty_basic_md,
+                f64_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
         let ret_i1x4_take_f32x4_f32x4_md_md = i1x4_ty.fn_type(
-            &[f32x4_ty_basic_md, f32x4_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
         let ret_i1x2_take_f64x2_f64x2_md_md = i1x2_ty.fn_type(
-            &[f64x2_ty_basic_md, f64x2_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
 
         let ret_f32_take_f32_f32_md_md = f32_ty.fn_type(
-            &[f32_ty_basic_md, f32_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f32_ty_basic_md,
+                f32_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
         let ret_f64_take_f64_f64_md_md = f64_ty.fn_type(
-            &[f64_ty_basic_md, f64_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f64_ty_basic_md,
+                f64_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
         let ret_f32x4_take_f32x4_f32x4_md_md = f32x4_ty.fn_type(
-            &[f32x4_ty_basic_md, f32x4_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
         let ret_f64x2_take_f64x2_f64x2_md_md = f64x2_ty.fn_type(
-            &[f64x2_ty_basic_md, f64x2_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
+            &[
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
             false,
         );
 
@@ -797,12 +838,18 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             table_get: module.add_function(
                 "wasmer_vm_table_get",
-                anyref_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false),
+                anyref_ty.fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                ),
                 None,
             ),
             imported_table_get: module.add_function(
                 "wasmer_vm_imported_table_get",
-                anyref_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false),
+                anyref_ty.fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                ),
                 None,
             ),
             table_set: module.add_function(
@@ -963,10 +1010,16 @@ impl<'ctx> Intrinsics<'ctx> {
             vmmemory_definition_current_length_element: 1,
 
             memory32_grow_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false)
+                .fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_grow_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false)
+                .fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
             memory32_size_ptr_ty: i32_ty
                 .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
