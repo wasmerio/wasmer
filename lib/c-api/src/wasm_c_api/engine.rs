@@ -105,6 +105,7 @@ pub struct wasm_config_t {
     compiler: wasmer_compiler_t,
     #[cfg(feature = "middlewares")]
     pub(super) middlewares: Vec<wasmer_middleware_t>,
+    pub(super) nan_canonicalization: bool,
     pub(super) features: Option<Box<wasmer_features_t>>,
     pub(super) target: Option<Box<wasmer_target_t>>,
 }
@@ -480,6 +481,10 @@ pub extern "C" fn wasm_engine_new_with_config(
             #[cfg(feature = "middlewares")]
             for middleware in config.middlewares {
                 compiler_config.push_middleware(middleware.inner);
+            }
+
+            if config.nan_canonicalization {
+                compiler_config.canonicalize_nans(true);
             }
 
             let inner: Arc<dyn Engine + Send + Sync> = match config.engine {
