@@ -653,8 +653,8 @@
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">Engine</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_engine_dylib</span>::<span class="ident">Dylib</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_engine_object_file</span>::<span class="ident">ObjectFile</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasmer_engine_staticlib</span>::<span class="ident">Staticlib</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_engine_universal</span>::<span class="ident">Universal</span>;
 
@@ -712,9 +712,9 @@
     <span class="doccomment">/// [`wasmer_engine_dylib`] Rust crate.</span>
     <span class="ident">DYLIB</span> <span class="op">=</span> <span class="number">1</span>,
 
-    <span class="doccomment">/// Variant to represent the Object File engine. See the</span>
-    <span class="doccomment">/// [`wasmer_engine_object_file`] Rust crate.</span>
-    <span class="ident">OBJECT_FILE</span> <span class="op">=</span> <span class="number">2</span>,
+    <span class="doccomment">/// Variant to represent the Staticlib engine. See the</span>
+    <span class="doccomment">/// [`wasmer_engine_staticlib`] Rust crate.</span>
+    <span class="ident">STATICLIB</span> <span class="op">=</span> <span class="number">2</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">wasmer_engine_t</span> {
@@ -724,8 +724,8 @@
                 <span class="self">Self</span>::<span class="ident">UNIVERSAL</span>
             } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span> {
                 <span class="self">Self</span>::<span class="ident">DYLIB</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span> {
-                <span class="self">Self</span>::<span class="ident">OBJECT_FILE</span>
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
+                <span class="self">Self</span>::<span class="ident">STATICLIB</span>
             } <span class="kw">else</span> {
                 <span class="macro">compile_error</span><span class="macro">!</span>(<span class="string">&quot;Please enable one of the engines&quot;</span>)
             }
@@ -998,10 +998,10 @@
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
     }
-    <span class="comment">// There are currently no uses of the object-file engine + compiler from the C API.</span>
+    <span class="comment">// There are currently no uses of the Staticlib engine + compiler from the C API.</span>
     <span class="comment">// So if we get here, we default to headless mode regardless of if `compiler` is enabled.</span>
-    <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span> {
-        <span class="doccomment">/// Creates a new headless object-file engine.</span>
+    <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
+        <span class="doccomment">/// Creates a new headless Staticlib engine.</span>
         <span class="doccomment">///</span>
         <span class="doccomment">/// # Example</span>
         <span class="doccomment">///</span>
@@ -1010,7 +1010,7 @@
         <span class="doccomment">/// cbindgen:ignore</span>
         <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
         <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">ObjectFile</span>::<span class="ident">headless</span>().<span class="ident">engine</span>());
+            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Staticlib</span>::<span class="ident">headless</span>().<span class="ident">engine</span>());
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
         }
     } <span class="kw">else</span> {
@@ -1165,12 +1165,12 @@
                         }
                     }
                 },
-                <span class="ident">wasmer_engine_t</span>::<span class="ident">OBJECT_FILE</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">wasmer_engine_t</span>::<span class="ident">STATICLIB</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">cfg_if</span><span class="macro">!</span> {
-                        <span class="comment">// There are currently no uses of the object-file engine + compiler from the C API.</span>
+                        <span class="comment">// There are currently no uses of the Staticlib engine + compiler from the C API.</span>
                         <span class="comment">// So we run in headless mode.</span>
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">ObjectFile</span>::<span class="ident">headless</span>();
+                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Staticlib</span>::<span class="ident">headless</span>();
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
@@ -1182,7 +1182,7 @@
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `object-file` feature.&quot;</span>);
+                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `staticlib` feature.&quot;</span>);
                         }
                     }
                 },
@@ -1228,10 +1228,10 @@
                         }
                     }
                 },
-                <span class="ident">wasmer_engine_t</span>::<span class="ident">OBJECT_FILE</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">wasmer_engine_t</span>::<span class="ident">STATICLIB</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="macro">cfg_if</span><span class="macro">!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">ObjectFile</span>::<span class="ident">headless</span>();
+                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span> {
+                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Staticlib</span>::<span class="ident">headless</span>();
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
@@ -1243,7 +1243,7 @@
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `object-file` feature.&quot;</span>);
+                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `staticlib` feature.&quot;</span>);
                         }
                     }
                 },

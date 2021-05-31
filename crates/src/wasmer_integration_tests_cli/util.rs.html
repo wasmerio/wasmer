@@ -89,7 +89,7 @@
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Engine</span> {
     <span class="ident">Universal</span>,
     <span class="ident">Dylib</span>,
-    <span class="ident">ObjectFile</span>,
+    <span class="ident">Staticlib</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Engine</span> {
@@ -97,7 +97,7 @@
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Engine</span>::<span class="ident">Universal</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--universal&quot;</span>,
             <span class="ident">Engine</span>::<span class="ident">Dylib</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--dylib&quot;</span>,
-            <span class="ident">Engine</span>::<span class="ident">ObjectFile</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--object-file&quot;</span>,
+            <span class="ident">Engine</span>::<span class="ident">Staticlib</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;--staticlib&quot;</span>,
         }
     }
 }

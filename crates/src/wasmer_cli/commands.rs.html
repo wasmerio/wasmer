@@ -26,7 +26,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">compile</span>;
 <span class="kw">mod</span> <span class="ident">config</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
 <span class="kw">mod</span> <span class="ident">create_exe</span>;
 <span class="kw">mod</span> <span class="ident">inspect</span>;
 <span class="kw">mod</span> <span class="ident">run</span>;
@@ -37,7 +37,7 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">compile</span>::<span class="kw-2">*</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">create_exe</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wast</span>::<span class="kw-2">*</span>;

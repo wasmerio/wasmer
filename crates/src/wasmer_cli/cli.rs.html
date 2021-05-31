@@ -123,7 +123,7 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">commands</span>::<span class="ident">Compile</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">commands</span>::<span class="ident">CreateExe</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">commands</span>::<span class="ident">Wast</span>;
@@ -166,7 +166,7 @@
     <span class="ident">Compile</span>(<span class="ident">Compile</span>),
 
     <span class="doccomment">/// Compile a WebAssembly binary into a native executable</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-exe&quot;</span>)]</span>
     <span class="ident">CreateExe</span>(<span class="ident">CreateExe</span>),
 
@@ -198,7 +198,7 @@
             <span class="self">Self</span>::<span class="ident">Validate</span>(<span class="ident">validate</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">validate</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
             <span class="self">Self</span>::<span class="ident">Compile</span>(<span class="ident">compile</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">compile</span>.<span class="ident">execute</span>(),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
             <span class="self">Self</span>::<span class="ident">CreateExe</span>(<span class="ident">create_exe</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">create_exe</span>.<span class="ident">execute</span>(),
             <span class="self">Self</span>::<span class="ident">Config</span>(<span class="ident">config</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">config</span>.<span class="ident">execute</span>(),
             <span class="self">Self</span>::<span class="ident">Inspect</span>(<span class="ident">inspect</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">inspect</span>.<span class="ident">execute</span>(),

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Staticlib","The Staticlib builder"]]});

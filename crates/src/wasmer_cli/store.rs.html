@@ -516,16 +516,16 @@
     <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
 
     <span class="doccomment">/// Use the Universal Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>]</span>)]
     <span class="ident">universal</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the Dylib Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;staticlib&quot;</span>]</span>)]
     <span class="ident">dylib</span>: <span class="ident">bool</span>,
 
-    <span class="doccomment">/// Use the ObjectFile Engine.</span>
+    <span class="doccomment">/// Use the Staticlib Engine.</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>]</span>)]
-    <span class="ident">object_file</span>: <span class="ident">bool</span>,
+    <span class="ident">staticlib</span>: <span class="ident">bool</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Clap</span>)]</span>
@@ -646,14 +646,14 @@
                     .<span class="ident">features</span>(<span class="ident">features</span>)
                     .<span class="ident">engine</span>(),
             ),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span>
-            <span class="ident">EngineType</span>::<span class="ident">ObjectFile</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Box</span>::<span class="ident">new</span>(
-                <span class="ident">wasmer_engine_object_file</span>::<span class="ident">ObjectFile</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>)
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span>
+            <span class="ident">EngineType</span>::<span class="ident">Staticlib</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Box</span>::<span class="ident">new</span>(
+                <span class="ident">wasmer_engine_staticlib</span>::<span class="ident">Staticlib</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>)
                     .<span class="ident">target</span>(<span class="ident">target</span>)
                     .<span class="ident">features</span>(<span class="ident">features</span>)
                     .<span class="ident">engine</span>(),
             ),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)))]</span>
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)))]</span>
             <span class="ident">engine</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(
                 <span class="string">&quot;The `{}` engine is not included in this binary.&quot;</span>,
                 <span class="ident">engine</span>.<span class="ident">to_string</span>()
@@ -860,8 +860,8 @@
     <span class="ident">Universal</span>,
     <span class="doccomment">/// Dylib Engine</span>
     <span class="ident">Dylib</span>,
-    <span class="doccomment">/// Object File Engine</span>
-    <span class="ident">ObjectFile</span>,
+    <span class="doccomment">/// Static Engine</span>
+    <span class="ident">Staticlib</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="ident">EngineType</span> {
@@ -869,7 +869,7 @@
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span>::<span class="ident">Universal</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;universal&quot;</span>.<span class="ident">to_string</span>(),
             <span class="self">Self</span>::<span class="ident">Dylib</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;dylib&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="self">Self</span>::<span class="ident">ObjectFile</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;objectfile&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="self">Self</span>::<span class="ident">Staticlib</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;staticlib&quot;</span>.<span class="ident">to_string</span>(),
         }
     }
 }
@@ -914,16 +914,16 @@
             <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Universal</span>)
         } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">dylib</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Dylib</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">object_file</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">ObjectFile</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">staticlib</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Staticlib</span>)
         } <span class="kw">else</span> {
             <span class="comment">// Auto mode, we choose the best engine for that platform</span>
             <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) {
                 <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Universal</span>)
             } <span class="kw">else</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) {
                 <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Dylib</span>)
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">ObjectFile</span>)
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>) {
+                <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Staticlib</span>)
             } <span class="kw">else</span> {
                 <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;There are no available engines for your architecture&quot;</span>)
             }
@@ -943,11 +943,11 @@
             }
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
             <span class="ident">EngineType</span>::<span class="ident">Dylib</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">wasmer_engine_dylib</span>::<span class="ident">Dylib</span>::<span class="ident">headless</span>().<span class="ident">engine</span>()),
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)]</span>
-            <span class="ident">EngineType</span>::<span class="ident">ObjectFile</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">wasmer_engine_object_file</span>::<span class="ident">ObjectFile</span>::<span class="ident">headless</span>().<span class="ident">engine</span>())
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)]</span>
+            <span class="ident">EngineType</span>::<span class="ident">Staticlib</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">wasmer_engine_staticlib</span>::<span class="ident">Staticlib</span>::<span class="ident">headless</span>().<span class="ident">engine</span>())
             }
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;object-file&quot;</span>)))]</span>
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>)))]</span>
             <span class="ident">engine</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(
                 <span class="string">&quot;The `{}` engine is not included in this binary.&quot;</span>,
                 <span class="ident">engine</span>.<span class="ident">to_string</span>()
