@@ -51,11 +51,11 @@ impl Compile {
             EngineType::Universal => {
                 wasmer_engine_universal::UniversalArtifact::get_default_extension(target_triple)
             }
-            #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => {
-                wasmer_engine_object_file::ObjectFileArtifact::get_default_extension(target_triple)
+            #[cfg(feature = "staticlib")]
+            EngineType::Staticlib => {
+                wasmer_engine_staticlib::StaticlibArtifact::get_default_extension(target_triple)
             }
-            #[cfg(not(all(feature = "dylib", feature = "universal", feature = "object-file")))]
+            #[cfg(not(all(feature = "dylib", feature = "universal", feature = "staticlib")))]
             _ => bail!("selected engine type is not compiled in"),
         })
     }
@@ -105,14 +105,14 @@ impl Compile {
             self.output.display(),
         );
 
-        #[cfg(feature = "object-file")]
-        if engine_type == EngineType::ObjectFile {
-            let artifact: &wasmer_engine_object_file::ObjectFileArtifact =
-                module.artifact().as_ref().downcast_ref().context("Engine type is ObjectFile but could not downcast artifact into ObjectFileArtifact")?;
+        #[cfg(feature = "staticlib")]
+        if engine_type == EngineType::Staticlib {
+            let artifact: &wasmer_engine_staticlib::StaticlibArtifact =
+                module.artifact().as_ref().downcast_ref().context("Engine type is Staticlib but could not downcast artifact into StaticlibArtifact")?;
             let symbol_registry = artifact.symbol_registry();
             let metadata_length = artifact.metadata_length();
             let module_info = module.info();
-            let header_file_src = crate::c_gen::object_file_header::generate_header_file(
+            let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
                 module_info,
                 symbol_registry,
                 metadata_length,

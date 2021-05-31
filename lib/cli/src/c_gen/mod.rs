@@ -1,7 +1,7 @@
 //! A convenient little abstraction for building up C expressions and generating
 //! simple C code.
 
-pub mod object_file_header;
+pub mod staticlib_header;
 
 /// An identifier in C.
 pub type CIdent = String;

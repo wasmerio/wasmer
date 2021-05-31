@@ -8,10 +8,9 @@ use std::process::Command;
 use wasmer_integration_tests_cli::link_code::*;
 use wasmer_integration_tests_cli::*;
 
-const OBJECT_FILE_ENGINE_TEST_C_SOURCE: &[u8] =
-    include_bytes!("object_file_engine_test_c_source.c");
+const STATICLIB_ENGINE_TEST_C_SOURCE: &[u8] = include_bytes!("staticlib_engine_test_c_source.c");
 
-fn object_file_engine_test_wasm_path() -> String {
+fn staticlib_engine_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
 }
 
@@ -24,7 +23,7 @@ struct WasmerCompile {
     wasmer_path: PathBuf,
     /// Path to the Wasm file to compile.
     wasm_path: PathBuf,
-    /// Path to the object file produced by compiling the Wasm.
+    /// Path to the static object file produced by compiling the Wasm.
     wasm_object_path: PathBuf,
     /// Path to output the generated header to.
     header_output_path: PathBuf,
@@ -43,11 +42,11 @@ impl Default for WasmerCompile {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(object_file_engine_test_wasm_path()),
+            wasm_path: PathBuf::from(staticlib_engine_test_wasm_path()),
             wasm_object_path: PathBuf::from(wasm_obj_path),
             header_output_path: PathBuf::from("my_wasm.h"),
             compiler: Compiler::Cranelift,
-            engine: Engine::ObjectFile,
+            engine: Engine::Staticlib,
         }
     }
 }
@@ -114,11 +113,11 @@ fn run_c_compile(
 }
 
 #[test]
-fn object_file_engine_works() -> anyhow::Result<()> {
+fn staticlib_engine_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir().context("Making a temp dir")?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(object_file_engine_test_wasm_path());
+    let wasm_path = operating_dir.join(staticlib_engine_test_wasm_path());
     #[cfg(not(windows))]
     let wasm_object_path = operating_dir.join("wasm.o");
     #[cfg(windows)]
@@ -131,7 +130,7 @@ fn object_file_engine_works() -> anyhow::Result<()> {
         wasm_object_path: wasm_object_path.clone(),
         header_output_path,
         compiler: Compiler::Cranelift,
-        engine: Engine::ObjectFile,
+        engine: Engine::Staticlib,
         ..Default::default()
     }
     .run()
@@ -151,7 +150,7 @@ fn object_file_engine_works() -> anyhow::Result<()> {
             .write(true)
             .open(&c_src_file_name)
             .context("Failed to open C source code file")?;
-        c_src_file.write_all(OBJECT_FILE_ENGINE_TEST_C_SOURCE)?;
+        c_src_file.write_all(STATICLIB_ENGINE_TEST_C_SOURCE)?;
     }
     run_c_compile(&operating_dir, &c_src_file_name, &c_object_path)
         .context("Failed to compile C source code")?;

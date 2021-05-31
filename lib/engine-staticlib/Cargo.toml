@@ -1,8 +1,8 @@
 [package]
-name = "wasmer-engine-object-file"
+name = "wasmer-engine-staticlib"
 version = "1.0.2"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Wasmer Object File Engine"
+description = "Wasmer Staticlib Engine"
 categories = ["wasm"]
 keywords = ["webassembly", "wasm"]
 repository = "https://github.com/wasmerio/wasmer"

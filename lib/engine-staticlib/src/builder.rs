@@ -1,16 +1,16 @@
-use crate::ObjectFileEngine;
+use crate::StaticlibEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
-/// The ObjectFile builder
-pub struct ObjectFile {
+/// The Staticlib builder
+pub struct Staticlib {
     compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl ObjectFile {
+impl Staticlib {
     #[cfg(feature = "compiler")]
-    /// Create a new ObjectFile
+    /// Create a new Staticlib
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -25,7 +25,7 @@ impl ObjectFile {
         }
     }
 
-    /// Create a new headless ObjectFile
+    /// Create a new headless Staticlib
     pub fn headless() -> Self {
         Self {
             compiler_config: None,
@@ -46,8 +46,8 @@ impl ObjectFile {
         self
     }
 
-    /// Build the `ObjectFileEngine` for this configuration
-    pub fn engine(self) -> ObjectFileEngine {
+    /// Build the `StaticlibEngine` for this configuration
+    pub fn engine(self) -> StaticlibEngine {
         if let Some(_compiler_config) = self.compiler_config {
             #[cfg(feature = "compiler")]
             {
@@ -57,15 +57,15 @@ impl ObjectFile {
                     .features
                     .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
                 let compiler = compiler_config.compiler();
-                ObjectFileEngine::new(compiler, target, features)
+                StaticlibEngine::new(compiler, target, features)
             }
 
             #[cfg(not(feature = "compiler"))]
             {
-                unreachable!("Cannot call `ObjectFileEngine::new` without the `compiler` feature")
+                unreachable!("Cannot call `StaticlibEngine::new` without the `compiler` feature")
             }
         } else {
-            ObjectFileEngine::headless()
+            StaticlibEngine::headless()
         }
     }
 }
@@ -105,13 +105,13 @@ mod tests {
     #[should_panic(expected = "compiler not implemented")]
     fn build_engine() {
         let compiler_config = TestCompilerConfig::default();
-        let object_file = ObjectFile::new(compiler_config);
-        let _engine = object_file.engine();
+        let staticlib = Staticlib::new(compiler_config);
+        let _engine = staticlib.engine();
     }
 
     #[test]
     fn build_headless_engine() {
-        let object_file = ObjectFile::headless();
-        let _engine = object_file.engine();
+        let staticlib = Staticlib::headless();
+        let _engine = staticlib.engine();
     }
 }

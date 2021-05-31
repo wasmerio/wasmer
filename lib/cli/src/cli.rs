@@ -2,7 +2,7 @@
 
 #[cfg(feature = "compiler")]
 use crate::commands::Compile;
-#[cfg(all(feature = "object-file", feature = "compiler"))]
+#[cfg(all(feature = "staticlib", feature = "compiler"))]
 use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
@@ -45,7 +45,7 @@ enum WasmerCLIOptions {
     Compile(Compile),
 
     /// Compile a WebAssembly binary into a native executable
-    #[cfg(all(feature = "object-file", feature = "compiler"))]
+    #[cfg(all(feature = "staticlib", feature = "compiler"))]
     #[clap(name = "create-exe")]
     CreateExe(CreateExe),
 
@@ -77,7 +77,7 @@ impl WasmerCLIOptions {
             Self::Validate(validate) => validate.execute(),
             #[cfg(feature = "compiler")]
             Self::Compile(compile) => compile.execute(),
-            #[cfg(all(feature = "object-file", feature = "compiler"))]
+            #[cfg(all(feature = "staticlib", feature = "compiler"))]
             Self::CreateExe(create_exe) => create_exe.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
