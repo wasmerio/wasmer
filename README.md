@@ -136,6 +136,10 @@ built from sources… Pick what is best for you:
     make build-wasmer
     ```
 
+    [Read the
+    documentation](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)
+    to learn more about this approach.
+
   </details>
 
 * More installation options? See [the `wasmer-install`
@@ -169,21 +173,21 @@ hello 3
 
 📦 Wasmer runtime can be used as a library **embedded in different languages**, so you can use WebAssembly _anywhere_.
 
-| &nbsp; | Language | Package | Docs |
+| | Language | Package | Documentation |
 |-|-|-|-|
-| ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Docs][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Docs][c docs] |
-| ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Docs][c# docs] |
-| ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Docs][d docs] |
-| ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Docs][python docs] |
-| ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [Docs][js docs] |
-| ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [Docs][go docs] |
-| ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [Docs][php docs] |
-| ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Docs][ruby docs] |
-| ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Docs][java docs] |
-| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Docs][elixir docs] |
-| ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
-| ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
+| ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Learn][rust docs]
+| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Learn][c docs] |
+| ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Learn][c# docs] |
+| ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Learn][d docs] |
+| ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Learn][python docs] |
+| ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [Learn][js docs] |
+| ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [Learn][go docs] |
+| ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [Learn][php docs] |
+| ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Learn][ruby docs] |
+| ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Learn][java docs] |
+| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Learn][elixir docs] |
+| ![R logo] | [**R**][R integration] | *no published package* | [Learn][r docs] |
+| ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Learn][postgres docs] |
 |  | [**Swift**][Swift integration] | *no published package* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 
@@ -261,15 +265,17 @@ hello 3
 
 **We welcome any form of contribution, especially from new members of our community** 💜
 
-You can check how to build the Wasmer runtime in [our awesome docs](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
+You can check [how to build the Wasmer runtime documentation from
+sources](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
 
 ### Testing
 
-Test you want? The [Wasmer docs will show you how](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
+Test you want? The [Wasmer docs will show you
+how](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 
 ## Community
 
-Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋
+Wasmer has an amazing community of developers and contributors. You are very welcome! 👋
 
 ### Channels
 
