@@ -126,7 +126,7 @@ typedef enum wasmer_compiler_t {
 typedef enum wasmer_engine_t {
   UNIVERSAL = 0,
   DYLIB = 1,
-  OBJECT_FILE = 2,
+  STATICLIB = 2,
 } wasmer_engine_t;
 
 typedef enum wasmer_parser_operator_t {

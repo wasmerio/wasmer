@@ -19,7 +19,7 @@ wasmer-emscripten = { version = "1.0.2", path = "lib/emscripten", optional = tru
 wasmer-engine = { version = "1.0.2", path = "lib/engine" }
 wasmer-engine-universal = { version = "1.0.2", path = "lib/engine-universal", optional = true }
 wasmer-engine-dylib = { version = "1.0.2", path = "lib/engine-dylib", optional = true }
-wasmer-engine-object-file = { version = "1.0.2", path = "lib/engine-object-file", optional = true }
+wasmer-engine-staticlib = { version = "1.0.2", path = "lib/engine-staticlib", optional = true }
 wasmer-wasi = { version = "1.0.2", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.2", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.2", path = "lib/cache", optional = true }
@@ -42,7 +42,7 @@ members = [
     "lib/engine",
     "lib/engine-universal",
     "lib/engine-dylib",
-    "lib/engine-object-file",
+    "lib/engine-staticlib",
     "lib/object",
     "lib/vm",
     "lib/wasi",
@@ -83,7 +83,7 @@ default = [
     "wast",
     "universal",
     "dylib",
-    "object-file",
+    "staticlib",
     "cache",
     "wasi",
     "emscripten",
@@ -98,8 +98,8 @@ dylib = [
     "wasmer-engine-dylib",
     "engine",
 ]
-object-file = [
-    "wasmer-engine-object-file",
+staticlib = [
+    "wasmer-engine-staticlib",
     "engine",
 ]
 cache = ["wasmer-cache"]
@@ -112,7 +112,7 @@ compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-universal/compiler",
     "wasmer-engine-dylib/compiler",
-    "wasmer-engine-object-file/compiler",
+    "wasmer-engine-staticlib/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",

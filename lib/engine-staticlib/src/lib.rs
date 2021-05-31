@@ -1,8 +1,8 @@
-//! Object file backend for Wasmer compilers.
+//! Staticlib engine for Wasmer compilers.
 //!
 //! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
-//! it generates a object file (.o file) and metadata which can be used
-//! to access it from other programming languages static.
+//! it generates a static object file (`.o` file) and metadata which
+//! can be used to access it from other programming languages static.
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
@@ -26,9 +26,9 @@ mod builder;
 mod engine;
 mod serialize;
 
-pub use crate::artifact::ObjectFileArtifact;
-pub use crate::builder::ObjectFile;
-pub use crate::engine::ObjectFileEngine;
+pub use crate::artifact::StaticlibArtifact;
+pub use crate::builder::Staticlib;
+pub use crate::engine::StaticlibEngine;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

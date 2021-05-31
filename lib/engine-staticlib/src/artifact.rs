@@ -1,7 +1,7 @@
-//! Define `ObjectFileArtifact` to allow compiling and instantiating to be
+//! Define `StaticlibArtifact` to allow compiling and instantiating to be
 //! done as separate steps.
 
-use crate::engine::{ObjectFileEngine, ObjectFileEngineInner};
+use crate::engine::{StaticlibEngine, StaticlibEngineInner};
 use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
 use loupe::MemoryUsage;
 use std::collections::BTreeMap;
@@ -34,7 +34,7 @@ use wasmer_vm::{
 
 /// A compiled wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
-pub struct ObjectFileArtifact {
+pub struct StaticlibArtifact {
     metadata: ModuleMetadata,
     module_bytes: Vec<u8>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -56,7 +56,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 #[allow(dead_code)]
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
-impl ObjectFileArtifact {
+impl StaticlibArtifact {
     // Mach-O header in Mac
     #[allow(dead_code)]
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
@@ -73,10 +73,10 @@ impl ObjectFileArtifact {
     #[allow(dead_code)]
     const MAGIC_HEADER_COFF_64: &'static [u8] = &[b'M', b'Z'];
 
-    /// Check if the provided bytes look like `ObjectFileArtifact`.
+    /// Check if the provided bytes look like `StaticlibArtifact`.
     ///
-    /// This means, if the bytes look like a shared object file in the target
-    /// system.
+    /// This means, if the bytes look like a static object file in the
+    /// target system.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         cfg_if::cfg_if! {
             if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
@@ -146,11 +146,11 @@ impl ObjectFileArtifact {
         ))
     }
 
-    /// Compile a data buffer into a `ObjectFileArtifact`, which can be statically linked against
+    /// Compile a data buffer into a `StaticlibArtifact`, which can be statically linked against
     /// and run later.
     #[cfg(feature = "compiler")]
     pub fn new(
-        engine: &ObjectFileEngine,
+        engine: &StaticlibEngine,
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
@@ -261,9 +261,9 @@ impl ObjectFileArtifact {
         }
     }
 
-    /// Construct a `ObjectFileArtifact` from component parts.
+    /// Construct a `StaticlibArtifact` from component parts.
     pub fn from_parts_crosscompiled(
-        engine_inner: &mut ObjectFileEngineInner,
+        engine_inner: &mut StaticlibEngineInner,
         metadata: ModuleMetadata,
         module_bytes: Vec<u8>,
         metadata_length: usize,
@@ -298,21 +298,21 @@ impl ObjectFileArtifact {
         })
     }
 
-    /// Compile a data buffer into a `ObjectFileArtifact`, which may then be instantiated.
+    /// Compile a data buffer into a `StaticlibArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(_engine: &ObjectFileEngine, _data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &StaticlibEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
     }
 
-    /// Deserialize a `ObjectFileArtifact` from bytes.
+    /// Deserialize a `StaticlibArtifact` from bytes.
     ///
     /// # Safety
     ///
     /// The bytes must represent a serialized WebAssembly module.
     pub unsafe fn deserialize(
-        engine: &ObjectFileEngine,
+        engine: &StaticlibEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
         let mut reader = bytes;
@@ -429,7 +429,7 @@ impl ObjectFileArtifact {
     }
 }
 
-impl Artifact for ObjectFileArtifact {
+impl Artifact for StaticlibArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -486,7 +486,7 @@ impl Artifact for ObjectFileArtifact {
         Ok(())
     }
 
-    /// Serialize a ObjectFileArtifact
+    /// Serialize a StaticlibArtifact
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(self.module_bytes.clone())
     }

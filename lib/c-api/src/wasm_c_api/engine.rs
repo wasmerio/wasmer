@@ -14,8 +14,8 @@ use std::sync::Arc;
 use wasmer::Engine;
 #[cfg(feature = "dylib")]
 use wasmer_engine_dylib::Dylib;
-#[cfg(feature = "object-file")]
-use wasmer_engine_object_file::ObjectFile;
+#[cfg(feature = "staticlib")]
+use wasmer_engine_staticlib::Staticlib;
 #[cfg(feature = "universal")]
 use wasmer_engine_universal::Universal;
 
@@ -73,9 +73,9 @@ pub enum wasmer_engine_t {
     /// [`wasmer_engine_dylib`] Rust crate.
     DYLIB = 1,
 
-    /// Variant to represent the Object File engine. See the
-    /// [`wasmer_engine_object_file`] Rust crate.
-    OBJECT_FILE = 2,
+    /// Variant to represent the Staticlib engine. See the
+    /// [`wasmer_engine_staticlib`] Rust crate.
+    STATICLIB = 2,
 }
 
 impl Default for wasmer_engine_t {
@@ -85,8 +85,8 @@ impl Default for wasmer_engine_t {
                 Self::UNIVERSAL
             } else if #[cfg(feature = "dylib")] {
                 Self::DYLIB
-            } else if #[cfg(feature = "object-file")] {
-                Self::OBJECT_FILE
+            } else if #[cfg(feature = "staticlib")] {
+                Self::STATICLIB
             } else {
                 compile_error!("Please enable one of the engines")
             }
@@ -358,10 +358,10 @@ cfg_if! {
             Box::new(wasm_engine_t { inner: engine })
         }
     }
-    // There are currently no uses of the object-file engine + compiler from the C API.
+    // There are currently no uses of the Staticlib engine + compiler from the C API.
     // So if we get here, we default to headless mode regardless of if `compiler` is enabled.
-    else if #[cfg(feature = "object-file")] {
-        /// Creates a new headless object-file engine.
+    else if #[cfg(feature = "staticlib")] {
+        /// Creates a new headless Staticlib engine.
         ///
         /// # Example
         ///
@@ -370,7 +370,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(ObjectFile::headless().engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Staticlib::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     } else {
@@ -521,12 +521,12 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::OBJECT_FILE => {
+                wasmer_engine_t::STATICLIB => {
                     cfg_if! {
-                        // There are currently no uses of the object-file engine + compiler from the C API.
+                        // There are currently no uses of the Staticlib engine + compiler from the C API.
                         // So we run in headless mode.
-                        if #[cfg(feature = "object-file")] {
-                            let mut builder = ObjectFile::headless();
+                        if #[cfg(feature = "staticlib")] {
+                            let mut builder = Staticlib::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -538,7 +538,7 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
                         }
                     }
                 },
@@ -584,10 +584,10 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::OBJECT_FILE => {
+                wasmer_engine_t::STATICLIB => {
                     cfg_if! {
-                        if #[cfg(feature = "object-file")] {
-                            let mut builder = ObjectFile::headless();
+                        if #[cfg(feature = "staticlib")] {
+                            let mut builder = Staticlib::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -599,7 +599,7 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
                         }
                     }
                 },

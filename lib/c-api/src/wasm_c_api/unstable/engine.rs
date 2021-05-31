@@ -121,7 +121,7 @@ pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
     match engine {
         wasmer_engine_t::UNIVERSAL if cfg!(feature = "universal") => true,
         wasmer_engine_t::DYLIB if cfg!(feature = "dylib") => true,
-        wasmer_engine_t::OBJECT_FILE if cfg!(feature = "object-file") => true,
+        wasmer_engine_t::STATICLIB if cfg!(feature = "staticlib") => true,
         _ => false,
     }
 }
@@ -204,8 +204,8 @@ mod tests {
         );
         set_var("DYLIB", if cfg!(feature = "dylib") { "1" } else { "0" });
         set_var(
-            "OBJECT_FILE",
-            if cfg!(feature = "object-file") {
+            "STATICLIB",
+            if cfg!(feature = "staticlib") {
                 "1"
             } else {
                 "0"
@@ -219,7 +219,7 @@ mod tests {
             int main() {
                 assert(wasmer_is_engine_available(UNIVERSAL) == (getenv("UNIVERSAL")[0] == '1'));
                 assert(wasmer_is_engine_available(DYLIB) == (getenv("DYLIB")[0] == '1'));
-                assert(wasmer_is_engine_available(OBJECT_FILE) == (getenv("OBJECT_FILE")[0] == '1'));
+                assert(wasmer_is_engine_available(STATICLIB) == (getenv("STATICLIB")[0] == '1'));
 
                 return 0;
             }
@@ -228,6 +228,6 @@ mod tests {
 
         remove_var("UNIVERSAL");
         remove_var("DYLIB");
-        remove_var("OBJECT_FILE");
+        remove_var("STATICLIB");
     }
 }
