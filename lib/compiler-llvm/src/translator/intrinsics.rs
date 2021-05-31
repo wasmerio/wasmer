@@ -12,7 +12,7 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     types::{
-        BasicType, BasicTypeEnum, FloatType, IntType, PointerType, StructType, VectorType, VoidType,
+        BasicType, BasicMetadataTypeEnum, BasicTypeEnum, FloatType, IntType, PointerType, StructType, VectorType, VoidType,
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
@@ -320,82 +320,98 @@ impl<'ctx> Intrinsics<'ctx> {
             i32_ty.const_int(15, false),
         ];
 
+        let md_ty = context.metadata_type();
+
+        let i8_ptr_ty_basic= i8_ptr_ty.as_basic_type_enum();
+
+        let i1_ty_basic_md: BasicMetadataTypeEnum = i1_ty.into();
+        let i32_ty_basic_md: BasicMetadataTypeEnum = i32_ty.into();
+        let i64_ty_basic_md: BasicMetadataTypeEnum = i64_ty.into();
+        let f32_ty_basic_md: BasicMetadataTypeEnum = f32_ty.into();
+        let f64_ty_basic_md: BasicMetadataTypeEnum = f64_ty.into();
+        let i8x16_ty_basic_md: BasicMetadataTypeEnum = i8x16_ty.into();
+        let i16x8_ty_basic_md: BasicMetadataTypeEnum = i16x8_ty.into();
+        let f32x4_ty_basic_md: BasicMetadataTypeEnum = f32x4_ty.into();
+        let f64x2_ty_basic_md: BasicMetadataTypeEnum = f64x2_ty.into();
+        let md_ty_basic_md: BasicMetadataTypeEnum = md_ty.into();
+
         let ctx_ty = i8_ty;
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
+        let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
+        let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
         let sigindex_ty = i32_ty;
 
         let anyfunc_ty = context.struct_type(
-            &[i8_ptr_ty.into(), sigindex_ty.into(), ctx_ptr_ty.into()],
+            &[i8_ptr_ty_basic, sigindex_ty.into(), ctx_ptr_ty_basic],
             false,
         );
         let funcref_ty = anyfunc_ty.ptr_type(AddressSpace::Generic);
         let externref_ty = funcref_ty;
         let anyref_ty = i8_ptr_ty;
+        let anyref_ty_basic_md: BasicMetadataTypeEnum = anyref_ty.into();
 
-        let md_ty = context.metadata_type();
-
-        let ret_i8x16_take_i8x16 = i8x16_ty.fn_type(&[i8x16_ty.into()], false);
+        let ret_i8x16_take_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic_md], false);
         let ret_i8x16_take_i8x16_i8x16 =
-            i8x16_ty.fn_type(&[i8x16_ty.into(), i8x16_ty.into()], false);
+            i8x16_ty.fn_type(&[i8x16_ty_basic_md, i8x16_ty_basic_md], false);
         let ret_i16x8_take_i16x8_i16x8 =
-            i16x8_ty.fn_type(&[i16x8_ty.into(), i16x8_ty.into()], false);
+            i16x8_ty.fn_type(&[i16x8_ty_basic_md, i16x8_ty_basic_md], false);
 
-        let ret_i32_take_i32_i1 = i32_ty.fn_type(&[i32_ty.into(), i1_ty.into()], false);
-        let ret_i64_take_i64_i1 = i64_ty.fn_type(&[i64_ty.into(), i1_ty.into()], false);
+        let ret_i32_take_i32_i1 = i32_ty.fn_type(&[i32_ty_basic_md, i1_ty_basic_md], false);
+        let ret_i64_take_i64_i1 = i64_ty.fn_type(&[i64_ty_basic_md, i1_ty_basic_md], false);
 
-        let ret_i32_take_i32 = i32_ty.fn_type(&[i32_ty.into()], false);
-        let ret_i64_take_i64 = i64_ty.fn_type(&[i64_ty.into()], false);
+        let ret_i32_take_i32 = i32_ty.fn_type(&[i32_ty_basic_md], false);
+        let ret_i64_take_i64 = i64_ty.fn_type(&[i64_ty_basic_md], false);
 
-        let ret_f32_take_f32 = f32_ty.fn_type(&[f32_ty.into()], false);
-        let ret_f64_take_f64 = f64_ty.fn_type(&[f64_ty.into()], false);
-        let ret_f32x4_take_f32x4 = f32x4_ty.fn_type(&[f32x4_ty.into()], false);
-        let ret_f64x2_take_f64x2 = f64x2_ty.fn_type(&[f64x2_ty.into()], false);
+        let ret_f32_take_f32 = f32_ty.fn_type(&[f32_ty_basic_md], false);
+        let ret_f64_take_f64 = f64_ty.fn_type(&[f64_ty_basic_md], false);
+        let ret_f32x4_take_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic_md], false);
+        let ret_f64x2_take_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic_md], false);
 
-        let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty.into(), f32_ty.into()], false);
-        let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty.into(), f64_ty.into()], false);
+        let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic_md, f32_ty_basic_md], false);
+        let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic_md, f64_ty_basic_md], false);
         let ret_f32x4_take_f32x4_f32x4 =
-            f32x4_ty.fn_type(&[f32x4_ty.into(), f32x4_ty.into()], false);
+            f32x4_ty.fn_type(&[f32x4_ty_basic_md, f32x4_ty_basic_md], false);
         let ret_f64x2_take_f64x2_f64x2 =
-            f64x2_ty.fn_type(&[f64x2_ty.into(), f64x2_ty.into()], false);
+            f64x2_ty.fn_type(&[f64x2_ty_basic_md, f64x2_ty_basic_md], false);
 
-        let ret_f64_take_f32_md = f64_ty.fn_type(&[f32_ty.into(), md_ty.into()], false);
+        let ret_f64_take_f32_md = f64_ty.fn_type(&[f32_ty_basic_md, md_ty_basic_md], false);
         let ret_f32_take_f64_md_md =
-            f32_ty.fn_type(&[f64_ty.into(), md_ty.into(), md_ty.into()], false);
+            f32_ty.fn_type(&[f64_ty_basic_md, md_ty_basic_md, md_ty_basic_md], false);
 
-        let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty.into(), i1_ty.into()], false);
+        let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic_md, i1_ty_basic_md], false);
 
         let ret_i1_take_f32_f32_md_md = i1_ty.fn_type(
-            &[f32_ty.into(), f32_ty.into(), md_ty.into(), md_ty.into()],
+            &[f32_ty_basic_md, f32_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
         let ret_i1_take_f64_f64_md_md = i1_ty.fn_type(
-            &[f64_ty.into(), f64_ty.into(), md_ty.into(), md_ty.into()],
+            &[f64_ty_basic_md, f64_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
         let ret_i1x4_take_f32x4_f32x4_md_md = i1x4_ty.fn_type(
-            &[f32x4_ty.into(), f32x4_ty.into(), md_ty.into(), md_ty.into()],
+            &[f32x4_ty_basic_md, f32x4_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
         let ret_i1x2_take_f64x2_f64x2_md_md = i1x2_ty.fn_type(
-            &[f64x2_ty.into(), f64x2_ty.into(), md_ty.into(), md_ty.into()],
+            &[f64x2_ty_basic_md, f64x2_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
 
         let ret_f32_take_f32_f32_md_md = f32_ty.fn_type(
-            &[f32_ty.into(), f32_ty.into(), md_ty.into(), md_ty.into()],
+            &[f32_ty_basic_md, f32_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
         let ret_f64_take_f64_f64_md_md = f64_ty.fn_type(
-            &[f64_ty.into(), f64_ty.into(), md_ty.into(), md_ty.into()],
+            &[f64_ty_basic_md, f64_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
         let ret_f32x4_take_f32x4_f32x4_md_md = f32x4_ty.fn_type(
-            &[f32x4_ty.into(), f32x4_ty.into(), md_ty.into(), md_ty.into()],
+            &[f32x4_ty_basic_md, f32x4_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
         let ret_f64x2_take_f64x2_f64x2_md_md = f64x2_ty.fn_type(
-            &[f64x2_ty.into(), f64x2_ty.into(), md_ty.into(), md_ty.into()],
+            &[f64x2_ty_basic_md, f64x2_ty_basic_md, md_ty_basic_md, md_ty_basic_md],
             false,
         );
 
@@ -716,8 +732,8 @@ impl<'ctx> Intrinsics<'ctx> {
                 "llvm.experimental.stackmap",
                 void_ty.fn_type(
                     &[
-                        i64_ty.into(), /* id */
-                        i32_ty.into(), /* numShadowBytes */
+                        i64_ty_basic_md, /* id */
+                        i32_ty_basic_md, /* numShadowBytes */
                     ],
                     true,
                 ),
@@ -729,12 +745,12 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_table_copy",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -744,12 +760,12 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_table_init",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -759,11 +775,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_table_fill",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        anyref_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        anyref_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -771,32 +787,32 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             table_size: module.add_function(
                 "wasmer_vm_table_size",
-                i32_ty.fn_type(&[ctx_ptr_ty.into(), i32_ty.into()], false),
+                i32_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
             imported_table_size: module.add_function(
                 "wasmer_vm_imported_table_size",
-                i32_ty.fn_type(&[ctx_ptr_ty.into(), i32_ty.into()], false),
+                i32_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
             table_get: module.add_function(
                 "wasmer_vm_table_get",
-                anyref_ty.fn_type(&[ctx_ptr_ty.into(), i32_ty.into(), i32_ty.into()], false),
+                anyref_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
             imported_table_get: module.add_function(
                 "wasmer_vm_imported_table_get",
-                anyref_ty.fn_type(&[ctx_ptr_ty.into(), i32_ty.into(), i32_ty.into()], false),
+                anyref_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
             table_set: module.add_function(
                 "wasmer_vm_table_set",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        anyref_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        anyref_ty_basic_md,
                     ],
                     false,
                 ),
@@ -806,10 +822,10 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_imported_table_set",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        anyref_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        anyref_ty_basic_md,
                     ],
                     false,
                 ),
@@ -819,10 +835,10 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_table_grow",
                 i32_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        anyref_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        anyref_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -832,10 +848,10 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_imported_table_grow",
                 i32_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        anyref_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        anyref_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -845,12 +861,12 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_memory32_init",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -860,11 +876,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_memory32_copy",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -874,11 +890,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_imported_memory32_copy",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -888,11 +904,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_memory32_fill",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -902,11 +918,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 "wasmer_vm_imported_memory32_fill",
                 void_ty.fn_type(
                     &[
-                        ctx_ptr_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
-                        i32_ty.into(),
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
                     ],
                     false,
                 ),
@@ -914,49 +930,49 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             data_drop: module.add_function(
                 "wasmer_vm_data_drop",
-                void_ty.fn_type(&[ctx_ptr_ty.into(), i32_ty.into()], false),
+                void_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
             func_ref: module.add_function(
                 "wasmer_vm_func_ref",
-                funcref_ty.fn_type(&[ctx_ptr_ty.into(), i32_ty.into()], false),
+                funcref_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
             elem_drop: module.add_function(
                 "wasmer_vm_elem_drop",
-                void_ty.fn_type(&[ctx_ptr_ty.into(), i32_ty.into()], false),
+                void_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
                 None,
             ),
             throw_trap: module.add_function(
                 "wasmer_vm_raise_trap",
-                void_ty.fn_type(&[i32_ty.into()], false),
+                void_ty.fn_type(&[i32_ty_basic_md], false),
                 None,
             ),
 
             vmfunction_import_ptr_ty: context
-                .struct_type(&[i8_ptr_ty.into(), i8_ptr_ty.into()], false)
+                .struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false)
                 .ptr_type(AddressSpace::Generic),
             vmfunction_import_body_element: 0,
             vmfunction_import_vmctx_element: 1,
 
             // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
-                .struct_type(&[i8_ptr_ty.into(), i32_ty.into()], false)
+                .struct_type(&[i8_ptr_ty_basic, i32_ty.into()], false)
                 .ptr_type(AddressSpace::Generic),
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,
 
             memory32_grow_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.into(), i32_ty.into(), i32_ty.into()], false)
+                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false)
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_grow_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.into(), i32_ty.into(), i32_ty.into()], false)
+                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md], false)
                 .ptr_type(AddressSpace::Generic),
             memory32_size_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.into(), i32_ty.into()], false)
+                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_size_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.into(), i32_ty.into()], false)
+                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
                 .ptr_type(AddressSpace::Generic),
 
             ctx_ptr_ty,
