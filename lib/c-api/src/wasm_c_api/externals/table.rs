@@ -22,15 +22,17 @@ impl wasm_table_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_new(
-    store: Option<&wasm_store_t>,
-    table_type: Option<&wasm_tabletype_t>,
-    init: *const wasm_ref_t,
+    _store: Option<&wasm_store_t>,
+    _table_type: Option<&wasm_tabletype_t>,
+    _init: *const wasm_ref_t,
 ) -> Option<Box<wasm_table_t>> {
-    let store = store?;
-    let table_type = table_type?;
+    /*
+    let _store = store?;
+    let _table_type = table_type?;
 
-    let table_type = table_type.inner().table_type.clone();
-    let init_val = todo!("get val from init somehow");
+    let _table_type = table_type.inner().table_type.clone();
+    let init_val = */
+    todo!("get val from init somehow");
     /*
     let table = c_try!(Table::new(&store.inner, table_type, init_val));
 

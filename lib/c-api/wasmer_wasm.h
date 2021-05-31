@@ -739,18 +739,6 @@ intptr_t wasi_env_read_stdout(struct wasi_env_t *env, char *buffer, uintptr_t bu
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
-bool wasi_env_set_instance(struct wasi_env_t *_env,
-                           const wasm_instance_t *_instance);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
-void wasi_env_set_memory(struct wasi_env_t *_env,
-                         const wasm_memory_t *_memory);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
 bool wasi_get_imports(const wasm_store_t *store,
                       const wasm_module_t *module,
                       const struct wasi_env_t *wasi_env,
