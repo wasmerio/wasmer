@@ -333,17 +333,18 @@ $(info )
 # Building #
 ############
 
-# Not really "all", just the default target that builds enough so make install will go through
+# Not really "all", just the default target that builds enough so make
+# install will go through.
 all: build-wasmer build-capi
-
-bench:
-	cargo bench $(compiler_features)
 
 build-wasmer:
 	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
 	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+
+bench:
+	cargo bench $(compiler_features)
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
