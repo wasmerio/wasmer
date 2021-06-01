@@ -132,8 +132,6 @@
 <span id="131">131</span>
 <span id="132">132</span>
 <span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">function</span>;
 <span class="kw">mod</span> <span class="ident">global</span>;
@@ -144,8 +142,6 @@
     <span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">HostFunction</span>, <span class="ident">WasmTypeList</span>, <span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>,
 };
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;deprecated&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">function</span>::{<span class="ident">UnsafeMutableEnv</span>, <span class="ident">WithUnsafeMutableEnv</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">global</span>::<span class="ident">Global</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">memory</span>::<span class="ident">Memory</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">table</span>::<span class="ident">Table</span>;
