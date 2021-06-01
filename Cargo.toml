@@ -53,9 +53,6 @@ members = [
     "tests/integration/cli",
     "fuzz",
 ]
-exclude = [
-    "lib/deprecated",
-]
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

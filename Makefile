@@ -467,7 +467,7 @@ build-capi-headless-all: capi-setup
 # Testing #
 ###########
 
-test: test-compilers test-packages test-examples test-deprecated
+test: test-compilers test-packages test-examples
 
 test-compilers:
 	cargo test --release --tests $(compiler_features)
@@ -527,11 +527,6 @@ test-wasi-unit:
 
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
-
-test-deprecated:
-	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
