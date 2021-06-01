@@ -1,6 +1,7 @@
 # The Wasmer runtime crates
 
-The crates can be grouped as follows.
+The philosophy of Wasmer is to be very modular by design. It's
+composed of a set of crates. We can group them as follows:
 
 * `api` — The public Rust API exposes everything a user needs to use Wasmer
   programatically through the `wasmer` crate,
@@ -19,23 +20,32 @@ The crates can be grouped as follows.
   * `compiler-singlepass` — A WebAssembly compiler based on our own
     compilation infrastructure; recommended for compilation-time speed
     performance.
-* `deprecated` — The deprecated and old public Rust API, must not be
-  used except if you don't want to migrate an old code using the 0.x
-  version of Wasmer to 1.x,
 * `derive` — A set of procedural macros used inside Wasmer,
 * ABI:
   * `emscripten` — Emscripten ABI implementation inside Wasmer,
   * `wasi` — WASI ABI implementation inside Wasmer.
+    * `wasi-experimental-io-devices` — An experimental extension of
+      WASI for basic graphics.
 * `engine` — The general abstraction for creating an engine, which is
-  responsible of leading the compiling and running flow:
-  * `engine-universal` — 
-  * `engine-dylib` — 
-  * `engine-staticlib` — 
-* `middlewares` —
-* `types` —
-* `vm` —
-
-Extra crates:
-
-* `object` —
-* `wasi-experimental-io-devices` —
+  responsible of leading the compiling and running flow. Using the
+  same compiler, the runtime performance will be approximately the
+  same, however the way it stores and loads the executable code will
+  differ:
+  * `engine-universal` — stores the code in a custom file format, and
+    loads it in memory,
+  * `engine-dylib` — stores Position-Independent Code in a native
+    shared object library (`.dylib`, `.so`, `.dll`) and loads it with
+    Operating System shared library loader (via `dlopen`),
+  * `engine-staticlib` — stores executable code in a native static
+    object library, in addition to emitting a C header file, which
+    both can be linked against a sandboxed WebAssembly runtime
+    environment for the compiled module with no need for runtime
+    compilation,
+  * `object` — A library to cross-generate native objects for various
+    platforms.
+* `middlewares` — A collection of middlewares, like `metering` that
+  tracks how many operators are executed in total and putting a limit
+  on the total number of operators executed,
+* `types` — The basic structures to use WebAssembly,
+* `vm` — The Wasmer VM runtime library, the low-level base of
+  everything.
