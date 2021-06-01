@@ -340,6 +340,7 @@
 <span id="337">337</span>
 <span id="338">338</span>
 <span id="339">339</span>
+<span id="340">340</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
@@ -387,7 +388,8 @@
             <span class="ident">threads</span>: <span class="bool-val">false</span>,
             <span class="comment">// Reference types should be on by default</span>
             <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
-            <span class="ident">simd</span>: <span class="bool-val">false</span>,
+            <span class="comment">// SIMD should be on by default</span>
+            <span class="ident">simd</span>: <span class="bool-val">true</span>,
             <span class="comment">// Bulk Memory should be on by default</span>
             <span class="ident">bulk_memory</span>: <span class="bool-val">true</span>,
             <span class="comment">// Multivalue should be on by default</span>
@@ -592,7 +594,7 @@
             <span class="ident">Features</span> {
                 <span class="ident">threads</span>: <span class="bool-val">false</span>,
                 <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
-                <span class="ident">simd</span>: <span class="bool-val">false</span>,
+                <span class="ident">simd</span>: <span class="bool-val">true</span>,
                 <span class="ident">bulk_memory</span>: <span class="bool-val">true</span>,
                 <span class="ident">multi_value</span>: <span class="bool-val">true</span>,
                 <span class="ident">tail_call</span>: <span class="bool-val">false</span>,
