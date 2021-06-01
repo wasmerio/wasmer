@@ -12,7 +12,7 @@ It currently has three implementations:
 
 1. Universal with [`wasmer-engine-universal`],
 2. Native with [`wasmer-engine-dylib`],
-3. Object with [`wasmer-engine-object-file`].
+3. Object with [`wasmer-engine-staticlib`].
 
 ## Example Implementation
 
@@ -30,7 +30,7 @@ attributions of the project.
 
 [`wasmer-engine-universal`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal
 [`wasmer-engine-dylib`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-dylib
-[`wasmer-engine-object-file`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-object-file
+[`wasmer-engine-staticlib`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-staticlib
 [`wasmer-engine-dummy`]: https://github.com/wasmerio/wasmer/tree/master/tests/lib/engine-dummy
 [`wasmtime-api`]: https://crates.io/crates/wasmtime
 [Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md

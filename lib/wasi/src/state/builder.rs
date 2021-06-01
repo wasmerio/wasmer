@@ -361,8 +361,6 @@ impl WasiStateBuilder {
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
 
-        // this deprecation warning only applies to external callers
-        #[allow(deprecated)]
         let mut wasi_fs = WasiFs::new_with_preopen(&self.preopens)
             .map_err(WasiStateCreationError::WasiFsCreationError)?;
         // set up the file system, overriding base files and calling the setup function

@@ -2,10 +2,9 @@
 //! commands.
 
 use crate::common::WasmFeatures;
-use anyhow::{Error, Result};
+use anyhow::Result;
 use clap::Clap;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
@@ -20,31 +19,31 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 
     /// Use the Universal Engine.
-    #[clap(long, conflicts_with_all = &["dylib", "object-file"])]
+    #[clap(long, conflicts_with_all = &["dylib", "staticlib"])]
     universal: bool,
 
     /// Use the Dylib Engine.
-    #[clap(long, conflicts_with_all = &["universal", "object-file"])]
+    #[clap(long, conflicts_with_all = &["universal", "staticlib"])]
     dylib: bool,
 
-    /// Use the ObjectFile Engine.
+    /// Use the Staticlib Engine.
     #[clap(long, conflicts_with_all = &["universal", "dylib"])]
-    object_file: bool,
+    staticlib: bool,
 }
 
 #[derive(Debug, Clone, Clap)]
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "backend"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
     llvm: bool,
 
     /// Enable compiler internal verification.
@@ -54,10 +53,6 @@ pub struct CompilerOptions {
     /// LLVM debug directory, where IR and object files will be written to.
     #[clap(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
-
-    /// The deprecated backend flag - Please do not use
-    #[clap(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
-    backend: Option<String>,
 
     #[clap(flatten)]
     features: WasmFeatures,
@@ -72,12 +67,6 @@ impl CompilerOptions {
             Ok(CompilerType::LLVM)
         } else if self.singlepass {
             Ok(CompilerType::Singlepass)
-        } else if let Some(backend) = self.backend.clone() {
-            warning!(
-                "the `--backend={0}` flag is deprecated, please use `--{0}` instead",
-                backend
-            );
-            CompilerType::from_str(&backend)
         } else {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
@@ -150,14 +139,14 @@ impl CompilerOptions {
                     .features(features)
                     .engine(),
             ),
-            #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => Box::new(
-                wasmer_engine_object_file::ObjectFile::new(compiler_config)
+            #[cfg(feature = "staticlib")]
+            EngineType::Staticlib => Box::new(
+                wasmer_engine_staticlib::Staticlib::new(compiler_config)
                     .target(target)
                     .features(features)
                     .engine(),
             ),
-            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "object-file")))]
+            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "staticlib")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -344,19 +333,6 @@ impl ToString for CompilerType {
     }
 }
 
-impl FromStr for CompilerType {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "singlepass" => Ok(Self::Singlepass),
-            "cranelift" => Ok(Self::Cranelift),
-            "llvm" => Ok(Self::LLVM),
-            "headless" => Ok(Self::Headless),
-            backend => bail!("The `{}` compiler does not exist.", backend),
-        }
-    }
-}
-
 /// The engine used for the store
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum EngineType {
@@ -364,8 +340,8 @@ pub enum EngineType {
     Universal,
     /// Dylib Engine
     Dylib,
-    /// Object File Engine
-    ObjectFile,
+    /// Static Engine
+    Staticlib,
 }
 
 impl ToString for EngineType {
@@ -373,7 +349,7 @@ impl ToString for EngineType {
         match self {
             Self::Universal => "universal".to_string(),
             Self::Dylib => "dylib".to_string(),
-            Self::ObjectFile => "objectfile".to_string(),
+            Self::Staticlib => "staticlib".to_string(),
         }
     }
 }
@@ -418,16 +394,16 @@ impl StoreOptions {
             Ok(EngineType::Universal)
         } else if self.dylib {
             Ok(EngineType::Dylib)
-        } else if self.object_file {
-            Ok(EngineType::ObjectFile)
+        } else if self.staticlib {
+            Ok(EngineType::Staticlib)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "universal") {
                 Ok(EngineType::Universal)
             } else if cfg!(feature = "dylib") {
                 Ok(EngineType::Dylib)
-            } else if cfg!(feature = "object-file") {
-                Ok(EngineType::ObjectFile)
+            } else if cfg!(feature = "staticlib") {
+                Ok(EngineType::Staticlib)
             } else {
                 bail!("There are no available engines for your architecture")
             }
@@ -447,11 +423,11 @@ impl StoreOptions {
             }
             #[cfg(feature = "dylib")]
             EngineType::Dylib => Arc::new(wasmer_engine_dylib::Dylib::headless().engine()),
-            #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => {
-                Arc::new(wasmer_engine_object_file::ObjectFile::headless().engine())
+            #[cfg(feature = "staticlib")]
+            EngineType::Staticlib => {
+                Arc::new(wasmer_engine_staticlib::Staticlib::headless().engine())
             }
-            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "object-file")))]
+            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "staticlib")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()

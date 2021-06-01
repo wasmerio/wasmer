@@ -2,6 +2,7 @@ use crate::abi::{get_abi, Abi};
 use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
+use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     context::Context,
@@ -9,7 +10,7 @@ use inkwell::{
     passes::PassManager,
     targets::{FileType, TargetMachine},
     types::BasicType,
-    values::{BasicValue, FunctionValue},
+    values::FunctionValue,
     AddressSpace, DLLStorageClass,
 };
 use std::cmp;
@@ -55,11 +56,9 @@ impl FuncTrampoline {
                 .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
-                intrinsics.ctx_ptr_ty.as_basic_type_enum(), // vmctx ptr
-                callee_ty
-                    .ptr_type(AddressSpace::Generic)
-                    .as_basic_type_enum(), // callee function address
-                intrinsics.i128_ptr_ty.as_basic_type_enum(), // in/out values ptr
+                intrinsics.ctx_ptr_ty.into(),                     // vmctx ptr
+                callee_ty.ptr_type(AddressSpace::Generic).into(), // callee function address
+                intrinsics.i128_ptr_ty.into(),                    // in/out values ptr
             ],
             false,
         );
@@ -317,7 +316,8 @@ impl FuncTrampoline {
                 }
             };
 
-        let mut args_vec = Vec::with_capacity(func_sig.params().len() + 1);
+        let mut args_vec: Vec<BasicMetadataValueEnum> =
+            Vec::with_capacity(func_sig.params().len() + 1);
 
         if self.abi.is_sret(func_sig)? {
             let basic_types: Vec<_> = func_sig
@@ -330,7 +330,7 @@ impl FuncTrampoline {
             args_vec.push(builder.build_alloca(sret_ty, "sret").into());
         }
 
-        args_vec.push(callee_vmctx_ptr);
+        args_vec.push(callee_vmctx_ptr.into());
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {
             let index = intrinsics.i32_ty.const_int(i as _, false);
@@ -343,10 +343,10 @@ impl FuncTrampoline {
                 builder.build_pointer_cast(item_pointer, casted_pointer_type, "typed_arg_pointer");
 
             let arg = builder.build_load(typed_item_pointer, "arg");
-            args_vec.push(arg);
+            args_vec.push(arg.into());
         }
 
-        let call_site = builder.build_call(func_ptr, &args_vec, "call");
+        let call_site = builder.build_call(func_ptr, args_vec.as_slice().into(), "call");
         for (attr, attr_loc) in func_attrs {
             call_site.add_attribute(*attr_loc, *attr);
         }
@@ -424,8 +424,8 @@ impl FuncTrampoline {
             .void_ty
             .fn_type(
                 &[
-                    intrinsics.ctx_ptr_ty.as_basic_type_enum(),  // vmctx ptr
-                    intrinsics.i128_ptr_ty.as_basic_type_enum(), // in/out values ptr
+                    intrinsics.ctx_ptr_ty.into(),  // vmctx ptr
+                    intrinsics.i128_ptr_ty.into(), // in/out values ptr
                 ],
                 false,
             )
@@ -441,14 +441,7 @@ impl FuncTrampoline {
             .into_pointer_value();
 
         let values_ptr = builder.build_pointer_cast(values, intrinsics.i128_ptr_ty, "");
-        builder.build_call(
-            callee,
-            &[
-                vmctx.as_basic_value_enum(),
-                values_ptr.as_basic_value_enum(),
-            ],
-            "",
-        );
+        builder.build_call(callee, &[vmctx.into(), values_ptr.into()], "");
 
         if func_sig.results().is_empty() {
             builder.build_return(None);

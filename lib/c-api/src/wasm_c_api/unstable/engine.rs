@@ -95,6 +95,45 @@ pub extern "C" fn wasm_config_set_features(
     config.features = Some(features);
 }
 
+/// Updates the configuration to enable NaN canonicalization.
+///
+/// This is a Wasmer-specific function.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Enable NaN canonicalization.
+///     wasm_config_canonicalize_nans(config, true);
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+#[no_mangle]
+pub extern "C" fn wasm_config_canonicalize_nans(config: &mut wasm_config_t, enable: bool) {
+    config.nan_canonicalization = enable;
+}
+
 /// Check whether the given compiler is available, i.e. part of this
 /// compiled library.
 #[no_mangle]
@@ -121,7 +160,7 @@ pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
     match engine {
         wasmer_engine_t::UNIVERSAL if cfg!(feature = "universal") => true,
         wasmer_engine_t::DYLIB if cfg!(feature = "dylib") => true,
-        wasmer_engine_t::OBJECT_FILE if cfg!(feature = "object-file") => true,
+        wasmer_engine_t::STATICLIB if cfg!(feature = "staticlib") => true,
         _ => false,
     }
 }
@@ -204,8 +243,8 @@ mod tests {
         );
         set_var("DYLIB", if cfg!(feature = "dylib") { "1" } else { "0" });
         set_var(
-            "OBJECT_FILE",
-            if cfg!(feature = "object-file") {
+            "STATICLIB",
+            if cfg!(feature = "staticlib") {
                 "1"
             } else {
                 "0"
@@ -219,7 +258,7 @@ mod tests {
             int main() {
                 assert(wasmer_is_engine_available(UNIVERSAL) == (getenv("UNIVERSAL")[0] == '1'));
                 assert(wasmer_is_engine_available(DYLIB) == (getenv("DYLIB")[0] == '1'));
-                assert(wasmer_is_engine_available(OBJECT_FILE) == (getenv("OBJECT_FILE")[0] == '1'));
+                assert(wasmer_is_engine_available(STATICLIB) == (getenv("STATICLIB")[0] == '1'));
 
                 return 0;
             }
@@ -228,6 +267,6 @@ mod tests {
 
         remove_var("UNIVERSAL");
         remove_var("DYLIB");
-        remove_var("OBJECT_FILE");
+        remove_var("STATICLIB");
     }
 }

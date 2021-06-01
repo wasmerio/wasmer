@@ -126,7 +126,7 @@ typedef enum wasmer_compiler_t {
 typedef enum wasmer_engine_t {
   UNIVERSAL = 0,
   DYLIB = 1,
-  OBJECT_FILE = 2,
+  STATICLIB = 2,
 } wasmer_engine_t;
 
 typedef enum wasmer_parser_operator_t {
@@ -771,6 +771,8 @@ bool wasi_get_unordered_imports(const wasm_store_t *store,
 #if defined(WASMER_WASI_ENABLED)
 enum wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
+
+void wasm_config_canonicalize_nans(wasm_config_t *config, bool enable);
 
 void wasm_config_push_middleware(wasm_config_t *config, struct wasmer_middleware_t *middleware);
 

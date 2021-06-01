@@ -3,7 +3,7 @@ mod cache;
 #[cfg(feature = "compiler")]
 mod compile;
 mod config;
-#[cfg(all(feature = "object-file", feature = "compiler"))]
+#[cfg(all(feature = "staticlib", feature = "compiler"))]
 mod create_exe;
 mod inspect;
 mod run;
@@ -14,7 +14,7 @@ mod wast;
 
 #[cfg(feature = "compiler")]
 pub use compile::*;
-#[cfg(all(feature = "object-file", feature = "compiler"))]
+#[cfg(all(feature = "staticlib", feature = "compiler"))]
 pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;

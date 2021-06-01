@@ -71,7 +71,7 @@ pub struct InodeVal {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Kind {
     File {
-        /// the open file, if it's open
+        /// The open file, if it's open
         handle: Option<Box<dyn WasiFile>>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
@@ -166,129 +166,6 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
-    /// Internal function for constructing a [`WasiFs`].  Please use
-    /// [`WasiState::new`].
-    #[deprecated(
-        since = "0.14.0",
-        note = "This method will change or be made private in the future.  Please use `WasiState::new` and the builder API instead."
-    )]
-    pub fn new(
-        preopened_dirs: &[PathBuf],
-        mapped_dirs: &[(String, PathBuf)],
-    ) -> Result<Self, String> {
-        let (mut wasi_fs, root_inode) = Self::new_init()?;
-
-        debug!("wasi::fs::preopen_dirs");
-        for dir in preopened_dirs {
-            debug!("Attempting to preopen {}", &dir.to_string_lossy());
-            // TODO: think about this
-            let default_rights = ALL_RIGHTS;
-            let cur_dir_metadata = dir.metadata().map_err(|e| {
-                format!(
-                    "Could not get metadata for file {:?}: {}",
-                    dir,
-                    e.to_string()
-                )
-            })?;
-            let kind = if cur_dir_metadata.is_dir() {
-                Kind::Dir {
-                    parent: Some(root_inode),
-                    path: dir.clone(),
-                    entries: Default::default(),
-                }
-            } else {
-                return Err(format!(
-                    "WASI only supports pre-opened directories right now; found \"{}\"",
-                    &dir.to_string_lossy()
-                ));
-            };
-            // TODO: handle nested pats in `file`
-            let inode = wasi_fs
-                .create_inode(kind, true, dir.to_string_lossy().into_owned())
-                .map_err(|e| {
-                    format!(
-                        "Failed to create inode for preopened dir: WASI error code: {}",
-                        e
-                    )
-                })?;
-            let fd = wasi_fs
-                .create_fd(
-                    default_rights,
-                    default_rights,
-                    0,
-                    Fd::READ | Fd::WRITE,
-                    inode,
-                )
-                .map_err(|e| format!("Could not open fd for file {:?}: {}", dir, e))?;
-            if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                let result = entries.insert(dir.to_string_lossy().into_owned(), inode);
-                if result.is_some() {
-                    return Err(format!(
-                        "Error: found collision in preopened directory names, `{}`",
-                        dir.to_string_lossy()
-                    ));
-                }
-            }
-            wasi_fs.preopen_fds.push(fd);
-        }
-        debug!("wasi::fs::mapped_dirs");
-        for (alias, real_dir) in mapped_dirs {
-            debug!("Attempting to open {:?} at {}", real_dir, alias);
-            // TODO: think about this
-            let default_rights = ALL_RIGHTS;
-            let cur_dir_metadata = real_dir.metadata().map_err(|e| {
-                format!(
-                    "Could not get metadata for file {:?}: {}",
-                    &real_dir,
-                    e.to_string()
-                )
-            })?;
-            let kind = if cur_dir_metadata.is_dir() {
-                Kind::Dir {
-                    parent: Some(root_inode),
-                    path: real_dir.clone(),
-                    entries: Default::default(),
-                }
-            } else {
-                return Err(format!(
-                    "WASI only supports pre-opened directories right now; found \"{:?}\"",
-                    &real_dir,
-                ));
-            };
-            // TODO: handle nested pats in `file`
-            let inode = wasi_fs
-                .create_inode(kind, true, alias.clone())
-                .map_err(|e| {
-                    format!(
-                        "Failed to create inode for preopened dir: WASI error code: {}",
-                        e
-                    )
-                })?;
-            let fd = wasi_fs
-                .create_fd(
-                    default_rights,
-                    default_rights,
-                    0,
-                    Fd::READ | Fd::WRITE,
-                    inode,
-                )
-                .map_err(|e| format!("Could not open fd for file {:?}: {}", &real_dir, e))?;
-            if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                let result = entries.insert(alias.clone(), inode);
-                if result.is_some() {
-                    return Err(format!(
-                        "Error: found collision in preopened directory aliases, `{}`",
-                        alias,
-                    ));
-                }
-            }
-            wasi_fs.preopen_fds.push(fd);
-        }
-
-        debug!("wasi::fs::end");
-        Ok(wasi_fs)
-    }
-
     /// Created for the builder API. like `new` but with more information
     pub(crate) fn new_with_preopen(preopens: &[PreopenedDir]) -> Result<Self, String> {
         let (mut wasi_fs, root_inode) = Self::new_init()?;
