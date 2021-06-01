@@ -26,18 +26,7 @@ pub unsafe extern "C" fn wasm_table_new(
     _table_type: Option<&wasm_tabletype_t>,
     _init: *const wasm_ref_t,
 ) -> Option<Box<wasm_table_t>> {
-    /*
-    let _store = store?;
-    let _table_type = table_type?;
-
-    let _table_type = table_type.inner().table_type.clone();
-    let init_val = */
     todo!("get val from init somehow");
-    /*
-    let table = c_try!(Table::new(&store.inner, table_type, init_val));
-
-    Some(Box::new(wasm_table_t { inner: table }))
-    */
 }
 
 #[no_mangle]
