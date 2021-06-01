@@ -16,7 +16,6 @@ echo "manually check changes to wasmer.iss"
 
 # Order to upload packages in
 ## wasmer-types
-## runtime-core
 ## win-exception-handler
 ## compiler
 ## compiler-cranelift
