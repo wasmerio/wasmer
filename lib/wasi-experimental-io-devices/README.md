@@ -26,9 +26,30 @@
 
 <br />
 
-This is experimental extension of WASI for basic graphics.
+This library is an experimental extension of WebAssembly System
+Interface (WASI) for basic graphics. To learn more about WASI, check
+our
+[`wasmer-wasi`](https://github.com/wasmerio/wasmer/tree/master/lib/wasi)
+library.
 
-This article introduces the need for a framebuffer abstraction for WASI:
-https://medium.com/wasmer/wasmer-io-devices-announcement-6f2a6fe23081
+I/O devices is not part of the WASI standard yet. Hence the
+_experimental_ status of this library.
 
-> Note: I/O devices is not part of the WASI standard yet.
+The only real introduction to this library is in our article [Building
+Graphical Applications with Wasmer and
+WASI](https://medium.com/wasmer/wasmer-io-devices-announcement-6f2a6fe23081). It
+introduces the need for a framebuffer abstraction for WASI.
+
+You may also want to check the
+[`io-devices-lib`](https://github.com/wasmerio/io-devices-lib) project
+that contains libraries for interacting with this Wasmer Experimental
+IO Devices library.
+
+<figure>
+  <img src="https://miro.medium.com/max/700/1*D8nEQ_eJ5S6iOov8u0gdpQ.gif" />
+
+  <figcaption>Demonstration of
+  <a href="https://wapm.io/package/torch2424/wasmerboy"><code>wasmerboy</code></a>,
+  a game boy emulator written for WebAssembly using AssemblyScript,
+  built for Wasmer using the Experimental I/O Devices</figcaption>
+</figure>
