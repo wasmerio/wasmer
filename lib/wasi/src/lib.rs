@@ -105,13 +105,6 @@ impl WasiEnv {
         self.state.lock().unwrap()
     }
 
-    // TODO: delete this method before 1.0.0 release
-    #[doc(hidden)]
-    #[deprecated(since = "1.0.0-beta1", note = "Please use the `state` method instead")]
-    pub fn state_mut(&mut self) -> MutexGuard<WasiState> {
-        self.state.lock().unwrap()
-    }
-
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
         self.memory_ref()

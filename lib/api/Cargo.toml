@@ -70,10 +70,6 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-# enables internal features used by the deprecated API.
-deprecated = []
-default-compiler = []
-default-engine = []
 
 default-singlepass = [
     "singlepass",
@@ -95,6 +91,9 @@ default-dylib = [
     "dylib",
     "default-engine"
 ]
+
+default-compiler = []
+default-engine = []
 
 # experimental / in-development features
 experimental-reference-types-extern-ref = [
