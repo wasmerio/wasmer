@@ -14,7 +14,7 @@ SHELL=/bin/bash
 # |------------|-----------|----------|--------------|-------|
 # | Cranelift  | Universal | Linux    | amd64        | glibc |
 # | LLVM       | Dylib     | Darwin   | aarch64      | musl  |
-# | Singlepass |           | Windows  |              |       |
+# | Singlepass | Staticlib | Windows  |              |       |
 # |------------|-----------|----------|--------------|-------|
 #
 # Here is what works and what doesn't:
@@ -424,15 +424,15 @@ endif
 
 build-docs-capi: capi-setup
 	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
-	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,object-file,dylib,cranelift,wasi $(capi_default_features)
+	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi $(capi_default_features)
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,dylib,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features)
+		--no-default-features --features deprecated,wat,universal,dylib,staticlib,wasi,middlewares $(capi_default_features) $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,dylib,object-file,singlepass,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,staticlib,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-singlepass-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -442,17 +442,17 @@ build-capi-singlepass-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,dylib,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-object-file: capi-setup
+build-capi-singlepass-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,singlepass,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,staticlib,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,dylib,object-file,cranelift,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,staticlib,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift-system-libffi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,dylib,object-file,cranelift,wasi,middlewares,system-libffi $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,staticlib,cranelift,wasi,middlewares,system-libffi $(capi_default_features)
 
 build-capi-cranelift-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -462,13 +462,13 @@ build-capi-cranelift-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,dylib,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-object-file: capi-setup
+build-capi-cranelift-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,dylib,object-file,cranelift,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,dylib,staticlib,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,dylib,object-file,llvm,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,universal,dylib,staticlib,llvm,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -478,9 +478,9 @@ build-capi-llvm-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,dylib,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-object-file: capi-setup
+build-capi-llvm-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,llvm,wasi,middlewares $(capi_default_features)
+		--no-default-features --features deprecated,wat,staticlib,llvm,wasi,middlewares $(capi_default_features)
 
 # Headless (we include the minimal to be able to run)
 
@@ -492,19 +492,19 @@ build-capi-headless-dylib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features dylib,wasi
 
-build-capi-headless-object-file: capi-setup
+build-capi-headless-staticlib: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features object-file,wasi
+		--no-default-features --features staticlib,wasi
 
 build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features universal,dylib,object-file,wasi
+		--no-default-features --features universal,dylib,staticlib,wasi
 
 ###########
 # Testing #
 ###########
 
-test: test-compilers test-packages test-examples test-deprecated
+test: test-compilers test-packages test-examples
 
 test-compilers:
 	cargo test --release --tests $(compiler_features)
@@ -551,7 +551,7 @@ test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_en
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,universal,dylib,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features) -- --nocapture
+		--no-default-features --features deprecated,wat,universal,dylib,staticlib,wasi,middlewares $(capi_default_features) $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
 	# Test the Wasmer C API tests for C
@@ -564,11 +564,6 @@ test-wasi-unit:
 
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
-
-test-deprecated:
-	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 test-integration:
 	cargo test -p wasmer-integration-tests-cli

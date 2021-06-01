@@ -973,21 +973,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "inkwell"
-version = "0.1.0-beta.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5fe0be1e47c0c0f3da4397693e08f5d78329ae095c25d529e12ade78420fb41"
-dependencies = [
- "either",
- "inkwell_internals",
- "libc",
- "llvm-sys",
- "once_cell",
- "parking_lot",
- "regex",
-]
-
-[[package]]
 name = "inkwell_internals"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2485,7 +2470,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dylib",
- "wasmer-engine-object-file",
+ "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
@@ -2531,7 +2516,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dylib",
- "wasmer-engine-object-file",
+ "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
@@ -2585,7 +2570,6 @@ version = "1.0.2"
 dependencies = [
  "byteorder",
  "cc",
- "inkwell",
  "itertools 0.10.0",
  "lazy_static",
  "libc",
@@ -2600,6 +2584,7 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
+ "wasmer_inkwell",
 ]
 
 [[package]]
@@ -2700,7 +2685,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine-object-file"
+name = "wasmer-engine-staticlib"
 version = "1.0.2"
 dependencies = [
  "bincode",
@@ -2864,12 +2849,27 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-dummy",
  "wasmer-engine-dylib",
- "wasmer-engine-object-file",
+ "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",
+]
+
+[[package]]
+name = "wasmer_inkwell"
+version = "0.2.0-alpha.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5eca826323f39b29a38cd31c8eb33de76945c6193f30a2806c6cde6f6cd42cb1"
+dependencies = [
+ "either",
+ "inkwell_internals",
+ "libc",
+ "llvm-sys",
+ "once_cell",
+ "parking_lot",
+ "regex",
 ]
 
 [[package]]
