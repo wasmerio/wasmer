@@ -14,7 +14,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y libxkbcommon-dev
+          sudo apt-get install -y libxkbcommon-dev doxygen
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
