@@ -49,7 +49,7 @@ _This document is also available in:
   on Cranelift, or Singlepass) and artifact strategies (_aka_ the
   engines — Universal, Dylib, Staticlib).
 
-* **Universal**. You can run Wasmer in any _platform_ (Linux, macOS
+* **Universal**. You can run Wasmer on any _platform_ (Linux, macOS
   and Windows) and _chipset_.
 
 * **Standards compliant**. The runtime passes [official WebAssembly
@@ -99,7 +99,7 @@ built from sources… Pick what is best for you:
     <summary>With <a href="https://github.com/ScoopInstaller/Main/blob/master/bucket/wasmer.json">Scoop</a></summary>
 
     ```sh
-    scopp install wasmer
+    scoop install wasmer
     ```
 
   </details>
