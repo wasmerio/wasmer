@@ -7,8 +7,6 @@ use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
-#[cfg(feature = "deprecated")]
-pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
 use loupe::MemoryUsage;
 use std::cmp::max;
@@ -329,53 +327,6 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
         Env: Sized + WasmerEnv + 'static,
-    {
-        if std::mem::size_of::<F>() != 0 {
-            Self::closures_unsupported_panic();
-        }
-        let function = inner::Function::<Args, Rets>::new(func);
-        let address = function.address();
-
-        let (host_env, metadata) =
-            build_export_function_metadata::<Env>(env, Env::init_with_instance);
-
-        let vmctx = VMFunctionEnvironment { host_env };
-        let signature = function.ty();
-
-        Self {
-            store: store.clone(),
-            exported: ExportFunction {
-                metadata: Some(Arc::new(metadata)),
-                vm_function: VMFunction {
-                    address,
-                    kind: VMFunctionKind::Static,
-                    vmctx,
-                    signature,
-                    call_trampoline: None,
-                    instance_ref: None,
-                },
-            },
-        }
-    }
-
-    /// Function used by the deprecated API to call a function with a `&mut` Env.
-    ///
-    /// This is not a stable API and may be broken at any time.
-    ///
-    /// # Safety
-    /// - This function is only safe to use from the deprecated API.
-    #[doc(hidden)]
-    #[cfg(feature = "deprecated")]
-    pub unsafe fn new_native_with_unsafe_mutable_env<F, Args, Rets, Env>(
-        store: &Store,
-        env: Env,
-        func: F,
-    ) -> Self
-    where
-        F: HostFunction<Args, Rets, WithUnsafeMutableEnv, Env>,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        Env: UnsafeMutableEnv + WasmerEnv + 'static,
     {
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
@@ -1163,14 +1114,6 @@ mod inner {
         fn function_body_ptr(self) -> *const VMFunctionBody;
     }
 
-    /// Marker trait to limit what the hidden APIs needed for the deprecated API
-    /// can be used on.
-    ///
-    /// Marks an environment as being passed by `&mut`.
-    #[cfg(feature = "deprecated")]
-    #[doc(hidden)]
-    pub unsafe trait UnsafeMutableEnv: Sized {}
-
     /// Empty trait to specify the kind of `HostFunction`: With or
     /// without an environment.
     ///
@@ -1185,18 +1128,6 @@ mod inner {
     pub struct WithEnv;
 
     impl HostFunctionKind for WithEnv {}
-
-    /// An empty struct to help Rust typing to determine
-    /// when a `HostFunction` has an environment.
-    ///
-    /// This environment is passed by `&mut` and exists solely for the deprecated
-    /// API.
-    #[cfg(feature = "deprecated")]
-    #[doc(hidden)]
-    pub struct WithUnsafeMutableEnv;
-
-    #[cfg(feature = "deprecated")]
-    impl HostFunctionKind for WithUnsafeMutableEnv {}
 
     /// An empty struct to help Rust typing to determine
     /// when a `HostFunction` does not have an environment.
@@ -1406,52 +1337,6 @@ mod inner {
                         RetsAsResult: IntoResult<Rets>,
                         Env: Sized,
                         Func: Fn(&Env, $( $x ),* ) -> RetsAsResult + 'static
-                    {
-                        let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
-                        }));
-
-                        match result {
-                            Ok(Ok(result)) => return result.into_c_struct(),
-                            Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
-                            Err(panic) => unsafe { resume_panic(panic) },
-                        }
-                    }
-
-                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
-                }
-            }
-
-            // Implement `HostFunction` for a function that has the same arity than the tuple.
-            // This specific function has an environment.
-            #[doc(hidden)]
-            #[cfg(feature = "deprecated")]
-            #[allow(unused_parens)]
-            impl< $( $x, )* Rets, RetsAsResult, Env, Func >
-                HostFunction<( $( $x ),* ), Rets, WithUnsafeMutableEnv, Env>
-            for
-                Func
-            where
-                $( $x: FromToNativeWasmType, )*
-                Rets: WasmTypeList,
-                RetsAsResult: IntoResult<Rets>,
-                Env: UnsafeMutableEnv,
-                Func: Fn(&mut Env, $( $x , )*) -> RetsAsResult + Send + 'static,
-            {
-                #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
-                    /// This is a function that wraps the real host
-                    /// function. Its address will be used inside the
-                    /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &mut Env, $( $x: $x::Native, )* ) -> Rets::CStruct
-                    where
-                        $( $x: FromToNativeWasmType, )*
-                        Rets: WasmTypeList,
-                        RetsAsResult: IntoResult<Rets>,
-                        Env: Sized,
-                        Func: Fn(&mut Env, $( $x ),* ) -> RetsAsResult + 'static
                     {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
 
