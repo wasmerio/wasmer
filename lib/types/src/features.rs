@@ -44,8 +44,7 @@ impl Features {
             threads: false,
             // Reference types should be on by default
             reference_types: true,
-            // SIMD should be on by default
-            simd: true,
+            simd: false,
             // Bulk Memory should be on by default
             bulk_memory: true,
             // Multivalue should be on by default
@@ -250,7 +249,7 @@ mod test_features {
             Features {
                 threads: false,
                 reference_types: true,
-                simd: true,
+                simd: false,
                 bulk_memory: true,
                 multi_value: true,
                 tail_call: false,
