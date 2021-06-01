@@ -1,4 +1,30 @@
-# Wasmer Engine Staticlib
+<div align="center">
+  <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
+  </a>
+
+  <h1>The <code>wasmer-engine-staticlib</code> library</h1>
+
+  <p>
+    <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
+      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status" />
+    </a>
+    <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License" />
+    </a>
+    <a href="https://slack.wasmer.io">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel" />
+    </a>
+    <a href="https://crates.io/crates/wasmer-engine-staticlib">
+      <img src="https://img.shields.io/crates/v/wasmer-engine-staticlib.svg?style=flat-square" alt="crates.io" />
+    </a>
+    <a href="https://wasmerio.github.io/wasmer/crates/wasmer_engine_staticlib/">
+      <img src="https://img.shields.io/badge/documentation-read-informational?style=flat-square" alt="documentation" />
+    </a>
+  </p>
+</div>
+
+<br />
 
 This is an [engine](https://crates.io/crates/wasmer-engine) for the
 [wasmer](https://crates.io/crates/wasmer) WebAssembly VM.
@@ -61,7 +87,7 @@ int main() {
                 print_wasmer_error();
                 return -1;
         }
-        
+
         // We have now finished the memory buffer book keeping and we have a valid Module.
 
         // In this example we're passing some JavaScript source code as a command line argument
@@ -82,7 +108,7 @@ int main() {
         int num_imports = import_types.size;
         wasm_extern_t** imports = (wasm_extern_t**) malloc(num_imports * sizeof(wasm_extern_t*));
         wasm_importtype_vec_delete(&import_types);
-        
+
         bool get_imports_result = wasi_get_imports(store, module, wasi_env, imports);
         wasi_env_delete(wasi_env);
         if (!get_imports_result) {
@@ -98,7 +124,7 @@ int main() {
                 return -1;
         }
         wasi_env_set_instance(wasi_env, instance);
-        
+
         // WASI is now set up.
         own wasm_func_t* start_function = wasi_get_start_function(instance);
         if (!start_function) {
