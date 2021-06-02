@@ -30,7 +30,6 @@ Now let's create a program to link with this static object file.
 
 ```c
 #include "wasmer_wasm.h"
-#include "wasm.h"
 #include "my_wasm.h"
 
 #include <stdio.h>
@@ -97,7 +96,6 @@ int main() {
                 print_wasmer_error();
                 return -1;
         }
-        wasi_env_set_instance(wasi_env, instance);
         
         // WASI is now set up.
         own wasm_func_t* start_function = wasi_get_start_function(instance);

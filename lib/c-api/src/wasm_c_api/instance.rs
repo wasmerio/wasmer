@@ -184,15 +184,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
     let mut extern_vec = instance
         .exports
         .iter()
-        .map(|(name, r#extern)| {
-            let function = if let Extern::Function { .. } = r#extern {
-                instance.exports.get_function(&name).ok().cloned()
-            } else {
-                None
-            };
-
-            Box::into_raw(Box::new(r#extern.clone().into()))
-        })
+        .map(|(_name, r#extern)| Box::into_raw(Box::new(r#extern.clone().into())))
         .collect::<Vec<*mut wasm_extern_t>>();
     extern_vec.shrink_to_fit();
 

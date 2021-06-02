@@ -30,20 +30,9 @@ CAPI_BASE_TESTS_NOT_WORKING = \
 	wasm-c-api/example/finalize			wasm-c-api/example/hostref					wasm-c-api/example/threads \
 	wasm-c-api/example/table
 
-DEPRECATED_TESTS = \
-	deprecated/test-context				deprecated/test-import-object				deprecated/test-module-imports \
-	deprecated/test-import-trap			deprecated/test-module-serialize \
-	deprecated/test-exported-memory		deprecated/test-imports						deprecated/test-module \
-	deprecated/test-exports				deprecated/test-instantiate					deprecated/test-tables \
-	deprecated/test-globals				deprecated/test-memory						deprecated/test-validate \
-	deprecated/test-module-exports		deprecated/test-module-import-instantiate
-
-DEPRECATED_NOT_WORKING = test-import-function test-import-function-callinfo test-wasi-import-object test-emscripten-import-object
-
-ALL = $(CAPI_BASE_TESTS) $(CAPI_WASMER_TESTS) $(DEPRECATED_TESTS)
+ALL = $(CAPI_BASE_TESTS) $(CAPI_WASMER_TESTS)
 
 test-%: %.o
-deprecated/test-%: deprecated/%.o
 
 .PHONY: all
 all: $(ALL)
@@ -64,13 +53,7 @@ test-capi-base: $(CAPI_BASE_TESTS)
 .SILENT: test-capi-base
 test-capi: test-capi-base test-capi-wasmer
 
-.PHONY: test-deprecated
-.SILENT: test-deprecated
-test-deprecated: $(DEPRECATED_TESTS)
-	set -o errexit; \
-	$(foreach example,$?,echo Running \"$(example)\" example; cd $(shell dirname $(realpath $(example))) && ./$(shell basename $(example)); echo;)
-
-test: test-capi test-deprecated
+test: test-capi
 
 .SILENT: clean
 .PHONY: clean
