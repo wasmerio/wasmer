@@ -75,11 +75,11 @@
 #define WASMER_MIDDLEWARES_ENABLED
 
 // This file corresponds to the following Wasmer version.
-#define WASMER_VERSION "1.0.2"
-#define WASMER_VERSION_MAJOR 1
+#define WASMER_VERSION "2.0.0-rc"
+#define WASMER_VERSION_MAJOR 2
 #define WASMER_VERSION_MINOR 0
-#define WASMER_VERSION_PATCH 2
-#define WASMER_VERSION_PRE ""
+#define WASMER_VERSION_PATCH 0
+#define WASMER_VERSION_PRE "rc"
 
 #endif // WASMER_H_PRELUDE
 

@@ -6,8 +6,9 @@
 
 Looking for changes to the Wasmer CLI and the Rust API? See our [Primary Changelog](../../CHANGELOG.md)
 
-
 ## **[Unreleased]**
+
+## 2.0.0-rc1 - 2020/06/02
 
 ### Added
 - [#2346](https://github.com/wasmerio/wasmer/pull/2346) Add missing `wasm_func_copy` function.

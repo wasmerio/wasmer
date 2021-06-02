@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-singlepass"
-version = "1.0.2"
+version = "2.0.0-rc"
 description = "Singlepass compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "singlepass"]
@@ -12,9 +12,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["translator"], default-features = false }
-wasmer-vm = { path = "../vm", version = "1.0.2" }
-wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "2.0.0-rc", features = ["translator"], default-features = false }
+wasmer-vm = { path = "../vm", version = "2.0.0-rc" }
+wasmer-types = { path = "../types", version = "2.0.0-rc", default-features = false, features = ["std"] }
 rayon = { version = "1.5", optional = true }
 hashbrown = { version = "0.9", optional = true }
 more-asserts = "0.2"

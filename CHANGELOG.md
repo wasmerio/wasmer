@@ -6,8 +6,9 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
-
 ## **[Unreleased]**
+
+## 2.0.0-rc1 - 2020/06/02
 
 ### Added
 - [#2306](https://github.com/wasmerio/wasmer/pull/2306) Add support for the latest version of the Wasm SIMD proposal to compiler LLVM.

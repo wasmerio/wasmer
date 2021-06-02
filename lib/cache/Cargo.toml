@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cache"
-version = "1.0.2"
+version = "2.0.0-rc"
 description = "Cache system for Wasmer WebAssembly runtime"
 categories = ["wasm", "caching"]
 keywords = ["wasm", "webassembly", "cache"]
@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../api", version = "1.0.2", default-features = false }
+wasmer = { path = "../api", version = "2.0.0-rc", default-features = false }
 hex = "0.4"
 thiserror = "1"
 blake3 = "0.3"
@@ -20,9 +20,9 @@ blake3 = "0.3"
 criterion = "0.3"
 tempfile = "3"
 rand = "0.8.3"
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.2" }
-wasmer-engine-universal = { path = "../engine-universal", version = "1.0.2" }
-wasmer-engine-dylib = { path = "../engine-dylib", version = "1.0.2" }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "2.0.0-rc" }
+wasmer-engine-universal = { path = "../engine-universal", version = "2.0.0-rc" }
+wasmer-engine-dylib = { path = "../engine-dylib", version = "2.0.0-rc" }
 
 [[bench]]
 name = "bench_filesystem_cache"

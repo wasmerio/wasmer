@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-workspace"
-version = "1.0.2"
+version = "2.0.0-rc"
 description = "Wasmer workspace"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,21 +10,21 @@ publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { version = "1.0.2", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "1.0.2", path = "lib/compiler" }
-wasmer-compiler-cranelift = { version = "1.0.2", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.2", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.2", path = "lib/compiler-llvm", optional = true }
-wasmer-emscripten = { version = "1.0.2", path = "lib/emscripten", optional = true }
-wasmer-engine = { version = "1.0.2", path = "lib/engine" }
-wasmer-engine-universal = { version = "1.0.2", path = "lib/engine-universal", optional = true }
-wasmer-engine-dylib = { version = "1.0.2", path = "lib/engine-dylib", optional = true }
-wasmer-engine-staticlib = { version = "1.0.2", path = "lib/engine-staticlib", optional = true }
-wasmer-wasi = { version = "1.0.2", path = "lib/wasi", optional = true }
-wasmer-wast = { version = "1.0.2", path = "tests/lib/wast", optional = true }
-wasmer-cache = { version = "1.0.2", path = "lib/cache", optional = true }
-wasmer-types = { version = "1.0.2", path = "lib/types" }
-wasmer-middlewares = { version = "1.0.2", path = "lib/middlewares", optional = true }
+wasmer = { version = "2.0.0-rc", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "2.0.0-rc", path = "lib/compiler" }
+wasmer-compiler-cranelift = { version = "2.0.0-rc", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "2.0.0-rc", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "2.0.0-rc", path = "lib/compiler-llvm", optional = true }
+wasmer-emscripten = { version = "2.0.0-rc", path = "lib/emscripten", optional = true }
+wasmer-engine = { version = "2.0.0-rc", path = "lib/engine" }
+wasmer-engine-universal = { version = "2.0.0-rc", path = "lib/engine-universal", optional = true }
+wasmer-engine-dylib = { version = "2.0.0-rc", path = "lib/engine-dylib", optional = true }
+wasmer-engine-staticlib = { version = "2.0.0-rc", path = "lib/engine-staticlib", optional = true }
+wasmer-wasi = { version = "2.0.0-rc", path = "lib/wasi", optional = true }
+wasmer-wast = { version = "2.0.0-rc", path = "tests/lib/wast", optional = true }
+wasmer-cache = { version = "2.0.0-rc", path = "lib/cache", optional = true }
+wasmer-types = { version = "2.0.0-rc", path = "lib/types" }
+wasmer-middlewares = { version = "2.0.0-rc", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
 
 [workspace]

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-dylib"
-version = "1.0.2"
+version = "2.0.0-rc"
 description = "Wasmer Dylib Engine"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "engine", "dylib"]
@@ -11,11 +11,11 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "1.0.2" }
-wasmer-compiler = { path = "../compiler", version = "1.0.2" }
-wasmer-vm = { path = "../vm", version = "1.0.2", features = ["enable-rkyv"] }
-wasmer-engine = { path = "../engine", version = "1.0.2" }
-wasmer-object = { path = "../object", version = "1.0.2" }
+wasmer-types = { path = "../types", version = "2.0.0-rc" }
+wasmer-compiler = { path = "../compiler", version = "2.0.0-rc" }
+wasmer-vm = { path = "../vm", version = "2.0.0-rc", features = ["enable-rkyv"] }
+wasmer-engine = { path = "../engine", version = "2.0.0-rc" }
+wasmer-object = { path = "../object", version = "2.0.0-rc" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 cfg-if = "1.0"
 tracing = "0.1"

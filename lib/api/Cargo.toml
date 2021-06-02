@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "1.0.2"
+version = "2.0.0-rc"
 description = "High-performant WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
@@ -11,16 +11,16 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-vm = { path = "../vm", version = "1.0.2" }
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.2", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "1.0.2", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "1.0.2", optional = true }
-wasmer-compiler = { path = "../compiler", version = "1.0.2" }
-wasmer-derive = { path = "../derive", version = "1.0.2" }
-wasmer-engine = { path = "../engine", version = "1.0.2" }
-wasmer-engine-universal = { path = "../engine-universal", version = "1.0.2", optional = true }
-wasmer-engine-dylib = { path = "../engine-dylib", version = "1.0.2", optional = true }
-wasmer-types = { path = "../types", version = "1.0.2" }
+wasmer-vm = { path = "../vm", version = "2.0.0-rc" }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "2.0.0-rc", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "2.0.0-rc", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "2.0.0-rc", optional = true }
+wasmer-compiler = { path = "../compiler", version = "2.0.0-rc" }
+wasmer-derive = { path = "../derive", version = "2.0.0-rc" }
+wasmer-engine = { path = "../engine", version = "2.0.0-rc" }
+wasmer-engine-universal = { path = "../engine-universal", version = "2.0.0-rc", optional = true }
+wasmer-engine-dylib = { path = "../engine-dylib", version = "2.0.0-rc", optional = true }
+wasmer-types = { path = "../types", version = "2.0.0-rc" }
 indexmap = { version = "1.6", features = ["serde-1"] }
 cfg-if = "1.0"
 wat = { version = "1.0", optional = true }
