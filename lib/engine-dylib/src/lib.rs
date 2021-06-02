@@ -1,4 +1,4 @@
-//! Ddylib Engine for Wasmer compilers.
+//! Dylib Engine for Wasmer compilers.
 //!
 //! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)
 //! it generates a dylib/shared object file (`.so` or `.dylib`
