@@ -8,165 +8,93 @@
       <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+    </a>
+    <a href="https://docs.wasmer.io">
+      <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
     </a>
     <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20us!&color=brighgreen" alt="Slack channel">
     </a>
   </p>
-
-  <h3>
-    <a href="https://wasmer.io/">Website</a>
-    <span> • </span>
-    <a href="https://docs.wasmer.io">Docs</a>
-    <span> • </span>
-    <a href="https://slack.wasmer.io/">Chat</a>
-  </h3>
-
 </div>
 
 <br />
 
-[Wasmer](https://wasmer.io/) is a runtime that enables super
-lightweight containers based on [WebAssembly](https://webassembly.org)
-to run anywhere: from Desktop to the Cloud and IoT devices, and also
-embedded in [*numerous programming
-language*](https://github.com/wasmerio/wasmer#language-integrations).
+Wasmer is a _fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables super
+_lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* and *IoT* devices.
 
-_This document is also available in:
-[🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md),
-[🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md),
-[🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md),
+> _This document is also available in:
+[🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
+[🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
+[🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
 [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
 
-## ✨ Features
+### Features
 
-* **Fast & Safe**. Wasmer runs WebAssembly at _near-native_ speed in a
-  fully sandboxed environment.
+* Secure by default. No file, network, or environment access, unless explicitly enabled.
+* Supports [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
+* Fast. Run WebAssembly at near-native speeds.
+* Embeddable in [multiple programming languages](https://github.com/wasmerio/wasmer/#-language-integrations)
+* Compliant with latest WebAssembly Proposals (SIMD, Reference Types, Threads, ...)
 
-* **Pluggable**. To best suit your needs, Wasmer supports different
-  compilation strategies (_aka_ the compilers — based on LLVM, based
-  on Cranelift, or Singlepass) and artifact strategies (_aka_ the
-  engines — Universal, Dylib, Staticlib).
+### Install
 
-* **Universal**. You can run Wasmer on any _platform_ (Linux, macOS
-  and Windows) and _chipset_.
+Wasmer CLI ships as a single executable with no dependencies.
 
-* **Standards compliant**. The runtime passes [official WebAssembly
-  test suite](https://github.com/WebAssembly/testsuite) supporting
-  [WASI](https://github.com/WebAssembly/WASI) and
-  [Emscripten](https://emscripten.org/).
+```sh
+curl https://get.wasmer.io -sSfL | sh
+```
 
-## 🏁 Quickstart
 
-The quickest way to get fun with Wasmer is to install its CLI. It
-ships with no dependency. Let's first start by installing it, then
-let's see how to execute a WebAssembly file.
-
-### Installing the Wasmer CLI
-
-Wasmer can be installed from various package managers, scripts, or
-built from sources… Pick what is best for you:
-
-* <details>
-    <summary>With <code>curl</code></summary>
-
-    This is kind of the universal way to install Wasmer. If you don't
-    trust this approach, please see other installation options.
-
-    ```sh
-    curl https://get.wasmer.io -sSfL | sh
-    ```
-
-  </details>
-
-* <details>
-    <summary>With PowerShell</summary>
-
-    This installation process is dedicated to Windows users:
-
+<details>
+  <summary>Other installation options (Powershell, Brew, Cargo, ...)</summary>
+  
+  _Wasmer can be installed from various package managers. Choose the one that fits best for your environment:_
+  
+  * Powershell (Windows)
     ```powershell
     iwr https://win.wasmer.io -useb | iex
     ```
 
-  </details>
-
-* <details>
-    <summary>With <a href="https://formulae.brew.sh/formula/wasmer">Homebrew</a></summary>
-
-    Homebrew is mainly a package manager for macOS:
+  * <a href="https://formulae.brew.sh/formula/wasmer">Homebrew</a> (macOS, Linux)
 
     ```sh
     brew install wasmer
     ```
 
-  </details>
-
-* <details>
-    <summary>With <a href="https://github.com/ScoopInstaller/Main/blob/master/bucket/wasmer.json">Scoop</a></summary>
-
-    Scoop is a package manager for Windows:
+  * <a href="https://github.com/ScoopInstaller/Main/blob/master/bucket/wasmer.json">Scoop</a> (Windows)
 
     ```sh
     scoop install wasmer
     ```
 
-  </details>
-
-* <details>
-    <summary>With <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a></summary>
-
-    Chocolatey is a package manager for Windows:
+  * <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (windows)
 
     ```sh
     choco install wasmer
     ```
+  
+  * <a href="https://crates.io/crates/wasmer-cli/">Cargo</a>
 
-  </details>
-
-* <details>
-    <summary>With <a href="https://crates.io/crates/wasmer-cli/">Cargo</a></summary>
-
-    Cargo is the crate installer for Rust.
-
-    The following command will install `wasmer-cli`. All the available
+    _Note: All the available
     features are described in the [`wasmer-cli`
-    documentation](https://github.com/wasmerio/wasmer/tree/master/lib/cli/README.md).
+    crate docs](https://github.com/wasmerio/wasmer/tree/master/lib/cli/README.md)_
 
     ```sh
     cargo install wasmer-cli
     ```
 
-  </details>
-
-* <details>
-    <summary>From source</summary>
-
-    Inside the root of this repository (in this case, you're likely to
-    need some dependencies):
-
-    ```sh
-    make build-wasmer
-    ```
-
-    [Read the
-    documentation](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)
-    to learn more about this approach.
-
-  </details>
-
-* More installation options? See [the `wasmer-install`
+  > Looking for more installation options? See [the `wasmer-install`
   repository](https://github.com/wasmerio/wasmer-install) to learn
   more!
+</details>
 
-### Executing a WebAssembly file
-
-After installing Wasmer you should be ready to execute your first WebAssembly file! 🎉
+### Quickstart
 
 You can start by running
-[QuickJS](https://github.com/bellard/quickjs/), which is a small and
-embeddable Javascript engine, compiled as a WebAssembly module,
-[`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm):
+[QuickJS](https://github.com/bellard/quickjs/), a small and
+embeddable Javascript engine compiled as a WebAssembly module ([`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)):
 
 ```bash
 $ wasmer qjs.wasm
@@ -176,13 +104,11 @@ qjs > console.log("hello " + i);
 hello 3
 ```
 
-### Discover
+#### Here is what you can do next:
 
-Here are some clues about what you can do next:
-
-- [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust),
-- [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package),
-- [Read more about Wasmer](https://medium.com/wasmer/).
+- [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
+- [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
+- [Read more about Wasmer](https://medium.com/wasmer/)
 
 ## 📦 Language Integrations
 
@@ -207,7 +133,7 @@ languages**, so you can use WebAssembly _anywhere_.
 |  | [**Swift**][Swift integration] | *no published package* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 
-[👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
+[👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
@@ -277,25 +203,18 @@ languages**, so you can use WebAssembly _anywhere_.
 [zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
 [zig integration]: https://github.com/zigwasm/wasmer-zig
 
-## 🤲 Contribute
+## Contribute
 
-We welcome any form of contribution, especially from new members of
-our community 💜.  You can check [how to build the Wasmer runtime
-documentation from
-sources](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
+We appreciate your help! 💜
 
-### Testing
+Check our docs on how to [build Wasmer from
+source](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) or [test your changes](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 
-Test you want? The [Wasmer docs will show you
-how](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
+## Community
 
-## 👐 Community
+Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋
 
-Wasmer has an amazing community of developers and contributors. You are very welcome! 👋
-
-### Channels
-
-- [Community Slack workspace](https://slack.wasmer.io/),
-- [Official Twitter account](https://twitter.com/wasmerio),
-- [Official Facebook acount](https://www.facebook.com/wasmerio),
-- [Email](mailto:hello@wasmer.io).
+- [Wasmer Community Slack](https://slack.wasmer.io/)
+- [Wasmer on Twitter](https://twitter.com/wasmerio)
+- [Wasmer on Facebook](https://www.facebook.com/wasmerio)
+- [Email](mailto:hello@wasmer.io)
