@@ -21,11 +21,8 @@
 
 <br />
 
-Wasmer is a runtime that enables super
-_lightweight containers_ based on [**WebAssembly**](https://webassembly.org)
-to run anywhere: from Desktop to the Cloud and IoT devices, and also
-embedded in *multiple programming
-languages*.
+Wasmer is a _fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables super
+_lightweight containers_ to run anywhere: from Desktop to the Cloud and IoT devices.
 
 > _This document is also available in:
 [🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
@@ -38,6 +35,7 @@ languages*.
 * Secure by default. No file, network, or environment access, unless explicitly enabled.
 * Supports [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
 * Fast. Run WebAssembly at near-native speeds.
+* Embeddable in [multiple programming languages](https://github.com/wasmerio/wasmer/#-language-integrations)
 * Compliant with latest WebAssembly Proposals (SIMD, Reference Types, Threads, ...)
 
 ### Install
