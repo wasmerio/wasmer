@@ -370,3 +370,12 @@ pub use wasmer_engine_dylib::{Dylib, DylibArtifact, DylibEngine};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// Deprecated
+#[cfg(feature = "jit")]
+#[deprecated(since = "2.0.0", note = "Please use the `universal` feature instead")]
+pub type JIT = Universal;
+
+#[cfg(feature = "native")]
+#[deprecated(since = "2.0.0", note = "Please use the `native` feature instead")]
+pub type Native = Dylib;
