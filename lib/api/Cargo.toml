@@ -99,3 +99,7 @@ default-engine = []
 experimental-reference-types-extern-ref = [
     "wasmer-types/experimental-reference-types-extern-ref",
 ]
+
+# Deprecated features.
+jit = ["universal"]
+native = ["dylib"]

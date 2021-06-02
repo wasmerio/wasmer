@@ -19,16 +19,28 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 
     /// Use the Universal Engine.
-    #[clap(long, conflicts_with_all = &["dylib", "staticlib"])]
+    #[clap(long, conflicts_with_all = &["dylib", "staticlib", "jit", "native", "object-file"])]
     universal: bool,
 
     /// Use the Dylib Engine.
-    #[clap(long, conflicts_with_all = &["universal", "staticlib"])]
+    #[clap(long, conflicts_with_all = &["universal", "staticlib", "jit", "native", "object-file"])]
     dylib: bool,
 
     /// Use the Staticlib Engine.
-    #[clap(long, conflicts_with_all = &["universal", "dylib"])]
+    #[clap(long, conflicts_with_all = &["universal", "dylib", "jit", "native", "object-file"])]
     staticlib: bool,
+
+    /// Use the JIT (Universal) Engine.
+    #[clap(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "native", "object-file"])]
+    jit: bool,
+
+    /// Use the Native (Dylib) Engine.
+    #[clap(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "object-file"])]
+    native: bool,
+
+    /// Use the ObjectFile (Staticlib) Engine.
+    #[clap(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "native"])]
+    object_file: bool,
 }
 
 #[derive(Debug, Clone, Clap)]
@@ -390,11 +402,11 @@ impl StoreOptions {
 #[cfg(feature = "engine")]
 impl StoreOptions {
     fn get_engine(&self) -> Result<EngineType> {
-        if self.universal {
+        if self.universal || self.jit {
             Ok(EngineType::Universal)
-        } else if self.dylib {
+        } else if self.dylib || self.native {
             Ok(EngineType::Dylib)
-        } else if self.staticlib {
+        } else if self.staticlib || self.object_file {
             Ok(EngineType::Staticlib)
         } else {
             // Auto mode, we choose the best engine for that platform

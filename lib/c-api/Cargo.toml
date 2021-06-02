@@ -83,6 +83,10 @@ llvm = [
     "compiler",
 ]
 
+# Deprecated features.
+jit = ["universal"]
+native = ["dylib"]
+
 # TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]
 
