@@ -134,7 +134,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_wat2wasm</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_byte_vec_t</span> <span class="ident">wat</span>;
@@ -167,7 +167,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_wat2wasm_failed</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_byte_vec_t</span> <span class="ident">wat</span>;

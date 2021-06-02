@@ -328,7 +328,7 @@
 <span class="doccomment">//! be characterized as a _living standard_. As such, the API is not</span>
 <span class="doccomment">//! yet stable, even though it shows maturity over time. The API is</span>
 <span class="doccomment">//! described by the `wasm.h` C header, which is included by</span>
-<span class="doccomment">//! `wasmer_wasm.h` C header file (which contains extension of the</span>
+<span class="doccomment">//! `wasmer.h` C header file (which contains extension of the</span>
 <span class="doccomment">//! standard API, for example to provide WASI or vendor-specific</span>
 <span class="doccomment">//! features).</span>
 <span class="doccomment">//!</span>
@@ -362,7 +362,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine.</span>
@@ -406,7 +406,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine and the store.</span>
@@ -464,7 +464,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine and the store.</span>
@@ -521,7 +521,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine.</span>
@@ -567,7 +567,7 @@
 
 <span class="doccomment">/// Wasmer-specific API to get or query the version of this Wasm C API.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// The `wasmer_wasm.h` file provides the `WASMER_VERSION`,</span>
+<span class="doccomment">/// The `wasmer.h` file provides the `WASMER_VERSION`,</span>
 <span class="doccomment">/// `WASMER_VERSION_MAJOR`, `WASMER_VERSION_MINOR`,</span>
 <span class="doccomment">/// `WASMER_VERSION_PATCH` and `WASMER_VERSION_PRE`</span>
 <span class="doccomment">/// constants. However, in absence of this header file, it is possible</span>
@@ -584,7 +584,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Get and print the version.</span>
@@ -616,7 +616,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Our WAT module.</span>

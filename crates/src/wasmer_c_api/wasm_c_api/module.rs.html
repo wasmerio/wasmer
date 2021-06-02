@@ -960,7 +960,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine and the store.</span>
@@ -1027,7 +1027,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine and the store.</span>
@@ -1151,7 +1151,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine and the store.</span>
@@ -1303,7 +1303,7 @@
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create the engine and the store.</span>
@@ -1419,7 +1419,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_validate</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
@@ -1446,7 +1446,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_new</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
@@ -1475,7 +1475,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_exports</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
@@ -1583,7 +1583,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_imports</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
@@ -1701,7 +1701,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_serialize</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
@@ -1735,7 +1735,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_serialize_and_deserialize</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();

@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["wasmer_value_tag","Represents all possibles WebAssembly value types."]],"struct":[["wasmer_value_t","Represents a WebAssembly type and value pair, i.e. `wasmer_value_tag` and `wasmer_value`. Since the latter is an union, it's the safe way to read or write a WebAssembly value in C."]],"union":[["wasmer_value","Represents a WebAssembly value."]]});

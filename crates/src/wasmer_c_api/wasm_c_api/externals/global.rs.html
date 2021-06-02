@@ -265,7 +265,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_set_host_global_immutable</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
@@ -297,7 +297,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_set_guest_global_immutable</span>() {
         (<span class="macro">assert_c</span><span class="macro">!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
                 <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
