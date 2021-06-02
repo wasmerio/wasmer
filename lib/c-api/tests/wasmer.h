@@ -1,10 +1,10 @@
 // This header file is used only for test purposes! It is used by unit
 // test inside the `src/` directory for the moment.
 
-#ifndef TEST_WASMER_WASM
-#define TEST_WASMER_WASM
+#ifndef TEST_WASMER
+#define TEST_WASMER
 
-#include "../wasmer_wasm.h"
+#include "../wasmer.h"
 #include "wasm.h"
 #include <stdio.h>
 #include <string.h>
@@ -22,4 +22,4 @@ static inline void wasmer_byte_vec_new_from_string(wasm_byte_vec_t *out,
   wasm_byte_vec_new(out, strlen(s), s);
 }
 
-#endif /* TEST_WASMER_WASM */
+#endif /* TEST_WASMER */

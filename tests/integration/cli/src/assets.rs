@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 pub const C_ASSET_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../lib/c-api/tests/assets"
+    "/../../../lib/c-api/examples/assets"
 );
 pub const ASSET_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests/examples");
 

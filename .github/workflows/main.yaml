@@ -209,11 +209,6 @@ jobs:
       - name: Build C API
         run: |
           make build-capi
-        if: matrix.target != 'aarch64-apple-darwin'
-      - name: Build C API (system libffi)
-        run: |
-          make build-capi-cranelift-system-libffi
-        if: matrix.target == 'aarch64-apple-darwin'
       - name: Build Wasmer binary
         run: |
           make build-wasmer
@@ -266,8 +261,8 @@ jobs:
         run: |
           ls target/release
           alias wasmer=target/release/wasmer
-          ./target/release/wasmer compile --target=x86_64-apple-darwin lib/c-api/tests/assets/qjs.wasm -o qjs_mac_from_linux.wjit
-          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc lib/c-api/tests/assets/qjs.wasm -o qjs_win_from_linux.wjit
+          ./target/release/wasmer compile --target=x86_64-apple-darwin lib/c-api/examples/assets/qjs.wasm -o qjs_mac_from_linux.wjit
+          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc lib/c-api/examples/assets/qjs.wasm -o qjs_win_from_linux.wjit
           mkdir cross
           cp qjs_mac_from_linux.wjit cross
           #cp qjs_win_from_linux.wjit cross
@@ -278,8 +273,8 @@ jobs:
         run: |
           ls target/release
           alias wasmer=target/release/wasmer
-          ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu lib/c-api/tests/assets/qjs.wasm -o qjs_linux_from_mac.wjit
-          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc lib/c-api/tests/assets/qjs.wasm -o qjs_win_from_mac.wjit
+          ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu lib/c-api/examples/assets/qjs.wasm -o qjs_linux_from_mac.wjit
+          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc lib/c-api/examples/assets/qjs.wasm -o qjs_win_from_mac.wjit
           mkdir cross
           cp qjs_linux_from_mac.wjit cross
           #cp qjs_win_from_mac.wjit cross

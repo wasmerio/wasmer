@@ -256,7 +256,7 @@ mod tests {
     #[test]
     fn test_extern_copy() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();

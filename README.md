@@ -118,7 +118,7 @@ languages**, so you can use WebAssembly _anywhere_.
 | | Language | Package | Documentation |
 |-|-|-|-|
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Learn][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer_wasm.h` header] | [Learn][c docs] |
+| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` header] | [Learn][c docs] |
 | ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Learn][c# docs] |
 | ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Learn][d docs] |
 | ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Learn][python docs] |
@@ -142,7 +142,7 @@ languages**, so you can use WebAssembly _anywhere_.
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
-[`wasmer_wasm.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/wasmer_wasm.h
+[`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/wasmer.h
 [c docs]: https://wasmerio.github.io/wasmer/crates/wasmer_c_api
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg

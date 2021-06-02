@@ -11,7 +11,7 @@
 //! by the `wasm.h` C header file. However, this crate API provides
 //! some extensions, like the `wasi_*` or `wasmer_*` types and
 //! functions, which aren't yet defined by the standard. The
-//! `wasmer_wasm.h` header file already depends on the `wasm.h`
+//! `wasmer.h` header file already depends on the `wasm.h`
 //! file. A copy lands in this repository for the sake of simplicity.
 
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]

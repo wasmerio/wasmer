@@ -5,7 +5,7 @@
 #define TEST_WASM
 
 #include "../wasm.h"
-#include "../wasmer_wasm.h"
+#include "../wasmer.h"
 #include <stdio.h>
 #include <string.h>
 

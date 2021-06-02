@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn test_set_host_global_immutable() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn test_set_guest_global_immutable() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();

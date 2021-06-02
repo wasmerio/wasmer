@@ -16,7 +16,7 @@ use std::sync::Arc;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine and the store.
@@ -83,7 +83,7 @@ pub unsafe extern "C" fn wasmer_module_name(
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine and the store.

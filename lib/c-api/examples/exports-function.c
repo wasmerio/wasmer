@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 
 int main(int argc, const char* argv[]) {
     const char *wat_string =

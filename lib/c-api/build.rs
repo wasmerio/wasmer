@@ -88,10 +88,10 @@ fn running_self() -> bool {
 /// Build the header files for the `wasm_c_api` API.
 fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
-    crate_header_file.push("wasmer_wasm");
+    crate_header_file.push("wasmer");
 
     let mut out_header_file = PathBuf::from(out_dir);
-    out_header_file.push("wasmer_wasm");
+    out_header_file.push("wasmer");
 
     let mut pre_header = format!(
         r#"// The Wasmer C/C++ header file compatible with the [`wasm-c-api`]
@@ -130,9 +130,9 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 // [`wasmer-c-api`]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
 // [documentation]: https://wasmerio.github.io/wasmer/crates/wasmer_c_api/
 
-#if !defined(WASMER_WASM_H_PRELUDE)
+#if !defined(WASMER_H_PRELUDE)
 
-#define WASMER_WASM_H_PRELUDE
+#define WASMER_H_PRELUDE
 {pre_header}"#,
         pre_header = PRE_HEADER
     );
@@ -148,7 +148,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     // Close pre header.
     pre_header.push_str(
         r#"
-#endif // WASMER_WASM_H_PRELUDE
+#endif // WASMER_H_PRELUDE
 
 
 //
@@ -157,7 +157,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 "#,
     );
 
-    let guard = "WASMER_WASM_H";
+    let guard = "WASMER_H";
 
     // C bindings.
     {
