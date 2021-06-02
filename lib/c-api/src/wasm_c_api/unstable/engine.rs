@@ -14,7 +14,7 @@ use super::target_lexicon::wasmer_target_t;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the configuration.
@@ -58,7 +58,7 @@ pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the configuration.
@@ -105,7 +105,7 @@ pub extern "C" fn wasm_config_set_features(
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the configuration.
@@ -178,7 +178,7 @@ mod tests {
         );
 
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
             #include <stdlib.h>
 
             int main() {
@@ -213,7 +213,7 @@ mod tests {
         );
 
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
             #include <stdlib.h>
 
             int main() {
@@ -252,7 +252,7 @@ mod tests {
         );
 
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
             #include <stdlib.h>
 
             int main() {

@@ -11,7 +11,7 @@
 //! # use inline_c::assert_c;
 //! # fn main() {
 //! #    (assert_c! {
-//! # #include "tests/wasmer_wasm.h"
+//! # #include "tests/wasmer.h"
 //! #
 //! // Define our “cost function”.
 //! uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {
@@ -233,7 +233,7 @@ pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// // Define a dummy “cost function”.
 /// uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {

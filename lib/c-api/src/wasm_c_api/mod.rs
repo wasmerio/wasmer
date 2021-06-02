@@ -5,7 +5,7 @@
 //! be characterized as a _living standard_. As such, the API is not
 //! yet stable, even though it shows maturity over time. The API is
 //! described by the `wasm.h` C header, which is included by
-//! `wasmer_wasm.h` C header file (which contains extension of the
+//! `wasmer.h` C header file (which contains extension of the
 //! standard API, for example to provide WASI or vendor-specific
 //! features).
 //!
@@ -39,7 +39,7 @@ pub mod macros;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine.
@@ -83,7 +83,7 @@ pub mod externals;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine and the store.
@@ -141,7 +141,7 @@ pub mod instance;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine and the store.
@@ -198,7 +198,7 @@ pub mod module;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine.
@@ -244,7 +244,7 @@ pub mod value;
 
 /// Wasmer-specific API to get or query the version of this Wasm C API.
 ///
-/// The `wasmer_wasm.h` file provides the `WASMER_VERSION`,
+/// The `wasmer.h` file provides the `WASMER_VERSION`,
 /// `WASMER_VERSION_MAJOR`, `WASMER_VERSION_MINOR`,
 /// `WASMER_VERSION_PATCH` and `WASMER_VERSION_PRE`
 /// constants. However, in absence of this header file, it is possible
@@ -261,7 +261,7 @@ pub mod value;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Get and print the version.
@@ -293,7 +293,7 @@ pub mod wasi;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Our WAT module.

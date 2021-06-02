@@ -3,7 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 
 #define BUF_SIZE 128
 #define own

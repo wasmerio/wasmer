@@ -464,9 +464,6 @@ build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
-# Compatibility
-# TODO: Delete this method
-build-capi-cranelift-system-libffi: build-capi
 
 ###########
 # Testing #
@@ -582,6 +579,7 @@ endif
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
+	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md

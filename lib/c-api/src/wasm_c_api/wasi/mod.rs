@@ -395,7 +395,7 @@ mod tests {
     #[test]
     fn test_wasi_get_wasi_version_snapshot0() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -426,7 +426,7 @@ mod tests {
     #[test]
     fn test_wasi_get_wasi_version_snapshot1() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn test_wasi_get_wasi_version_invalid() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();

@@ -18,9 +18,6 @@ $(info * CFLAGS: $(CFLAGS))
 $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
 
-CAPI_WASMER_TESTS = \
-	test-early-exit 					test-memory 							  	test-wasi \
-
 CAPI_BASE_TESTS = \
 	wasm-c-api/example/callback			wasm-c-api/example/global					wasm-c-api/example/hello \
 	wasm-c-api/example/memory			wasm-c-api/example/reflect					wasm-c-api/example/serialize \

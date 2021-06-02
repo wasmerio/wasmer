@@ -20,7 +20,7 @@ pub fn store_cache_universal(c: &mut Criterion) {
     let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
-        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+        std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
     )
     .unwrap();
 
@@ -39,7 +39,7 @@ pub fn load_cache_universal(c: &mut Criterion) {
     let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
-        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+        std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
     )
     .unwrap();
     let key = Hash::new([0u8; 32]);
@@ -57,7 +57,7 @@ pub fn store_cache_native(c: &mut Criterion) {
     let store = Store::new(&Native::new(compiler).engine());
     let module = Module::new(
         &store,
-        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+        std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
     )
     .unwrap();
 
@@ -76,7 +76,7 @@ pub fn load_cache_native(c: &mut Criterion) {
     let store = Store::new(&Native::new(compiler).engine());
     let module = Module::new(
         &store,
-        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+        std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
     )
     .unwrap();
     let key = Hash::new([0u8; 32]);

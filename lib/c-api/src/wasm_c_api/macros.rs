@@ -15,7 +15,7 @@ macro_rules! wasm_declare_vec_inner {
 # use inline_c::assert_c;
 # fn main() {
 #    (assert_c! {
-# #include \"tests/wasmer_wasm.h\"
+# #include \"tests/wasmer.h\"
 #
 int main() {
     // Creates an empty vector of `" $prefix "_" $name "_t`.
@@ -60,7 +60,7 @@ Read the documentation of [`" $prefix "_" $name "_t`] to see more concrete examp
 # use inline_c::assert_c;
 # fn main() {
 #    (assert_c! {
-# #include \"tests/wasmer_wasm.h\"
+# #include \"tests/wasmer.h\"
 #
 int main() {
     // Create a vector of 2 `" $prefix "_" $name "_t`.
@@ -202,7 +202,7 @@ See the [`" $prefix "_" $name "_vec_t`] type to get an example."]
 # use inline_c::assert_c;
 # fn main() {
 #    (assert_c! {
-# #include \"tests/wasmer_wasm.h\"
+# #include \"tests/wasmer.h\"
 #
 int main() {
     // Creates an empty vector of `" $prefix "_" $name "_t`.
@@ -383,7 +383,7 @@ Read the documentation of [`" $prefix "_" $name "_t`] to see more concrete examp
 # use inline_c::assert_c;
 # fn main() {
 #    (assert_c! {
-# #include \"tests/wasmer_wasm.h\"
+# #include \"tests/wasmer.h\"
 #
 int main() {
     // Creates an empty vector of `" $prefix "_" $name "_t`.
