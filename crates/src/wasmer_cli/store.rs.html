@@ -469,6 +469,18 @@
 <span id="468">468</span>
 <span id="469">469</span>
 <span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
@@ -491,16 +503,28 @@
     <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
 
     <span class="doccomment">/// Use the Universal Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
     <span class="ident">universal</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the Dylib Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;staticlib&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
     <span class="ident">dylib</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the Staticlib Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
     <span class="ident">staticlib</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Use the JIT (Universal) Engine.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="ident">jit</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Use the Native (Dylib) Engine.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="ident">native</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Use the ObjectFile (Staticlib) Engine.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>]</span>)]
+    <span class="ident">object_file</span>: <span class="ident">bool</span>,
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Clap</span>)]</span>
@@ -862,11 +886,11 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;engine&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">StoreOptions</span> {
     <span class="kw">fn</span> <span class="ident">get_engine</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">EngineType</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">universal</span> {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">universal</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">jit</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Universal</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">dylib</span> {
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">dylib</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">native</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Dylib</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">staticlib</span> {
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">staticlib</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">object_file</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">EngineType</span>::<span class="ident">Staticlib</span>)
         } <span class="kw">else</span> {
             <span class="comment">// Auto mode, we choose the best engine for that platform</span>
