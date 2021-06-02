@@ -30,7 +30,7 @@ _lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* 
 [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
 [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
 
-### Features
+## Features
 
 * Secure by default. No file, network, or environment access, unless explicitly enabled.
 * Supports [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
@@ -38,7 +38,7 @@ _lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* 
 * Embeddable in [multiple programming languages](https://github.com/wasmerio/wasmer/#-language-integrations)
 * Compliant with latest WebAssembly Proposals (SIMD, Reference Types, Threads, ...)
 
-### Install
+## Install
 
 Wasmer CLI ships as a single executable with no dependencies.
 
@@ -90,7 +90,7 @@ curl https://get.wasmer.io -sSfL | sh
   more!
 </details>
 
-### Quickstart
+## Quickstart
 
 You can start by running
 [QuickJS](https://github.com/bellard/quickjs/), a small and
