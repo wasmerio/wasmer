@@ -1854,6 +1854,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "semver"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "965645ad4a66d27024921aa1e2e47a76524a4cfd55e038b62104eca65c363230"
+
+[[package]]
 name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2543,7 +2549,7 @@ dependencies = [
  "rayon",
  "regex",
  "rustc_version 0.2.3",
- "semver 0.11.0",
+ "semver 1.0.2",
  "smallvec",
  "target-lexicon 0.12.0",
  "wasmer-compiler",
