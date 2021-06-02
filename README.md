@@ -22,7 +22,7 @@
 <br />
 
 Wasmer is a _fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables super
-_lightweight containers_ to run anywhere: from Desktop to the Cloud and IoT devices.
+_lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* and *IoT* devices.
 
 > _This document is also available in:
 [🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
