@@ -219,7 +219,7 @@ jobs:
       - name: Install Nightly Rust for Headless
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 'nightly-2020-12-22'
+          toolchain: 'nightly-2021-04-25'
           target: ${{ matrix.target }}
           override: true
           components: "rust-src"
