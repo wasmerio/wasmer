@@ -106,7 +106,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev
+            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -225,7 +225,7 @@ jobs:
           components: "rust-src"
         if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Build Minimal Wasmer Headless
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+        if: needs.setup.outputs.DOING_RELEASE == '1' && matrix.build != 'linux-musl-x64'
         run: |
           cargo install xargo
           echo "" >> Cargo.toml
