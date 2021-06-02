@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.2"
+target_version = "2.0.0-rc1"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -55,7 +55,7 @@ dep_graph = {
 # where each crate is located in the `lib` directory
 # TODO: this could also be generated from the toml files
 location = {
-    "wasmer-types": "wasmer-types",
+    "wasmer-types": "types",
     "wasmer-derive": "derive",
     "wasmer-vm": "vm",
     "wasmer-compiler": "compiler",
