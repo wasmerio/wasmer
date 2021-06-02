@@ -464,6 +464,10 @@ build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
+# Compatibility
+# TODO: Delete this method
+build-capi-cranelift-system-libffi: build-capi
+
 ###########
 # Testing #
 ###########
