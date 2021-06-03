@@ -8,6 +8,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+### Added
+
+### Changed
+
+### Fixed
+- [#2383](https://github.com/wasmerio/wasmer/pull/2383) Fix bugs in the Wasmer CLI tool with the way `--version` and the name of the CLI tool itself were printed.
+
 ## 2.0.0-rc1 - 2020/06/02
 
 ### Added
