@@ -1,17 +1,17 @@
 use crate::common::get_cache_dir;
 use anyhow::{Context, Result};
-use clap::Clap;
 use std::fs;
+use structopt::StructOpt;
 
-#[derive(Debug, Clap)]
+#[derive(Debug, StructOpt)]
 /// The options for the `wasmer cache` subcommand
 pub enum Cache {
     /// Clear the cache
-    #[clap(name = "clean")]
+    #[structopt(name = "clean")]
     Clean,
 
     /// Display the location of the cache
-    #[clap(name = "dir")]
+    #[structopt(name = "dir")]
     Dir,
 }
 

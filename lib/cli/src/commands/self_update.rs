@@ -1,11 +1,11 @@
 //! When wasmer self-update is executed, this is what gets executed
 use anyhow::{Context, Result};
-use clap::Clap;
 #[cfg(not(target_os = "windows"))]
 use std::process::{Command, Stdio};
+use structopt::StructOpt;
 
 /// The options for the `wasmer self-update` subcommand
-#[derive(Debug, Clap)]
+#[derive(Debug, StructOpt)]
 pub struct SelfUpdate {}
 
 impl SelfUpdate {

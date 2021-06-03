@@ -11,7 +11,7 @@ use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 
-use clap::Clap;
+use structopt::StructOpt;
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -19,53 +19,53 @@ mod wasi;
 #[cfg(feature = "wasi")]
 use wasi::Wasi;
 
-#[derive(Debug, Clap, Clone)]
+#[derive(Debug, StructOpt, Clone)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
     /// Disable the cache
-    #[clap(long = "disable-cache")]
+    #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
     /// File to run
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Invoke a specified function
-    #[clap(long = "invoke", short = 'i')]
+    #[structopt(long = "invoke", short = "i")]
     invoke: Option<String>,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
-    #[clap(long = "command-name", hidden = true)]
+    #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
 
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
     /// as if no `cache-key` argument was passed.
-    #[clap(long = "cache-key", hidden = true)]
+    #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
-    #[clap(flatten)]
+    #[structopt(flatten)]
     store: StoreOptions,
 
     // TODO: refactor WASI structure to allow shared options with Emscripten
     #[cfg(feature = "wasi")]
-    #[clap(flatten)]
+    #[structopt(flatten)]
     wasi: Wasi,
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
-    #[clap(long = "enable-io-devices")]
+    #[structopt(long = "enable-io-devices")]
     enable_experimental_io_devices: bool,
 
     /// Enable debug output
     #[cfg(feature = "debug")]
-    #[clap(long = "debug", short = 'd')]
+    #[structopt(long = "debug", short = "d")]
     debug: bool,
 
     /// Application arguments
-    #[clap(name = "--", multiple = true)]
+    #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
 }
 
