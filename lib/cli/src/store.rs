@@ -19,23 +19,23 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 
     /// Use the Universal Engine.
-    #[structopt(long, conflicts_with_all = &["dylib", "staticlib", "jit", "native", "object-file"])]
+    #[structopt(long, conflicts_with_all = &["dylib", "staticlib", "jit", "native", "object_file"])]
     universal: bool,
 
     /// Use the Dylib Engine.
-    #[structopt(long, conflicts_with_all = &["universal", "staticlib", "jit", "native", "object-file"])]
+    #[structopt(long, conflicts_with_all = &["universal", "staticlib", "jit", "native", "object_file"])]
     dylib: bool,
 
     /// Use the Staticlib Engine.
-    #[structopt(long, conflicts_with_all = &["universal", "dylib", "jit", "native", "object-file"])]
+    #[structopt(long, conflicts_with_all = &["universal", "dylib", "jit", "native", "object_file"])]
     staticlib: bool,
 
     /// Use the JIT (Universal) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "native", "object-file"])]
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "native", "object_file"])]
     jit: bool,
 
     /// Use the Native (Dylib) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "object-file"])]
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "object_file"])]
     native: bool,
 
     /// Use the ObjectFile (Staticlib) Engine.
