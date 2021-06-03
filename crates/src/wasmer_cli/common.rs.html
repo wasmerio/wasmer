@@ -56,36 +56,36 @@
 <span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VERSION</span>;
-<span class="kw">use</span> <span class="ident">clap</span>::<span class="ident">Clap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
+<span class="kw">use</span> <span class="ident">structopt</span>::<span class="ident">StructOpt</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clap</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>, <span class="ident">Clone</span>)]</span>
 <span class="doccomment">/// The WebAssembly features that can be passed through the</span>
 <span class="doccomment">/// Command Line args.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmFeatures</span> {
     <span class="doccomment">/// Enable support for the SIMD proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-simd&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-simd&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">simd</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable support for the threads proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-threads&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-threads&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">threads</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable support for the reference types proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-reference-types&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-reference-types&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">reference_types</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable support for the multi value proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-multi-value&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-multi-value&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">multi_value</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable support for the bulk memory proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-bulk-memory&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-bulk-memory&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">bulk_memory</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable support for all pre-standard proposals.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-all&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-all&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">all</span>: <span class="ident">bool</span>,
 }
 

@@ -487,70 +487,70 @@
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">common</span>::<span class="ident">WasmFeatures</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span>;
-<span class="kw">use</span> <span class="ident">clap</span>::<span class="ident">Clap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">string</span>::<span class="ident">ToString</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
+<span class="kw">use</span> <span class="ident">structopt</span>::<span class="ident">StructOpt</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">CompilerConfig</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Clap</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>)]</span>
 <span class="doccomment">/// The compiler and engine options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StoreOptions</span> {
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
 
     <span class="doccomment">/// Use the Universal Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
     <span class="ident">universal</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the Dylib Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
     <span class="ident">dylib</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the Staticlib Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
     <span class="ident">staticlib</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the JIT (Universal) Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;native&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
     <span class="ident">jit</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the Native (Dylib) Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;object-file&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;object_file&quot;</span>]</span>)]
     <span class="ident">native</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use the ObjectFile (Staticlib) Engine.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;universal&quot;</span>, <span class="string">&quot;dylib&quot;</span>, <span class="string">&quot;staticlib&quot;</span>, <span class="string">&quot;jit&quot;</span>, <span class="string">&quot;native&quot;</span>]</span>)]
     <span class="ident">object_file</span>: <span class="ident">bool</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Clap</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>)]</span>
 <span class="doccomment">/// The compiler options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompilerOptions</span> {
     <span class="doccomment">/// Use Singlepass compiler.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;cranelift&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;cranelift&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
     <span class="ident">singlepass</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use Cranelift compiler.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;llvm&quot;</span>]</span>)]
     <span class="ident">cranelift</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Use LLVM compiler.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;cranelift&quot;</span>]</span>)]
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">conflicts_with_all</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;singlepass&quot;</span>, <span class="string">&quot;cranelift&quot;</span>]</span>)]
     <span class="ident">llvm</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable compiler internal verification.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>)]</span>
     <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// LLVM debug directory, where IR and object files will be written to.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">llvm_debug_dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">features</span>: <span class="ident">WasmFeatures</span>,
 }
 

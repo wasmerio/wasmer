@@ -131,16 +131,16 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">PrettyError</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span>;
 
-<span class="kw">use</span> <span class="ident">clap</span>::{<span class="ident">Clap</span>, <span class="ident">ErrorKind</span>};
+<span class="kw">use</span> <span class="ident">structopt</span>::{<span class="ident">clap</span>::<span class="ident">ErrorKind</span>, <span class="ident">StructOpt</span>};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clap</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
     <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;headless&quot;</span>),
-    <span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wasmer&quot;</span>, <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;WebAssembly standalone runtime.&quot;</span>, <span class="ident">author</span>)
+    <span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wasmer&quot;</span>, <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;WebAssembly standalone runtime.&quot;</span>, <span class="ident">author</span>)
 )]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;headless&quot;</span>,
-    <span class="ident">clap</span>(
+    <span class="ident">structopt</span>(
         <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wasmer-headless&quot;</span>,
         <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Headless WebAssembly standalone runtime.&quot;</span>,
         <span class="ident">author</span>
@@ -149,43 +149,43 @@
 <span class="doccomment">/// The options for the wasmer Command Line Interface</span>
 <span class="kw">enum</span> <span class="ident">WasmerCLIOptions</span> {
     <span class="doccomment">/// Run a WebAssembly file. Formats accepted: wasm, wat</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;run&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;run&quot;</span>)]</span>
     <span class="ident">Run</span>(<span class="ident">Run</span>),
 
     <span class="doccomment">/// Wasmer cache</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="ident">Cache</span>(<span class="ident">Cache</span>),
 
     <span class="doccomment">/// Validate a WebAssembly binary</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;validate&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;validate&quot;</span>)]</span>
     <span class="ident">Validate</span>(<span class="ident">Validate</span>),
 
     <span class="doccomment">/// Compile a WebAssembly binary</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;compile&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;compile&quot;</span>)]</span>
     <span class="ident">Compile</span>(<span class="ident">Compile</span>),
 
     <span class="doccomment">/// Compile a WebAssembly binary into a native executable</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-exe&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-exe&quot;</span>)]</span>
     <span class="ident">CreateExe</span>(<span class="ident">CreateExe</span>),
 
     <span class="doccomment">/// Get various configuration information needed</span>
     <span class="doccomment">/// to compile programs which use Wasmer</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;config&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;config&quot;</span>)]</span>
     <span class="ident">Config</span>(<span class="ident">Config</span>),
 
     <span class="doccomment">/// Update wasmer to the latest version</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;self-update&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;self-update&quot;</span>)]</span>
     <span class="ident">SelfUpdate</span>(<span class="ident">SelfUpdate</span>),
 
     <span class="doccomment">/// Inspect a WebAssembly file</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;inspect&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;inspect&quot;</span>)]</span>
     <span class="ident">Inspect</span>(<span class="ident">Inspect</span>),
 
     <span class="doccomment">/// Run spec testsuite</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
     <span class="ident">Wast</span>(<span class="ident">Wast</span>),
 }
 
@@ -222,15 +222,15 @@
     <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">get</span>(<span class="number">1</span>);
     <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">command</span>.<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()).<span class="ident">as_ref</span>() {
         <span class="string">&quot;cache&quot;</span> <span class="op">|</span> <span class="string">&quot;compile&quot;</span> <span class="op">|</span> <span class="string">&quot;config&quot;</span> <span class="op">|</span> <span class="string">&quot;create-exe&quot;</span> <span class="op">|</span> <span class="string">&quot;help&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;run&quot;</span>
-        <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions</span>::<span class="ident">parse</span>(),
+        <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions</span>::<span class="ident">from_args</span>(),
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="ident">WasmerCLIOptions</span>::<span class="ident">try_parse_from</span>(<span class="ident">args</span>.<span class="ident">iter</span>()).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+            <span class="ident">WasmerCLIOptions</span>::<span class="ident">from_iter_safe</span>(<span class="ident">args</span>.<span class="ident">iter</span>()).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
                 <span class="kw">match</span> <span class="ident">e</span>.<span class="ident">kind</span> {
                     <span class="comment">// This fixes a issue that:</span>
                     <span class="comment">// 1. Shows the version twice when doing `wasmer -V`</span>
                     <span class="comment">// 2. Shows the run help (instead of normal help) when doing `wasmer --help`</span>
-                    <span class="ident">ErrorKind</span>::<span class="ident">DisplayVersion</span> <span class="op">|</span> <span class="ident">ErrorKind</span>::<span class="ident">DisplayHelp</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">e</span>.<span class="ident">exit</span>(),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions</span>::<span class="ident">Run</span>(<span class="ident">Run</span>::<span class="ident">parse</span>()),
+                    <span class="ident">ErrorKind</span>::<span class="ident">VersionDisplayed</span> <span class="op">|</span> <span class="ident">ErrorKind</span>::<span class="ident">HelpDisplayed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">e</span>.<span class="ident">exit</span>(),
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions</span>::<span class="ident">Run</span>(<span class="ident">Run</span>::<span class="ident">from_args</span>()),
                 }
             })
         }

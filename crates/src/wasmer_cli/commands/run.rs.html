@@ -430,7 +430,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_cache</span>::{<span class="ident">Cache</span>, <span class="ident">FileSystemCache</span>, <span class="ident">Hash</span>};
 
-<span class="kw">use</span> <span class="ident">clap</span>::<span class="ident">Clap</span>;
+<span class="kw">use</span> <span class="ident">structopt</span>::<span class="ident">StructOpt</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">wasi</span>;
@@ -438,53 +438,53 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasi</span>::<span class="ident">Wasi</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clap</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>, <span class="ident">Clone</span>)]</span>
 <span class="doccomment">/// The options for the `wasmer run` subcommand</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Run</span> {
     <span class="doccomment">/// Disable the cache</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;disable-cache&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;disable-cache&quot;</span>)]</span>
     <span class="ident">disable_cache</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// File to run</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">path</span>: <span class="ident">PathBuf</span>,
 
     <span class="doccomment">/// Invoke a specified function</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;invoke&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;i&#39;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;invoke&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;i&quot;</span>)]</span>
     <span class="ident">invoke</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// The command name is a string that will override the first argument passed</span>
     <span class="doccomment">/// to the wasm program. This is used in wapm to provide nicer output in</span>
     <span class="doccomment">/// help commands and error messages of the running wasm program</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;command-name&quot;</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;command-name&quot;</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
     <span class="ident">command_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// A prehashed string, used to speed up start times by avoiding hashing the</span>
     <span class="doccomment">/// wasm module. If the specified hash is not found, Wasmer will hash the module</span>
     <span class="doccomment">/// as if no `cache-key` argument was passed.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;cache-key&quot;</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;cache-key&quot;</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
     <span class="ident">cache_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">store</span>: <span class="ident">StoreOptions</span>,
 
     <span class="comment">// TODO: refactor WASI structure to allow shared options with Emscripten</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">wasi</span>: <span class="ident">Wasi</span>,
 
     <span class="doccomment">/// Enable non-standard experimental IO devices</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;io-devices&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-io-devices&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-io-devices&quot;</span>)]</span>
     <span class="ident">enable_experimental_io_devices</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable debug output</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;d&#39;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;d&quot;</span>)]</span>
     <span class="ident">debug</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Application arguments</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;--&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;--&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
     <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 }
 

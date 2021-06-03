@@ -104,34 +104,34 @@
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Instance</span>, <span class="ident">Module</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">get_wasi_versions</span>, <span class="ident">WasiError</span>, <span class="ident">WasiState</span>, <span class="ident">WasiVersion</span>};
 
-<span class="kw">use</span> <span class="ident">clap</span>::<span class="ident">Clap</span>;
+<span class="kw">use</span> <span class="ident">structopt</span>::<span class="ident">StructOpt</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clap</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>, <span class="ident">Clone</span>)]</span>
 <span class="doccomment">/// WASI Options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Wasi</span> {
     <span class="doccomment">/// WASI pre-opened directory</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;dir&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;DIR&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">group</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;dir&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;DIR&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">group</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
     <span class="ident">pre_opened_directories</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Map a host directory to a different location for the Wasm module</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;mapdir&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;GUEST_DIR:HOST_DIR&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_mapdir</span>))]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;mapdir&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;GUEST_DIR:HOST_DIR&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_mapdir</span>))]</span>
     <span class="ident">mapped_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>)<span class="op">&gt;</span>,
 
     <span class="doccomment">/// Pass custom environment variables</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;env&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;KEY=VALUE&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_envvar</span>))]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;env&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;KEY=VALUE&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_envvar</span>))]</span>
     <span class="ident">env_vars</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>)<span class="op">&gt;</span>,
 
     <span class="doccomment">/// Enable experimental IO devices</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;experimental-io-devices&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-experimental-io-devices&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-experimental-io-devices&quot;</span>)]</span>
     <span class="ident">enable_experimental_io_devices</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Allow WASI modules to import multiple versions of WASI without a warning.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;allow-multiple-wasi-versions&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;allow-multiple-wasi-versions&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">allow_multiple_wasi_versions</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;deny-multiple-wasi-versions&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;deny-multiple-wasi-versions&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">deny_multiple_wasi_versions</span>: <span class="ident">bool</span>,
 }
 
