@@ -1,36 +1,36 @@
 //! Common module with common used structures across different
 //! commands.
 use crate::VERSION;
-use clap::Clap;
 use std::env;
 use std::path::PathBuf;
+use structopt::StructOpt;
 
-#[derive(Debug, Clap, Clone)]
+#[derive(Debug, StructOpt, Clone)]
 /// The WebAssembly features that can be passed through the
 /// Command Line args.
 pub struct WasmFeatures {
     /// Enable support for the SIMD proposal.
-    #[clap(long = "enable-simd")]
+    #[structopt(long = "enable-simd")]
     pub simd: bool,
 
     /// Enable support for the threads proposal.
-    #[clap(long = "enable-threads")]
+    #[structopt(long = "enable-threads")]
     pub threads: bool,
 
     /// Enable support for the reference types proposal.
-    #[clap(long = "enable-reference-types")]
+    #[structopt(long = "enable-reference-types")]
     pub reference_types: bool,
 
     /// Enable support for the multi value proposal.
-    #[clap(long = "enable-multi-value")]
+    #[structopt(long = "enable-multi-value")]
     pub multi_value: bool,
 
     /// Enable support for the bulk memory proposal.
-    #[clap(long = "enable-bulk-memory")]
+    #[structopt(long = "enable-bulk-memory")]
     pub bulk_memory: bool,
 
     /// Enable support for all pre-standard proposals.
-    #[clap(long = "enable-all")]
+    #[structopt(long = "enable-all")]
     pub all: bool,
 }
 

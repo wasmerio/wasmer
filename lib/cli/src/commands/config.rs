@@ -1,39 +1,39 @@
 use crate::VERSION;
 use anyhow::{Context, Result};
-use clap::Clap;
 use std::env;
 use std::path::PathBuf;
+use structopt::StructOpt;
 
-#[derive(Debug, Clap)]
+#[derive(Debug, StructOpt)]
 /// The options for the `wasmer config` subcommand
 pub struct Config {
     /// Print the installation prefix.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     prefix: bool,
 
     /// Directory containing Wasmer executables.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     bindir: bool,
 
     /// Directory containing Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     includedir: bool,
 
     /// Directory containing Wasmer libraries.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     libdir: bool,
 
     /// Libraries needed to link against Wasmer components.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     libs: bool,
 
     /// C compiler flags for files that include Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     cflags: bool,
 
     /// It outputs the necessary details for compiling
     /// and linking a program to Wasmer, using the `pkg-config` format.
-    #[clap(long)]
+    #[structopt(long)]
     pkg_config: bool,
 }
 

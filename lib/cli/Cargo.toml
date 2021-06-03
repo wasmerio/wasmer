@@ -43,7 +43,7 @@ wasmer-types = { version = "2.0.0-rc1", path = "../types" }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
-clap = { version = "3.0.0-beta.2", features = ["suggestions", "derive", "cargo", "std", "color"], default-features = false }
+structopt = { version = "0.3", features = ["suggestions"] }
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand

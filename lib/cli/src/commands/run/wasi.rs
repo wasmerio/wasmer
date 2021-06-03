@@ -5,34 +5,34 @@ use std::path::PathBuf;
 use wasmer::{Instance, Module};
 use wasmer_wasi::{get_wasi_versions, WasiError, WasiState, WasiVersion};
 
-use clap::Clap;
+use structopt::StructOpt;
 
-#[derive(Debug, Clap, Clone)]
+#[derive(Debug, StructOpt, Clone)]
 /// WASI Options
 pub struct Wasi {
     /// WASI pre-opened directory
-    #[clap(long = "dir", name = "DIR", multiple = true, group = "wasi")]
+    #[structopt(long = "dir", name = "DIR", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the Wasm module
-    #[clap(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
+    #[structopt(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
     mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
-    #[clap(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
+    #[structopt(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
     env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[clap(long = "enable-experimental-io-devices")]
+    #[structopt(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
 
     /// Allow WASI modules to import multiple versions of WASI without a warning.
-    #[clap(long = "allow-multiple-wasi-versions")]
+    #[structopt(long = "allow-multiple-wasi-versions")]
     pub allow_multiple_wasi_versions: bool,
 
     /// Require WASI modules to only import 1 version of WASI.
-    #[clap(long = "deny-multiple-wasi-versions")]
+    #[structopt(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,
 }
 
