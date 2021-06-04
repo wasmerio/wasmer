@@ -341,7 +341,7 @@ cfg_if::cfg_if! {
                     None => return EXCEPTION_CONTINUE_SEARCH,
                 };
                 let jmp_buf = info.handle_trap(
-                    (*(*exception_info).ContextRecord).Rip as *const u8,
+                    (*(*exception_info).ContextRecord).Eip as *const u8,
                     record.ExceptionCode == EXCEPTION_STACK_OVERFLOW,
                     // TODO: fix the signal trap associated to memory access in Windows
                     None,
