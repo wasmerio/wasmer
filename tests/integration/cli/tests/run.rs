@@ -12,6 +12,10 @@ fn test_no_imports_wat_path() -> String {
     format!("{}/{}", ASSET_PATH, "fib.wat")
 }
 
+fn test_no_start_wat_path() -> String {
+    format!("{}/{}", ASSET_PATH, "no_start.wat")
+}
+
 #[test]
 fn run_wasi_works() -> anyhow::Result<()> {
     let output = Command::new(WASMER_PATH)
@@ -39,6 +43,7 @@ fn run_wasi_works() -> anyhow::Result<()> {
 }
 
 #[test]
+
 fn run_no_imports_wasm_works() -> anyhow::Result<()> {
     let output = Command::new(WASMER_PATH)
         .arg("run")
@@ -55,5 +60,18 @@ fn run_no_imports_wasm_works() -> anyhow::Result<()> {
         );
     }
 
+    Ok(())
+}
+
+#[test]
+fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
+    let output = Command::new(WASMER_PATH)
+        .arg("run")
+        .arg(test_no_start_wat_path())
+        .output()?;
+
+    assert_eq!(output.status.success(), false);
+    let result = std::str::from_utf8(&output.stderr).unwrap().to_string();
+    assert_eq!(result.contains("Can not find any export functions."), true);
     Ok(())
 }
