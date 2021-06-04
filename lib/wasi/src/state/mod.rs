@@ -1383,6 +1383,155 @@ impl WasiFs {
     }
 }
 
+// Implementations of direct to FS calls so that we can easily change their implementation
+impl WasiState {
+    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<std::fs::ReadDir, __wasi_errno_t> {
+        std::fs::read_dir(path).map_err(|_| __WASI_EIO)
+    }
+
+    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t> {
+        std::fs::create_dir(path).map_err(|_| __WASI_EIO)
+    }
+
+    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t> {
+        // TODO: proper error return type here
+        std::fs::remove_dir(path).map_err(|_| __WASI_EIO)
+    }
+
+    pub(crate) fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
+        &self,
+        from: P,
+        to: Q,
+    ) -> Result<(), __wasi_errno_t> {
+        std::fs::rename(from, to).map_err(|_| __WASI_EIO)
+    }
+
+    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t> {
+        std::fs::remove_file(path).map_err(|_| __WASI_EIO)
+    }
+
+    pub(crate) fn fs_new_open_options(&self) -> OpenOptions {
+        OpenOptions::new(Box::new(HostFileOpener))
+    }
+}
+
+trait FileSystem {
+    fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<std::fs::ReadDir, __wasi_errno_t>;
+    fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t>;
+    fn remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t>;
+    fn rename<P: AsRef<Path>, Q: AsRef<Path>>(&self, from: P, to: Q) -> Result<(), __wasi_errno_t>;
+
+    fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), __wasi_errno_t>;
+    fn new_open_options(&self) -> OpenOptions;
+}
+
+pub trait FileOpener {
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn WasiFile>, __wasi_errno_t>;
+}
+
+struct HostFileOpener;
+
+impl FileOpener for HostFileOpener {
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn WasiFile>, __wasi_errno_t> {
+        // TODO: handle create implying write, etc.
+        let read = conf.read;
+        let write = conf.write;
+        let append = conf.append;
+        // TODO: proper error handling
+        let mut oo = std::fs::OpenOptions::new();
+        oo.read(conf.read)
+            .write(conf.write)
+            .create_new(conf.create_new)
+            .create(conf.create)
+            .append(conf.append)
+            .truncate(conf.truncate)
+            .open(path)
+            .map_err(|_| __WASI_EIO)
+            .map(|file| {
+                Box::new(HostFile::new(file, path.to_owned(), read, write, append))
+                    as Box<dyn WasiFile>
+            })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OpenOptionsConfig {
+    read: bool,
+    write: bool,
+    create_new: bool,
+    create: bool,
+    append: bool,
+    truncate: bool,
+}
+
+// TODO: manually implement debug
+
+pub struct OpenOptions {
+    opener: Box<dyn FileOpener>,
+    conf: OpenOptionsConfig,
+}
+
+impl OpenOptions {
+    pub(crate) fn new(opener: Box<dyn FileOpener>) -> Self {
+        Self {
+            opener,
+            conf: OpenOptionsConfig {
+                read: false,
+                write: false,
+                create_new: false,
+                create: false,
+                append: false,
+                truncate: false,
+            },
+        }
+    }
+
+    pub fn read(&mut self, read: bool) -> &mut Self {
+        self.conf.read = read;
+        self
+    }
+
+    pub fn write(&mut self, write: bool) -> &mut Self {
+        self.conf.write = write;
+        self
+    }
+
+    pub fn append(&mut self, append: bool) -> &mut Self {
+        self.conf.append = append;
+        self
+    }
+
+    pub fn truncate(&mut self, truncate: bool) -> &mut Self {
+        self.conf.truncate = truncate;
+        self
+    }
+
+    pub fn create(&mut self, create: bool) -> &mut Self {
+        self.conf.create = create;
+        self
+    }
+
+    pub fn create_new(&mut self, create_new: bool) -> &mut Self {
+        self.conf.create_new = create_new;
+        self
+    }
+
+    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn WasiFile>, __wasi_errno_t> {
+        self.opener.open(path.as_ref(), &self.conf)
+    }
+}
+
 /// Top level data type containing all* the state with which WASI can
 /// interact.
 ///

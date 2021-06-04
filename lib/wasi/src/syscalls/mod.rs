@@ -982,7 +982,7 @@ pub fn fd_readdir(
             // we need to support multiple calls,
             // simple and obviously correct implementation for now:
             // maintain consistent order via lexacographic sorting
-            let fs_info = wasi_try!(wasi_try!(std::fs::read_dir(path).map_err(|_| __WASI_EIO))
+            let fs_info = wasi_try!(wasi_try!(state.fs_read_dir(path))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|_| __WASI_EIO));
             let mut entry_vec = wasi_try!(fs_info
@@ -1397,7 +1397,7 @@ pub fn path_create_directory(
                     if adjusted_path.exists() && !adjusted_path.is_dir() {
                         return __WASI_ENOTDIR;
                     } else if !adjusted_path.exists() {
-                        wasi_try!(std::fs::create_dir(&adjusted_path).ok(), __WASI_EIO);
+                        wasi_try!(state.fs_create_dir(&adjusted_path));
                     }
                     let kind = Kind::Dir {
                         parent: Some(cur_dir_inode),
@@ -1718,6 +1718,7 @@ pub fn path_open(
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
     let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
+    let mut open_options = state.fs_new_open_options();
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         match &mut state.fs.inodes[inode].kind {
@@ -1738,7 +1739,6 @@ pub fn path_open(
                 if o_flags & __WASI_O_EXCL != 0 && path.exists() {
                     return __WASI_EEXIST;
                 }
-                let mut open_options = std::fs::OpenOptions::new();
                 let write_permission = adjusted_rights & __WASI_RIGHT_FD_WRITE != 0;
                 // append, truncate, and create all require the permission to write
                 let (append_permission, truncate_permission, create_permission) =
@@ -1768,13 +1768,7 @@ pub fn path_open(
                 if o_flags & __WASI_O_TRUNC != 0 {
                     open_flags |= Fd::TRUNCATE;
                 }
-                *handle = Some(Box::new(HostFile::new(
-                    wasi_try!(open_options.open(&path).map_err(|_| __WASI_EIO)),
-                    path.to_path_buf(),
-                    true,
-                    adjusted_rights & __WASI_RIGHT_FD_WRITE != 0,
-                    false,
-                )));
+                *handle = Some(wasi_try!(open_options.open(&path)));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Dir { .. } | Kind::Root { .. } => {
@@ -1821,7 +1815,6 @@ pub fn path_open(
             // once we got the data we need from the parent, we lookup the host file
             // todo: extra check that opening with write access is okay
             let handle = {
-                let mut open_options = std::fs::OpenOptions::new();
                 let open_options = open_options
                     .read(true)
                     .append(fs_flags & __WASI_FDFLAG_APPEND != 0)
@@ -1831,16 +1824,12 @@ pub fn path_open(
                     .create_new(true);
                 open_flags |= Fd::READ | Fd::WRITE | Fd::CREATE | Fd::TRUNCATE;
 
-                Some(Box::new(HostFile::new(
-                    wasi_try!(open_options.open(&new_file_host_path).map_err(|e| {
+                Some(wasi_try!(open_options.open(&new_file_host_path).map_err(
+                    |e| {
                         debug!("Error opening file {}", e);
-                        __WASI_EIO
-                    })),
-                    new_file_host_path.clone(),
-                    true,
-                    true,
-                    true,
-                )) as Box<dyn WasiFile>)
+                        e
+                    }
+                )))
             };
 
             let new_inode = {
@@ -1968,9 +1957,7 @@ pub fn path_remove_directory(
 
     let host_path_to_remove = match &state.fs.inodes[inode].kind {
         Kind::Dir { entries, path, .. } => {
-            if !entries.is_empty()
-                || wasi_try!(std::fs::read_dir(path).ok(), __WASI_EIO).count() != 0
-            {
+            if !entries.is_empty() || wasi_try!(state.fs_read_dir(path)).count() != 0 {
                 return __WASI_ENOTEMPTY;
             }
             path.clone()
@@ -1993,7 +1980,7 @@ pub fn path_remove_directory(
         ),
     }
 
-    if std::fs::remove_dir(path_str).is_err() {
+    if state.fs_remove_dir(path_str).is_err() {
         // reinsert to prevent FS from being in bad state
         if let Kind::Dir {
             ref mut entries, ..
@@ -2083,17 +2070,24 @@ pub fn path_rename(
 
     match &mut state.fs.inodes[source_entry].kind {
         Kind::File {
-            handle,
-            ref mut path,
-            ..
+            handle, ref path, ..
         } => {
+            // TODO: investigate why handle is not always there, it probably should be.
+            // My best guess is the fact that a handle means currently open and a path
+            // just means reference to host file on disk. But ideally those concepts
+            // could just be unified even if there's a `Box<dyn WasiFile>` which just
+            // implements the logic of "I'm not actually a file, I'll try to be as needed".
             let result = if let Some(h) = handle {
                 h.rename_file(&host_adjusted_target_path)
                     .map_err(|e| e.into_wasi_err())
             } else {
-                let out =
-                    std::fs::rename(&path, &host_adjusted_target_path).map_err(|_| __WASI_EIO);
-                *path = host_adjusted_target_path;
+                let path_clone = path.clone();
+                let out = state.fs_rename(&path_clone, &host_adjusted_target_path);
+                if let Kind::File { ref mut path, .. } = &mut state.fs.inodes[source_entry].kind {
+                    *path = host_adjusted_target_path;
+                } else {
+                    unreachable!()
+                }
                 out
             };
             // if the above operation failed we have to revert the previous change and then fail
@@ -2260,8 +2254,9 @@ pub fn path_unlink_file(
                 } else {
                     // File is closed
                     // problem with the abstraction, we can't call unlink because there's no handle
-                    // TODO: replace this code
-                    wasi_try!(std::fs::remove_file(path).map_err(|_| __WASI_EIO));
+                    // drop mutable borrow on `path`
+                    let path = path.clone();
+                    wasi_try!(state.fs_remove_file(path));
                 }
             }
             Kind::Dir { .. } | Kind::Root { .. } => return __WASI_EISDIR,
