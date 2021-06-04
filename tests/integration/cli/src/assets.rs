@@ -9,6 +9,10 @@ pub const ASSET_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../test
 
 pub const WASMER_INCLUDE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../lib/c-api");
 
+#[cfg(feature = "debug")]
+pub const WASMER_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../target/debug/wasmer");
+
+#[cfg(not(feature = "debug"))]
 pub const WASMER_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../target/release/wasmer"
