@@ -1004,6 +1004,12 @@
 <span id="1001">1001</span>
 <span id="1002">1002</span>
 <span id="1003">1003</span>
+<span id="1004">1004</span>
+<span id="1005">1005</span>
+<span id="1006">1006</span>
+<span id="1007">1007</span>
+<span id="1008">1008</span>
+<span id="1009">1009</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1347,8 +1353,14 @@
                     <span class="prelude-val">Some</span>(<span class="ident">info</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">info</span>,
                     <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">EXCEPTION_CONTINUE_SEARCH</span>,
                 };
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;32&quot;</span>)]</span>
+                <span class="kw">let</span> <span class="ident">pc</span> <span class="op">=</span> (<span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">exception_info</span>).<span class="ident">ContextRecord</span>).<span class="ident">Eip</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
+
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>)]</span>
+                <span class="kw">let</span> <span class="ident">pc</span> <span class="op">=</span> (<span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">exception_info</span>).<span class="ident">ContextRecord</span>).<span class="ident">Rip</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
+
                 <span class="kw">let</span> <span class="ident">jmp_buf</span> <span class="op">=</span> <span class="ident">info</span>.<span class="ident">handle_trap</span>(
-                    (<span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">exception_info</span>).<span class="ident">ContextRecord</span>).<span class="ident">Rip</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>,
+                    <span class="ident">pc</span>,
                     <span class="ident">record</span>.<span class="ident">ExceptionCode</span> <span class="op">=</span><span class="op">=</span> <span class="ident">EXCEPTION_STACK_OVERFLOW</span>,
                     <span class="comment">// TODO: fix the signal trap associated to memory access in Windows</span>
                     <span class="prelude-val">None</span>,
