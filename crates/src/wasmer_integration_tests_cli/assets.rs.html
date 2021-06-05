@@ -39,6 +39,10 @@
 <span id="36">36</span>
 <span id="37">37</span>
 <span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
@@ -51,6 +55,10 @@
 
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WASMER_INCLUDE_PATH</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../lib/c-api&quot;</span>);
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WASMER_PATH</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../target/debug/wasmer&quot;</span>);
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WASMER_PATH</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat</span><span class="macro">!</span>(
     <span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
     <span class="string">&quot;/../../../target/release/wasmer&quot;</span>
