@@ -11,6 +11,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## 2.0.0-rc2 - 2020/06/03
 
 ### Added
+- [#2390](https://github.com/wasmerio/wasmer/pull/2390) Make `wasmer-vm` to compile on Windows 32bits.
 - [#2402](https://github.com/wasmerio/wasmer/pull/2402) Add more examples and more doctests for `wasmer-middlewares`.
 
 ### Changed
