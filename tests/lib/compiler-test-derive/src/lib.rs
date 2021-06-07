@@ -138,6 +138,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
         mod #fn_name {
             use super::*;
 
+            #[allow(unused)]
             #my_fn
 
             #singlepass_compiler_test

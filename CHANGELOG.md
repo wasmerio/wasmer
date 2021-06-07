@@ -13,6 +13,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ### Added
 - [#2402](https://github.com/wasmerio/wasmer/pull/2402) Add more examples and more doctests for `wasmer-middlewares`.
 
+### Changed
+- [#2399](https://github.com/wasmerio/wasmer/pull/2399) Add the Dart integration in the `README.md`.
+
 ### Fixed
 - [#2383](https://github.com/wasmerio/wasmer/pull/2383) Fix bugs in the Wasmer CLI tool with the way `--version` and the name of the CLI tool itself were printed.
 
