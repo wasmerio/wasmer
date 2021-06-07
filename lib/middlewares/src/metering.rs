@@ -1,5 +1,12 @@
-//! `metering` is a middleware for tracking how many operators are executed in total
-//! and putting a limit on the total number of operators executed.
+//! `metering` is a middleware for tracking how many operators are
+//! executed in total and putting a limit on the total number of
+//! operators executed. The WebAssemblt instance execution is stopped
+//! when the limit is reached.
+//!
+//! # Example
+//!
+//! [See the `metering` detailed and complete
+//! example](https://github.com/wasmerio/wasmer/blob/master/examples/metering.rs).
 
 use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::convert::TryInto;
@@ -46,9 +53,36 @@ impl fmt::Debug for MeteringGlobalIndexes {
 ///
 /// # Panic
 ///
-/// An instance of `Metering` should not be shared among different modules, since it tracks
-/// module-specific information like the global index to store metering state. Attempts to use
-/// a `Metering` instance from multiple modules will result in a panic.
+/// An instance of `Metering` should _not_ be shared among different
+/// modules, since it tracks module-specific information like the
+/// global index to store metering state. Attempts to use a `Metering`
+/// instance from multiple modules will result in a panic.
+///
+/// # Example
+///
+/// ```rust
+/// use std::sync::Arc;
+/// use wasmer::{wasmparser::Operator, CompilerConfig};
+/// use wasmer_middlewares::Metering;
+///
+/// fn create_metering_middleware(compiler_config: &mut dyn CompilerConfig) {
+///     // Let's define a dummy cost function,
+///     // which counts 1 for all operators.
+///     let cost_function = |_operator: &Operator| -> u64 { 1 };
+///
+///     // Let's define the initial limit.
+///     let initial_limit = 10;
+///
+///     // Let's creating the metering middleware.
+///     let metering = Arc::new(Metering::new(
+///         initial_limit,
+///         cost_function
+///     ));
+///
+///     // Finally, let's push the middleware.
+///     compiler_config.push_middleware(metering);
+/// }
+/// ```
 pub struct Metering<F: Fn(&Operator) -> u64 + Send + Sync> {
     /// Initial limit of points.
     initial_limit: u64,
@@ -72,13 +106,22 @@ pub struct FunctionMetering<F: Fn(&Operator) -> u64 + Send + Sync> {
     accumulated_cost: u64,
 }
 
+/// Represents the type of the metering points, either `Remaining` or
+/// `Exhausted`.
+///
+/// # Example
+///
+/// See the [`get_remaining_points`] function to get an example.
 #[derive(Debug, PartialEq)]
 pub enum MeteringPoints {
     /// The given number of metering points is left for the execution.
-    /// If the value is 0, all points are consumed but the execution was not terminated.
+    /// If the value is 0, all points are consumed but the execution
+    /// was not terminated.
     Remaining(u64),
-    /// The execution was terminated because the metering points were exhausted.
-    /// You can recover from this state by setting the points via `set_remaining_points` and restart the execution.
+
+    /// The execution was terminated because the metering points were
+    /// exhausted.  You can recover from this state by setting the
+    /// points via [`set_remaining_points`] and restart the execution.
     Exhausted,
 }
 
@@ -225,15 +268,29 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMeter
     }
 }
 
-/// Get the remaining points in an `Instance`.
+/// Get the remaining points in an [`Instance`][wasmer::Instance].
 ///
-/// This can be used in a headless engine after an ahead-of-time compilation
-/// as all required state lives in the instance.
+/// Note: This can be used in a headless engine after an ahead-of-time
+/// compilation as all required state lives in the instance.
 ///
 /// # Panic
 ///
-/// The instance Module must have been processed with the [`Metering`] middleware
-/// at compile time, otherwise this will panic.
+/// The [`Instance`][wasmer::Instance) must have been processed with
+/// the [`Metering`] middleware at compile time, otherwise this will
+/// panic.
+///
+/// # Example
+///
+/// ```rust
+/// use wasmer::Instance;
+/// use wasmer_middlewares::metering::{get_remaining_points, MeteringPoints};
+///
+/// /// Check whether the instance can continue to run based on the
+/// /// number of remaining points.
+/// fn can_continue_to_run(instance: &Instance) -> bool {
+///     matches!(get_remaining_points(instance), MeteringPoints::Remaining(points) if points > 0)
+/// }
+/// ```
 pub fn get_remaining_points(instance: &Instance) -> MeteringPoints {
     let exhausted: i32 = instance
         .exports
@@ -258,15 +315,32 @@ pub fn get_remaining_points(instance: &Instance) -> MeteringPoints {
     MeteringPoints::Remaining(points)
 }
 
-/// Set the provided remaining points in an `Instance`.
+/// Set the new provided remaining points in an
+/// [`Instance`][wasmer::Instance].
 ///
-/// This can be used in a headless engine after an ahead-of-time compilation
-/// as all required state lives in the instance.
+/// Note: This can be used in a headless engine after an ahead-of-time
+/// compilation as all required state lives in the instance.
 ///
 /// # Panic
 ///
-/// The instance Module must have been processed with the [`Metering`] middleware
-/// at compile time, otherwise this will panic.
+/// The given [`Instance`][wasmer::Instance] must have been processed
+/// with the [`Metering`] middleware at compile time, otherwise this
+/// will panic.
+///
+/// # Example
+///
+/// ```rust
+/// use wasmer::Instance;
+/// use wasmer_middlewares::metering::set_remaining_points;
+///
+/// fn update_remaining_points(instance: &Instance) {
+///     // The new limit.
+///     let new_limit = 10;
+///
+///     // Update the remaining points to the `new_limit`.
+///     set_remaining_points(instance, new_limit);
+/// }
+/// ```
 pub fn set_remaining_points(instance: &Instance, points: u64) {
     instance
         .exports

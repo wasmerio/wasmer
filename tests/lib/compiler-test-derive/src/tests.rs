@@ -12,28 +12,23 @@ macro_rules! gen_tests {(
 ) => (
     $(
         #[test]
-        fn $test_name ()
+        fn $test_name()
         {
             let input: TokenStream =
                 stringify!($($input)*)
                     .parse()
-                    .expect("Syntax error in test")
-            ;
+                    .expect("Syntax error in test");
             let output: TokenStream =
                 $output
                     .parse()
-                    .expect("Syntax error in test")
-            ;
+                    .expect("Syntax error in test");
             let attrs: TokenStream =
                 stringify!($($($attrs)*)?)
                     .parse()
                     .expect("Syntax error in test");
             let ret = $function(attrs, input).to_string();
             eprintln!("{}", ret);
-            assert_eq!(
-                ret,
-                output.to_string(),
-            )
+            assert_eq!(ret, output.to_string());
         }
     )*
 )}
@@ -43,17 +38,16 @@ gen_tests! {
     stringify! {
         #[compiler_test(derive_test)]
         #[cold]
-        fn add (config: crate::Config)
-        {
+        fn foo(config: crate::Config) {
             // Do tests
         }
     } == stringify! {
         #[cfg(test)]
-        mod add {
+        mod foo {
             use super::*;
 
-            fn add(config: crate::Config)
-            {
+            #[allow(unused)]
+            fn foo(config: crate::Config) {
                 // Do tests
             }
 
@@ -64,7 +58,7 @@ gen_tests! {
                 #[cold]
                 #[cfg(feature = "universal")]
                 fn universal() {
-                    add(crate::Config::new(
+                    foo(crate::Config::new(
                         crate::Engine::Universal,
                         crate::Compiler::Singlepass
                     ))
@@ -73,7 +67,7 @@ gen_tests! {
                 #[cold]
                 #[cfg(feature = "dylib")]
                 fn dylib() {
-                    add(crate::Config::new(
+                    foo(crate::Config::new(
                         crate::Engine::Dylib,
                         crate::Compiler::Singlepass
                     ))
@@ -87,7 +81,7 @@ gen_tests! {
                 #[cold]
                 #[cfg(feature = "universal")]
                 fn universal() {
-                    add(crate::Config::new(
+                    foo(crate::Config::new(
                         crate::Engine::Universal,
                         crate::Compiler::Cranelift
                     ))
@@ -96,7 +90,7 @@ gen_tests! {
                 #[cold]
                 #[cfg(feature = "dylib")]
                 fn dylib() {
-                    add(crate::Config::new(
+                    foo(crate::Config::new(
                         crate::Engine::Dylib,
                         crate::Compiler::Cranelift
                     ))
@@ -110,7 +104,7 @@ gen_tests! {
                 #[cold]
                 #[cfg(feature = "universal")]
                 fn universal() {
-                    add(crate::Config::new(
+                    foo(crate::Config::new(
                         crate::Engine::Universal,
                         crate::Compiler::LLVM
                     ))
@@ -119,7 +113,7 @@ gen_tests! {
                 #[cold]
                 #[cfg(feature = "dylib")]
                 fn dylib() {
-                    add(crate::Config::new(
+                    foo(crate::Config::new(
                         crate::Engine::Dylib,
                         crate::Compiler::LLVM
                     ))
