@@ -69,7 +69,7 @@ impl UnwindRegistry {
         self.published = true;
 
         if !self.functions.is_empty() {
-            for (base_address, mut functions) in self.functions.iter_mut() {
+            for (base_address, functions) in self.functions.iter_mut() {
                 // Windows heap allocations are 32-bit aligned, but assert just in case
                 assert_eq!(
                     (functions.as_mut_ptr() as u64) % 4,
@@ -97,7 +97,7 @@ impl Drop for UnwindRegistry {
     fn drop(&mut self) {
         if self.published {
             unsafe {
-                for mut functions in self.functions.values_mut() {
+                for functions in self.functions.values_mut() {
                     winnt::RtlDeleteFunctionTable(functions.as_mut_ptr());
                 }
             }
