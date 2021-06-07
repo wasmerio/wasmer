@@ -9,9 +9,6 @@ use std::sync::{
     Arc,
 };
 use wasmer::*;
-#[cfg(feature = "singlepass")]
-use wasmer_compiler_singlepass::Singlepass;
-use wasmer_engine_universal::Universal;
 
 fn get_module(store: &Store) -> Result<Module> {
     let wat = r#"
@@ -432,30 +429,6 @@ fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
     let get_at: NativeFunc<i32, i32> = instance.exports.get_native_function("get_at")?;
     set_at.call(200, 123)?;
     assert_eq!(get_at.call(200)?, 123);
-
-    Ok(())
-}
-
-#[cfg(feature = "singlepass")]
-#[test]
-fn test_singlepass_emit_bug() -> Result<()> {
-    // https://github.com/wasmerio/wasmer/issues/2347
-    let wat = r#"(module
-                (type (;0;) (func (param f64) (result i32)))
-                (func (;0;) (type 0) (param f64) (result i32)
-                  unreachable)
-                (func (;1;) (type 0) (param f64) (result i32)
-                  i32.const -16579585
-                  f64.convert_i32_s
-                  f64.ceil
-                  f64.ceil
-                  local.get 0
-                  f64.copysign
-                  unreachable))
-    "#;
-
-    let store = Store::new(&Universal::new(Singlepass::default()).engine());
-    let module = Module::new(&store, wat)?;
 
     Ok(())
 }
