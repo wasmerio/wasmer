@@ -153,6 +153,7 @@
 <span id="150">150</span>
 <span id="151">151</span>
 <span id="152">152</span>
+<span id="153">153</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro</span>;
@@ -294,6 +295,7 @@
         <span class="kw">mod</span> #<span class="ident">fn_name</span> {
             <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
+            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
             #<span class="ident">my_fn</span>
 
             #<span class="ident">singlepass_compiler_test</span>
