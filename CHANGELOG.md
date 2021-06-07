@@ -10,8 +10,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 2.0.0-rc2 - 2020/06/03
 
-### Changed
+### Added
+- [#2402](https://github.com/wasmerio/wasmer/pull/2402) Add more examples and more doctests for `wasmer-middlewares`.
 
+### Changed
 - [#2399](https://github.com/wasmerio/wasmer/pull/2399) Add the Dart integration in the `README.md`.
 
 ### Fixed
