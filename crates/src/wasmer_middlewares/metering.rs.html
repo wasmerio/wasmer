@@ -416,9 +416,90 @@
 <span id="413">413</span>
 <span id="414">414</span>
 <span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="doccomment">//! `metering` is a middleware for tracking how many operators are executed in total</span>
-<span class="doccomment">//! and putting a limit on the total number of operators executed.</span>
+<span class="doccomment">//! `metering` is a middleware for tracking how many operators are</span>
+<span class="doccomment">//! executed in total and putting a limit on the total number of</span>
+<span class="doccomment">//! operators executed. The WebAssemblt instance execution is stopped</span>
+<span class="doccomment">//! when the limit is reached.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Example</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! [See the `metering` detailed and complete</span>
+<span class="doccomment">//! example](https://github.com/wasmerio/wasmer/blob/master/examples/metering.rs).</span>
 
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
@@ -465,9 +546,36 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Panic</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// An instance of `Metering` should not be shared among different modules, since it tracks</span>
-<span class="doccomment">/// module-specific information like the global index to store metering state. Attempts to use</span>
-<span class="doccomment">/// a `Metering` instance from multiple modules will result in a panic.</span>
+<span class="doccomment">/// An instance of `Metering` should _not_ be shared among different</span>
+<span class="doccomment">/// modules, since it tracks module-specific information like the</span>
+<span class="doccomment">/// global index to store metering state. Attempts to use a `Metering`</span>
+<span class="doccomment">/// instance from multiple modules will result in a panic.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// use std::sync::Arc;</span>
+<span class="doccomment">/// use wasmer::{wasmparser::Operator, CompilerConfig};</span>
+<span class="doccomment">/// use wasmer_middlewares::Metering;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// fn create_metering_middleware(compiler_config: &amp;mut dyn CompilerConfig) {</span>
+<span class="doccomment">///     // Let&#39;s define a dummy cost function,</span>
+<span class="doccomment">///     // which counts 1 for all operators.</span>
+<span class="doccomment">///     let cost_function = |_operator: &amp;Operator| -&gt; u64 { 1 };</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Let&#39;s define the initial limit.</span>
+<span class="doccomment">///     let initial_limit = 10;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Let&#39;s creating the metering middleware.</span>
+<span class="doccomment">///     let metering = Arc::new(Metering::new(</span>
+<span class="doccomment">///         initial_limit,</span>
+<span class="doccomment">///         cost_function</span>
+<span class="doccomment">///     ));</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Finally, let&#39;s push the middleware.</span>
+<span class="doccomment">///     compiler_config.push_middleware(metering);</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Initial limit of points.</span>
     <span class="ident">initial_limit</span>: <span class="ident">u64</span>,
@@ -491,13 +599,22 @@
     <span class="ident">accumulated_cost</span>: <span class="ident">u64</span>,
 }
 
+<span class="doccomment">/// Represents the type of the metering points, either `Remaining` or</span>
+<span class="doccomment">/// `Exhausted`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// See the [`get_remaining_points`] function to get an example.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MeteringPoints</span> {
     <span class="doccomment">/// The given number of metering points is left for the execution.</span>
-    <span class="doccomment">/// If the value is 0, all points are consumed but the execution was not terminated.</span>
+    <span class="doccomment">/// If the value is 0, all points are consumed but the execution</span>
+    <span class="doccomment">/// was not terminated.</span>
     <span class="ident">Remaining</span>(<span class="ident">u64</span>),
-    <span class="doccomment">/// The execution was terminated because the metering points were exhausted.</span>
-    <span class="doccomment">/// You can recover from this state by setting the points via `set_remaining_points` and restart the execution.</span>
+
+    <span class="doccomment">/// The execution was terminated because the metering points were</span>
+    <span class="doccomment">/// exhausted.  You can recover from this state by setting the</span>
+    <span class="doccomment">/// points via [`set_remaining_points`] and restart the execution.</span>
     <span class="ident">Exhausted</span>,
 }
 
@@ -644,15 +761,29 @@
     }
 }
 
-<span class="doccomment">/// Get the remaining points in an `Instance`.</span>
+<span class="doccomment">/// Get the remaining points in an [`Instance`][wasmer::Instance].</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// This can be used in a headless engine after an ahead-of-time compilation</span>
-<span class="doccomment">/// as all required state lives in the instance.</span>
+<span class="doccomment">/// Note: This can be used in a headless engine after an ahead-of-time</span>
+<span class="doccomment">/// compilation as all required state lives in the instance.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Panic</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// The instance Module must have been processed with the [`Metering`] middleware</span>
-<span class="doccomment">/// at compile time, otherwise this will panic.</span>
+<span class="doccomment">/// The [`Instance`][wasmer::Instance) must have been processed with</span>
+<span class="doccomment">/// the [`Metering`] middleware at compile time, otherwise this will</span>
+<span class="doccomment">/// panic.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// use wasmer::Instance;</span>
+<span class="doccomment">/// use wasmer_middlewares::metering::{get_remaining_points, MeteringPoints};</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// /// Check whether the instance can continue to run based on the</span>
+<span class="doccomment">/// /// number of remaining points.</span>
+<span class="doccomment">/// fn can_continue_to_run(instance: &amp;Instance) -&gt; bool {</span>
+<span class="doccomment">///     matches!(get_remaining_points(instance), MeteringPoints::Remaining(points) if points &gt; 0)</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_remaining_points</span>(<span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MeteringPoints</span> {
     <span class="kw">let</span> <span class="ident">exhausted</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">instance</span>
         .<span class="ident">exports</span>
@@ -677,15 +808,32 @@
     <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="ident">points</span>)
 }
 
-<span class="doccomment">/// Set the provided remaining points in an `Instance`.</span>
+<span class="doccomment">/// Set the new provided remaining points in an</span>
+<span class="doccomment">/// [`Instance`][wasmer::Instance].</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// This can be used in a headless engine after an ahead-of-time compilation</span>
-<span class="doccomment">/// as all required state lives in the instance.</span>
+<span class="doccomment">/// Note: This can be used in a headless engine after an ahead-of-time</span>
+<span class="doccomment">/// compilation as all required state lives in the instance.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Panic</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// The instance Module must have been processed with the [`Metering`] middleware</span>
-<span class="doccomment">/// at compile time, otherwise this will panic.</span>
+<span class="doccomment">/// The given [`Instance`][wasmer::Instance] must have been processed</span>
+<span class="doccomment">/// with the [`Metering`] middleware at compile time, otherwise this</span>
+<span class="doccomment">/// will panic.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// use wasmer::Instance;</span>
+<span class="doccomment">/// use wasmer_middlewares::metering::set_remaining_points;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// fn update_remaining_points(instance: &amp;Instance) {</span>
+<span class="doccomment">///     // The new limit.</span>
+<span class="doccomment">///     let new_limit = 10;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Update the remaining points to the `new_limit`.</span>
+<span class="doccomment">///     set_remaining_points(instance, new_limit);</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// ```</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_remaining_points</span>(<span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>, <span class="ident">points</span>: <span class="ident">u64</span>) {
     <span class="ident">instance</span>
         .<span class="ident">exports</span>
