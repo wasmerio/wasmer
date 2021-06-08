@@ -5,7 +5,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
-fn main() {
+fn run_with_toplevel_dir() {
     #[cfg(not(target_os = "wasi"))]
     let mut base = PathBuf::from("test_fs");
     #[cfg(target_os = "wasi")]
@@ -72,4 +72,48 @@ fn main() {
 
     println!("{}", test_str);
     std::fs::remove_file(file_to_rename_to).unwrap();
+}
+
+fn run_with_sub_dir() {
+    #[cfg(not(target_os = "wasi"))]
+    let base = PathBuf::from("test_fs");
+    #[cfg(target_os = "wasi")]
+    let mut base = PathBuf::from("temp");
+
+    //make a sub-directory
+    fs::create_dir(base.join("sub"));
+
+    let file_to_create = base.join("sub/path_rename_file.txt");
+    let file_to_rename_to = base.join("sub/path_renamed_file.txt");
+
+    {
+        let mut f = std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&file_to_create)
+            .unwrap();
+
+        let string = "Hello world";
+        let bytes: Vec<u8> = string.bytes().collect();
+        f.write_all(&bytes[..]).unwrap();
+    }
+
+    std::fs::rename(&file_to_create, &file_to_rename_to).unwrap();
+    let mut file = fs::File::open(&file_to_rename_to).expect("Could not open file");
+    if file_to_create.exists() {
+        println!("The original file still exists!");
+        return;
+    } else {
+        println!("The original file does not still exist!");
+    }
+
+    if !file_to_rename_to.exists() {
+        println!("The moved file does not exist!");
+        return;
+    }
+}
+
+fn main() {
+    run_with_toplevel_dir();
+    run_with_sub_dir();
 }
