@@ -1,0 +1,14 @@
+[package]
+name = "wasmer-wasi-experimental-network"
+version = "0.0.1"
+description = "WASI blocking network experimental implementation library for Wasmer WebAssembly runtime"
+categories = ["wasm", "os", "network"]
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0-rc2" }
