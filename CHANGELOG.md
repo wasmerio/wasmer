@@ -70,6 +70,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2157](https://github.com/wasmerio/wasmer/pull/2157) Simplify the code behind `WasmPtr`
 
 ### Fixed
+- [#2397](https://github.com/wasmerio/wasmer/pull/2397) Fix WASI rename temporary file issue.
 - [#2327](https://github.com/wasmerio/wasmer/pull/2327) Fix memory leak preventing internal instance memory from being freed when a WasmerEnv contained an exported extern (e.g. Memory, etc.).
 - [#2247](https://github.com/wasmerio/wasmer/pull/2247) Internal WasiFS logic updated to be closer to what WASI libc does when finding a preopened fd for a path.
 - [#2241](https://github.com/wasmerio/wasmer/pull/2241) Fix Undefined Behavior in setting memory in emscripten `EmEnv`.
