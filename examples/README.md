@@ -107,7 +107,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example exported-globals --release --features "cranelift"
+   $ cargo run --example exported-global --release --features "cranelift"
    ```
 
    </details>
@@ -153,7 +153,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example imported-globals --release --features "cranelift"
+   $ cargo run --example imported-global --release --features "cranelift"
    ```
 
    </details>
