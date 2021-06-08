@@ -326,6 +326,21 @@
 <span id="325">325</span>
 <span id="326">326</span>
 <span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">Object</span>, <span class="ident">ObjectSection</span>, <span class="ident">ObjectSymbol</span>};
 
@@ -542,6 +557,7 @@
                         )));
                     }
                 }
+
                 <span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">RelocationTarget</span>::<span class="ident">Section</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="ident">index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">root_section_index</span> {
                         <span class="ident">root_section_reloc_target</span>
@@ -552,13 +568,27 @@
                         <span class="ident">elf_section_to_target</span>(<span class="ident">index</span>)
                     }
                 }
+
                 <span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">RelocationTarget</span>::<span class="ident">Absolute</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="comment">// Wasm-produced object files should never have absolute</span>
-                    <span class="comment">// addresses in them because none of the parts of the wasm</span>
+                    <span class="comment">// addresses in them because none of the parts of the Wasm</span>
                     <span class="comment">// VM, nor the generated code are loaded at fixed addresses.</span>
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
                         <span class="string">&quot;relocation targets absolute address {:?}&quot;</span>,
                         <span class="ident">reloc</span>
+                    )));
+                }
+
+                <span class="comment">// `object::read::RelocationTarget` is a</span>
+                <span class="comment">// non-exhaustive enum (`#[non_exhaustive]`), so it</span>
+                <span class="comment">// could have additional variants added in the</span>
+                <span class="comment">// future. Therefore, when matching against variants</span>
+                <span class="comment">// of non-exhaustive enums, an extra wildcard arm must</span>
+                <span class="comment">// be added to account for any future variants.</span>
+                <span class="ident">t</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
+                        <span class="string">&quot;relocation target is unknown `{:?}`&quot;</span>,
+                        <span class="ident">t</span>
                     )));
                 }
             };
