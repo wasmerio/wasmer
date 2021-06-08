@@ -27,7 +27,7 @@ pub use crate::state::{
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
-pub use wasmer_virtual_fs::{FsError, WasiFile};
+pub use wasmer_virtual_fs::{FsError, VirtualFile};
 
 use thiserror::Error;
 use wasmer::{

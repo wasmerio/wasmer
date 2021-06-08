@@ -5,19 +5,24 @@ use std::path::Path;
 use thiserror::Error;
 use tracing::debug;
 
-pub trait FileSystem {
-    fn read_dir<P: AsRef<Path>>(&self, path: P) -> Result<std::fs::ReadDir, FsError>;
-    fn create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), FsError>;
-    fn remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), FsError>;
-    fn rename<P: AsRef<Path>, Q: AsRef<Path>>(&self, from: P, to: Q) -> Result<(), FsError>;
+pub mod host_fs;
 
-    fn remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), FsError>;
+pub trait FileSystem: Send + Sync + 'static {
+    fn read_dir(&self, path: &Path) -> Result<std::fs::ReadDir, FsError>;
+    fn create_dir(&self, path: &Path) -> Result<(), FsError>;
+    fn remove_dir(&self, path: &Path) -> Result<(), FsError>;
+    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError>;
+
+    fn remove_file(&self, path: &Path) -> Result<(), FsError>;
     fn new_open_options(&self) -> OpenOptions;
 }
 
 pub trait FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig)
-        -> Result<Box<dyn WasiFile>, FsError>;
+    fn open(
+        &mut self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile>, FsError>;
 }
 
 #[derive(Debug, Clone)]
@@ -108,14 +113,14 @@ impl OpenOptions {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn WasiFile>, FsError> {
+    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile>, FsError> {
         self.opener.open(path.as_ref(), &self.conf)
     }
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 #[typetag::serde(tag = "type")]
-pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
+pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
@@ -127,18 +132,18 @@ pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastab
 
     /// set the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn set_last_accessed(&self, _last_accessed: u64) {
-        debug!("{:?} did nothing in WasiFile::set_last_accessed due to using the default implementation", self);
+        debug!("{:?} did nothing in VirtualFile::set_last_accessed due to using the default implementation", self);
     }
 
     /// set the last time the file was modified in nanoseconds as a UNIX timestamp
     fn set_last_modified(&self, _last_modified: u64) {
-        debug!("{:?} did nothing in WasiFile::set_last_modified due to using the default implementation", self);
+        debug!("{:?} did nothing in VirtualFile::set_last_modified due to using the default implementation", self);
     }
 
     /// set the time at which the file was created in nanoseconds as a UNIX timestamp
     fn set_created_time(&self, _created_time: u64) {
         debug!(
-            "{:?} did nothing in WasiFile::set_created_time to using the default implementation",
+            "{:?} did nothing in VirtualFile::set_created_time to using the default implementation",
             self
         );
     }
@@ -178,7 +183,7 @@ pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastab
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
-/// Trait needed to get downcasting from `WasiFile` to work.
+/// Trait needed to get downcasting from `VirtualFile` to work.
 pub trait Upcastable {
     fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
     fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
@@ -200,7 +205,7 @@ impl<T: Any + fmt::Debug + 'static> Upcastable for T {
     }
 }
 
-impl dyn WasiFile + 'static {
+impl dyn VirtualFile + 'static {
     #[inline]
     pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
         self.upcast_any_ref().downcast_ref::<T>()

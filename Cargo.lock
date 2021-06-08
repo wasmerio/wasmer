@@ -2707,6 +2707,8 @@ dependencies = [
 name = "wasmer-virtual-fs"
 version = "2.0.0-rc2"
 dependencies = [
+ "libc",
+ "serde",
  "thiserror",
  "tracing",
  "typetag",

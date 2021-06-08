@@ -28,7 +28,7 @@ use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
 use tracing::{debug, trace};
 use wasmer::{Memory, RuntimeError, Value};
-use wasmer_virtual_fs::{FsError, WasiFile};
+use wasmer_virtual_fs::{FsError, VirtualFile};
 
 #[cfg(any(
     target_os = "freebsd",
@@ -2077,7 +2077,7 @@ pub fn path_rename(
             // TODO: investigate why handle is not always there, it probably should be.
             // My best guess is the fact that a handle means currently open and a path
             // just means reference to host file on disk. But ideally those concepts
-            // could just be unified even if there's a `Box<dyn WasiFile>` which just
+            // could just be unified even if there's a `Box<dyn VirtualFile>` which just
             // implements the logic of "I'm not actually a file, I'll try to be as needed".
             let result = if let Some(h) = handle {
                 h.rename_file(&host_adjusted_target_path)
@@ -2372,7 +2372,7 @@ pub fn poll_oneoff(
         };
 
         if let Some(fd) = fd {
-            let wasi_file_ref: &dyn WasiFile = match fd {
+            let wasi_file_ref: &dyn VirtualFile = match fd {
                 __WASI_STDERR_FILENO => wasi_try!(
                     wasi_try!(state.fs.stderr().map_err(fs_error_into_wasi_err)).as_ref(),
                     __WASI_EBADF
