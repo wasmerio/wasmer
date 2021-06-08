@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Module, Store};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiFsError,
-    WasiState, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, Pipe, WasiEnv, WasiFile, WasiState,
+    WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -544,13 +544,13 @@ impl WasiFile for OutputCapturerer {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), FsError> {
         Ok(())
     }
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(1024)
     }
 }

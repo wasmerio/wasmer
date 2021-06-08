@@ -1,10 +1,8 @@
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
 use serde::{de, Deserialize, Serialize};
-use std::any::Any;
 #[cfg(unix)]
 use std::convert::TryInto;
-use std::fmt;
 use std::{
     collections::VecDeque,
     fs,
@@ -12,238 +10,59 @@ use std::{
     path::PathBuf,
     time::SystemTime,
 };
-use thiserror::Error;
 use tracing::debug;
+use wasmer_virtual_fs::{FsError, WasiFile};
 
-/// Error type for external users
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
-#[allow(dead_code)]
-// dead code beacuse this is for external use
-pub enum WasiFsError {
-    /// The fd given as a base was not a directory so the operation was not possible
-    #[error("fd not a directory")]
-    BaseNotDirectory,
-    /// Expected a file but found not a file
-    #[error("fd not a file")]
-    NotAFile,
-    /// The fd given was not usable
-    #[error("invalid fd")]
-    InvalidFd,
-    /// File exists
-    #[error("file exists")]
-    AlreadyExists,
-    /// Something failed when doing IO. These errors can generally not be handled.
-    /// It may work if tried again.
-    #[error("io error")]
-    IOError,
-    /// The address was in use
-    #[error("address is in use")]
-    AddressInUse,
-    /// The address could not be found
-    #[error("address could not be found")]
-    AddressNotAvailable,
-    /// A pipe was closed
-    #[error("broken pipe (was closed)")]
-    BrokenPipe,
-    /// The connection was aborted
-    #[error("connection aborted")]
-    ConnectionAborted,
-    /// The connection request was refused
-    #[error("connection refused")]
-    ConnectionRefused,
-    /// The connection was reset
-    #[error("connection reset")]
-    ConnectionReset,
-    /// The operation was interrupted before it could finish
-    #[error("operation interrupted")]
-    Interrupted,
-    /// Invalid internal data, if the argument data is invalid, use `InvalidInput`
-    #[error("invalid internal data")]
-    InvalidData,
-    /// The provided data is invalid
-    #[error("invalid input")]
-    InvalidInput,
-    /// Could not perform the operation because there was not an open connection
-    #[error("connection is not open")]
-    NotConnected,
-    /// The requested file or directory could not be found
-    #[error("entity not found")]
-    EntityNotFound,
-    /// The requested device couldn't be accessed
-    #[error("can't access device")]
-    NoDevice,
-    /// Caller was not allowed to perform this operation
-    #[error("permission denied")]
-    PermissionDenied,
-    /// The operation did not complete within the given amount of time
-    #[error("time out")]
-    TimedOut,
-    /// Found EOF when EOF was not expected
-    #[error("unexpected eof")]
-    UnexpectedEof,
-    /// Operation would block, this error lets the caller know that they can try again
-    #[error("blocking operation. try again")]
-    WouldBlock,
-    /// A call to write returned 0
-    #[error("write returned 0")]
-    WriteZero,
-    /// A WASI error without an external name.  If you encounter this it means
-    /// that there's probably a bug on our side (maybe as simple as forgetting to wrap
-    /// this error, but perhaps something broke)
-    #[error("unknown error: {0}")]
-    UnknownError(__wasi_errno_t),
-}
-
-impl WasiFsError {
-    pub fn from_wasi_err(err: __wasi_errno_t) -> WasiFsError {
-        match err {
-            __WASI_EBADF => WasiFsError::InvalidFd,
-            __WASI_EEXIST => WasiFsError::AlreadyExists,
-            __WASI_EIO => WasiFsError::IOError,
-            __WASI_EADDRINUSE => WasiFsError::AddressInUse,
-            __WASI_EADDRNOTAVAIL => WasiFsError::AddressNotAvailable,
-            __WASI_EPIPE => WasiFsError::BrokenPipe,
-            __WASI_ECONNABORTED => WasiFsError::ConnectionAborted,
-            __WASI_ECONNREFUSED => WasiFsError::ConnectionRefused,
-            __WASI_ECONNRESET => WasiFsError::ConnectionReset,
-            __WASI_EINTR => WasiFsError::Interrupted,
-            __WASI_EINVAL => WasiFsError::InvalidInput,
-            __WASI_ENOTCONN => WasiFsError::NotConnected,
-            __WASI_ENODEV => WasiFsError::NoDevice,
-            __WASI_ENOENT => WasiFsError::EntityNotFound,
-            __WASI_EPERM => WasiFsError::PermissionDenied,
-            __WASI_ETIMEDOUT => WasiFsError::TimedOut,
-            __WASI_EPROTO => WasiFsError::UnexpectedEof,
-            __WASI_EAGAIN => WasiFsError::WouldBlock,
-            __WASI_ENOSPC => WasiFsError::WriteZero,
-            _ => WasiFsError::UnknownError(err),
-        }
-    }
-
-    pub fn into_wasi_err(self) -> __wasi_errno_t {
-        match self {
-            WasiFsError::AlreadyExists => __WASI_EEXIST,
-            WasiFsError::AddressInUse => __WASI_EADDRINUSE,
-            WasiFsError::AddressNotAvailable => __WASI_EADDRNOTAVAIL,
-            WasiFsError::BaseNotDirectory => __WASI_ENOTDIR,
-            WasiFsError::BrokenPipe => __WASI_EPIPE,
-            WasiFsError::ConnectionAborted => __WASI_ECONNABORTED,
-            WasiFsError::ConnectionRefused => __WASI_ECONNREFUSED,
-            WasiFsError::ConnectionReset => __WASI_ECONNRESET,
-            WasiFsError::Interrupted => __WASI_EINTR,
-            WasiFsError::InvalidData => __WASI_EIO,
-            WasiFsError::InvalidFd => __WASI_EBADF,
-            WasiFsError::InvalidInput => __WASI_EINVAL,
-            WasiFsError::IOError => __WASI_EIO,
-            WasiFsError::NoDevice => __WASI_ENODEV,
-            WasiFsError::NotAFile => __WASI_EINVAL,
-            WasiFsError::NotConnected => __WASI_ENOTCONN,
-            WasiFsError::EntityNotFound => __WASI_ENOENT,
-            WasiFsError::PermissionDenied => __WASI_EPERM,
-            WasiFsError::TimedOut => __WASI_ETIMEDOUT,
-            WasiFsError::UnexpectedEof => __WASI_EPROTO,
-            WasiFsError::WouldBlock => __WASI_EAGAIN,
-            WasiFsError::WriteZero => __WASI_ENOSPC,
-            WasiFsError::UnknownError(ec) => ec,
-        }
+pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
+    match err {
+        __WASI_EBADF => FsError::InvalidFd,
+        __WASI_EEXIST => FsError::AlreadyExists,
+        __WASI_EIO => FsError::IOError,
+        __WASI_EADDRINUSE => FsError::AddressInUse,
+        __WASI_EADDRNOTAVAIL => FsError::AddressNotAvailable,
+        __WASI_EPIPE => FsError::BrokenPipe,
+        __WASI_ECONNABORTED => FsError::ConnectionAborted,
+        __WASI_ECONNREFUSED => FsError::ConnectionRefused,
+        __WASI_ECONNRESET => FsError::ConnectionReset,
+        __WASI_EINTR => FsError::Interrupted,
+        __WASI_EINVAL => FsError::InvalidInput,
+        __WASI_ENOTCONN => FsError::NotConnected,
+        __WASI_ENODEV => FsError::NoDevice,
+        __WASI_ENOENT => FsError::EntityNotFound,
+        __WASI_EPERM => FsError::PermissionDenied,
+        __WASI_ETIMEDOUT => FsError::TimedOut,
+        __WASI_EPROTO => FsError::UnexpectedEof,
+        __WASI_EAGAIN => FsError::WouldBlock,
+        __WASI_ENOSPC => FsError::WriteZero,
+        _ => FsError::UnknownError,
     }
 }
 
-/// This trait relies on your file closing when it goes out of scope via `Drop`
-#[typetag::serde(tag = "type")]
-pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
-    /// the last time the file was accessed in nanoseconds as a UNIX timestamp
-    fn last_accessed(&self) -> __wasi_timestamp_t;
-
-    /// the last time the file was modified in nanoseconds as a UNIX timestamp
-    fn last_modified(&self) -> __wasi_timestamp_t;
-
-    /// the time at which the file was created in nanoseconds as a UNIX timestamp
-    fn created_time(&self) -> __wasi_timestamp_t;
-
-    /// set the last time the file was accessed in nanoseconds as a UNIX timestamp
-    fn set_last_accessed(&self, _last_accessed: __wasi_timestamp_t) {
-        debug!("{:?} did nothing in WasiFile::set_last_accessed due to using the default implementation", self);
-    }
-
-    /// set the last time the file was modified in nanoseconds as a UNIX timestamp
-    fn set_last_modified(&self, _last_modified: __wasi_timestamp_t) {
-        debug!("{:?} did nothing in WasiFile::set_last_modified due to using the default implementation", self);
-    }
-
-    /// set the time at which the file was created in nanoseconds as a UNIX timestamp
-    fn set_created_time(&self, _created_time: __wasi_timestamp_t) {
-        debug!(
-            "{:?} did nothing in WasiFile::set_created_time to using the default implementation",
-            self
-        );
-    }
-
-    /// the size of the file in bytes
-    fn size(&self) -> u64;
-
-    /// Change the size of the file, if the `new_size` is greater than the current size
-    /// the extra bytes will be allocated and zeroed
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError>;
-
-    /// Request deletion of the file
-    fn unlink(&mut self) -> Result<(), WasiFsError>;
-
-    /// Store file contents and metadata to disk
-    /// Default implementation returns `Ok(())`.  You should implement this method if you care
-    /// about flushing your cache to permanent storage
-    fn sync_to_disk(&self) -> Result<(), WasiFsError> {
-        Ok(())
-    }
-
-    /// Moves the file to a new location
-    /// NOTE: the signature of this function will change before stabilization
-    // TODO: stablizie this in 0.7.0 or 0.8.0 by removing default impl
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), WasiFsError> {
-        panic!("Default implementation for now as this method is unstable; this default implementation or this entire method may be removed in a future release.");
-    }
-
-    /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize, WasiFsError>;
-
-    /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
-    /// Returns the underlying host fd
-    fn get_raw_fd(&self) -> Option<i32> {
-        None
-    }
-}
-
-// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
-/// Trait needed to get downcasting from `WasiFile` to work.
-pub trait Upcastable {
-    fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
-    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
-    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
-}
-
-impl<T: Any + fmt::Debug + 'static> Upcastable for T {
-    #[inline]
-    fn upcast_any_ref(&'_ self) -> &'_ dyn Any {
-        self
-    }
-    #[inline]
-    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any {
-        self
-    }
-    #[inline]
-    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-}
-
-impl dyn WasiFile + 'static {
-    #[inline]
-    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
-        self.upcast_any_ref().downcast_ref::<T>()
-    }
-    #[inline]
-    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
-        self.upcast_any_mut().downcast_mut::<T>()
+pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
+    match fs_error {
+        FsError::AlreadyExists => __WASI_EEXIST,
+        FsError::AddressInUse => __WASI_EADDRINUSE,
+        FsError::AddressNotAvailable => __WASI_EADDRNOTAVAIL,
+        FsError::BaseNotDirectory => __WASI_ENOTDIR,
+        FsError::BrokenPipe => __WASI_EPIPE,
+        FsError::ConnectionAborted => __WASI_ECONNABORTED,
+        FsError::ConnectionRefused => __WASI_ECONNREFUSED,
+        FsError::ConnectionReset => __WASI_ECONNRESET,
+        FsError::Interrupted => __WASI_EINTR,
+        FsError::InvalidData => __WASI_EIO,
+        FsError::InvalidFd => __WASI_EBADF,
+        FsError::InvalidInput => __WASI_EINVAL,
+        FsError::IOError => __WASI_EIO,
+        FsError::NoDevice => __WASI_ENODEV,
+        FsError::NotAFile => __WASI_EINVAL,
+        FsError::NotConnected => __WASI_ENOTCONN,
+        FsError::EntityNotFound => __WASI_ENOENT,
+        FsError::PermissionDenied => __WASI_EPERM,
+        FsError::TimedOut => __WASI_ETIMEDOUT,
+        FsError::UnexpectedEof => __WASI_EPROTO,
+        FsError::WouldBlock => __WASI_EAGAIN,
+        FsError::WriteZero => __WASI_ENOSPC,
+        FsError::UnknownError => __WASI_EIO,
     }
 }
 
@@ -366,9 +185,9 @@ pub(crate) fn poll(
     selfs: &[&dyn WasiFile],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
-) -> Result<u32, WasiFsError> {
+) -> Result<u32, FsError> {
     if !(selfs.len() == events.len() && events.len() == seen_events.len()) {
-        return Err(WasiFsError::InvalidInput);
+        return Err(FsError::InvalidInput);
     }
     let mut fds = selfs
         .iter()
@@ -384,7 +203,7 @@ pub(crate) fn poll(
 
     if result < 0 {
         // TODO: check errno and return value
-        return Err(WasiFsError::IOError);
+        return Err(FsError::IOError);
     }
     // convert result and write back values
     for (i, fd) in fds.into_iter().enumerate() {
@@ -399,7 +218,7 @@ pub(crate) fn poll(
     _selfs: &[&dyn WasiFile],
     _events: &[PollEventSet],
     _seen_events: &mut [PollEventSet],
-) -> Result<(), WasiFsError> {
+) -> Result<(), FsError> {
     unimplemented!("HostFile::poll in WasiFile is not implemented for non-Unix-like targets yet");
 }
 
@@ -609,22 +428,22 @@ impl WasiFile for HostFile {
         self.metadata().len()
     }
 
-    fn set_len(&mut self, new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, new_size: __wasi_filesize_t) -> Result<(), FsError> {
         fs::File::set_len(&self.inner, new_size).map_err(Into::into)
     }
 
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         std::fs::remove_file(&self.host_path).map_err(Into::into)
     }
-    fn sync_to_disk(&self) -> Result<(), WasiFsError> {
+    fn sync_to_disk(&self) -> Result<(), FsError> {
         self.inner.sync_all().map_err(Into::into)
     }
 
-    fn rename_file(&self, new_name: &std::path::Path) -> Result<(), WasiFsError> {
+    fn rename_file(&self, new_name: &std::path::Path) -> Result<(), FsError> {
         std::fs::rename(&self.host_path, new_name).map_err(Into::into)
     }
 
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
 
@@ -644,50 +463,23 @@ impl WasiFile for HostFile {
     }
 }
 
-impl From<io::Error> for WasiFsError {
-    fn from(io_error: io::Error) -> Self {
-        match io_error.kind() {
-            io::ErrorKind::AddrInUse => WasiFsError::AddressInUse,
-            io::ErrorKind::AddrNotAvailable => WasiFsError::AddressNotAvailable,
-            io::ErrorKind::AlreadyExists => WasiFsError::AlreadyExists,
-            io::ErrorKind::BrokenPipe => WasiFsError::BrokenPipe,
-            io::ErrorKind::ConnectionAborted => WasiFsError::ConnectionAborted,
-            io::ErrorKind::ConnectionRefused => WasiFsError::ConnectionRefused,
-            io::ErrorKind::ConnectionReset => WasiFsError::ConnectionReset,
-            io::ErrorKind::Interrupted => WasiFsError::Interrupted,
-            io::ErrorKind::InvalidData => WasiFsError::InvalidData,
-            io::ErrorKind::InvalidInput => WasiFsError::InvalidInput,
-            io::ErrorKind::NotConnected => WasiFsError::NotConnected,
-            io::ErrorKind::NotFound => WasiFsError::EntityNotFound,
-            io::ErrorKind::PermissionDenied => WasiFsError::PermissionDenied,
-            io::ErrorKind::TimedOut => WasiFsError::TimedOut,
-            io::ErrorKind::UnexpectedEof => WasiFsError::UnexpectedEof,
-            io::ErrorKind::WouldBlock => WasiFsError::WouldBlock,
-            io::ErrorKind::WriteZero => WasiFsError::WriteZero,
-            io::ErrorKind::Other => WasiFsError::IOError,
-            // if the following triggers, a new error type was added to this non-exhaustive enum
-            _ => WasiFsError::UnknownError(__WASI_EIO),
-        }
-    }
-}
-
 #[cfg(unix)]
-fn host_file_bytes_available(host_fd: i32) -> Result<usize, WasiFsError> {
+fn host_file_bytes_available(host_fd: i32) -> Result<usize, FsError> {
     let mut bytes_found = 0 as libc::c_int;
     let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
 
     match result {
         // success
         0 => Ok(bytes_found.try_into().unwrap_or(0)),
-        libc::EBADF => Err(WasiFsError::InvalidFd),
-        libc::EFAULT => Err(WasiFsError::InvalidData),
-        libc::EINVAL => Err(WasiFsError::InvalidInput),
-        _ => Err(WasiFsError::IOError),
+        libc::EBADF => Err(FsError::InvalidFd),
+        libc::EFAULT => Err(FsError::InvalidData),
+        libc::EINVAL => Err(FsError::InvalidInput),
+        _ => Err(FsError::IOError),
     }
 }
 
 #[cfg(not(unix))]
-fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, WasiFsError> {
+fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, FsError> {
     unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
 }
 
@@ -755,15 +547,15 @@ impl WasiFile for Stdout {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), FsError> {
         debug!("Calling WasiFile::set_len on stdout; this is probably a bug");
-        Err(WasiFsError::PermissionDenied)
+        Err(FsError::PermissionDenied)
     }
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
 
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
 
@@ -848,15 +640,15 @@ impl WasiFile for Stderr {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), FsError> {
         debug!("Calling WasiFile::set_len on stderr; this is probably a bug");
-        Err(WasiFsError::PermissionDenied)
+        Err(FsError::PermissionDenied)
     }
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
 
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
 
@@ -941,16 +733,16 @@ impl WasiFile for Stdin {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), FsError> {
         debug!("Calling WasiFile::set_len on stdin; this is probably a bug");
-        Err(WasiFsError::PermissionDenied)
+        Err(FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
 
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
 
@@ -1026,14 +818,14 @@ impl WasiFile for Pipe {
     fn size(&self) -> u64 {
         self.buffer.len() as u64
     }
-    fn set_len(&mut self, len: u64) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, len: u64) -> Result<(), FsError> {
         self.buffer.resize(len as usize, 0);
         Ok(())
     }
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(self.buffer.len())
     }
 }

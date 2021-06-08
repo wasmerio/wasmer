@@ -22,6 +22,7 @@ time = "0.1"
 typetag = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 wasmer = { path = "../api", version = "2.0.0-rc2", default-features = false }
+wasmer-virtual-fs = { path = "../virtual-fs", version = "2.0.0-rc2" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"

@@ -44,6 +44,7 @@ members = [
     "lib/engine-dylib",
     "lib/engine-staticlib",
     "lib/object",
+    "lib/virtual-fs",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",

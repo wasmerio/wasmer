@@ -17,9 +17,8 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
-        self, host_file_type_to_wasi_file_type, iterate_poll_events, poll, Fd, HostFile, Inode,
-        InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiState,
-        MAX_SYMLINKS,
+        self, fs_error_into_wasi_err, host_file_type_to_wasi_file_type, iterate_poll_events, poll,
+        Fd, HostFile, Inode, InodeVal, Kind, PollEvent, PollEventBuilder, WasiState, MAX_SYMLINKS,
     },
     WasiEnv, WasiError,
 };
@@ -29,6 +28,7 @@ use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
 use tracing::{debug, trace};
 use wasmer::{Memory, RuntimeError, Value};
+use wasmer_virtual_fs::{FsError, WasiFile};
 
 #[cfg(any(
     target_os = "freebsd",
@@ -345,7 +345,7 @@ pub fn fd_allocate(
     match &mut state.fs.inodes[inode].kind {
         Kind::File { handle, .. } => {
             if let Some(handle) = handle {
-                wasi_try!(handle.set_len(new_size).map_err(WasiFsError::into_wasi_err));
+                wasi_try!(handle.set_len(new_size).map_err(fs_error_into_wasi_err));
             } else {
                 return __WASI_EBADF;
             }
@@ -540,7 +540,7 @@ pub fn fd_filestat_set_size(
     match &mut state.fs.inodes[inode].kind {
         Kind::File { handle, .. } => {
             if let Some(handle) = handle {
-                wasi_try!(handle.set_len(st_size).map_err(WasiFsError::into_wasi_err));
+                wasi_try!(handle.set_len(st_size).map_err(fs_error_into_wasi_err));
             } else {
                 return __WASI_EBADF;
             }
@@ -655,7 +655,7 @@ pub fn fd_pread(
     let bytes_read = match fd {
         __WASI_STDIN_FILENO => {
             if let Some(ref mut stdin) =
-                wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdin_mut().map_err(fs_error_into_wasi_err))
             {
                 wasi_try!(read_bytes(stdin, memory, iov_cells))
             } else {
@@ -804,7 +804,7 @@ pub fn fd_pwrite(
         __WASI_STDIN_FILENO => return __WASI_EINVAL,
         __WASI_STDOUT_FILENO => {
             if let Some(ref mut stdout) =
-                wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdout_mut().map_err(fs_error_into_wasi_err))
             {
                 wasi_try!(write_bytes(stdout, memory, iovs_arr_cell))
             } else {
@@ -813,7 +813,7 @@ pub fn fd_pwrite(
         }
         __WASI_STDERR_FILENO => {
             if let Some(ref mut stderr) =
-                wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stderr_mut().map_err(fs_error_into_wasi_err))
             {
                 wasi_try!(write_bytes(stderr, memory, iovs_arr_cell))
             } else {
@@ -890,7 +890,7 @@ pub fn fd_read(
     let bytes_read = match fd {
         __WASI_STDIN_FILENO => {
             if let Some(ref mut stdin) =
-                wasi_try!(state.fs.stdin_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdin_mut().map_err(fs_error_into_wasi_err))
             {
                 wasi_try!(read_bytes(stdin, memory, iovs_arr_cell))
             } else {
@@ -1184,7 +1184,7 @@ pub fn fd_sync(env: &WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
     match &mut state.fs.inodes[inode].kind {
         Kind::File { handle, .. } => {
             if let Some(h) = handle {
-                wasi_try!(h.sync_to_disk().map_err(WasiFsError::into_wasi_err));
+                wasi_try!(h.sync_to_disk().map_err(fs_error_into_wasi_err));
             } else {
                 return __WASI_EINVAL;
             }
@@ -1261,7 +1261,7 @@ pub fn fd_write(
         __WASI_STDIN_FILENO => return __WASI_EINVAL,
         __WASI_STDOUT_FILENO => {
             if let Some(ref mut stdout) =
-                wasi_try!(state.fs.stdout_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stdout_mut().map_err(fs_error_into_wasi_err))
             {
                 wasi_try!(write_bytes(stdout, memory, iovs_arr_cell))
             } else {
@@ -1270,7 +1270,7 @@ pub fn fd_write(
         }
         __WASI_STDERR_FILENO => {
             if let Some(ref mut stderr) =
-                wasi_try!(state.fs.stderr_mut().map_err(WasiFsError::into_wasi_err))
+                wasi_try!(state.fs.stderr_mut().map_err(fs_error_into_wasi_err))
             {
                 wasi_try!(write_bytes(stderr, memory, iovs_arr_cell))
             } else {
@@ -1768,7 +1768,9 @@ pub fn path_open(
                 if o_flags & __WASI_O_TRUNC != 0 {
                     open_flags |= Fd::TRUNCATE;
                 }
-                *handle = Some(wasi_try!(open_options.open(&path)));
+                *handle = Some(wasi_try!(open_options
+                    .open(&path)
+                    .map_err(fs_error_into_wasi_err)));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Dir { .. } | Kind::Root { .. } => {
@@ -1827,7 +1829,7 @@ pub fn path_open(
                 Some(wasi_try!(open_options.open(&new_file_host_path).map_err(
                     |e| {
                         debug!("Error opening file {}", e);
-                        e
+                        fs_error_into_wasi_err(e)
                     }
                 )))
             };
@@ -2079,7 +2081,7 @@ pub fn path_rename(
             // implements the logic of "I'm not actually a file, I'll try to be as needed".
             let result = if let Some(h) = handle {
                 h.rename_file(&host_adjusted_target_path)
-                    .map_err(|e| e.into_wasi_err())
+                    .map_err(fs_error_into_wasi_err)
             } else {
                 let path_clone = path.clone();
                 let out = state.fs_rename(&path_clone, &host_adjusted_target_path);
@@ -2250,7 +2252,7 @@ pub fn path_unlink_file(
         match &mut state.fs.inodes[removed_inode].kind {
             Kind::File { handle, path, .. } => {
                 if let Some(h) = handle {
-                    wasi_try!(h.unlink().map_err(WasiFsError::into_wasi_err));
+                    wasi_try!(h.unlink().map_err(fs_error_into_wasi_err));
                 } else {
                     // File is closed
                     // problem with the abstraction, we can't call unlink because there's no handle
@@ -2372,17 +2374,17 @@ pub fn poll_oneoff(
         if let Some(fd) = fd {
             let wasi_file_ref: &dyn WasiFile = match fd {
                 __WASI_STDERR_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stderr().map_err(WasiFsError::into_wasi_err)).as_ref(),
+                    wasi_try!(state.fs.stderr().map_err(fs_error_into_wasi_err)).as_ref(),
                     __WASI_EBADF
                 )
                 .as_ref(),
                 __WASI_STDIN_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stdin().map_err(WasiFsError::into_wasi_err)).as_ref(),
+                    wasi_try!(state.fs.stdin().map_err(fs_error_into_wasi_err)).as_ref(),
                     __WASI_EBADF
                 )
                 .as_ref(),
                 __WASI_STDOUT_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stdout().map_err(WasiFsError::into_wasi_err)).as_ref(),
+                    wasi_try!(state.fs.stdout().map_err(fs_error_into_wasi_err)).as_ref(),
                     __WASI_EBADF
                 )
                 .as_ref(),
@@ -2427,7 +2429,7 @@ pub fn poll_oneoff(
         in_events.as_slice(),
         seen_events.as_mut_slice()
     )
-    .map_err(|e| e.into_wasi_err()));
+    .map_err(fs_error_into_wasi_err));
 
     for (i, seen_event) in seen_events.into_iter().enumerate() {
         let mut flags = 0;
@@ -2441,12 +2443,12 @@ pub fn poll_oneoff(
                 PollEvent::PollInvalid => error = __WASI_EINVAL,
                 PollEvent::PollIn => {
                     bytes_available =
-                        wasi_try!(fds[i].bytes_available().map_err(|e| e.into_wasi_err()));
+                        wasi_try!(fds[i].bytes_available().map_err(fs_error_into_wasi_err));
                     error = __WASI_ESUCCESS;
                 }
                 PollEvent::PollOut => {
                     bytes_available =
-                        wasi_try!(fds[i].bytes_available().map_err(|e| e.into_wasi_err()));
+                        wasi_try!(fds[i].bytes_available().map_err(fs_error_into_wasi_err));
                     error = __WASI_ESUCCESS;
                 }
             }

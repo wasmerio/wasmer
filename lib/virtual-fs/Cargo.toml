@@ -1,0 +1,13 @@
+[package]
+name = "wasmer-virtual-fs"
+version = "2.0.0-rc2"
+description = "Wasmer Virtual FileSystem"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+thiserror = "1"
+tracing = { version = "0.1" }
+typetag = "0.1"
+#serde = { version = "1.0", features = ["derive"] }

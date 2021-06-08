@@ -22,11 +22,12 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, Pipe, Stderr, Stdin, Stdout, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder,
-    WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiState, WasiStateBuilder, WasiStateCreationError,
+    ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
+pub use wasmer_virtual_fs::{FsError, WasiFile};
 
 use thiserror::Error;
 use wasmer::{

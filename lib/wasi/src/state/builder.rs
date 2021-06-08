@@ -1,10 +1,11 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
-use crate::state::{WasiFile, WasiFs, WasiFsError, WasiState};
+use crate::state::{WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::WasiEnv;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use wasmer_virtual_fs::{FsError, WasiFile};
 
 /// Creates an empty [`WasiStateBuilder`].
 ///
@@ -76,7 +77,7 @@ pub enum WasiStateCreationError {
     #[error("wasi filesystem setup error: `{0}`")]
     WasiFsSetupError(String),
     #[error(transparent)]
-    WasiFsError(WasiFsError),
+    FsError(FsError),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
@@ -367,17 +368,17 @@ impl WasiStateBuilder {
         if let Some(stdin_override) = self.stdin_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDIN_FILENO, stdin_override)
-                .map_err(WasiStateCreationError::WasiFsError)?;
+                .map_err(WasiStateCreationError::FsError)?;
         }
         if let Some(stdout_override) = self.stdout_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDOUT_FILENO, stdout_override)
-                .map_err(WasiStateCreationError::WasiFsError)?;
+                .map_err(WasiStateCreationError::FsError)?;
         }
         if let Some(stderr_override) = self.stderr_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDERR_FILENO, stderr_override)
-                .map_err(WasiStateCreationError::WasiFsError)?;
+                .map_err(WasiStateCreationError::FsError)?;
         }
         if let Some(f) = &self.setup_fs_fn {
             f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
