@@ -110,7 +110,7 @@ has been decided to use the second pattern in all the codebase.
 
 The [`wasm.h`] defines `wasm_*_delete` functions. It represents destructors.
 
-## Rust Pattern
+### Rust Pattern
 
 The destructors in Rust translate as follow:
 
