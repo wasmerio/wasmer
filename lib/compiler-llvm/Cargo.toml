@@ -17,7 +17,7 @@ wasmer-vm = { path = "../vm", version = "2.0.0-rc2" }
 wasmer-types = { path = "../types", version = "2.0.0-rc2" }
 target-lexicon = { version = "0.12", default-features = false }
 smallvec = "1.6"
-object = { version = "0.24", default-features = false, features = ["read"] }
+object = { version = "0.25", default-features = false, features = ["read"] }
 libc = { version = "^0.2", default-features = false }
 byteorder = "1"
 itertools = "0.10"
