@@ -2729,16 +2729,15 @@ name = "wasmer-wasi"
 version = "2.0.0-rc2"
 dependencies = [
  "bincode",
- "byteorder",
  "generational-arena",
  "getrandom",
  "libc",
  "serde",
  "thiserror",
- "time",
  "tracing",
  "typetag",
  "wasmer",
+ "wasmer-wasi-types",
  "winapi",
 ]
 
@@ -2752,6 +2751,16 @@ dependencies = [
  "tracing",
  "typetag",
  "wasmer-wasi",
+]
+
+[[package]]
+name = "wasmer-wasi-types"
+version = "2.0.0-rc2"
+dependencies = [
+ "byteorder",
+ "serde",
+ "time",
+ "wasmer",
 ]
 
 [[package]]

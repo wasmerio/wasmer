@@ -14,7 +14,9 @@
 
 #[macro_use]
 mod macros;
-mod ptr;
+mod ptr {
+    pub use wasmer_wasi_types::{Array, WasmPtr};
+}
 mod state;
 mod syscalls;
 mod utils;

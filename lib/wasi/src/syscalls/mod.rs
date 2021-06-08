@@ -1,6 +1,9 @@
 #![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
-pub mod types;
+pub mod types {
+    pub use wasmer_wasi_types::*;
+}
+
 #[cfg(any(
     target_os = "freebsd",
     target_os = "linux",
