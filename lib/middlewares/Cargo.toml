@@ -16,5 +16,8 @@ wasmer-types = { path = "../types", version = "2.0.0-rc2" }
 wasmer-vm = { path = "../vm", version = "2.0.0-rc2" }
 loupe = "0.1"
 
+[dev-dependencies]
+wasmer = { path = "../api", version = "2.0.0-rc2", features = ["compiler"] }
+
 [badges]
 maintenance = { status = "actively-developed" }

@@ -10,7 +10,15 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 2.0.0-rc2 - 2020/06/03
 
+### Added
+- [#2390](https://github.com/wasmerio/wasmer/pull/2390) Make `wasmer-vm` to compile on Windows 32bits.
+- [#2402](https://github.com/wasmerio/wasmer/pull/2402) Add more examples and more doctests for `wasmer-middlewares`.
+
+### Changed
+- [#2399](https://github.com/wasmerio/wasmer/pull/2399) Add the Dart integration in the `README.md`.
+
 ### Fixed
+- [#2386](https://github.com/wasmerio/wasmer/pull/2386) Handle properly when a module has no exported functions in the CLI.
 - [#2383](https://github.com/wasmerio/wasmer/pull/2383) Fix bugs in the Wasmer CLI tool with the way `--version` and the name of the CLI tool itself were printed.
 
 ## 2.0.0-rc1 - 2020/06/02
