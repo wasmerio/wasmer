@@ -635,7 +635,7 @@ macro_rules! impl_traits {
                         .iter()
                         .find_map(|(_, imported_func)| {
                             if imported_func.func == self_pointer {
-                                Some(imported_func.func_ctx)
+                                Some(NonNull::from(&*imported_func.func_ctx))
                             } else {
                                 None
                             }
@@ -752,7 +752,7 @@ macro_rules! impl_traits {
                         .iter()
                         .find_map(|(_, imported_func)| {
                             if imported_func.func == self_pointer {
-                                Some(imported_func.func_ctx)
+                                Some(NonNull::from(&*imported_func.func_ctx))
                             } else {
                                 None
                             }

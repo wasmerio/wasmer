@@ -588,14 +588,14 @@ impl FuncCtx {
 
 /// An imported function is a function pointer associated to a
 /// function context.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[repr(C)]
 pub struct ImportedFunc {
     /// Pointer to the function itself.
     pub(crate) func: *const Func,
 
     /// Mutable non-null pointer to [`FuncCtx`].
-    pub(crate) func_ctx: NonNull<FuncCtx>,
+    pub(crate) func_ctx: Box<FuncCtx>,
 }
 
 // Manually implemented because ImportedFunc contains raw pointers

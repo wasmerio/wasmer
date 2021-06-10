@@ -170,13 +170,12 @@ impl Instance {
 
             let ctx_ptr = match start_index.local_or_import(&instance.module.info) {
                 LocalOrImport::Local(_) => instance.inner.vmctx,
-                LocalOrImport::Import(imported_func_index) => unsafe {
+                LocalOrImport::Import(imported_func_index) => {
                     instance.inner.import_backing.vm_functions[imported_func_index]
                         .func_ctx
-                        .as_ref()
+                        .vmctx
+                        .as_ptr()
                 }
-                .vmctx
-                .as_ptr(),
             };
 
             let sig_index = *instance
@@ -427,7 +426,7 @@ impl InstanceInner {
             ),
             LocalOrImport::Import(imported_func_index) => {
                 let imported_func = &self.import_backing.vm_functions[imported_func_index];
-                let func_ctx = unsafe { imported_func.func_ctx.as_ref() };
+                let func_ctx = &*imported_func.func_ctx;
 
                 (
                     imported_func.func as *const _,
@@ -555,13 +554,11 @@ fn call_func_with_index(
 
     let ctx_ptr = match func_index.local_or_import(info) {
         LocalOrImport::Local(_) => local_ctx,
-        LocalOrImport::Import(imported_func_index) => unsafe {
-            import_backing.vm_functions[imported_func_index]
-                .func_ctx
-                .as_ref()
-        }
-        .vmctx
-        .as_ptr(),
+        LocalOrImport::Import(imported_func_index) => import_backing.vm_functions
+            [imported_func_index]
+            .func_ctx
+            .vmctx
+            .as_ptr(),
     };
 
     let wasm = runnable
@@ -882,13 +879,11 @@ impl<'a, Args: WasmTypeList, Rets: WasmTypeList> Exportable<'a> for Func<'a, Arg
 
         let ctx = match func_index.local_or_import(&module.info) {
             LocalOrImport::Local(_) => inst_inner.vmctx,
-            LocalOrImport::Import(imported_func_index) => unsafe {
-                inst_inner.import_backing.vm_functions[imported_func_index]
-                    .func_ctx
-                    .as_ref()
-            }
-            .vmctx
-            .as_ptr(),
+            LocalOrImport::Import(imported_func_index) => inst_inner.import_backing.vm_functions
+                [imported_func_index]
+                .func_ctx
+                .vmctx
+                .as_ptr(),
         };
 
         let func_wasm_inner = module
@@ -909,7 +904,7 @@ impl<'a, Args: WasmTypeList, Rets: WasmTypeList> Exportable<'a> for Func<'a, Arg
 
                 (
                     NonNull::new(imported_func.func as *mut _).unwrap(),
-                    unsafe { imported_func.func_ctx.as_ref() }.func_env,
+                    imported_func.func_ctx.func_env,
                 )
             }
         };
