@@ -1,8 +1,10 @@
 #![allow(non_camel_case_types)]
 
+use std::mem;
+
 /// The `sockaddr_in` struct.
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct SocketAddress {
     pub sin_family: u16,
     pub sin_port: u16,
@@ -10,15 +12,27 @@ pub struct SocketAddress {
     pub sin_zero: [u8; 8],
 }
 
+impl SocketAddress {
+    pub fn size_of_self(&self) -> u32 {
+        mem::size_of::<Self>() as u32
+    }
+}
+
 /// The `sockaddr_in6` struct.
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct SocketAddress6 {
     pub sin6_family: u16,
     pub sin6_port: u16,
     pub sin6_flowinfo: u32,
     pub sin6_addr: [u8; 16],
     pub sin6_scope_id: u32,
+}
+
+impl SocketAddress6 {
+    pub fn size_of_self(&self) -> u32 {
+        mem::size_of::<Self>() as u32
+    }
 }
 
 /// The _domain_ specifies a communication domain; this selects the
