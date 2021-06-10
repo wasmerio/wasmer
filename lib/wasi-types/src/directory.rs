@@ -1,6 +1,6 @@
 use crate::*;
 use std::mem;
-use wasmer::ValueType;
+use wasmer_types::ValueType;
 
 pub type __wasi_dircookie_t = u64;
 pub const __WASI_DIRCOOKIE_START: u64 = 0;

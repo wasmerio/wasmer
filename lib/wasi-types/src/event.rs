@@ -1,5 +1,6 @@
 use crate::*;
 use std::fmt;
+use wasmer_types::ValueType;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]

@@ -1,6 +1,7 @@
 use crate::*;
 use std::convert::TryFrom;
 use std::fmt;
+use wasmer_types::ValueType;
 
 pub type __wasi_subclockflags_t = u16;
 pub const __WASI_SUBSCRIPTION_CLOCK_ABSTIME: u16 = 1 << 0;

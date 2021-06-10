@@ -1,7 +1,7 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use wasmer::ValueType;
+use wasmer_types::ValueType;
 
 pub type __wasi_device_t = u64;
 

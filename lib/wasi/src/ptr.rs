@@ -1,7 +1,7 @@
 //! This is a wrapper around the `WasmPtr` abstraction that returns __WASI_EFAULT
 //! if memory access failed
 
-use crate::{__wasi_errno_t, __WASI_EFAULT};
+use crate::syscalls::types::{__wasi_errno_t, __WASI_EFAULT};
 use std::{cell::Cell, fmt};
 pub use wasmer::{Array, FromToNativeWasmType, Item, Memory, ValueType, WasmPtr as BaseWasmPtr};
 

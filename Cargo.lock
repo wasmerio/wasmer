@@ -2760,7 +2760,7 @@ dependencies = [
  "byteorder",
  "serde",
  "time",
- "wasmer",
+ "wasmer-types",
 ]
 
 [[package]]
