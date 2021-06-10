@@ -1,7 +1,7 @@
 use crate::types::*;
 use std::ffi::c_void;
 use std::ptr::NonNull;
-use wasmer_wasi_types::*;
+pub use wasmer_wasi_types::*;
 
 #[link(wasm_import_module = "wasi_experimental_network_unstable")]
 extern "C" {
@@ -57,7 +57,7 @@ extern "C" {
         fd: __wasi_fd_t,
         address: *mut u8,
         address_size: *mut u32,
-        fd_out: __wasi_fd_t,
+        fd_out: *mut __wasi_fd_t,
     ) -> __wasi_errno_t;
 
     /// The `socekt_connect` function connects the socket referred to
