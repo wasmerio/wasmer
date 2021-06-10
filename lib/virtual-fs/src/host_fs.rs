@@ -44,7 +44,6 @@ impl FileOpener for HostFileOpener {
         let read = conf.read();
         let write = conf.write();
         let append = conf.append();
-        // TODO: proper error handling
         let mut oo = std::fs::OpenOptions::new();
         oo.read(conf.read())
             .write(conf.write())
@@ -53,8 +52,7 @@ impl FileOpener for HostFileOpener {
             .append(conf.append())
             .truncate(conf.truncate())
             .open(path)
-            // TODO: we can just convert, do that
-            .map_err(|_| FsError::UnknownError)
+            .map_err(Into::into)
             .map(|file| {
                 Box::new(HostFile::new(file, path.to_owned(), read, write, append))
                     as Box<dyn VirtualFile>

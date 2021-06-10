@@ -6,6 +6,8 @@ use thiserror::Error;
 use tracing::debug;
 
 pub mod host_fs;
+//pub mod vfs_fs;
+pub mod mem_fs;
 
 pub trait FileSystem: Send + Sync + 'static {
     fn read_dir(&self, path: &Path) -> Result<std::fs::ReadDir, FsError>;
@@ -317,3 +319,12 @@ impl From<io::Error> for FsError {
         }
     }
 }
+
+/*impl From<vfs::VfsError> for FsError {
+    fn from(vfs_error: vfs::VfsError) -> Self {
+        match vfs_error {
+            vfs::VfsError::IoError(io_error) => io_error.into(),
+            _ => todo!("Not yet handled vfs error type {:?}", vfs_error)
+        }
+    }
+}*/
