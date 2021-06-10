@@ -44,7 +44,7 @@ dep_graph = {
                    "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-types", "wasmer-derive"]),
     "wasmer-cache": set(["wasmer"]),
     "wasmer-wasi": set(["wasmer", "wasmer-wasi-types"]),
-    "wasmer-wasi-types": set(["wasmer"]),
+    "wasmer-wasi-types": set(["wasmer-types"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
     "wasmer-c-api": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
