@@ -30,12 +30,12 @@ structopt = "0.3"
 wabt = { version = "0.9.1", optional = true }
 wasmer = { path = "lib/api", default-features = false }
 wasmer-middleware-common = { path = "lib/middleware-common" }
-wasmer-runtime = { path = "lib/runtime", default-features = false }
-wasmer-runtime-core = { path = "lib/runtime-core" }
+wasmer-runtime = { path = "lib/runtime", default-features = false, package = "wasmer-runtime-near" }
+wasmer-runtime-core = { path = "lib/runtime-core", package = "wasmer-runtime-core-near" }
 wasmer-kernel-loader = { path = "lib/kernel-loader", optional = true }
 
 # Backends
-wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true }
+wasmer-singlepass-backend = { path = "lib/singlepass-backend", optional = true, package = "wasmer-singlepass-backend-near" }
 wasmer-clif-backend = { path = "lib/clif-backend", optional = true }
 wasmer-llvm-backend = { path = "lib/llvm-backend", optional = true }
 
