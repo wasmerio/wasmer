@@ -10,8 +10,45 @@ use std::time::SystemTime;
 pub struct HostFileSystem;
 
 impl FileSystem for HostFileSystem {
-    fn read_dir(&self, path: &Path) -> Result<std::fs::ReadDir, FsError> {
-        fs::read_dir(path).map_err(Into::into)
+    fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
+        use std::time::UNIX_EPOCH;
+
+        let read_dir = std::fs::read_dir(path)?;
+        let data = read_dir
+            .map(|entry| -> Result<DirEntry, _> {
+                let entry = entry?;
+                let metadata = entry.metadata()?;
+                let filetype = metadata.file_type();
+                Ok(DirEntry {
+                    path: entry.path(),
+                    metadata: Ok(Metadata {
+                        ft: FileType {
+                            dir: filetype.is_dir(),
+                            file: filetype.is_file(),
+                            symlink: filetype.is_symlink(),
+                        },
+                        accessed: metadata
+                            .accessed()?
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
+                        created: metadata
+                            .created()?
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
+                        modified: metadata
+                            .modified()?
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
+                        len: metadata.len(),
+                    }),
+                })
+            })
+            .collect::<Result<Vec<DirEntry>, std::io::Error>>()
+            .map_err::<FsError, _>(Into::into)?;
+        Ok(ReadDir::new(data))
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         fs::create_dir(path).map_err(Into::into)

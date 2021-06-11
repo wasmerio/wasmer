@@ -17,8 +17,9 @@ use self::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
-        self, fs_error_into_wasi_err, host_file_type_to_wasi_file_type, iterate_poll_events, poll,
-        Fd, HostFile, Inode, InodeVal, Kind, PollEvent, PollEventBuilder, WasiState, MAX_SYMLINKS,
+        self, fs_error_into_wasi_err, iterate_poll_events, poll,
+        virtual_file_type_to_wasi_file_type, Fd, HostFile, Inode, InodeVal, Kind, PollEvent,
+        PollEventBuilder, WasiState, MAX_SYMLINKS,
     },
     WasiEnv, WasiError,
 };
@@ -989,7 +990,7 @@ pub fn fd_readdir(
                 .into_iter()
                 .map(|entry| Ok((
                     entry.file_name().to_string_lossy().to_string(),
-                    host_file_type_to_wasi_file_type(entry.file_type().map_err(|_| __WASI_EIO)?),
+                    virtual_file_type_to_wasi_file_type(entry.file_type().map_err(|_| __WASI_EIO)?),
                     0, // TODO: inode
                 )))
                 .collect::<Result<Vec<(String, u8, u64)>, _>>());

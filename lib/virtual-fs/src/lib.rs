@@ -1,7 +1,8 @@
 use std::any::Any;
+use std::ffi::OsString;
 use std::fmt;
 use std::io::{self, Read, Seek, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::debug;
 
@@ -10,7 +11,7 @@ pub mod host_fs;
 pub mod mem_fs;
 
 pub trait FileSystem: Send + Sync + 'static {
-    fn read_dir(&self, path: &Path) -> Result<std::fs::ReadDir, FsError>;
+    fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError>;
     fn create_dir(&self, path: &Path) -> Result<(), FsError>;
     fn remove_dir(&self, path: &Path) -> Result<(), FsError>;
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError>;
@@ -317,6 +318,108 @@ impl From<io::Error> for FsError {
             // if the following triggers, a new error type was added to this non-exhaustive enum
             _ => FsError::UnknownError,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ReadDir {
+    // TODO: to do this properly we need some kind of callback to the core FS abstraction
+    data: Vec<DirEntry>,
+    index: usize,
+}
+
+impl ReadDir {
+    fn new(data: Vec<DirEntry>) -> Self {
+        Self { data, index: 0 }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DirEntry {
+    pub path: PathBuf,
+    // weird hack, to fix this we probably need an internal trait object or callbacks or something
+    pub metadata: Result<Metadata, FsError>,
+}
+
+impl DirEntry {
+    pub fn path(&self) -> PathBuf {
+        self.path.clone()
+    }
+
+    pub fn metadata(&self) -> Result<Metadata, FsError> {
+        self.metadata.clone()
+    }
+
+    pub fn file_type(&self) -> Result<FileType, FsError> {
+        let metadata = self.metadata.clone()?;
+        Ok(metadata.file_type())
+    }
+
+    pub fn file_name(&self) -> OsString {
+        self.path.as_os_str().to_owned()
+    }
+}
+
+#[derive(Clone, Debug)]
+// TODO: review this, proper solution would probably use a trait object internally
+pub struct Metadata {
+    pub ft: FileType,
+    pub accessed: u64,
+    pub created: u64,
+    pub modified: u64,
+    pub len: u64,
+}
+
+impl Metadata {
+    pub fn is_file(&self) -> bool {
+        self.ft.is_file()
+    }
+    pub fn is_dir(&self) -> bool {
+        self.ft.is_dir()
+    }
+    pub fn accessed(&self) -> u64 {
+        self.accessed
+    }
+    pub fn created(&self) -> u64 {
+        self.created
+    }
+    pub fn modified(&self) -> u64 {
+        self.modified
+    }
+    pub fn file_type(&self) -> FileType {
+        self.ft.clone()
+    }
+}
+
+#[derive(Clone, Debug)]
+// TODO: review this, proper solution would probably use a trait object internally
+pub struct FileType {
+    pub dir: bool,
+    pub file: bool,
+    pub symlink: bool,
+}
+
+impl FileType {
+    pub fn is_dir(&self) -> bool {
+        self.dir
+    }
+    pub fn is_file(&self) -> bool {
+        self.file
+    }
+    pub fn is_symlink(&self) -> bool {
+        self.symlink
+    }
+}
+
+impl Iterator for ReadDir {
+    type Item = Result<DirEntry, FsError>;
+
+    fn next(&mut self) -> Option<Result<DirEntry, FsError>> {
+        if let Some(v) = self.data.get(self.index).cloned() {
+            self.index += 1;
+            return Some(Ok(v));
+        }
+        None
     }
 }
 

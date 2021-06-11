@@ -1390,7 +1390,7 @@ impl WasiState {
     pub(crate) fn fs_read_dir<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<std::fs::ReadDir, __wasi_errno_t> {
+    ) -> Result<wasmer_virtual_fs::ReadDir, __wasi_errno_t> {
         self.fs_backing
             .read_dir(path.as_ref())
             .map_err(fs_error_into_wasi_err)
@@ -1494,6 +1494,20 @@ impl WasiState {
 }
 
 pub fn host_file_type_to_wasi_file_type(file_type: fs::FileType) -> __wasi_filetype_t {
+    // TODO: handle other file types
+    if file_type.is_dir() {
+        __WASI_FILETYPE_DIRECTORY
+    } else if file_type.is_file() {
+        __WASI_FILETYPE_REGULAR_FILE
+    } else if file_type.is_symlink() {
+        __WASI_FILETYPE_SYMBOLIC_LINK
+    } else {
+        __WASI_FILETYPE_UNKNOWN
+    }
+}
+pub fn virtual_file_type_to_wasi_file_type(
+    file_type: wasmer_virtual_fs::FileType,
+) -> __wasi_filetype_t {
     // TODO: handle other file types
     if file_type.is_dir() {
         __WASI_FILETYPE_DIRECTORY

@@ -78,24 +78,10 @@ impl MemFileSystemInner {
         }
         Some(memkind)
     }
-    /*
-    fn get_inode_at(&self, path: &Path) -> Option<u64> {
-        let parent = path.parent()?;
-        let file = path.file_name()?;
-        let memkind = self.get_memkind_at(parent)?;
-
-        match memkind {
-            MemKind::Directory { contents, .. } => {
-                contents.get(file.to_str().unwrap())?;
-            }
-            _ => return None,
-        }
-    }
-    */
 }
 
 impl FileSystem for MemFileSystem {
-    fn read_dir(&self, path: &Path) -> Result<std::fs::ReadDir, FsError> {
+    fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         todo!()
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
@@ -180,7 +166,7 @@ pub struct MemFileOpener(MemFileSystem);
 impl FileOpener for MemFileOpener {
     fn open(
         &mut self,
-        _path: &Path,
+        path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile>, FsError> {
         // TODO: handle create implying write, etc.
@@ -191,10 +177,36 @@ impl FileOpener for MemFileOpener {
             Box::new(MemFile::new(vec![], read, write, append)) as Box<dyn VirtualFile>;
         let mut inner = self.0.inner.lock().unwrap();
         let inode = inner.next_inode;
+
+        let parent_path = path.parent().unwrap();
+        let file_name = path.file_name().unwrap().to_str().unwrap().to_string();
+        // TODO: replace with an actual missing directory error
+        let parent_memkind = inner
+            .get_memkind_at_mut(parent_path)
+            .ok_or(FsError::IOError)?;
+        match parent_memkind {
+            MemKind::Directory { contents, .. } => {
+                if contents.contains_key(&file_name) {
+                    return Err(FsError::AlreadyExists);
+                }
+                contents.insert(
+                    file_name.clone(),
+                    MemKind::File {
+                        name: file_name,
+                        inode,
+                    },
+                );
+            }
+            _ => {
+                // expected directory
+                // TODO: return a more proper error here
+                return Err(FsError::IOError);
+            }
+        }
+
         inner.next_inode += 1;
         inner.inodes.insert(inode, virtual_file);
-        // TODO: figure out id / return value here :think:
-        // probably just need another handle here, we can't make this API work with inodes
+
         Ok(Box::new(MemFileHandle {
             fs: self.0.clone(),
             inode,
