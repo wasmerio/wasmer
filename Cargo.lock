@@ -2757,6 +2757,9 @@ dependencies = [
 name = "wasmer-wasi-experimental-network"
 version = "0.0.1"
 dependencies = [
+ "libc",
+ "wasmer",
+ "wasmer-wasi",
  "wasmer-wasi-types",
 ]
 

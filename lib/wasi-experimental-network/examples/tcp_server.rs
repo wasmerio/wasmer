@@ -17,7 +17,7 @@ fn main() {
 
     println!("Binding the socket");
 
-    let address = SocketAddress {
+    let address = SockaddrIn {
         sin_family: AF_INET as _,
         sin_port: 9000u16.to_be(),
         sin_addr: [0; 4],
@@ -47,7 +47,7 @@ fn main() {
     println!("Accepting new connection");
 
     let mut client_fd: __wasi_fd_t = 0;
-    let mut client_address = SocketAddress::default();
+    let mut client_address = SockaddrIn::default();
     let mut client_address_size = 0;
     let err = unsafe {
         socket_accept(

@@ -1,18 +1,19 @@
 #![allow(non_camel_case_types)]
 
 use std::mem;
+pub use wasmer_wasi_types::*;
 
 /// The `sockaddr_in` struct.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default)]
-pub struct SocketAddress {
+pub struct SockaddrIn {
     pub sin_family: u16,
     pub sin_port: u16,
     pub sin_addr: [u8; 4],
     pub sin_zero: [u8; 8],
 }
 
-impl SocketAddress {
+impl SockaddrIn {
     pub fn size_of_self(&self) -> u32 {
         mem::size_of::<Self>() as u32
     }
@@ -21,7 +22,7 @@ impl SocketAddress {
 /// The `sockaddr_in6` struct.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default)]
-pub struct SocketAddress6 {
+pub struct SockaddrIn6 {
     pub sin6_family: u16,
     pub sin6_port: u16,
     pub sin6_flowinfo: u32,
@@ -29,7 +30,7 @@ pub struct SocketAddress6 {
     pub sin6_scope_id: u32,
 }
 
-impl SocketAddress6 {
+impl SockaddrIn6 {
     pub fn size_of_self(&self) -> u32 {
         mem::size_of::<Self>() as u32
     }
@@ -43,10 +44,10 @@ impl SocketAddress6 {
 pub type __wasi_socket_domain_t = i32;
 
 /// IPv4 Internet protocols.
-pub const AF_INET: __wasi_socket_domain_t = 2;
+pub const AF_INET: __wasi_socket_domain_t = 1;
 
 /// IPv6 Internet protocols.
-pub const AF_INET6: __wasi_socket_domain_t = 10;
+pub const AF_INET6: __wasi_socket_domain_t = 2;
 
 /// A socket has an indicated _type_, which specifies the
 /// communication semantics.

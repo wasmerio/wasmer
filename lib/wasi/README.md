@@ -61,7 +61,7 @@ let store = Store::default();
 let module = Module::from_file(&store, "hello.wasm")?;
 
 // Create the `WasiEnv`.
-let wasi_env = WasiState::new("command-name")
+let mut wasi_env = WasiState::new("command-name")
     .args(&["Gordon"])
     .finalize()?;
 

@@ -12,3 +12,11 @@ edition = "2018"
 
 [dependencies]
 wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0-rc2" }
+
+wasmer = { path = "../api", version = "2.0.0-rc2", optional = true }
+wasmer-wasi  = { path = "../wasi", version = "2.0.0-rc2", optional = true }
+libc = { version = "0.2", optional = true }
+
+[features]
+default = []
+run-example = ["wasmer", "wasmer-wasi", "libc"]

@@ -1,7 +1,7 @@
 use crate::types::*;
 use std::ffi::c_void;
 use std::ptr::NonNull;
-pub use wasmer_wasi_types::*;
+use wasmer_wasi_types::*;
 
 #[link(wasm_import_module = "wasi_experimental_network_unstable")]
 extern "C" {
