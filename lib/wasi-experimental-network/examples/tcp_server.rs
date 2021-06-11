@@ -61,4 +61,35 @@ fn main() {
     if err != 0 {
         panic!("`socket_accept` failed with `{}`", err);
     }
+
+    let mut buffer: Vec<u8> = vec![0; 2048];
+    let io_vec = vec![__wasi_ciovec_t {
+        buf: buffer.as_mut_ptr() as usize as u32,
+        buf_len: buffer.len() as u32,
+    }];
+    let mut io_written = 0;
+
+    let err = unsafe {
+        socket_recv(
+            fd,
+            NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+            io_vec.len() as u32,
+            0,
+            &mut io_written,
+        )
+    };
+
+    if err != 0 {
+        panic!("`socket_recv` failed with `{}`", err);
+    }
+
+    if io_written < (io_vec.len() as u32) {
+        panic!(
+            "`socket_recv` has read {} buffers, expected to read {}",
+            io_written,
+            io_vec.len()
+        );
+    }
+
+    println!("Read: `{:?}`", buffer);
 }
