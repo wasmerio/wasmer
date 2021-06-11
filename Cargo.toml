@@ -46,6 +46,7 @@ members = [
     "lib/object",
     "lib/vm",
     "lib/wasi",
+    "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
     "lib/types",
     "tests/lib/wast",
