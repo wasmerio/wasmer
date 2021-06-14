@@ -19,7 +19,7 @@ fn main() {
 
     let address = SockaddrIn {
         sin_family: AF_INET as _,
-        sin_port: 9000u16.to_be(),
+        sin_port: 9002u16.to_be(),
         sin_addr: [0; 4],
         sin_zero: [0; 8],
     };
@@ -48,7 +48,7 @@ fn main() {
 
     let mut client_fd: __wasi_fd_t = 0;
     let mut client_address = SockaddrIn::default();
-    let mut client_address_size = 0;
+    let mut client_address_size = client_address.size_of_self();
     let err = unsafe {
         socket_accept(
             fd,
@@ -57,6 +57,8 @@ fn main() {
             &mut client_fd,
         )
     };
+
+    println!("Remote client IP: `{:?}`", &client_address);
 
     if err != 0 {
         panic!("`socket_accept` failed with `{}`", err);
@@ -117,5 +119,10 @@ fn main() {
             io_written,
             io_vec.len()
         );
+    }
+
+    unsafe {
+        socket_shutdown(client_fd, SHUT_RDWR);
+        socket_shutdown(fd, SHUT_RDWR);
     }
 }

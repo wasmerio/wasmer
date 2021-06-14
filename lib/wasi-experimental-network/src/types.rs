@@ -1,11 +1,12 @@
 #![allow(non_camel_case_types)]
 
+use std::fmt;
 use std::mem;
 pub use wasmer_wasi_types::*;
 
 /// The `sockaddr_in` struct.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Default)]
 pub struct SockaddrIn {
     pub sin_family: u16,
     pub sin_port: u16,
@@ -16,6 +17,20 @@ pub struct SockaddrIn {
 impl SockaddrIn {
     pub fn size_of_self(&self) -> u32 {
         mem::size_of::<Self>() as u32
+    }
+}
+
+impl fmt::Debug for SockaddrIn {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            fmt,
+            "{}.{}.{}.{}:{}",
+            self.sin_addr[0],
+            self.sin_addr[1],
+            self.sin_addr[2],
+            self.sin_addr[3],
+            u16::from_be(self.sin_port),
+        )
     }
 }
 
@@ -84,3 +99,9 @@ pub type __wasi_socket_protocol_t = i32;
 /// Represents the default protocol, i.e. `0`. See
 /// [`__wasi_socket_protocol_t`] to learn more.
 pub const DEFAULT_PROTOCOL: __wasi_socket_protocol_t = 0;
+
+pub type __wasi_shutdown_t = i32;
+
+pub const SHUT_RD: __wasi_shutdown_t = 1;
+pub const SHUT_WR: __wasi_shutdown_t = 2;
+pub const SHUT_RDWR: __wasi_shutdown_t = 3;

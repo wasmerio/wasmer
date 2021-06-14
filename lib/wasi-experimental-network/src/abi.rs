@@ -44,7 +44,7 @@ extern "C" {
     /// connection request on the queue of pending connections for the
     /// listening socket, `fd`, creates a new connected socket, and
     /// returns a new file descriptor referring to that socket in
-    /// `fd_out`. The newly created socket is not in the listening
+    /// `remote_fd`. The newly created socket is not in the listening
     /// state. The original socket `fd` is unaffected by this call.
     ///
     /// The argument `fd` is a socket that has been created with
@@ -64,7 +64,7 @@ extern "C" {
         fd: __wasi_fd_t,
         address: *mut u8,
         address_size: *mut u32,
-        fd_out: *mut __wasi_fd_t,
+        remote_fd: *mut __wasi_fd_t,
     ) -> __wasi_errno_t;
 
     /// The `socekt_connect` function connects the socket referred to
@@ -126,5 +126,5 @@ extern "C" {
 
     /// The `shutdown` function causes all or part of a full-duplex
     /// connection on the socket with `fd` to be shut down.
-    pub fn socket_shutdown(fd: __wasi_fd_t) -> __wasi_errno_t;
+    pub fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t;
 }

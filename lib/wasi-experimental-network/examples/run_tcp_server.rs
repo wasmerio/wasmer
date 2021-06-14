@@ -2,7 +2,6 @@ use std::convert::TryInto;
 use std::error;
 use std::fmt;
 use std::io;
-use std::ptr;
 use wasmer::{Exports, Function, Instance, Module, Store};
 use wasmer_wasi::{
     ptr::{Array, WasmPtr},
@@ -132,23 +131,39 @@ fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
 fn socket_accept(
     env: &WasiEnv,
     fd: __wasi_fd_t,
-    _address: u32,
-    _address_size: u32,
-    fd_out: WasmPtr<__wasi_fd_t>,
+    address: WasmPtr<u32>,
+    address_size: WasmPtr<u32>,
+    remote_fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
     println!("# socket_accept");
 
-    let new_fd = unsafe { libc::accept(fd.try_into().unwrap(), ptr::null_mut(), ptr::null_mut()) };
+    let (memory, _) = env.get_memory_and_wasi_state(0);
 
-    // TODO: Support `address` and `address_size`
+    let address_size_cell = wasi_try!(address_size.deref(memory));
+    let address_size = address_size_cell.get() as usize;
+
+    let address_offset = address.offset() as usize;
+
+    if address_offset + address_size > memory.size().bytes().0 || address_size == 0 {
+        panic!("Failed to map `address` to something inside the memory");
+    }
+
+    let address_ptr: *mut u8 = unsafe { memory.data_ptr().add(address_offset) };
+
+    let new_fd = unsafe {
+        libc::accept(
+            fd.try_into().unwrap(),
+            address_ptr as *mut _,
+            address_size_cell.as_ptr(),
+        )
+    };
 
     if new_fd < 0 {
         panic!("`socket_accept` failed with `{:?}`", Error::current());
     }
 
-    let (memory, _) = env.get_memory_and_wasi_state(0);
-    let fd_out_cell = wasi_try!(fd_out.deref(memory));
-    fd_out_cell.set(new_fd.try_into().unwrap());
+    let remote_fd_cell = wasi_try!(remote_fd.deref(memory));
+    remote_fd_cell.set(new_fd.try_into().unwrap());
 
     __WASI_ESUCCESS
 }
@@ -241,6 +256,25 @@ fn socket_recv(
     __WASI_ESUCCESS
 }
 
+fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t {
+    let how = match how {
+        SHUT_RD => libc::SHUT_RD,
+        SHUT_WR => libc::SHUT_WR,
+        SHUT_RDWR => libc::SHUT_RDWR,
+        s => {
+            eprintln!("Unkown shutdown constant `{}`", s);
+            return __WASI_EINVAL;
+        }
+    };
+    let err = unsafe { libc::shutdown(fd.try_into().unwrap(), how) };
+
+    if err != 0 {
+        panic!("`socket_shutdown` failed with `{:?}`", Error::current());
+    }
+
+    __WASI_ESUCCESS
+}
+
 fn main() -> Result<(), Box<dyn error::Error>> {
     let store = Store::default();
     let module = Module::from_file(
@@ -272,6 +306,10 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     wasi_network_imports.insert(
         "socket_recv",
         Function::new_native_with_env(&store, wasi_env.clone(), socket_recv),
+    );
+    wasi_network_imports.insert(
+        "socket_shutdown",
+        Function::new_native(&store, socket_shutdown),
     );
 
     import_object.register("wasi_experimental_network_unstable", wasi_network_imports);
