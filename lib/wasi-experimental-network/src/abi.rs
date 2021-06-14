@@ -30,7 +30,14 @@ extern "C" {
     /// `socket_listen` marks the socket referred to by `fd` as a
     /// passive socket, that is, a socket that will be used to accept
     /// incoming connection requests using [`socket_accept`].
-    pub fn socket_listen(fd: __wasi_fd_t) -> __wasi_errno_t;
+    ///
+    /// The `backlog` argument defines the maximum length to which the
+    /// queue of pending connections for `fd` may grow. If a
+    /// connection request arrives when the queue is full, the client
+    /// may receive an error or, if the underlying protocol supports
+    /// retransmission, the request may be ignored so that a later
+    /// reattempt at connection succeeds.
+    pub fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t;
 
     /// The `socket_accept` function is used with connection-based
     /// socket types (e.g. [`SOCK_STREAM`]). It extracts the first

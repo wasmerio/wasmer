@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 use std::error::Error;
+use std::ptr;
 use wasmer::{Exports, Function, Instance, Module, Store};
 use wasmer_wasi::{ptr::WasmPtr, WasiEnv, WasiState};
 use wasmer_wasi_experimental_network::types::*;
@@ -47,7 +48,7 @@ fn socket_create(
 
     let new_fd = unsafe { libc::socket(domain, r#type, protocol) };
 
-    if new_fd != 0 {
+    if new_fd < 0 {
         panic!("`socket_create` failed with `{}`", new_fd);
     }
 
@@ -64,8 +65,6 @@ fn socket_bind(
     address: WasmPtr<u32>,
     address_size: u32,
 ) -> __wasi_errno_t {
-    dbg!(fd, address, address_size);
-
     let (memory, _) = env.get_memory_and_wasi_state(0);
 
     let address_offset = address.offset() as usize;
@@ -85,18 +84,42 @@ fn socket_bind(
     };
 
     if err != 0 {
-        panic!("`socket_bind` fails with `{}`", err);
+        panic!("`socket_bind` failed with `{}`", err);
     }
 
     __WASI_ESUCCESS
 }
 
-fn socket_listen(_fd: u32) -> __wasi_errno_t {
-    todo!("socket_listen")
+fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
+    let err = unsafe { libc::listen(fd.try_into().unwrap(), backlog.try_into().unwrap()) };
+
+    if err != 0 {
+        panic!("`socket_listen` failed with `{}`", err);
+    }
+
+    __WASI_ESUCCESS
 }
 
-fn socket_accept(_fd: u32, _address: u32, _address_size: u32, _fd_out: u32) -> __wasi_errno_t {
-    todo!("socket_accept")
+fn socket_accept(
+    env: &WasiEnv,
+    fd: __wasi_fd_t,
+    _address: u32,
+    _address_size: u32,
+    fd_out: WasmPtr<__wasi_fd_t>,
+) -> __wasi_errno_t {
+    let new_fd = unsafe { libc::accept(fd.try_into().unwrap(), ptr::null_mut(), ptr::null_mut()) };
+
+    // TODO: Support `address` and `address_size`
+
+    if new_fd < 0 {
+        panic!("`socket_accept` failed with `{}`", new_fd);
+    }
+
+    let (memory, _) = env.get_memory_and_wasi_state(0);
+    let fd_out_cell = wasi_try!(fd_out.deref(memory));
+    fd_out_cell.set(new_fd.try_into().unwrap());
+
+    __WASI_ESUCCESS
 }
 
 fn socket_recv(
@@ -131,7 +154,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         Function::new_native_with_env(&store, wasi_env.clone(), socket_bind),
     );
     wasi_network_imports.insert("socket_listen", Function::new_native(&store, socket_listen));
-    wasi_network_imports.insert("socket_accept", Function::new_native(&store, socket_accept));
+    wasi_network_imports.insert(
+        "socket_accept",
+        Function::new_native_with_env(&store, wasi_env.clone(), socket_accept),
+    );
     wasi_network_imports.insert("socket_recv", Function::new_native(&store, socket_recv));
 
     import_object.register("wasi_experimental_network_unstable", wasi_network_imports);

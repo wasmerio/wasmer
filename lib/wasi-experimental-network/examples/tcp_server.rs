@@ -38,7 +38,7 @@ fn main() {
 
     println!("Listening");
 
-    let err = unsafe { socket_listen(fd) };
+    let err = unsafe { socket_listen(fd, 3) };
 
     if err != 0 {
         panic!("`socket_listen` failed with `{}`", err);
