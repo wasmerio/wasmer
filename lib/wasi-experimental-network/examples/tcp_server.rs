@@ -62,16 +62,44 @@ fn main() {
         panic!("`socket_accept` failed with `{}`", err);
     }
 
-    let mut buffer: Vec<u8> = vec![0; 2048];
+    let mut buffer: Vec<u8> = vec![0; 128];
     let io_vec = vec![__wasi_ciovec_t {
         buf: buffer.as_mut_ptr() as usize as u32,
         buf_len: buffer.len() as u32,
     }];
-    let mut io_written = 0;
+    let mut io_read = 0;
 
     let err = unsafe {
         socket_recv(
-            fd,
+            client_fd,
+            NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+            io_vec.len() as u32,
+            0,
+            &mut io_read,
+        )
+    };
+
+    if err != 0 {
+        panic!("`socket_recv` failed with `{}`", err);
+    }
+
+    if io_read < (io_vec.len() as u32) {
+        panic!(
+            "`socket_recv` has read {} buffers, expected to read {}",
+            io_read,
+            io_vec.len()
+        );
+    }
+
+    println!(
+        "Read: `{:?}`",
+        String::from_utf8_lossy(&buffer[..io_read as usize])
+    );
+
+    let mut io_written = 0;
+    let err = unsafe {
+        socket_send(
+            client_fd,
             NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
             io_vec.len() as u32,
             0,
@@ -80,16 +108,14 @@ fn main() {
     };
 
     if err != 0 {
-        panic!("`socket_recv` failed with `{}`", err);
+        panic!("`socket_send` failed with `{}`", err);
     }
 
     if io_written < (io_vec.len() as u32) {
         panic!(
-            "`socket_recv` has read {} buffers, expected to read {}",
+            "`socket_send` has written {} buffers, expected to write {}",
             io_written,
             io_vec.len()
         );
     }
-
-    println!("Read: `{:?}`", buffer);
 }

@@ -1,8 +1,13 @@
 use std::convert::TryInto;
-use std::error::Error;
+use std::error;
+use std::fmt;
+use std::io;
 use std::ptr;
 use wasmer::{Exports, Function, Instance, Module, Store};
-use wasmer_wasi::{ptr::WasmPtr, WasiEnv, WasiState};
+use wasmer_wasi::{
+    ptr::{Array, WasmPtr},
+    WasiEnv, WasiState,
+};
 use wasmer_wasi_experimental_network::types::*;
 
 macro_rules! wasi_try {
@@ -21,6 +26,24 @@ macro_rules! wasi_try {
     }};
 }
 
+struct Error {
+    inner: io::Error,
+}
+
+impl Error {
+    fn current() -> Self {
+        Self {
+            inner: io::Error::last_os_error(),
+        }
+    }
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_fmt(format_args!("{:?}", self.inner))
+    }
+}
+
 fn socket_create(
     env: &WasiEnv,
     fd_out: WasmPtr<__wasi_fd_t>,
@@ -28,6 +51,8 @@ fn socket_create(
     r#type: __wasi_socket_type_t,
     protocol: __wasi_socket_protocol_t,
 ) -> __wasi_errno_t {
+    println!("# socket_create");
+
     let domain = match domain {
         AF_INET => libc::AF_INET,
         AF_INET6 => libc::AF_INET6,
@@ -49,7 +74,7 @@ fn socket_create(
     let new_fd = unsafe { libc::socket(domain, r#type, protocol) };
 
     if new_fd < 0 {
-        panic!("`socket_create` failed with `{}`", new_fd);
+        panic!("`socket_create` failed with `{:?}`", Error::current());
     }
 
     let (memory, _) = env.get_memory_and_wasi_state(0);
@@ -65,6 +90,8 @@ fn socket_bind(
     address: WasmPtr<u32>,
     address_size: u32,
 ) -> __wasi_errno_t {
+    println!("# socket_bind");
+
     let (memory, _) = env.get_memory_and_wasi_state(0);
 
     let address_offset = address.offset() as usize;
@@ -84,17 +111,19 @@ fn socket_bind(
     };
 
     if err != 0 {
-        panic!("`socket_bind` failed with `{}`", err);
+        panic!("`socket_bind` failed with `{:?}`", Error::current());
     }
 
     __WASI_ESUCCESS
 }
 
 fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
+    println!("# socket_listen");
+
     let err = unsafe { libc::listen(fd.try_into().unwrap(), backlog.try_into().unwrap()) };
 
     if err != 0 {
-        panic!("`socket_listen` failed with `{}`", err);
+        panic!("`socket_listen` failed with `{:?}`", Error::current());
     }
 
     __WASI_ESUCCESS
@@ -107,12 +136,14 @@ fn socket_accept(
     _address_size: u32,
     fd_out: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
+    println!("# socket_accept");
+
     let new_fd = unsafe { libc::accept(fd.try_into().unwrap(), ptr::null_mut(), ptr::null_mut()) };
 
     // TODO: Support `address` and `address_size`
 
     if new_fd < 0 {
-        panic!("`socket_accept` failed with `{}`", new_fd);
+        panic!("`socket_accept` failed with `{:?}`", Error::current());
     }
 
     let (memory, _) = env.get_memory_and_wasi_state(0);
@@ -122,19 +153,95 @@ fn socket_accept(
     __WASI_ESUCCESS
 }
 
-fn socket_recv(
-    _fd: u32,
-    _iov: u32,
-    _iov_size: u32,
-    _iov_flags: u32,
-    _io_size_out: u32,
+fn socket_send(
+    env: &WasiEnv,
+    fd: __wasi_fd_t,
+    iov: WasmPtr<__wasi_ciovec_t, Array>,
+    iov_size: u32,
+    iov_flags: __wasi_siflags_t,
+    io_size_out: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    todo!("socket_recv")
+    println!("# socket_send");
+
+    let (memory, _) = env.get_memory_and_wasi_state(0);
+
+    let iov = wasi_try!(iov.deref(memory, 0, iov_size));
+
+    let mut total_bytes_written: u32 = 0;
+
+    for iov_cell in iov {
+        let iov_inner = iov_cell.get();
+        let bytes =
+            wasi_try!(WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len));
+        let buffer: &mut [u8] = unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
+
+        let written_bytes = unsafe {
+            libc::send(
+                fd.try_into().unwrap(),
+                buffer.as_ptr() as *mut _,
+                buffer.len(),
+                iov_flags.into(),
+            )
+        };
+
+        if written_bytes < 0 {
+            panic!("`socket_send` failed with `{:?}`", Error::current());
+        }
+
+        total_bytes_written += written_bytes as u32;
+    }
+
+    let io_size_out_cell = wasi_try!(io_size_out.deref(memory));
+    io_size_out_cell.set(total_bytes_written);
+
+    __WASI_ESUCCESS
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    println!("yolo");
+fn socket_recv(
+    env: &WasiEnv,
+    fd: __wasi_fd_t,
+    iov: WasmPtr<__wasi_ciovec_t, Array>,
+    iov_size: u32,
+    iov_flags: __wasi_siflags_t,
+    io_size_out: WasmPtr<u32>,
+) -> __wasi_errno_t {
+    println!("# socket_recv");
 
+    let (memory, _) = env.get_memory_and_wasi_state(0);
+
+    let iov = wasi_try!(iov.deref(memory, 0, iov_size));
+
+    let mut total_bytes_read: u32 = 0;
+
+    for iov_cell in iov {
+        let iov_inner = iov_cell.get();
+        let bytes =
+            wasi_try!(WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len));
+        let buffer: &mut [u8] = unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
+
+        let read_bytes = unsafe {
+            libc::recv(
+                fd.try_into().unwrap(),
+                buffer.as_ptr() as *mut _,
+                buffer.len(),
+                iov_flags.into(),
+            )
+        };
+
+        if read_bytes < 0 {
+            panic!("`socket_read` failed with `{:?}`", Error::current());
+        }
+
+        total_bytes_read += read_bytes as u32;
+    }
+
+    let io_size_out_cell = wasi_try!(io_size_out.deref(memory));
+    io_size_out_cell.set(total_bytes_read);
+
+    __WASI_ESUCCESS
+}
+
+fn main() -> Result<(), Box<dyn error::Error>> {
     let store = Store::default();
     let module = Module::from_file(
         &store,
@@ -158,14 +265,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         "socket_accept",
         Function::new_native_with_env(&store, wasi_env.clone(), socket_accept),
     );
-    wasi_network_imports.insert("socket_recv", Function::new_native(&store, socket_recv));
+    wasi_network_imports.insert(
+        "socket_send",
+        Function::new_native_with_env(&store, wasi_env.clone(), socket_send),
+    );
+    wasi_network_imports.insert(
+        "socket_recv",
+        Function::new_native_with_env(&store, wasi_env.clone(), socket_recv),
+    );
 
     import_object.register("wasi_experimental_network_unstable", wasi_network_imports);
 
     let instance = Instance::new(&module, &import_object)?;
-    let results = instance.exports.get_function("_start")?.call(&[])?;
-
-    dbg!(results);
+    let _results = instance.exports.get_function("_start")?.call(&[])?;
 
     Ok(())
 }
