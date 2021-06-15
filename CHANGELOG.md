@@ -8,6 +8,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+## 2.0.0 - 2020/06/16
+
 ### Added
 - [#2411](https://github.com/wasmerio/wasmer/pull/2411) Extract types from `wasi` to a new `wasi-types` crate.
 - [#2390](https://github.com/wasmerio/wasmer/pull/2390) Make `wasmer-vm` to compile on Windows 32bits.
