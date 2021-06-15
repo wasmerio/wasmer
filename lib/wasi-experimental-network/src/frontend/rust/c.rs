@@ -1,10 +1,10 @@
-use crate::types::__wasi_errno_t;
+use crate::types::{__wasi_errno_t, __WASI_ESUCCESS};
 use std::io;
 
 pub trait CResult {
     type Target;
 
-    fn is_zero(&self) -> bool;
+    fn is_success(&self) -> bool;
     fn into_result(&self) -> io::Result<Self::Target>;
 }
 
@@ -14,15 +14,15 @@ macro_rules! impl_c_result {
             impl CResult for $t {
                 type Target = Self;
 
-                fn is_zero(&self) -> bool {
-                    *self == 0
+                fn is_success(&self) -> bool {
+                    *self == __WASI_ESUCCESS
                 }
 
                 fn into_result(&self) -> io::Result<Self::Target> {
-                    if self.is_zero() {
-                        Err(io::Error::last_os_error())
-                    } else {
+                    if self.is_success() {
                         Ok(*self)
+                    } else {
+                        Err(io::Error::last_os_error())
                     }
                 }
             }

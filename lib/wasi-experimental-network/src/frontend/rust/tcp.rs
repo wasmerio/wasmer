@@ -1,8 +1,8 @@
 use super::c::*;
 use crate::{abi::*, types::*};
-use std::ffi::c_void;
+use std::convert::TryInto;
 use std::io;
-use std::net::{SocketAddr, SocketAddrV4, ToSocketAddrs};
+use std::net::{Shutdown, SocketAddr, SocketAddrV4, ToSocketAddrs};
 use std::ptr::NonNull;
 
 pub struct TcpListener {
@@ -11,29 +11,27 @@ pub struct TcpListener {
 }
 
 impl TcpListener {
-    fn raw_bind(address: SocketAddr) -> io::Result<Self> {
+    fn new(address: SocketAddr) -> io::Result<Self> {
         let mut fd: __wasi_fd_t = 0;
 
         unsafe { socket_create(&mut fd, AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL) }.into_result()?;
 
-        let (lower_address, lower_address_size): (*const c_void, u32) = match address {
+        match address {
             SocketAddr::V4(v4) => {
-                let c_address = SockaddrIn::from(&v4);
+                let address = SockaddrIn::from(&v4);
 
-                (&c_address as *const _ as *const _, c_address.size_of_self())
+                unsafe {
+                    socket_bind(
+                        fd,
+                        NonNull::new_unchecked(&address as *const _ as *mut _),
+                        address.size_of_self(),
+                    )
+                }
+                .into_result()?;
             }
 
             SocketAddr::V6(_v6) => todo!("V6 not implemented"),
         };
-
-        unsafe {
-            socket_bind(
-                fd,
-                NonNull::new_unchecked(lower_address as *mut _),
-                lower_address_size,
-            )
-        }
-        .into_result()?;
 
         unsafe { socket_listen(fd, 128) }.into_result()?;
 
@@ -44,7 +42,7 @@ impl TcpListener {
         let addresses = addresses.to_socket_addrs()?;
 
         for address in addresses {
-            match Self::raw_bind(address) {
+            match Self::new(address) {
                 Ok(listener) => return Ok(listener),
                 Err(_) => continue,
             }
@@ -105,5 +103,71 @@ pub struct TcpStream {
 impl TcpStream {
     fn new(fd: __wasi_fd_t, address: SocketAddr) -> Self {
         Self { fd, address }
+    }
+
+    pub fn shutdown(&self, how: Shutdown) -> io::Result<()> {
+        unsafe {
+            socket_shutdown(
+                self.fd,
+                match how {
+                    Shutdown::Read => SHUT_RD,
+                    Shutdown::Write => SHUT_WR,
+                    Shutdown::Both => SHUT_RDWR,
+                },
+            )
+        }
+        .into_result()?;
+
+        Ok(())
+    }
+}
+
+impl io::Read for TcpStream {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        let io_vec = vec![__wasi_ciovec_t {
+            buf: (buffer.as_mut_ptr() as usize).try_into().unwrap(),
+            buf_len: buffer.len().try_into().unwrap(),
+        }];
+        let mut io_read = 0;
+
+        unsafe {
+            socket_recv(
+                self.fd,
+                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.len() as u32,
+                0,
+                &mut io_read,
+            )
+        }
+        .into_result()?;
+
+        Ok(io_read as usize)
+    }
+}
+
+impl io::Write for TcpStream {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        let io_vec = vec![__wasi_ciovec_t {
+            buf: (buffer.as_ptr() as usize).try_into().unwrap(),
+            buf_len: buffer.len().try_into().unwrap(),
+        }];
+        let mut io_written = 0;
+
+        unsafe {
+            socket_send(
+                self.fd,
+                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.len() as u32,
+                0,
+                &mut io_written,
+            )
+        }
+        .into_result()?;
+
+        Ok(io_written as usize)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
