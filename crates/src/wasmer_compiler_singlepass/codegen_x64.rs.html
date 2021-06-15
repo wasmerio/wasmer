@@ -9459,9 +9459,9 @@
         <span class="kw">let</span> <span class="ident">tmp1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">acquire_temp_xmm</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">tmp2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">acquire_temp_xmm</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">tmp3</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">acquire_temp_xmm</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">tmpg1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">acquire_temp_gpr</span>().<span class="ident">unwrap</span>();
 
         <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">Assembler</span>::<span class="ident">emit_mov</span>, <span class="ident">sz</span>, <span class="ident">input</span>, <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="ident">tmp1</span>));
+        <span class="kw">let</span> <span class="ident">tmpg1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">acquire_temp_gpr</span>().<span class="ident">unwrap</span>();
 
         <span class="kw">match</span> <span class="ident">sz</span> {
             <span class="ident">Size</span>::<span class="ident">S32</span> <span class="op">=</span><span class="op">&gt;</span> {
