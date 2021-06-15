@@ -123,6 +123,5 @@ fn main() {
 
     unsafe {
         socket_shutdown(client_fd, SHUT_RDWR);
-        socket_shutdown(fd, SHUT_RDWR);
     }
 }
