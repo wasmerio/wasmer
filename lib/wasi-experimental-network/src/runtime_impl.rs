@@ -156,7 +156,7 @@ fn socket_create(
         return Error::current().wasi_errno();
     }
 
-    let (memory, _) = env.get_memory_and_wasi_state(0);
+    let memory = env.memory();
     let fd_out_cell = wasi_try!(fd_out.deref(memory));
     fd_out_cell.set(new_fd.try_into().unwrap());
 
@@ -169,7 +169,7 @@ fn socket_bind(
     address: WasmPtr<u32>,
     address_size: u32,
 ) -> __wasi_errno_t {
-    let (memory, _) = env.get_memory_and_wasi_state(0);
+    let memory = env.memory();
 
     let address_offset = address.offset() as usize;
 
@@ -212,7 +212,7 @@ fn socket_accept(
     address_size: WasmPtr<u32>,
     remote_fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
-    let (memory, _) = env.get_memory_and_wasi_state(0);
+    let memory = env.memory();
 
     let address_size_cell = wasi_try!(address_size.deref(memory));
     let address_size = address_size_cell.get() as usize;
@@ -252,7 +252,7 @@ fn socket_send(
     iov_flags: __wasi_siflags_t,
     io_size_out: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    let (memory, _) = env.get_memory_and_wasi_state(0);
+    let memory = env.memory();
 
     let iov = wasi_try!(iov.deref(memory, 0, iov_size));
 
@@ -294,7 +294,7 @@ fn socket_recv(
     iov_flags: __wasi_siflags_t,
     io_size_out: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    let (memory, _) = env.get_memory_and_wasi_state(0);
+    let memory = env.memory();
 
     let iov = wasi_try!(iov.deref(memory, 0, iov_size));
 
