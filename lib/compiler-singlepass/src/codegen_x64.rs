@@ -330,9 +330,9 @@ impl<'a> FuncGen<'a> {
         let tmp1 = self.machine.acquire_temp_xmm().unwrap();
         let tmp2 = self.machine.acquire_temp_xmm().unwrap();
         let tmp3 = self.machine.acquire_temp_xmm().unwrap();
-        let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
 
         self.emit_relaxed_binop(Assembler::emit_mov, sz, input, Location::XMM(tmp1));
+        let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
 
         match sz {
             Size::S32 => {
