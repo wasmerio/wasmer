@@ -63,13 +63,13 @@ impl TcpListener {
     pub fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
         let mut remote_fd: __wasi_fd_t = 0;
         let mut remote_address = SockaddrIn::default();
-        let mut remote_address_Size = remote_address.size_of_self();
+        let mut remote_address_size = remote_address.size_of_self();
 
         unsafe {
             socket_accept(
                 self.fd,
                 &mut remote_address as *mut _ as *mut u8,
-                &mut remote_address_Size,
+                &mut remote_address_size,
                 &mut remote_fd,
             )
         }
