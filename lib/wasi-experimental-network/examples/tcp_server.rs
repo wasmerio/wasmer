@@ -44,84 +44,86 @@ fn main() {
         panic!("`socket_listen` failed with `{}`", err);
     }
 
-    println!("Accepting new connection");
+    loop {
+        println!("Waiting to accept a new connection");
 
-    let mut client_fd: __wasi_fd_t = 0;
-    let mut client_address = SockaddrIn::default();
-    let mut client_address_size = client_address.size_of_self();
-    let err = unsafe {
-        socket_accept(
-            fd,
-            &mut client_address as *mut _ as *mut u8,
-            &mut client_address_size,
-            &mut client_fd,
-        )
-    };
+        let mut client_fd: __wasi_fd_t = 0;
+        let mut client_address = SockaddrIn::default();
+        let mut client_address_size = client_address.size_of_self();
+        let err = unsafe {
+            socket_accept(
+                fd,
+                &mut client_address as *mut _ as *mut u8,
+                &mut client_address_size,
+                &mut client_fd,
+            )
+        };
 
-    println!("Remote client IP: `{:?}`", &client_address);
+        println!("Remote client IP: `{:?}`", &client_address);
 
-    if err != 0 {
-        panic!("`socket_accept` failed with `{}`", err);
-    }
+        if err != 0 {
+            panic!("`socket_accept` failed with `{}`", err);
+        }
 
-    let mut buffer: Vec<u8> = vec![0; 128];
-    let io_vec = vec![__wasi_ciovec_t {
-        buf: buffer.as_mut_ptr() as usize as u32,
-        buf_len: buffer.len() as u32,
-    }];
-    let mut io_read = 0;
+        let mut buffer: Vec<u8> = vec![0; 128];
+        let io_vec = vec![__wasi_ciovec_t {
+            buf: buffer.as_mut_ptr() as usize as u32,
+            buf_len: buffer.len() as u32,
+        }];
+        let mut io_read = 0;
 
-    let err = unsafe {
-        socket_recv(
-            client_fd,
-            NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
-            io_vec.len() as u32,
-            0,
-            &mut io_read,
-        )
-    };
+        let err = unsafe {
+            socket_recv(
+                client_fd,
+                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.len() as u32,
+                0,
+                &mut io_read,
+            )
+        };
 
-    if err != 0 {
-        panic!("`socket_recv` failed with `{}`", err);
-    }
+        if err != 0 {
+            panic!("`socket_recv` failed with `{}`", err);
+        }
 
-    if io_read < (io_vec.len() as u32) {
-        panic!(
-            "`socket_recv` has read {} buffers, expected to read {}",
-            io_read,
-            io_vec.len()
+        if io_read < (io_vec.len() as u32) {
+            panic!(
+                "`socket_recv` has read {} buffers, expected to read {}",
+                io_read,
+                io_vec.len()
+            );
+        }
+
+        println!(
+            "Read: `{:?}`",
+            String::from_utf8_lossy(&buffer[..io_read as usize])
         );
-    }
 
-    println!(
-        "Read: `{:?}`",
-        String::from_utf8_lossy(&buffer[..io_read as usize])
-    );
+        let mut io_written = 0;
+        let err = unsafe {
+            socket_send(
+                client_fd,
+                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.len() as u32,
+                0,
+                &mut io_written,
+            )
+        };
 
-    let mut io_written = 0;
-    let err = unsafe {
-        socket_send(
-            client_fd,
-            NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
-            io_vec.len() as u32,
-            0,
-            &mut io_written,
-        )
-    };
+        if err != 0 {
+            panic!("`socket_send` failed with `{}`", err);
+        }
 
-    if err != 0 {
-        panic!("`socket_send` failed with `{}`", err);
-    }
+        if io_written < (io_vec.len() as u32) {
+            panic!(
+                "`socket_send` has written {} buffers, expected to write {}",
+                io_written,
+                io_vec.len()
+            );
+        }
 
-    if io_written < (io_vec.len() as u32) {
-        panic!(
-            "`socket_send` has written {} buffers, expected to write {}",
-            io_written,
-            io_vec.len()
-        );
-    }
-
-    unsafe {
-        socket_shutdown(client_fd, SHUT_RDWR);
+        unsafe {
+            socket_shutdown(client_fd, SHUT_RDWR);
+        }
     }
 }
