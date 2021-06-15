@@ -1,4 +1,4 @@
-use crate::types::*;
+use crate::blocking::types::*;
 use std::convert::TryInto;
 use std::fmt;
 use std::io;

@@ -1,4 +1,4 @@
-use crate::types::*;
+use crate::blocking::types::*;
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use wasmer_wasi_types::*;

@@ -1,7 +1,7 @@
 use std::error;
 use wasmer::{Instance, Module, Store};
 use wasmer_wasi::WasiState;
-use wasmer_wasi_experimental_network::runtime_impl::get_namespace;
+use wasmer_wasi_experimental_network::blocking::runtime_impl::get_namespace;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let store = Store::default();

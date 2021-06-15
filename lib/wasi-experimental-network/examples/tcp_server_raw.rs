@@ -1,5 +1,5 @@
 use std::ptr::NonNull;
-use wasmer_wasi_experimental_network::{abi::*, types::*};
+use wasmer_wasi_experimental_network::blocking::{abi::*, types::*};
 
 fn main() {
     println!("Creating the socket");
