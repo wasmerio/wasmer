@@ -123,17 +123,19 @@ pub fn get_wasi_versions(module: &Module, strict: bool) -> Option<BTreeSet<WasiV
     let mut out = BTreeSet::new();
     let imports = module.imports().functions().map(|f| f.module().to_owned());
 
-    let mut non_wasi_seen = false;
+    let mut non_wasi_seen = true;
     for ns in imports {
         match ns.as_str() {
             SNAPSHOT0_NAMESPACE => {
+                non_wasi_seen = false;
                 out.insert(WasiVersion::Snapshot0);
             }
             SNAPSHOT1_NAMESPACE => {
+                non_wasi_seen = false;
                 out.insert(WasiVersion::Snapshot1);
             }
             _ => {
-                non_wasi_seen = true;
+                // noop
             }
         }
     }
