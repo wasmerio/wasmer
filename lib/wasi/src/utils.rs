@@ -115,23 +115,17 @@ pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
     }
 }
 
-/// Like [`get_wasi_version`] but detects multiple WASI versions in a single module.
-/// Thus `strict` behaves differently in this function as multiple versions are
-/// always supported. `strict` indicates whether non-WASI imports should trigger a
-/// failure or be ignored.
-pub fn get_wasi_versions(module: &Module, strict: bool) -> Option<BTreeSet<WasiVersion>> {
+/// Returns the wasi versions found in `module`
+pub fn get_wasi_versions(module: &Module) -> BTreeSet<WasiVersion> {
     let mut out = BTreeSet::new();
     let imports = module.imports().functions().map(|f| f.module().to_owned());
 
-    let mut non_wasi_seen = true;
     for ns in imports {
         match ns.as_str() {
             SNAPSHOT0_NAMESPACE => {
-                non_wasi_seen = false;
                 out.insert(WasiVersion::Snapshot0);
             }
             SNAPSHOT1_NAMESPACE => {
-                non_wasi_seen = false;
                 out.insert(WasiVersion::Snapshot1);
             }
             _ => {
@@ -139,11 +133,8 @@ pub fn get_wasi_versions(module: &Module, strict: bool) -> Option<BTreeSet<WasiV
             }
         }
     }
-    if strict && non_wasi_seen {
-        None
-    } else {
-        Some(out)
-    }
+
+    out
 }
 
 #[cfg(test)]
