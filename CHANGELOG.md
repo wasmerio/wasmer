@@ -8,6 +8,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+### Fixed
+- [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
+
 ## 2.0.0 - 2020/06/16
 
 ### Added
