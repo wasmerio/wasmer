@@ -83,9 +83,4 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     pub unsafe fn get_utf8_str(self, memory: &Memory, str_len: u32) -> Option<&str> {
         self.0.get_utf8_str(memory, str_len)
     }
-
-    #[inline(always)]
-    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
-        self.0.get_utf8_string(memory, str_len)
-    }
 }

@@ -8,9 +8,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
-## 2.0.0-rc2 - 2020/06/03
+### Fixed
+- [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
+
+## 2.0.0 - 2020/06/16
 
 ### Added
+- [#2411](https://github.com/wasmerio/wasmer/pull/2411) Extract types from `wasi` to a new `wasi-types` crate.
 - [#2390](https://github.com/wasmerio/wasmer/pull/2390) Make `wasmer-vm` to compile on Windows 32bits.
 - [#2402](https://github.com/wasmerio/wasmer/pull/2402) Add more examples and more doctests for `wasmer-middlewares`.
 
@@ -19,6 +23,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Fixed
 - [#2386](https://github.com/wasmerio/wasmer/pull/2386) Handle properly when a module has no exported functions in the CLI.
+
+## 2.0.0-rc2 - 2020/06/03
+
+### Fixed
 - [#2383](https://github.com/wasmerio/wasmer/pull/2383) Fix bugs in the Wasmer CLI tool with the way `--version` and the name of the CLI tool itself were printed.
 
 ## 2.0.0-rc1 - 2020/06/02
@@ -71,6 +79,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Fixed
 - [#2397](https://github.com/wasmerio/wasmer/pull/2397) Fix WASI rename temporary file issue.
+- [#2391](https://github.com/wasmerio/wasmer/pull/2391) Fix Singlepass emit bug, [#2347](https://github.com/wasmerio/wasmer/issues/2347) and [#2159](https://github.com/wasmerio/wasmer/issues/2159)
 - [#2327](https://github.com/wasmerio/wasmer/pull/2327) Fix memory leak preventing internal instance memory from being freed when a WasmerEnv contained an exported extern (e.g. Memory, etc.).
 - [#2247](https://github.com/wasmerio/wasmer/pull/2247) Internal WasiFS logic updated to be closer to what WASI libc does when finding a preopened fd for a path.
 - [#2241](https://github.com/wasmerio/wasmer/pull/2241) Fix Undefined Behavior in setting memory in emscripten `EmEnv`.

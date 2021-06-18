@@ -213,6 +213,7 @@ where
                         )));
                     }
                 }
+
                 object::read::RelocationTarget::Section(index) => {
                     if index == root_section_index {
                         root_section_reloc_target
@@ -223,13 +224,27 @@ where
                         elf_section_to_target(index)
                     }
                 }
+
                 object::read::RelocationTarget::Absolute => {
                     // Wasm-produced object files should never have absolute
-                    // addresses in them because none of the parts of the wasm
+                    // addresses in them because none of the parts of the Wasm
                     // VM, nor the generated code are loaded at fixed addresses.
                     return Err(CompileError::Codegen(format!(
                         "relocation targets absolute address {:?}",
                         reloc
+                    )));
+                }
+
+                // `object::read::RelocationTarget` is a
+                // non-exhaustive enum (`#[non_exhaustive]`), so it
+                // could have additional variants added in the
+                // future. Therefore, when matching against variants
+                // of non-exhaustive enums, an extra wildcard arm must
+                // be added to account for any future variants.
+                t => {
+                    return Err(CompileError::Codegen(format!(
+                        "relocation target is unknown `{:?}`",
+                        t
                     )));
                 }
             };
