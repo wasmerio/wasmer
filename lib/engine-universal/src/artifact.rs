@@ -264,6 +264,10 @@ impl UniversalArtifact {
 }
 
 impl Artifact for UniversalArtifact {
+    fn clear_funcrefs(&self) {
+        self.func_data_registry.clear();
+    }
+
     fn module(&self) -> Arc<ModuleInfo> {
         self.serializable.compile_info.module.clone()
     }

@@ -101,6 +101,15 @@ impl FuncDataRegistry {
         }
     }
 
+    /// not a serious API, meant just for debugging the memory leak
+    pub fn clear(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.func_data.clear();
+        inner.anyfunc_to_index.clear();
+        inner.func_data.truncate(0);
+        inner.anyfunc_to_index.shrink_to_fit();
+    }
+
     /// Register a signature and return its unique index.
     pub fn register(&self, anyfunc: VMCallerCheckedAnyfunc) -> VMFuncRef {
         let mut inner = self.inner.lock().unwrap();

@@ -85,6 +85,11 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
         Ok(())
     }
 
+    /// NO DOCS!
+    fn clear_funcrefs(&self) {
+        todo!("No-op debug function");
+    }
+
     /// Crate an `Instance` from this `Artifact`.
     ///
     /// # Safety

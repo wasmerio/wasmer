@@ -164,6 +164,11 @@ impl Instance {
     pub fn vmctx_ptr(&self) -> *mut VMContext {
         self.handle.lock().unwrap().vmctx_ptr()
     }
+
+    /// NO DOCS!
+    pub fn clear_funcrefs(&self) {
+        self.module().clear_funcrefs();
+    }
 }
 
 impl fmt::Debug for Instance {

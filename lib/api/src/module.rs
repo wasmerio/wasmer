@@ -424,6 +424,11 @@ impl Module {
     pub fn artifact(&self) -> &Arc<dyn Artifact> {
         &self.artifact
     }
+
+    /// NO DOCS!
+    pub fn clear_funcrefs(&self) {
+        self.artifact.clear_funcrefs();
+    }
 }
 
 impl fmt::Debug for Module {

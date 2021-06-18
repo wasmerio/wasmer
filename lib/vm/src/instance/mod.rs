@@ -65,6 +65,12 @@ pub(crate) struct Instance {
     /// The `ModuleInfo` this `Instance` was instantiated from.
     module: Arc<ModuleInfo>,
 
+    /// testing, testing 123
+    func_data_registry: &'static FuncDataRegistry,
+
+    /// debug
+    vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+
     /// Offsets in the `vmctx` region.
     offsets: VMOffsets,
 
@@ -634,7 +640,21 @@ impl Instance {
         if index == FunctionIndex::reserved_value() {
             return VMFuncRef::null();
         }
-        self.funcrefs[index]
+        //self.funcrefs[index]
+        if self.module.is_imported_function(index) {
+            return self.funcrefs[index];
+        } else {
+            let local_func_index = self.module.local_func_index(index).unwrap();
+            let func_ptr = self.functions[local_func_index];
+            let sig_index = self.module.functions[index];
+            let type_index = self.vmshared_signatures[sig_index];
+            let anyfunc = VMCallerCheckedAnyfunc {
+                func_ptr: func_ptr.0,
+                type_index,
+                vmctx: VMFunctionEnvironment { vmctx: &self.vmctx as *const _ as *mut _ },
+            };
+            return self.func_data_registry.register(anyfunc);
+        }
     }
 
     /// The `table.init` operation: initializes a portion of a table with a
@@ -922,6 +942,9 @@ impl InstanceHandle {
             let instance = Instance {
                 module,
                 offsets,
+                // hack
+                func_data_registry: std::mem::transmute(func_data_registry),
+                vmshared_signatures: vmshared_signatures.clone(),
                 memories: finished_memories,
                 tables: finished_tables,
                 globals: finished_globals,
@@ -1455,6 +1478,7 @@ fn build_funcrefs(
         func_refs.push(func_ref);
     }
 
+    /*
     // do local functions
     for (local_index, func_ptr) in finished_functions.iter() {
         let index = module_info.func_index(local_index);
@@ -1468,6 +1492,7 @@ fn build_funcrefs(
         let func_ref = func_data_registry.register(anyfunc);
         func_refs.push(func_ref);
     }
+    */
 
     func_refs.into_boxed_slice()
 }
