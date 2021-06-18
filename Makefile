@@ -542,7 +542,7 @@ package-wapm:
 ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
-		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
+		echo -e "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
 		chmod +x package/bin/wax ;\
 	fi
 else
