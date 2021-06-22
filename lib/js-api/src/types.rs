@@ -1,7 +1,8 @@
-// use crate::externals::Function;
+use crate::externals::Function;
 // use crate::store::{Store, StoreObject};
 // use crate::RuntimeError;
-// use wasmer_types::Value;
+use wasm_bindgen::JsValue;
+use wasmer_types::Value;
 pub use wasmer_types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
     TableType, Type as ValType,
@@ -14,8 +15,24 @@ pub use wasmer_types::{
 /// * Vectors (128 bits, with 32 or 64 bit lanes)
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#values>
-pub type Val = ();
-// pub type Val = Value<Function>;
+// pub type Val = ();
+pub type Val = Value<Function>;
+
+pub trait AsJs {
+    fn as_jsvalue(&self) -> JsValue;
+}
+
+impl AsJs for Val {
+    fn as_jsvalue(&self) -> JsValue {
+        match self {
+            Self::I32(i) => JsValue::from_f64(*i as f64),
+            Self::I64(i) => JsValue::from_f64(*i as f64),
+            Self::F32(f) => JsValue::from_f64(*f as f64),
+            Self::F64(f) => JsValue::from_f64(*f),
+            _ => unimplemented!(),
+        }
+    }
+}
 
 // impl StoreObject for Val {
 //     fn comes_from_same_store(&self, store: &Store) -> bool {

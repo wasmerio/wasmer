@@ -2737,6 +2737,7 @@ dependencies = [
  "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "wasmer-derive",
  "wasmer-types",
  "wat",
 ]

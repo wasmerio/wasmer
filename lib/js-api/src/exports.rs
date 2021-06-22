@@ -1,5 +1,5 @@
 use crate::export::Export;
-use crate::externals::{Extern, Memory /* Function, Global, Table */};
+use crate::externals::{Extern, Function /* , Global, Table */, Memory};
 use crate::import_object::LikeNamespace;
 // use crate::native::NativeFunc;
 // use crate::WasmTypeList;
@@ -134,10 +134,10 @@ impl Exports {
     //     self.get(name)
     // }
 
-    // /// Get an export as a `Func`.
-    // pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
-    //     self.get(name)
-    // }
+    /// Get an export as a `Func`.
+    pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
+        self.get(name)
+    }
 
     // /// Get an export as a `NativeFunc`.
     // pub fn get_native_function<Args, Rets>(

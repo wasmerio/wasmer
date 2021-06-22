@@ -1,24 +1,23 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
-use crate::types::{Val, ValFuncRef};
+use crate::types::{AsJs /* ValFuncRef */, Val};
 use crate::FunctionType;
-use crate::NativeFunc;
+// use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 
-use loupe::MemoryUsage;
+use crate::export::{Export, VMFunction};
 use std::cmp::max;
 use std::ffi::c_void;
 use std::fmt;
-use std::sync::Arc;
-use crate::exports::{Export}; // ExportFunction, ExportFunctionMetadata
-// use wasmer_vm::{
-//     raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
-//     VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,
-//     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
-// };
+use std::sync::Arc; // ExportFunction, ExportFunctionMetadata
+                    // use wasmer_vm::{
+                    //     raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
+                    //     VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,
+                    //     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
+                    // };
 
 #[repr(C)]
 pub struct VMFunctionBody(u8);
@@ -40,35 +39,37 @@ pub struct VMFunctionBody(u8);
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(PartialEq, MemoryUsage)]
+#[derive(PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
-    pub(crate) exported: ExportFunction,
+    pub(crate) exported: VMFunction,
 }
 
-// impl wasmer_types::WasmValueType for Function {
-//     /// Write the value.
-//     unsafe fn write_value_to(&self, p: *mut i128) {
-//         let func_ref =
-//             Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
-//         std::ptr::write(p as *mut VMFuncRef, func_ref);
-//     }
+impl wasmer_types::WasmValueType for Function {
+    /// Write the value.
+    unsafe fn write_value_to(&self, p: *mut i128) {
+        // let func_ref =
+        //     Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
+        // std::ptr::write(p as *mut VMFuncRef, func_ref);
+        unimplemented!();
+    }
 
-//     /// Read the value.
-//     // TODO(reftypes): this entire function should be cleaned up, `dyn Any` should
-//     // ideally be removed
-//     unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
-//         let func_ref = std::ptr::read(p as *const VMFuncRef);
-//         let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
-//         match Val::from_vm_funcref(func_ref, store) {
-//             Val::FuncRef(Some(fr)) => fr,
-//             // these bottom two cases indicate bugs in `wasmer-types` or elsewhere.
-//             // They should never be triggered, so we just panic.
-//             Val::FuncRef(None) => panic!("Null funcref found in `Function::read_value_from`!"),
-//             other => panic!("Invalid value in `Function::read_value_from`: {:?}", other),
-//         }
-//     }
-// }
+    /// Read the value.
+    // TODO(reftypes): this entire function should be cleaned up, `dyn Any` should
+    // ideally be removed
+    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
+        unimplemented!();
+        // let func_ref = std::ptr::read(p as *const VMFuncRef);
+        // let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
+        // match Val::from_vm_funcref(func_ref, store) {
+        //     Val::FuncRef(Some(fr)) => fr,
+        //     // these bottom two cases indicate bugs in `wasmer-types` or elsewhere.
+        //     // They should never be triggered, so we just panic.
+        //     Val::FuncRef(None) => panic!("Null funcref found in `Function::read_value_from`!"),
+        //     other => panic!("Invalid value in `Function::read_value_from`: {:?}", other),
+        // }
+    }
+}
 
 // fn build_export_function_metadata<Env>(
 //     env: Env,
@@ -530,33 +531,39 @@ impl Function {
     /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
+        let arr = js_sys::Array::new_with_length(params.len() as u32);
+        for (i, param) in params.iter().enumerate() {
+            let js_value = param.as_jsvalue();
+            arr.set(i as u32, js_value);
+        }
+        let result = js_sys::Reflect::apply(&self.exported, &wasm_bindgen::JsValue::NULL, &arr);
+        Ok(vec![Val::F64(result.unwrap().as_f64().unwrap())].into_boxed_slice())
         // if let Some(trampoline) = self.exported.vm_function.call_trampoline {
         //     let mut results = vec![Val::null(); self.result_arity()];
         //     self.call_wasm(trampoline, params, &mut results)?;
         //     return Ok(results.into_boxed_slice());
         // }
 
-        unimplemented!("The function definition isn't supported for the moment");
+        // unimplemented!("The function definition isn't supported for the moment");
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        unimplemented!();
-        // Self {
-        //     store: store.clone(),
-        //     exported: wasmer_export,
-        // }
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: VMFunction) -> Self {
+        Self {
+            store: store.clone(),
+            exported: wasmer_export,
+        }
     }
 
-    pub(crate) fn vm_funcref(&self) -> VMFuncRef {
-        unimplemented!();
-        // let engine = self.store.engine();
-        // let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
-        // engine.register_function_metadata(VMCallerCheckedAnyfunc {
-        //     func_ptr: self.exported.vm_function.address,
-        //     type_index: vmsignature,
-        //     vmctx: self.exported.vm_function.vmctx,
-        // })
-    }
+    // pub(crate) fn vm_funcref(&self) -> VMFuncRef {
+    //     unimplemented!();
+    //     // let engine = self.store.engine();
+    //     // let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
+    //     // engine.register_function_metadata(VMCallerCheckedAnyfunc {
+    //     //     func_ptr: self.exported.vm_function.address,
+    //     //     type_index: vmsignature,
+    //     //     vmctx: self.exported.vm_function.vmctx,
+    //     // })
+    // }
 
     /// Transform this WebAssembly function into a function with the
     /// native ABI. See [`NativeFunc`] to learn more.
@@ -633,42 +640,42 @@ impl Function {
     /// // This results in an error: `RuntimeError`
     /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
     /// ```
-    pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        unimplemented!();
-        // // type check
-        // {
-        //     let expected = self.exported.vm_function.signature.params();
-        //     let given = Args::wasm_types();
+    // pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
+    // where
+    //     Args: WasmTypeList,
+    //     Rets: WasmTypeList,
+    // {
+    //     unimplemented!();
+    //     // // type check
+    //     // {
+    //     //     let expected = self.exported.vm_function.signature.params();
+    //     //     let given = Args::wasm_types();
 
-        //     if expected != given {
-        //         return Err(RuntimeError::new(format!(
-        //             "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
-        //             given,
-        //             expected,
-        //         )));
-        //     }
-        // }
+    //     //     if expected != given {
+    //     //         return Err(RuntimeError::new(format!(
+    //     //             "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
+    //     //             given,
+    //     //             expected,
+    //     //         )));
+    //     //     }
+    //     // }
 
-        // {
-        //     let expected = self.exported.vm_function.signature.results();
-        //     let given = Rets::wasm_types();
+    //     // {
+    //     //     let expected = self.exported.vm_function.signature.results();
+    //     //     let given = Rets::wasm_types();
 
-        //     if expected != given {
-        //         // todo: error result types don't match
-        //         return Err(RuntimeError::new(format!(
-        //             "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
-        //             given,
-        //             expected,
-        //         )));
-        //     }
-        // }
+    //     //     if expected != given {
+    //     //         // todo: error result types don't match
+    //     //         return Err(RuntimeError::new(format!(
+    //     //             "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
+    //     //             given,
+    //     //             expected,
+    //     //         )));
+    //     //     }
+    //     // }
 
-        // Ok(NativeFunc::new(self.store.clone(), self.exported.clone()))
-    }
+    //     // Ok(NativeFunc::new(self.store.clone(), self.exported.clone()))
+    // }
 
     #[track_caller]
     fn closures_unsupported_panic() -> ! {
@@ -678,7 +685,8 @@ impl Function {
 
 impl<'a> Exportable<'a> for Function {
     fn to_export(&self) -> Export {
-        self.exported.clone().into()
+        unimplemented!();
+        // self.exported.clone().into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
@@ -829,12 +837,12 @@ impl fmt::Debug for Function {
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {
+    use super::VMFunctionBody;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
-    use super::VMFunctionBody;
 
     #[cfg(feature = "experimental-reference-types-extern-ref")]
     pub use wasmer_types::{ExternRef, VMExternRef};

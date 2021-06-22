@@ -1,11 +1,15 @@
-// pub(crate) mod function;
+pub(crate) mod function;
 // mod global;
 mod memory;
 // mod table;
 
-// pub use self::function::{
-//     FromToNativeWasmType, Function, HostFunction, WasmTypeList, WithEnv, WithoutEnv,
-// };
+pub use self::function::{
+    Function,
+    HostFunction,
+    WasmTypeList,
+    WithEnv,
+    WithoutEnv, // FromToNativeWasmType,
+};
 
 // pub use self::global::Global;
 pub use self::memory::Memory;
@@ -23,8 +27,8 @@ use std::fmt;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#external-values>
 #[derive(Clone)]
 pub enum Extern {
-    // /// A external [`Function`].
-    // Function(Function),
+    /// A external [`Function`].
+    Function(Function),
     // /// A external [`Global`].
     // Global(Global),
     /// A external [`Table`].
@@ -37,7 +41,7 @@ impl Extern {
     /// Return the underlying type of the inner `Extern`.
     pub fn ty(&self) -> ExternType {
         match self {
-            // Self::Function(ft) => ExternType::Function(ft.ty().clone()),
+            Self::Function(ft) => ExternType::Function(ft.ty().clone()),
             Self::Memory(ft) => ExternType::Memory(ft.ty()),
             // Self::Table(tt) => ExternType::Table(*tt.ty()),
             // Self::Global(gt) => ExternType::Global(*gt.ty()),
@@ -47,7 +51,7 @@ impl Extern {
     /// Create an `Extern` from an `wasmer_engine::Export`.
     pub fn from_vm_export(store: &Store, export: Export) -> Self {
         match export {
-            // Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
+            Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
             Export::Memory(m) => Self::Memory(Memory::from_vm_export(store, m)),
             // Export::Global(g) => Self::Global(Global::from_vm_export(store, g)),
             // Export::Table(t) => Self::Table(Table::from_vm_export(store, t)),
@@ -58,7 +62,7 @@ impl Extern {
 impl<'a> Exportable<'a> for Extern {
     fn to_export(&self) -> Export {
         match self {
-            // Self::Function(f) => f.to_export(),
+            Self::Function(f) => f.to_export(),
             // Self::Global(g) => g.to_export(),
             Self::Memory(m) => m.to_export(),
             // Self::Table(t) => t.to_export(),
@@ -72,7 +76,7 @@ impl<'a> Exportable<'a> for Extern {
 
     fn into_weak_instance_ref(&mut self) {
         match self {
-            // Self::Function(f) => f.into_weak_instance_ref(),
+            Self::Function(f) => f.into_weak_instance_ref(),
             // Self::Global(g) => g.into_weak_instance_ref(),
             Self::Memory(m) => m.into_weak_instance_ref(),
             // Self::Table(t) => t.into_weak_instance_ref(),
@@ -88,7 +92,7 @@ impl fmt::Debug for Extern {
             f,
             "{}",
             match self {
-                // Self::Function(_) => "Function(...)",
+                Self::Function(_) => "Function(...)",
                 // Self::Global(_) => "Global(...)",
                 Self::Memory(_) => "Memory(...)",
                 // Self::Table(_) => "Table(...)",
@@ -97,11 +101,11 @@ impl fmt::Debug for Extern {
     }
 }
 
-// impl From<Function> for Extern {
-//     fn from(r: Function) -> Self {
-//         Self::Function(r)
-//     }
-// }
+impl From<Function> for Extern {
+    fn from(r: Function) -> Self {
+        Self::Function(r)
+    }
+}
 
 // impl From<Global> for Extern {
 //     fn from(r: Global) -> Self {
