@@ -1,4 +1,4 @@
-use crate::blocking::types::{SockaddrIn, AF_INET};
+use crate::types::{SockaddrIn, AF_INET};
 use std::mem;
 use std::net::{Ipv4Addr, SocketAddrV4};
 

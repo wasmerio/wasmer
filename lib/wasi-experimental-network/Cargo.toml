@@ -12,11 +12,14 @@ edition = "2018"
 
 [dependencies]
 wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0-rc2" }
+wasmer-types = { path = "../types", version = "2.0.0-rc2" }
 
 wasmer = { path = "../api", version = "2.0.0-rc2", optional = true }
 wasmer-wasi  = { path = "../wasi", version = "2.0.0-rc2", optional = true }
 libc = { version = "0.2", optional = true }
+mio = { git = "https://github.com/Hywan/mio", branch = "feat-events-exactsizeiterator", features = ["os-poll", "os-ext", "net"], optional = true }
+slab = { version = "0.4", optional = true }
 
 [features]
 default = []
-runtime-impl = ["wasmer", "wasmer-wasi", "libc"]
+runtime-impl = ["wasmer", "wasmer-wasi", "libc", "mio", "slab"]

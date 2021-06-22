@@ -1,4 +1,4 @@
-use crate::blocking::types::*;
+use crate::types::*;
 use std::convert::TryInto;
 use std::fmt;
 use std::io;
@@ -24,18 +24,18 @@ macro_rules! wasi_try {
     }};
 }
 
-struct Error {
+pub(crate) struct Error {
     inner: io::Error,
 }
 
 impl Error {
-    fn current() -> Self {
+    pub(crate) fn current() -> Self {
         Self {
             inner: io::Error::last_os_error(),
         }
     }
 
-    fn wasi_errno(&self) -> __wasi_errno_t {
+    pub(crate) fn wasi_errno(&self) -> __wasi_errno_t {
         // SAFETY: We can unwrap here because the error has been
         // constructed with `Error::last_os_error`.
         match self.inner.raw_os_error().unwrap() {

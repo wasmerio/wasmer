@@ -1,5 +1,4 @@
-use crate::blocking::types::*;
-use std::ffi::c_void;
+use crate::types::*;
 use std::ptr::NonNull;
 use wasmer_wasi_types::*;
 
@@ -21,11 +20,7 @@ extern "C" {
     /// `fd`. `address_size` specifies the size, in bytes, of the
     /// address structure pointed to by `address`. Traditionnaly, this
     /// operation is called “assigning a name to a socket”.
-    pub fn socket_bind(
-        fd: __wasi_fd_t,
-        address: NonNull<c_void>,
-        address_size: u32,
-    ) -> __wasi_errno_t;
+    pub fn socket_bind(fd: __wasi_fd_t, address: NonNull<u8>, address_size: u32) -> __wasi_errno_t;
 
     /// `socket_listen` marks the socket referred to by `fd` as a
     /// passive socket, that is, a socket that will be used to accept
@@ -82,7 +77,7 @@ extern "C" {
     /// `address`.
     pub fn socket_connect(
         fd: __wasi_fd_t,
-        address: NonNull<c_void>,
+        address: NonNull<u8>,
         address_size: u32,
     ) -> __wasi_errno_t;
 

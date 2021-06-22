@@ -1,5 +1,5 @@
 use std::ptr::NonNull;
-use wasmer_wasi_experimental_network::blocking::{abi::*, types::*};
+use wasmer_wasi_experimental_network::{abi::*, types::*};
 
 fn main() {
     println!("Creating the socket");
@@ -8,7 +8,7 @@ fn main() {
         let mut fd: __wasi_fd_t = 0;
         let err = unsafe { socket_create(&mut fd, AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL) };
 
-        if err != 0 {
+        if err != __WASI_ESUCCESS {
             panic!("`socket_create` failed with `{}`", err);
         }
 
@@ -32,7 +32,7 @@ fn main() {
         )
     };
 
-    if err != 0 {
+    if err != __WASI_ESUCCESS {
         panic!("`socket_bind` failed with `{}`", err);
     }
 
@@ -40,7 +40,7 @@ fn main() {
 
     let err = unsafe { socket_listen(fd, 3) };
 
-    if err != 0 {
+    if err != __WASI_ESUCCESS {
         panic!("`socket_listen` failed with `{}`", err);
     }
 
@@ -61,7 +61,7 @@ fn main() {
 
         println!("Remote client IP: `{:?}`", &client_address);
 
-        if err != 0 {
+        if err != __WASI_ESUCCESS {
             panic!("`socket_accept` failed with `{}`", err);
         }
 
@@ -82,7 +82,7 @@ fn main() {
             )
         };
 
-        if err != 0 {
+        if err != __WASI_ESUCCESS {
             panic!("`socket_recv` failed with `{}`", err);
         }
 
@@ -110,7 +110,7 @@ fn main() {
             )
         };
 
-        if err != 0 {
+        if err != __WASI_ESUCCESS {
             panic!("`socket_send` failed with `{}`", err);
         }
 

@@ -1,4 +1,4 @@
-use crate::blocking::types::{__wasi_errno_t, __WASI_ESUCCESS};
+use crate::types::{__wasi_errno_t, __WASI_ESUCCESS};
 use std::io;
 
 pub trait CResult {

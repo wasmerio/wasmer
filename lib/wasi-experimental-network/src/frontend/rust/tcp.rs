@@ -1,5 +1,5 @@
 use super::c::*;
-use crate::blocking::{abi::*, types::*};
+use crate::{abi::*, types::*};
 use std::convert::TryInto;
 use std::io;
 use std::net::{Shutdown, SocketAddr, SocketAddrV4, ToSocketAddrs};
