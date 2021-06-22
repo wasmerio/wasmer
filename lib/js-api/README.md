@@ -5,9 +5,7 @@
 the fastest). This runtime is an adapted version of the Wasmer API that compiles to
 WebAssembly via `wasm-bindgen`.
 
-`wasmer-js` uses the WebAssembly runtime of your browser. It allows using
-WebAssembly when targeting the browser from Rust using the same APIs as
-Wasmer (withe the small exception that no compiler or engines are available).
+`wasmer-js` uses the WebAssembly runtime of your browser.
 
 ## Usage
 
