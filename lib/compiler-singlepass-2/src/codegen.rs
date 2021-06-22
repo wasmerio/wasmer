@@ -1096,7 +1096,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             s.push_str(&format!("{:0>2X} ", b));
         }
         let asm = std::process::Command::new("cstool")
-            .arg("x86_64")
+            .arg("arm64")
             .arg(format!("\"{}\"", s))
             .output()
             .unwrap()

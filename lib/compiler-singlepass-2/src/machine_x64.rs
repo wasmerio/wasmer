@@ -1041,7 +1041,7 @@ impl Machine for X64Machine {
         // }
         
         let fn_addr_offset = self.assembler.offset().0 + X64_MOV64_IMM_OFFSET;
-        dynasm!(self.assembler ; .arch x64 ; mov rax, 0xff_ff_ff_ff_ff_ff_ff_ff);
+        dynasm!(self.assembler ; .arch x64 ; mov rax, 0x7f_ff_ff_ff_ff_ff_ff_ff);
         
         let before_call = self.assembler.offset().0;
         dynasm!(self.assembler ; .arch x64 ; call rax);
