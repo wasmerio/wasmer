@@ -6,23 +6,6 @@
 
 use crate::vmcontext::VMCallerCheckedAnyfunc;
 use loupe::MemoryUsage;
-use std::collections::HashMap;
-use std::sync::Mutex;
-
-/// The registry that holds the values that `VMFuncRef`s point to.
-#[derive(Debug, MemoryUsage)]
-pub struct FuncDataRegistry {
-    // This structure is stored in an `Engine` and is intended to be shared
-    // across many instances. Ideally instances can themselves be sent across
-    // threads, and ideally we can compile across many threads. As a result we
-    // use interior mutability here with a lock to avoid having callers to
-    // externally synchronize calls to compilation.
-    inner: Mutex<Inner>,
-}
-
-// We use raw pointers but the data never moves, so it's not a problem
-unsafe impl Send for FuncDataRegistry {}
-unsafe impl Sync for FuncDataRegistry {}
 
 /// A function reference. A single word that points to metadata about a function.
 #[repr(transparent)]
@@ -86,36 +69,3 @@ impl std::ops::DerefMut for VMFuncRef {
 // TODO: update docs
 unsafe impl Send for VMFuncRef {}
 unsafe impl Sync for VMFuncRef {}
-
-#[derive(Debug, Default, MemoryUsage)]
-struct Inner {
-    func_data: Vec<Box<VMCallerCheckedAnyfunc>>,
-    anyfunc_to_index: HashMap<VMCallerCheckedAnyfunc, usize>,
-}
-
-impl FuncDataRegistry {
-    /// Create a new `FuncDataRegistry`.
-    pub fn new() -> Self {
-        Self {
-            inner: Default::default(),
-        }
-    }
-
-    /// Register a signature and return its unique index.
-    pub fn register(&self, anyfunc: VMCallerCheckedAnyfunc) -> VMFuncRef {
-        let mut inner = self.inner.lock().unwrap();
-        if let Some(&idx) = inner.anyfunc_to_index.get(&anyfunc) {
-            let data: &Box<_> = &inner.func_data[idx];
-            let inner_ptr: &VMCallerCheckedAnyfunc = &*data;
-            VMFuncRef(inner_ptr)
-        } else {
-            let idx = inner.func_data.len();
-            inner.func_data.push(Box::new(anyfunc.clone()));
-            inner.anyfunc_to_index.insert(anyfunc, idx);
-
-            let data: &Box<_> = &inner.func_data[idx];
-            let inner_ptr: &VMCallerCheckedAnyfunc = &*data;
-            VMFuncRef(inner_ptr)
-        }
-    }
-}
