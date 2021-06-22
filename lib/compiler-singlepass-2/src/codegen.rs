@@ -154,6 +154,7 @@ pub struct FuncGen<'a, M: Machine> {
 
     locals: Vec<Local<M::Location>>,
     stack: Vec<Local<M::Location>>,
+    func_index: FunctionIndex,
 }
 
 pub struct SpecialLabelSet<L> {
@@ -402,6 +403,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
             locals: vec![],
             stack: vec![],
+            func_index
         };
         fg.begin()?;
         Ok(fg)
@@ -534,7 +536,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 };
 
                 let ptr = self.machine.do_load_from_vmctx(Size::S64, offset);
-                let local = self.machine.do_deref(Size::S64, ptr.clone());
+                let local = self.machine.do_deref(Size::S32, ptr.clone());
 
                 self.push_stack(local);
                 self.maybe_release(ptr);
@@ -550,7 +552,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 let local = self.pop_stack();
 
                 let ptr = self.machine.do_load_from_vmctx(Size::S64, offset);
-                self.machine.do_deref_write(Size::S64, ptr.clone(), local.clone());
+                self.machine.do_deref_write(Size::S32, ptr.clone(), local.clone());
 
                 // let ty = type_to_wp_type(self.module.globals[global_index].ty);
                 // if ty.is_float() {
@@ -655,6 +657,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 );
             },
             Operator::I32Load { memarg } => {
+                println!("{:?}", self.stack.iter().cloned().map(|l| l.location()).collect::<Vec<_>>());
                 let addr = self.pop_stack();
                 let val = self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
                     this.machine.do_deref(Size::S32, addr)
@@ -699,11 +702,57 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 self.control_stack.push(frame);
                 self.machine.block_begin();
             },
+            Operator::Br { relative_depth } => {
+                let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
+                if !frame.loop_like && !frame.returns.is_empty() {
+                    unimplemented!();
+                    // if frame.returns.len() != 1 {
+                    //     return Err(CodegenError {
+                    //         message: "Br: incorrect frame.returns".to_string(),
+                    //     });
+                    // }
+                    // let first_return = frame.returns[0];
+                    // let loc = *self.value_stack.last().unwrap();
+
+                    // if first_return.is_float() {
+                    //     let fp = self.fp_stack.peek1()?;
+                    //     if self.assembler.arch_supports_canonicalize_nan()
+                    //         && self.config.enable_nan_canonicalization
+                    //         && fp.canonicalization.is_some()
+                    //     {
+                    //         self.canonicalize_nan(
+                    //             match first_return {
+                    //                 WpType::F32 => Size::S32,
+                    //                 WpType::F64 => Size::S64,
+                    //                 _ => unreachable!(),
+                    //             },
+                    //             loc,
+                    //             Location::GPR(GPR::RAX),
+                    //         );
+                    //     } else {
+                    //         self.emit_relaxed_binop(
+                    //             Assembler::emit_mov,
+                    //             Size::S64,
+                    //             loc,
+                    //             Location::GPR(GPR::RAX),
+                    //         );
+                    //     }
+                    // } else {
+                    //     self.assembler
+                    //         .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    // }
+                }
+
+                // let released = &self.value_stack[frame.value_stack_depth..];
+                // self.machine.release_locations_keep_state(&mut self.assembler, released);
+                self.machine.do_br_label(frame.label, relative_depth + 1);
+                self.unreachable_depth = 1;
+            },
             Operator::BrIf { relative_depth } => {
                 let after = self.machine.new_label();
                 let val = self.pop_stack();
 
-                self.machine.do_br_not_cond_label(val, after);
+                self.machine.do_br_not_cond_label(val, after, 0);
             
                 let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && !frame.returns.is_empty() {
@@ -747,7 +796,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 // let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 // let released = &self.value_stack[frame.value_stack_depth..];
                 // self.machine.release_locations_keep_state(&mut self.assembler, released);
-                self.machine.do_br_label(frame.label);
+                self.machine.do_br_label(frame.label, relative_depth + 1);
                 self.machine.do_emit_label(after);
             },
             Operator::BrTable { table } => {
@@ -769,7 +818,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 let lim = self.machine.do_const_i32(targets.len() as i32);
                 let cond = self.machine.do_ge_u_i32(val.clone(), lim.clone());
                 self.maybe_release(lim);
-                self.machine.do_br_cond_label(cond.clone(), default_br);
+                self.machine.do_br_cond_label(cond.clone(), default_br, default_target + 1);
                 self.maybe_release(cond); // TODO: is this OK?
                 
                 // now we won't need it any more after this
@@ -784,7 +833,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 self.maybe_release(val_scaled);
                 self.maybe_release(table_label_stored);
                 
-                self.machine.do_br_location(jmp_target.clone());
+                self.machine.do_br_location(jmp_target.clone(), 0);
                 self.maybe_release(jmp_target);
                 
                 let labels: Vec<_> = targets.iter().map(|_| self.machine.new_label()).collect();
@@ -841,12 +890,12 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     // let frame = &self.control_stack[self.control_stack.len() - 1 - (target as usize)];
                     // let released = &self.value_stack[frame.value_stack_depth..];
                     // self.machine.release_locations_keep_state(&mut self.assembler, released);
-                    self.machine.do_br_label(frame.label);
+                    self.machine.do_br_label(frame.label, target + 1);
                 }
 
                 self.machine.do_emit_label(table_label);
                 for label in labels {
-                    self.machine.do_br_label(label);
+                    self.machine.do_br_label(label, 0);
                 }
                 self.unreachable_depth = 1;
             },
@@ -1040,6 +1089,22 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let body = self.machine.finalize();
         let instructions_address_map = self.instructions_address_map;
         let address_map = get_function_address_map(instructions_address_map, data, body.len());
+
+        use std::io::Write;
+        let mut s = String::new();
+        for b in body.iter().copied() {
+            s.push_str(&format!("{:0>2X} ", b));
+        }
+        let asm = std::process::Command::new("cstool")
+            .arg("x86_64")
+            .arg(format!("\"{}\"", s))
+            .output()
+            .unwrap()
+            .stdout;
+        let mut f = std::fs::File::create(
+            format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
+            unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
+        f.write_all(&asm).unwrap();
 
         CompiledFunction {
             body: FunctionBody {

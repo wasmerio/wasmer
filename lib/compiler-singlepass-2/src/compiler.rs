@@ -20,6 +20,9 @@ use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
 use dynasmrt::{aarch64::Assembler as Aarch64Assembler};
 use crate::machine_aarch64::Aarch64Machine;
 
+use dynasmrt::{x64::Assembler as X64Assembler};
+use crate::machine_x64::X64Machine;
+
 use wasmer_compiler::{CompiledFunctionFrameInfo}; // TEMPORARY
 use wasmer_types::entity::{SecondaryMap}; // TEMPORARY
 use crate::address_map::get_function_address_map; // TEMPORARY
@@ -68,11 +71,16 @@ impl Compiler for SinglepassCompiler {
             gen_std_trampoline,
             gen_import_call_trampoline,
             gen_std_dynamic_import_trampoline,
-        ) = match target.triple().architecture {
+        ): (fn(_) -> _,fn(_, _, _) -> _,fn(_, _) -> _) = match target.triple().architecture {
             Architecture::Aarch64(_) => {
                 (FuncGen::<Aarch64Machine>::gen_std_trampoline,
                 FuncGen::<Aarch64Machine>::gen_import_call_trampoline,
                 FuncGen::<Aarch64Machine>::gen_std_dynamic_import_trampoline)
+            },
+            Architecture::X86_64 => {
+                (FuncGen::<X64Machine>::gen_std_trampoline,
+                FuncGen::<X64Machine>::gen_import_call_trampoline,
+                FuncGen::<X64Machine>::gen_std_dynamic_import_trampoline)
             },
             arch => {
                 return Err(CompileError::UnsupportedTarget(arch.to_string()));
@@ -122,6 +130,27 @@ impl Compiler for SinglepassCompiler {
                     Architecture::Aarch64(_) => {
                         let mut generator = FuncGen::new(
                             Aarch64Machine::new(),
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            &memory_styles,
+                            &table_styles,
+                            *i,
+                            &locals,
+                        )
+                        .map_err(to_compile_error)?;
+
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op).map_err(to_compile_error)?;
+                        }
+
+                        Ok(generator.finalize(&input))
+                    },
+                    Architecture::X86_64 => {
+                        let mut generator = FuncGen::new(
+                            X64Machine::new(),
                             module,
                             &self.config,
                             &vmoffsets,
