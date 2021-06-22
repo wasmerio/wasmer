@@ -239,7 +239,7 @@ impl X64Machine {
             reg_counter: 0,
             n_stack_params: 0,
             free_regs: vec![0,2,3,10,11],
-            free_callee_save: vec![/**/],
+            free_callee_save: vec![/* */],
             free_stack: vec![],
             stack_offset: 0,
             relocation_info: vec![],
@@ -655,6 +655,7 @@ impl Machine for X64Machine {
             ; .arch x64
             ; pop r15
             ; pop rbp
+            ; add rsp, 8
             ; ret);
         
         // reserve space for relocated function pointers
@@ -1040,7 +1041,7 @@ impl Machine for X64Machine {
         // }
         
         let fn_addr_offset = self.assembler.offset().0 + X64_MOV64_IMM_OFFSET;
-        dynasm!(self.assembler ; .arch x64 ; mov rax, 0x00_00_00_00_00_00_00_00);
+        dynasm!(self.assembler ; .arch x64 ; mov rax, 0xff_ff_ff_ff_ff_ff_ff_ff);
         
         let before_call = self.assembler.offset().0;
         dynasm!(self.assembler ; .arch x64 ; call rax);
@@ -1132,29 +1133,20 @@ impl Machine for X64Machine {
     fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
         let mut m = Self::new();
 
-        let mut stack_offset: i32 = (3 + sig.params().len().saturating_sub(6)) as i32 * 8;
         // call pushes the return address, aligning the stack to 8 bytes
         // we need to align to 8 again in order to achieve 16 byte alignment
-        // this is not required by all x86 platforms, but some conventions require is (e.g. darwin)
-        if stack_offset % 16 == 0 {
-            stack_offset += 8;
-        }
-        assert!(stack_offset % 8 == 0);
-
-        let rbp_save = Location::Memory(SP_GPR, stack_offset     );
-        let vmctx_save = Location::Memory(SP_GPR, stack_offset -  8);
-
-        dynasm!(m.assembler ; .arch x64 ; sub rsp, stack_offset as i32);
-        m.move_data(Size::S64, Location::GPR(FP_GPR), rbp_save);
-        m.move_data(Size::S64, Location::GPR(VMCTX_GPR), vmctx_save);
+        // this is not required by all x86 platforms, but some conventions require it
+        // (e.g. darwin requires that the stack is 16-byte aligned before calls)
+        let fptr_reg = 12;
+        let args_reg = 13;
+        dynasm!(m.assembler
+            ; .arch x64
+            ; sub rsp, 8
+            ; push Rq(fptr_reg)
+            ; push Rq(args_reg)
+            ; mov Rq(fptr_reg), rsi
+            ; mov Rq(args_reg), rdx);
         
-        let fptr_loc = Location::GPR(0);
-        let args_reg = 12;
-        let args_loc = Location::GPR(args_reg);
-
-        m.move_data(Size::S64, Location::GPR(ARG_REGS[1]), fptr_loc);
-        m.move_data(Size::S64, Location::GPR(ARG_REGS[2]), args_loc);
-
         // Move arguments to their locations.
         // `callee_vmctx` is already in the first argument register, so no need to move.
         for (i, _param) in sig.params().iter().enumerate() {
@@ -1168,24 +1160,19 @@ impl Machine for X64Machine {
             m.move_data(Size::S64, src, dst);
         }
 
-        dynasm!(m.assembler ; .arch x64 ; call r12);
+        dynasm!(m.assembler ; .arch x64 ; call Rq(fptr_reg));
 
         // Write return value.
         if !sig.results().is_empty() {
-            m.move_data(
-                Size::S64,
-                Location::GPR(0),
-                Location::Memory(args_reg, 0),
-            );
+            dynasm!(m.assembler ; .arch x64 ; mov [Rq(args_reg)], rax);
         }
-
-        m.move_data(Size::S64, rbp_save, Location::GPR(FP_GPR));
-        m.move_data(Size::S64, vmctx_save, Location::GPR(VMCTX_GPR));
 
         // Restore stack.
         dynasm!(m.assembler
             ; .arch x64
-            ; add rsp, stack_offset as i32
+            ; pop Rq(args_reg)
+            ; pop Rq(fptr_reg)
+            ; add rsp, 8
             ; ret);
         
         m.assembler.finalize().unwrap().to_vec()
