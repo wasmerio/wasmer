@@ -42,6 +42,22 @@ Wasmer has the following configuration flags:
 * `wat` (enabled by default): It allows to read WebAssembly files in their text format.
   *This feature is normally used only in development environments*
 
+# Build
+
+You can use `wasm-pack` to build wasmer-js:
+
+```
+wasm-pack build --release
+```
+
+> The provided `wasmer_js.wasm` file should weight around 75kB when optmized via `wasm-opt` and stripped via `wasm-strip`, so it's relatively slim.
+
+# Test
+
+```
+wasm-pack test --node
+```
+
 ---
 
 Made with ❤️ by the Wasmer team, for the community
