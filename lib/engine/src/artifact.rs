@@ -13,8 +13,8 @@ use wasmer_types::{
     SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo,
-    TableStyle, TrapHandler, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle,
+    TrapHandler, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -66,9 +66,6 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
 
     /// Returns the associated VM signatures for this `Artifact`.
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
-
-    /// Get the func data registry
-    fn func_data_registry(&self) -> &FuncDataRegistry;
 
     /// Serializes an artifact into bytes
     fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
@@ -146,7 +143,6 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             finished_globals,
             imports,
             self.signatures().clone(),
-            self.func_data_registry(),
             host_state,
             import_function_envs,
         )

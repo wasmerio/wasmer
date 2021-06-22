@@ -53,7 +53,7 @@ impl ValFuncRef for Val {
         }
         Ok(match self {
             Self::FuncRef(None) => VMFuncRef::null(),
-            Self::FuncRef(Some(f)) => f.vm_funcref(),
+            Self::FuncRef(Some(_)) => VMFuncRef::null(), //f.vm_funcref(),
             _ => return Err(RuntimeError::new("val is not func ref")),
         })
     }
@@ -100,7 +100,7 @@ impl ValFuncRef for Val {
                 wasmer_vm::TableElement::ExternRef(extern_ref.clone().into())
             }
             Self::FuncRef(None) => wasmer_vm::TableElement::FuncRef(VMFuncRef::null()),
-            Self::FuncRef(Some(f)) => wasmer_vm::TableElement::FuncRef(f.vm_funcref()),
+            Self::FuncRef(Some(f)) => wasmer_vm::TableElement::FuncRef(VMFuncRef::null()), //wasmer_vm::TableElement::FuncRef(f.vm_funcref()),
             _ => return Err(RuntimeError::new("val is not reference")),
         })
     }

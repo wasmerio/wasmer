@@ -16,8 +16,8 @@ use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,
-    VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
+    VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment,
+    VMFunctionKind, VMTrampoline,
 };
 
 /// A WebAssembly `function` instance.
@@ -538,15 +538,12 @@ impl Function {
         }
     }
 
-    pub(crate) fn vm_funcref(&self) -> VMFuncRef {
+    /*pub(crate) fn vm_funcref(&self) -> VMFuncRef {
         let engine = self.store.engine();
         let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
-        engine.register_function_metadata(VMCallerCheckedAnyfunc {
-            func_ptr: self.exported.vm_function.address,
-            type_index: vmsignature,
-            vmctx: self.exported.vm_function.vmctx,
-        })
-    }
+        // with the new changes this method is no longer possible... it should be though
+        // so TODO: figure out how to make this work
+    }*/
 
     /// Transform this WebAssembly function into a function with the
     /// native ABI. See [`NativeFunc`] to learn more.

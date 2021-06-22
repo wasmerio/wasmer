@@ -39,7 +39,7 @@ mod vmoffsets;
 pub mod libcalls;
 
 pub use crate::export::*;
-pub use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
+pub use crate::func_data_registry::VMFuncRef;
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{

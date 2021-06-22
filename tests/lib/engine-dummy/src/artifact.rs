@@ -16,8 +16,8 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext,
-    VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// Serializable struct for the artifact
@@ -44,7 +44,6 @@ pub struct DummyArtifact {
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    func_data_registry: Arc<FuncDataRegistry>,
 }
 
 extern "C" fn dummy_function(_context: *mut VMContext) {
@@ -185,7 +184,6 @@ impl DummyArtifact {
             finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             signatures,
-            func_data_registry: engine.func_data().clone(),
         })
     }
 }
@@ -237,10 +235,6 @@ impl Artifact for DummyArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
-    }
-
-    fn func_data_registry(&self) -> &FuncDataRegistry {
-        &self.func_data_registry
     }
 
     #[cfg(feature = "serialize")]
