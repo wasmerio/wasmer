@@ -378,7 +378,7 @@ impl Aarch64Machine {
         self.stack.push(WeakLocal::new());
         self.stack.push(WeakLocal::new());
 
-        dynasm!(self.assembler ; sub sp, sp, 16);
+        dynasm!(self.assembler ; .arch aarch64 ; sub sp, sp, 16);
         
         idx
     }
@@ -971,7 +971,7 @@ impl Machine for Aarch64Machine {
             self.emit_restore_stack_offset(self.saved_stack_offsets[idx]);
         }
         let r = self.move_to_reg(cond, &[]);
-        dynasm!(self.assembler ; cmp X(r), xzr ; b.ne =>label);
+        dynasm!(self.assembler ; .arch aarch64 ; cmp X(r), xzr ; b.ne =>label);
     }
 
     fn do_br_not_cond_label(&mut self, cond: Local<Location>, label: DynamicLabel, depth: u32) {
@@ -980,7 +980,7 @@ impl Machine for Aarch64Machine {
             self.emit_restore_stack_offset(self.saved_stack_offsets[idx]);
         }
         let r = self.move_to_reg(cond, &[]);
-        dynasm!(self.assembler ; cmp X(r), xzr ; b.eq =>label);
+        dynasm!(self.assembler ; .arch aarch64 ; cmp X(r), xzr ; b.eq =>label);
     }
 
     fn do_br_location(&mut self, loc: Local<Location>, depth: u32) {
@@ -989,7 +989,7 @@ impl Machine for Aarch64Machine {
             self.emit_restore_stack_offset(self.saved_stack_offsets[idx]);
         }
         let r = self.move_to_reg(loc, &[]);
-        dynasm!(self.assembler ; br X(r));
+        dynasm!(self.assembler ; .arch aarch64 ; br X(r));
     }
 
     fn do_br_label(&mut self, label: DynamicLabel, depth: u32) {
@@ -997,17 +997,17 @@ impl Machine for Aarch64Machine {
             let idx = self.saved_stack_offsets.len() - depth as usize;
             self.emit_restore_stack_offset(self.saved_stack_offsets[idx]);
         }
-        dynasm!(self.assembler ; b =>label);
+        dynasm!(self.assembler ; .arch aarch64 ; b =>label);
     }
 
     fn do_load_label(&mut self, label: DynamicLabel) -> Local<Location> {
         let r = self.get_free_reg(&[]);
-        dynasm!(self.assembler ; adr X(r), =>label);
+        dynasm!(self.assembler ; .arch aarch64 ; adr X(r), =>label);
         self.new_local_from_reg(r)
     }
 
     fn do_emit_label(&mut self, label: DynamicLabel) {
-        dynasm!(self.assembler ; =>label);
+        dynasm!(self.assembler ; .arch aarch64 ; =>label);
     }
 
     fn do_load_from_vmctx(&mut self, sz: Size, offset: u32) -> Local<Location> {
@@ -1071,11 +1071,11 @@ impl Machine for Aarch64Machine {
         }
 
         if stack_offset > 0 {
-            dynasm!(self.assembler ; sub sp, sp, stack_offset as u32);
+            dynasm!(self.assembler ; .arch aarch64 ; sub sp, sp, stack_offset as u32);
         }
 
         // vmctx is always passed as the first argument
-        dynasm!(self.assembler ; mov x0, x28);
+        dynasm!(self.assembler ; .arch aarch64 ; mov x0, x28);
 
         for (n, local) in params.iter().enumerate() {
             match n {
@@ -1096,16 +1096,17 @@ impl Machine for Aarch64Machine {
         }
 
         dynasm!(self.assembler
+            ; .arch aarch64
             ; adr X(fn_addr_reg), =>fn_addr
             ; ldr X(fn_addr_reg), [X(fn_addr_reg)]
         );
         
         let before_call = self.assembler.offset().0;
-        dynasm!(self.assembler ; blr X(fn_addr_reg));
+        dynasm!(self.assembler ; .arch aarch64 ; blr X(fn_addr_reg));
         let after_call = self.assembler.offset().0;
         
         if stack_offset > 0 {
-            dynasm!(self.assembler ; add sp, sp, stack_offset as u32);
+            dynasm!(self.assembler ; .arch aarch64 ; add sp, sp, stack_offset as u32);
         }
         
         let mut returns: SmallVec<[Local<Location>; 1]> = smallvec![];
