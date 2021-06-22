@@ -5,7 +5,7 @@
 the fastest). This runtime is an adapted version of the Wasmer API that compiles to
 WebAssembly via `wasm-bindgen`.
 
-`wasmer-js` uses the WebAssembly runtime of your browser.
+`wasmer-js` uses the same WebAssembly runtime of your environment (browser or Node.js).
 
 ## Usage
 

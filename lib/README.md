@@ -7,6 +7,8 @@ composed of a set of crates. We can group them as follows:
   programatically through the `wasmer` crate,
 * `c-api` — The public C API exposes everything a C user needs to use
   Wasmer programatically,
+* `js-api` — It allows compiling Wasmer bindings to Wasm to be runnable in the
+  browser or in Node.js via `wasm-bindgen`.
 * `cache` — The traits and types to cache compiled WebAssembly
   modules,
 * `cli` — The Wasmer CLI itself,
