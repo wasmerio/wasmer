@@ -41,47 +41,21 @@ use wasmer_js::*;
 
 #[wasm_bindgen_test]
 fn test_exported_memory() {
-    // Let's declare the Wasm module with the text representation.
-    let wasm_bytes = wat2wasm(
-        br#"
-(module
-  (memory (export "mem") 1)
-)
-"#,
-    )
-    .unwrap();
-
-    // Create a Store.
-    // Note that we don't need to specify the engine/compiler if we want to use
-    // the default provided by Wasmer.
-    // You can use `Store::default()` for that.
     let store = Store::default();
+    let module = Module::new(&store, br#"
+    (module
+      (memory (export "mem") 1)
+    )
+    "#).unwrap();
 
-    println!("Compiling module...");
-    // Let's compile the Wasm module.
-    let module = Module::new(&store, wasm_bytes).unwrap();
-
-    // Create an empty import object.
     let import_object = imports! {};
-
-    println!("Instantiating module...");
-    // Let's instantiate the Wasm module.
     let instance = Instance::new(&module, &import_object).unwrap();
+
+    let memory = instance.exports.get_memory("mem").unwrap();
+    assert_eq!(memory.size(), Pages(1));
+    assert_eq!(memory.data_size(), 65536);
 
     // let load = instance
     //     .exports
     //     .get_native_function::<(), (WasmPtr<u8, Array>, i32)>("load")?;
-
-    // Here we go.
-    //
-    // The Wasm module exports a memory under "mem". Let's get it.
-    let memory = instance.exports.get_memory("mem").unwrap();
-
-    // Now that we have the exported memory, let's get some
-    // information about it.
-    //
-    // The first thing we might be intersted in is the size of the memory.
-    // Let's get it!
-    println!("Memory size (pages) {:?}", memory.size());
-    println!("Memory size (bytes) {:?}", memory.data_size());
 }
