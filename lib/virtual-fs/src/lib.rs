@@ -329,7 +329,7 @@ pub struct ReadDir {
 }
 
 impl ReadDir {
-    fn new(data: Vec<DirEntry>) -> Self {
+    pub fn new(data: Vec<DirEntry>) -> Self {
         Self { data, index: 0 }
     }
 }
