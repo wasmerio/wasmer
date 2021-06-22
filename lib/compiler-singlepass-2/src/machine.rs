@@ -63,10 +63,10 @@ pub trait Machine {
     fn do_return(&mut self, ty: Option<WpType>, ret_val: Option<Local<Self::Location>>, end_label: Self::Label);
     fn do_emit_label(&mut self, label: Self::Label);
     fn do_load_label(&mut self, label: Self::Label) -> Local<Self::Location>;
-    fn do_br_label(&mut self, label: Self::Label);
-    fn do_br_cond_label(&mut self, cond: Local<Self::Location>, label: Self::Label);
-    fn do_br_not_cond_label(&mut self, cond: Local<Self::Location>, label: Self::Label);
-    fn do_br_location(&mut self, loc: Local<Self::Location>);
+    fn do_br_label(&mut self, label: Self::Label, depth: u32);
+    fn do_br_cond_label(&mut self, cond: Local<Self::Location>, label: Self::Label, depth: u32);
+    fn do_br_not_cond_label(&mut self, cond: Local<Self::Location>, label: Self::Label, depth: u32);
+    fn do_br_location(&mut self, loc: Local<Self::Location>, depth: u32);
     fn do_load_from_vmctx(&mut self, sz: Size, offset: u32) -> Local<Self::Location>;
     fn do_deref(&mut self, sz: Size, ptr: Local<Self::Location>) -> Local<Self::Location>;
     fn do_deref_write(&mut self, sz: Size, ptr: Local<Self::Location>, val: Local<Self::Location>);
