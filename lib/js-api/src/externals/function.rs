@@ -116,7 +116,6 @@ impl wasmer_types::WasmValueType for Function {
 
 impl WasmerEnv for WithoutEnv {}
 
-#[wasm_bindgen]
 pub extern "C" fn call_func_dynamic(arg: u32) -> u32 {
     return arg + 1;
 }
@@ -293,9 +292,17 @@ impl Function {
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
-        unimplemented!();
-        // let function = inner::Function::<Args, Rets>::new(func);
-        // let address = function.address() as *const VMFunctionBody;
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address() as usize as u32;
+
+        let ft = wasm_bindgen::function_table();
+        let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
+        let func = as_table.get(address).unwrap();
+        Self {
+            store: store.clone(),
+            exported: func,
+        }
+
         // let vmctx = VMFunctionEnvironment {
         //     host_env: std::ptr::null_mut() as *mut _,
         // };
@@ -1311,7 +1318,7 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -1322,12 +1329,13 @@ mod inner {
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
                             func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
-                        unimplemented!();
-                        // match result {
-                        //     Ok(Ok(result)) => return result.into_c_struct(),
-                        //     Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
-                        //     Err(panic) => unsafe { resume_panic(panic) },
-                        // }
+                        // unimplemented!();
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(),
+                            _ => unimplemented!(),
+                            // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
+                            // Err(panic) => unsafe { resume_panic(panic) },
+                        }
                     }
 
                     func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody

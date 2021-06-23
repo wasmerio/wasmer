@@ -120,7 +120,7 @@ fn test_exported_function() {
 // }
 
 #[wasm_bindgen_test]
-fn test_imported_function() {
+fn test_imported_function_dynamic() {
     let store = Store::default();
     let module = Module::new(
         &store,
@@ -142,6 +142,45 @@ fn test_imported_function() {
         println!("Result of `imported`: {:?}", result);
         Ok(vec![Value::I32(result)])
     });
+
+    let import_object = imports! {
+        "env" => {
+            "imported" => imported,
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    // let memory = instance.exports.get_memory("mem").unwrap();
+    // assert_eq!(memory.size(), Pages(1));
+    // assert_eq!(memory.data_size(), 65536);
+
+    let exported = instance.exports.get_function("exported").unwrap();
+
+    let expected = vec![Val::F64(5.0)].into_boxed_slice();
+    assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
+}
+
+#[wasm_bindgen_test]
+fn test_imported_function_native() {
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"
+    (module
+        (func $imported (import "env" "imported") (param i32) (result i32))
+        (func (export "exported") (param i32) (result i32)
+            (call $imported (local.get 0))
+        )
+    )
+    "#,
+    )
+    .unwrap();
+
+    fn imported_fn(arg: u32) -> u32 {
+        return arg + 1;
+    }
+
+    let imported = Function::new_native(&store, imported_fn);
 
     let import_object = imports! {
         "env" => {
