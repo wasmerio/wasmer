@@ -298,9 +298,10 @@ impl Function {
         let ft = wasm_bindgen::function_table();
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
+        let binded_func = func.bind1(&JsValue::UNDEFINED, &JsValue::UNDEFINED);
         Self {
             store: store.clone(),
-            exported: func,
+            exported: binded_func,
         }
 
         // let vmctx = VMFunctionEnvironment {
@@ -1318,7 +1319,7 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( $( $x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
