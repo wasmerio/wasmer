@@ -10,6 +10,11 @@ license = "MIT"
 readme = "README.md"
 edition = "2018"
 
+# `wasm-opt` is on by default in for the release profile, but it can be
+# disabled by setting it to `false`
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
