@@ -290,7 +290,7 @@ mod instance;
 mod iterators;
 mod module;
 // mod native;
-// mod ptr;
+mod ptr;
 mod store;
 mod types;
 mod utils;
@@ -303,16 +303,16 @@ pub use wasmer_derive::WasmerEnv;
 pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
-    Extern,
-    Function, /* FromToNativeWasmType, Function, Global, HostFunction, Table, WasmTypeList, */
-    Memory,
+    Extern, FromToNativeWasmType, Function, HostFunction, Memory,
+    /* Global, Table, */
+    WasmTypeList,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::{Instance, InstantiationError};
 pub use crate::module::Module;
 pub use wasm_bindgen::JsValue as RuntimeError;
 // pub use crate::native::NativeFunc;
-// pub use crate::ptr::{Array, Item, WasmPtr};
+pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
