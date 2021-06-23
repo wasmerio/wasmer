@@ -4638,7 +4638,7 @@
                 <span class="kw">return</span> <span class="ident">__WASI_EEXIST</span>;
             }
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">clone</span>();
-            <span class="ident">out_path</span>.<span class="ident">push</span>(<span class="ident">target_path</span>);
+            <span class="ident">out_path</span>.<span class="ident">push</span>(<span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">target_entry_name</span>));
             <span class="ident">out_path</span>
         }
         <span class="ident">Kind</span>::<span class="ident">Root</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">__WASI_ENOTCAPABLE</span>,
