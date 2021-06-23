@@ -3,8 +3,9 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::{AsJs /* ValFuncRef */, Val};
 use crate::FunctionType;
+use core::any::Any;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, __rt::WasmRefCell};
 // use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
@@ -41,10 +42,17 @@ pub struct VMFunctionBody(u8);
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(PartialEq)]
+// #[derive(PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) exported: VMFunction,
+    pub(crate) environment: Option<*const u8>, // environment: Option<WasmRefCell<Box<Any>>>,
+}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.exported == other.exported && self.store == other.store
+    }
 }
 
 impl wasmer_types::WasmValueType for Function {
@@ -159,12 +167,16 @@ impl Function {
         FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
     {
+        // Use closures? https://github.com/rustwasm/wasm-bindgen/blob/44d577f6b89dc7cc572ea0747833d38ba680e93b/src/closure.rs
+        // unimplemented!();
         let ft = wasm_bindgen::function_table();
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(call_func_dynamic as usize as u32).unwrap();
+        let environment = None;
         Self {
             store: store.clone(),
             exported: func,
+            environment,
         }
         // Function::new
         // let wrapped_func =
@@ -299,9 +311,11 @@ impl Function {
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
         let binded_func = func.bind1(&JsValue::UNDEFINED, &JsValue::UNDEFINED);
+        let environment = None;
         Self {
             store: store.clone(),
             exported: binded_func,
+            environment,
         }
 
         // let vmctx = VMFunctionEnvironment {
@@ -360,7 +374,25 @@ impl Function {
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
-        unimplemented!();
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address() as usize as u32;
+
+        let ft = wasm_bindgen::function_table();
+        let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
+        let func = as_table.get(address).unwrap();
+        // let b: Box<Any> = Box::new(env);
+        // let environment = Some(WasmRefCell::new(b));
+        let environment = Box::into_raw(Box::new(env)) as *mut u8;
+        let binded_func = func.bind1(
+            &JsValue::UNDEFINED,
+            &JsValue::from_f64(environment as usize as f64),
+        );
+        Self {
+            store: store.clone(),
+            exported: binded_func,
+            environment: Some(environment),
+        }
+
         // let function = inner::Function::<Args, Rets>::new(func);
         // let address = function.address();
 
@@ -570,9 +602,11 @@ impl Function {
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: VMFunction) -> Self {
+        let environment = None;
         Self {
             store: store.clone(),
             exported: wasmer_export,
+            environment,
         }
     }
 
@@ -858,7 +892,7 @@ impl fmt::Debug for Function {
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {
-    use super::VMFunctionBody;
+    use super::{JsValue, VMFunctionBody};
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
     use std::error::Error;
@@ -1362,7 +1396,7 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &Env, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( ptr: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -1370,17 +1404,18 @@ mod inner {
                         Env: Sized,
                         Func: Fn(&Env, $( $x ),* ) -> RetsAsResult + 'static
                     {
+                        let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
                             func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
-                        unimplemented!();
-                        // match result {
-                        //     Ok(Ok(result)) => return result.into_c_struct(),
-                        //     Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
-                        //     Err(panic) => unsafe { resume_panic(panic) },
-                        // }
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(),
+                            _ => unimplemented!(),
+                            // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
+                            // Err(panic) => unsafe { resume_panic(panic) },
+                        }
                     }
 
                     func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
