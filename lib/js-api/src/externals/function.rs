@@ -3,6 +3,8 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::{AsJs /* ValFuncRef */, Val};
 use crate::FunctionType;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 // use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
@@ -114,6 +116,11 @@ impl wasmer_types::WasmValueType for Function {
 
 impl WasmerEnv for WithoutEnv {}
 
+#[wasm_bindgen]
+pub extern "C" fn call_func_dynamic(arg: u32) -> u32 {
+    return arg + 1;
+}
+
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
@@ -153,7 +160,14 @@ impl Function {
         FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
     {
-        unimplemented!();
+        let ft = wasm_bindgen::function_table();
+        let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
+        let func = as_table.get(call_func_dynamic as usize as u32).unwrap();
+        Self {
+            store: store.clone(),
+            exported: func,
+        }
+        // Function::new
         // let wrapped_func =
         //     move |_env: &WithoutEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> { func(args) };
         // Self::new_with_env(store, ty, WithoutEnv, wrapped_func)
@@ -685,8 +699,7 @@ impl Function {
 
 impl<'a> Exportable<'a> for Function {
     fn to_export(&self) -> Export {
-        unimplemented!();
-        // self.exported.clone().into()
+        Export::Function(self.exported.clone())
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

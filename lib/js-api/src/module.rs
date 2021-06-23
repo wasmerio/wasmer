@@ -184,25 +184,32 @@ impl Module {
             if let Some(import) = resolved_import {
                 match js_sys::Reflect::get(&imports, &import_type.module().into()) {
                     Ok(val) => {
-                        js_sys::Reflect::set(&val, &import_type.name().into(), import.as_jsvalue());
+                        if !val.is_undefined() {
+                            // If the namespace is already set
+                            js_sys::Reflect::set(
+                                &val,
+                                &import_type.name().into(),
+                                import.as_jsvalue(),
+                            );
+                        } else {
+                            let import_namespace = js_sys::Object::new();
+                            js_sys::Reflect::set(
+                                &import_namespace,
+                                &import_type.name().into(),
+                                import.as_jsvalue(),
+                            );
+                            js_sys::Reflect::set(
+                                &imports,
+                                &import_type.module().into(),
+                                &import_namespace.into(),
+                            );
+                        }
                     }
-                    Err(_) => {
-                        let import_namespace = js_sys::Object::new();
-                        js_sys::Reflect::set(
-                            &import_namespace,
-                            &import_type.name().into(),
-                            import.as_jsvalue(),
-                        );
-                        js_sys::Reflect::set(
-                            &imports,
-                            &import_type.module().into(),
-                            &import_namespace.into(),
-                        );
-                    }
+                    Err(_) => return Err(()),
                 };
             }
         }
-        WebAssembly::Instance::new(&self.module, &imports).map_err(|_| ())
+        Ok(WebAssembly::Instance::new(&self.module, &imports).unwrap())
     }
 
     /// Returns the name of the current module.

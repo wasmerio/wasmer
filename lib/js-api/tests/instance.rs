@@ -118,3 +118,44 @@ fn test_exported_function() {
 //         .exports
 //         .get_function::<(), (WasmPtr<u8, Array>, i32)>("load")?;
 // }
+
+#[wasm_bindgen_test]
+fn test_imported_function() {
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"
+    (module
+        (func $imported (import "env" "imported") (param i32) (result i32))
+        (func (export "exported") (param i32) (result i32)
+            (call $imported (local.get 0))
+        )
+    )
+    "#,
+    )
+    .unwrap();
+
+    let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
+    let imported = Function::new(&store, &imported_signature, |args| {
+        println!("Calling `imported`...");
+        let result = args[0].unwrap_i32() * 2;
+        println!("Result of `imported`: {:?}", result);
+        Ok(vec![Value::I32(result)])
+    });
+
+    let import_object = imports! {
+        "env" => {
+            "imported" => imported,
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    // let memory = instance.exports.get_memory("mem").unwrap();
+    // assert_eq!(memory.size(), Pages(1));
+    // assert_eq!(memory.data_size(), 65536);
+
+    let exported = instance.exports.get_function("exported").unwrap();
+
+    let expected = vec![Val::F64(5.0)].into_boxed_slice();
+    assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
+}
