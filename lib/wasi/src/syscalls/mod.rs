@@ -2068,7 +2068,7 @@ pub fn path_rename(
                 return __WASI_EEXIST;
             }
             let mut out_path = path.clone();
-            out_path.push(target_path);
+            out_path.push(std::path::Path::new(&target_entry_name));
             out_path
         }
         Kind::Root { .. } => return __WASI_ENOTCAPABLE,
