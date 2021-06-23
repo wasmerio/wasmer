@@ -23,7 +23,8 @@ composed of a set of crates. We can group them as follows:
 * `derive` — A set of procedural macros used inside Wasmer,
 * ABI:
   * `emscripten` — Emscripten ABI implementation inside Wasmer,
-  * `wasi` — WASI ABI implementation inside Wasmer.
+  * `wasi` — WASI ABI implementation inside Wasmer:
+    * `wasi-types` — All the WASI types,
     * `wasi-experimental-io-devices` — An experimental extension of
       WASI for basic graphics.
 * `engine` — The general abstraction for creating an engine, which is

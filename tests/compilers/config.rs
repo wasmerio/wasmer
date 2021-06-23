@@ -77,7 +77,7 @@ impl Config {
                 }
                 Box::new(engine.engine())
             }
-            #[allow(dead_code)]
+            #[allow(unreachable_patterns)]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",
                 engine
@@ -91,7 +91,7 @@ impl Config {
             Engine::Dylib => Box::new(wasmer_engine_dylib::Dylib::headless().engine()),
             #[cfg(feature = "universal")]
             Engine::Universal => Box::new(wasmer_engine_universal::Universal::headless().engine()),
-            #[allow(dead_code)]
+            #[allow(unreachable_patterns)]
             engine => panic!(
                 "The {:?} Engine is not enabled. Please enable it using the features",
                 engine

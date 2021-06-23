@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "2.0.0-rc2"
+target_version = "2.0.0"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -43,7 +43,8 @@ dep_graph = {
                    "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-universal",
                    "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-types", "wasmer-derive"]),
     "wasmer-cache": set(["wasmer"]),
-    "wasmer-wasi": set(["wasmer"]),
+    "wasmer-wasi": set(["wasmer", "wasmer-wasi-types"]),
+    "wasmer-wasi-types": set(["wasmer-types"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
     "wasmer-c-api": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
@@ -71,6 +72,7 @@ location = {
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",
+    "wasmer-wasi-types": "wasi-types",
     "wasmer-emscripten": "emscripten",
     "wasmer-wasi-experimental-io-devices": "wasi-experimental-io-devices",
     "wasmer-c-api": "c-api",

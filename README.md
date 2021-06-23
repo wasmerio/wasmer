@@ -132,6 +132,7 @@ languages**, so you can use WebAssembly _anywhere_.
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Learn][postgres docs] |
 |  | [**Swift**][Swift integration] | *no published package* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
+| ![Dart logo] | [**Dart**][Dart integration] | *no published package* | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -202,6 +203,9 @@ languages**, so you can use WebAssembly _anywhere_.
 
 [zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
 [zig integration]: https://github.com/zigwasm/wasmer-zig
+
+[dart logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/dart.svg
+[dart integration]: https://github.com/dart-lang/wasm
 
 ## Contribute
 

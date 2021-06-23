@@ -1,6 +1,9 @@
 #![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
-pub mod types;
+pub mod types {
+    pub use wasmer_wasi_types::*;
+}
+
 #[cfg(any(
     target_os = "freebsd",
     target_os = "linux",
@@ -50,7 +53,7 @@ fn write_bytes_inner<T: Write>(
     let mut bytes_written = 0;
     for iov in iovs_arr_cell {
         let iov_inner = iov.get();
-        let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
+        let bytes = WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len)?;
         write_loc
             .write_all(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
             .map_err(|_| __WASI_EIO)?;
@@ -80,7 +83,7 @@ fn read_bytes<T: Read>(
 
     for iov in iovs_arr_cell {
         let iov_inner = iov.get();
-        let bytes = iov_inner.buf.deref(memory, 0, iov_inner.buf_len)?;
+        let bytes = WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len)?;
         let mut raw_bytes: &mut [u8] =
             unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
         bytes_read += reader.read(raw_bytes).map_err(|_| __WASI_EIO)? as u32;
@@ -2055,7 +2058,7 @@ pub fn path_rename(
                 return __WASI_EEXIST;
             }
             let mut out_path = path.clone();
-            out_path.push(target_path);
+            out_path.push(std::path::Path::new(&target_entry_name));
             out_path
         }
         Kind::Root { .. } => return __WASI_ENOTCAPABLE,
