@@ -21,7 +21,7 @@ typetag = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0" }
 wasmer = { path = "../api", version = "2.0.0", default-features = false }
-wasmer-virtual-fs = { path = "../virtual-fs", version = "2.0.0-rc2" }
+wasmer-virtual-fs = { path = "../virtual-fs", version = "2.0.0" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
