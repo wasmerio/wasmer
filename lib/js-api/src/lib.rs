@@ -278,6 +278,9 @@ mod lib {
     }
 }
 
+// #[cfg(test)]
+// wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
 mod cell;
 mod env;
 mod error;
@@ -285,7 +288,6 @@ mod export;
 mod exports;
 mod externals;
 mod resolver;
-// mod externals;
 mod import_object;
 mod instance;
 mod iterators;

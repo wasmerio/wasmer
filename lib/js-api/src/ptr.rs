@@ -111,14 +111,6 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
         }
         let subarray = memory.uint8view().subarray(self.offset, total_len as u32);
         Some(WasmCell::new(subarray))
-        // unimplemented!();
-        // unsafe {
-        //     let cell_ptr = align_pointer(
-        //         memory.view::<u8>()[self.offset as usize] as usize,
-        //         mem::align_of::<T>(),
-        //     ) as *const Cell<T>;
-        //     Some(&*cell_ptr)
-        // }
     }
 
     /// Mutably dereference this `WasmPtr` getting a `&mut Cell<T>` allowing for
@@ -130,17 +122,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     ///   exclusive access to Wasm linear memory before calling this method.
     #[inline]
     pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<WasmCell<T>> {
-        let total_len = (self.offset as usize) + mem::size_of::<T>();
-        if total_len > memory.size().bytes().0 || mem::size_of::<T>() == 0 {
-            return None;
-        }
-        let subarray = memory.uint8view().subarray(self.offset, total_len as u32);
-        Some(WasmCell::new(subarray))
-        // let cell_ptr = align_pointer(
-        //     memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
-        //     mem::align_of::<T>(),
-        // ) as *mut Cell<T>;
-        // Some(&mut *cell_ptr)
+        self.deref(memory)
     }
 }
 
@@ -181,15 +163,6 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         )
-        // unsafe {
-        //     let cell_ptr = align_pointer(
-        //         memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
-        //         mem::align_of::<T>(),
-        //     ) as *const Cell<T>;
-        //     let cell_ptrs = &std::slice::from_raw_parts(cell_ptr, slice_full_len)
-        //         [index as usize..slice_full_len];
-        //     Some(cell_ptrs)
-        // }
     }
 
     /// Mutably dereference this `WasmPtr` getting a `&mut [Cell<T>]` allowing for
@@ -207,26 +180,6 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         length: u32,
     ) -> Option<Box<[WasmCell<T>]>> {
         self.deref(memory, index, length)
-        // // gets the size of the item in the array with padding added such that
-        // // for any index, we will always result an aligned memory access
-        // let item_size = mem::size_of::<T>();
-        // let slice_full_len = index as usize + length as usize;
-        // let memory_size = memory.size().bytes().0;
-
-        // if (self.offset as usize) + (item_size * slice_full_len) > memory.size().bytes().0
-        //     || self.offset as usize >= memory_size
-        //     || mem::size_of::<T>() == 0
-        // {
-        //     return None;
-        // }
-
-        // let cell_ptr = align_pointer(
-        //     memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
-        //     mem::align_of::<T>(),
-        // ) as *mut Cell<T>;
-        // let cell_ptrs = &mut std::slice::from_raw_parts_mut(cell_ptr, slice_full_len)
-        //     [index as usize..slice_full_len];
-        // Some(cell_ptrs)
     }
 
     /// Get a UTF-8 string from the `WasmPtr` with the given length.
@@ -258,9 +211,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         {
             return None;
         }
-        let subarray = memory.uint8view().subarray(self.offset, str_len).to_vec();
-        // std::str::from_utf8(subarray.as_slice()).ok()
-        String::from_utf8(subarray).ok().map(std::borrow::Cow::from)
+        let subarray_as_vec = memory.uint8view().subarray(self.offset, str_len).to_vec();
+        String::from_utf8(subarray_as_vec).ok().map(std::borrow::Cow::from)
     }
 
     /// Get a UTF-8 `String` from the `WasmPtr` with the given length.
@@ -274,8 +226,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
             return None;
         }
 
-        let subarray = memory.uint8view().subarray(self.offset, str_len).to_vec();
-        String::from_utf8(subarray).ok()
+        let subarray_as_vec = memory.uint8view().subarray(self.offset, str_len).to_vec();
+        String::from_utf8(subarray_as_vec).ok()
     }
 }
 

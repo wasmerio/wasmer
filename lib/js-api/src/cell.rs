@@ -218,7 +218,7 @@ impl<T: Copy> WasmCell<T> {
     #[inline]
     pub fn get(&self) -> T {
         let vec = self.memory.to_vec();
-        unsafe { *(vec.as_slice().as_ptr() as *const T) }
+        unsafe { *(vec.as_ptr() as *const T) }
         // unimplemented!();
     }
 
@@ -267,11 +267,6 @@ impl<T: Sized> WasmCell<T> {
         let ptr = &val as *const T as *const u8;
         let slice = unsafe { std::slice::from_raw_parts(ptr, size) };
         self.memory.copy_from(slice);
-        // p.as_ptr();
-        // let ptr = (&val) as usize;
-        // unimplemented!();
-        // let old = self.replace(val);
-        // drop(old);
     }
 }
 //     /// Returns a raw pointer to the underlying data in this cell.
