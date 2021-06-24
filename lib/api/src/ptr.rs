@@ -8,6 +8,7 @@
 
 use crate::{externals::Memory, FromToNativeWasmType};
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
+use crate::cell::WasmCell;
 use wasmer_types::ValueType;
 
 /// The `Array` marker type. This type can be used like `WasmPtr<T, Array>`
@@ -103,7 +104,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
+    pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<T>> {
         if (self.offset as usize) + mem::size_of::<T>() > memory.size().bytes().0
             || mem::size_of::<T>() == 0
         {
@@ -114,7 +115,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
                 mem::align_of::<T>(),
             ) as *const Cell<T>;
-            Some(&*cell_ptr)
+            Some(WasmCell::new(cell_ptr))
         }
     }
 
