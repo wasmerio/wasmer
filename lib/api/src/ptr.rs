@@ -139,12 +139,12 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     ) -> Option<Vec<WasmCell<'a, T>>> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
-        let item_size = mem::size_of::<T>() as u32;
-        let slice_full_len = index + length;
-        let memory_size = memory.size().bytes().0 as u32;
+        let item_size = mem::size_of::<T>();
+        let slice_full_len = index as usize + length as usize;
+        let memory_size = memory.size().bytes().0;
 
-        if self.offset + (item_size * slice_full_len) > memory_size
-            || self.offset >= memory_size
+        if (self.offset as usize) + (item_size * slice_full_len) > memory_size
+            || (self.offset as usize) >= memory_size
             || item_size == 0
         {
             return None;
