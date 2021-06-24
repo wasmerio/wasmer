@@ -7,6 +7,7 @@ use core::fmt::{self, Debug, Display};
 use core::mem;
 use core::ops::{Deref, DerefMut};
 use core::ptr;
+use std::fmt::Pointer;
 
 /// A mutable memory location.
 ///
@@ -225,6 +226,14 @@ impl<T: Copy> WasmCell<'_, T> {
         &mut *self.inner.as_ptr()
     }
 }
+
+impl<T: Debug> Debug for WasmCell<'_, T> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
 
 impl<T: Sized> WasmCell<'_, T> {
     /// Sets the contained value.
