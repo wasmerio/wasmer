@@ -1,10 +1,7 @@
 pub use std::cell::Cell;
 
 use core::cmp::Ordering;
-use core::fmt::{self, Debug, Display};
-use core::mem;
-use core::ops::{Deref, DerefMut};
-use core::ptr;
+use core::fmt::{self, Debug};
 use std::fmt::Pointer;
 
 /// A mutable Wasm-memory location.
