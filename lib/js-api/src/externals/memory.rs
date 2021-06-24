@@ -116,8 +116,7 @@ impl Memory {
     /// assert_eq!(m.store(), &store);
     /// ```
     pub fn store(&self) -> &Store {
-        unimplemented!();
-        // &self.store
+        &self.store
     }
 
     /// Retrieve a slice of the memory contents.
@@ -268,6 +267,11 @@ impl Memory {
         // let length = self.size().bytes().0 / std::mem::size_of::<T>();
 
         // unsafe { MemoryView::new(base as _, length as u32) }
+    }
+
+    /// example view
+    pub fn uint8view(&self) -> js_sys::Uint8Array {
+        js_sys::Uint8Array::new(&self.vm_memory.buffer())
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {

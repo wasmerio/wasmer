@@ -278,6 +278,7 @@ mod lib {
     }
 }
 
+mod cell;
 mod env;
 mod error;
 mod export;
