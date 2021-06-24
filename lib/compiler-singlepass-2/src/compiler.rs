@@ -48,6 +48,42 @@ impl SinglepassCompiler {
     }
 }
 
+struct Generator {
+    function: fn(&SinglepassCompiler, &FunctionBodyData, &VMOffsets, &CompileModuleInfo, LocalFunctionIndex)
+        -> Result<CompiledFunction, CompileError>,
+    std_trampoline: fn(sig: &FunctionType) -> Vec<u8>,
+    std_dynamic_import_trampoline: fn(vmoffsets: &VMOffsets, sig: &FunctionType) -> Vec<u8>,
+    import_call_trampoline: fn(vmoffsets: &VMOffsets, index: FunctionIndex, sig: &FunctionType) -> Vec<u8>
+}
+
+impl Generator {
+    fn gen_function(&self, compiler: &SinglepassCompiler, input: &FunctionBodyData,
+        vmoffsets: &VMOffsets, compile_info: &CompileModuleInfo, i: LocalFunctionIndex)
+        -> Result<CompiledFunction, CompileError> {
+        (self.function)(compiler, input, vmoffsets, compile_info, i)
+    }
+    fn gen_std_trampoline(&self, sig: &FunctionType) -> FunctionBody {
+        FunctionBody {
+            body: (self.std_trampoline)(sig),
+            unwind_info: None,
+        }
+    }
+    fn gen_std_dynamic_import_trampoline(&self, vmoffsets: &VMOffsets, sig: &FunctionType) -> FunctionBody {
+        FunctionBody {
+            body: (self.std_dynamic_import_trampoline)(&vmoffsets, sig),
+            unwind_info: None,
+        }
+    }
+    fn gen_import_call_trampoline(&self, vmoffsets: &VMOffsets, index: FunctionIndex, sig: &FunctionType) -> CustomSection {
+        CustomSection {
+            protection: CustomSectionProtection::ReadExecute,
+            bytes: SectionBody::new_with_vec(
+                (self.import_call_trampoline)(vmoffsets, index, sig)),
+            relocations: vec![],
+        }
+    }
+}
+
 impl Compiler for SinglepassCompiler {
     /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
@@ -70,9 +106,23 @@ impl Compiler for SinglepassCompiler {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
 
-        let trampoline_gen = match target.triple().architecture {
-            Architecture::Aarch64(_) => <Aarch64Machine as Machine>::trampoline_generator(),
-            Architecture::X86_64 => <X64Machine as Machine>::trampoline_generator(),
+        let gen = match target.triple().architecture {
+            Architecture::Aarch64(_) => {
+                Generator {
+                    function: Self::gen_function::<Aarch64Machine>,
+                    std_trampoline: <Aarch64Machine as Machine>::gen_std_trampoline,
+                    import_call_trampoline: <Aarch64Machine as Machine>::gen_import_call_trampoline,
+                    std_dynamic_import_trampoline: <Aarch64Machine as Machine>::gen_std_dynamic_import_trampoline,
+                }
+            },
+            Architecture::X86_64 => {
+                Generator {
+                    function: Self::gen_function::<X64Machine>,
+                    std_trampoline: <X64Machine as Machine>::gen_std_trampoline,
+                    import_call_trampoline: <X64Machine as Machine>::gen_import_call_trampoline,
+                    std_dynamic_import_trampoline: <X64Machine as Machine>::gen_std_dynamic_import_trampoline,
+                }
+            },
             arch => {
                 return Err(CompileError::UnsupportedTarget(arch.to_string()));
             }
@@ -87,65 +137,33 @@ impl Compiler for SinglepassCompiler {
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|i| {
-                CustomSection {
-                    protection: CustomSectionProtection::ReadExecute,
-                    bytes: SectionBody::new_with_vec(
-                        (trampoline_gen.gen_import_call_trampoline)(&vmoffsets, i, &module.signatures[module.functions[i]])),
-                    relocations: vec![],
-                }
-            })
+            .map(|i| gen.gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]]))
             .collect::<Vec<_>>()
             .into_iter()
             .collect();
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            // .par_iter()
-            .iter()
-            .map(|(i, input)| {
-                match target.triple().architecture {
-                    Architecture::Aarch64(_) => {
-                        self.gen_function(Aarch64Machine::new(), input, &vmoffsets, &compile_info, *i)
-                    },
-                    Architecture::X86_64 => {
-                        self.gen_function(X64Machine::new(), input, &vmoffsets, &compile_info, *i)
-                    },
-                    arch => {
-                        return Err(CompileError::UnsupportedTarget(arch.to_string()));
-                    }
-                }
-            })
+            .iter()// .par_iter()
+            .map(|(i, input)| gen.gen_function(&self, input, &vmoffsets, &compile_info, *i))
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunction>>();
-
         let function_call_trampolines = module
             .signatures
             .values()
             .collect::<Vec<_>>()
             .par_iter()
             .cloned()
-            .map(|sig| {
-                FunctionBody {
-                    body: (trampoline_gen.gen_std_trampoline)(sig),
-                    unwind_info: None,
-                }
-            })
+            .map(|sig| gen.gen_std_trampoline(sig))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
-
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
             .par_iter()
-            .map(|func_type| {
-                FunctionBody {
-                    body: (trampoline_gen.gen_std_dynamic_import_trampoline)(&vmoffsets, func_type),
-                    unwind_info: None,
-                }
-            })
+            .map(|func_type| gen.gen_std_dynamic_import_trampoline(&vmoffsets, func_type))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
@@ -161,7 +179,7 @@ impl Compiler for SinglepassCompiler {
 }
 
 impl SinglepassCompiler {
-    fn gen_function<M: Machine>(&self, machine: M, input: &FunctionBodyData,
+    fn gen_function<M: Machine>(&self, input: &FunctionBodyData,
         vmoffsets: &VMOffsets, compile_info: &CompileModuleInfo, i: LocalFunctionIndex)
         -> Result<CompiledFunction, CompileError> {
         
@@ -182,6 +200,7 @@ impl SinglepassCompiler {
             }
         }
         
+        let machine = M::new();
         let mut generator = FuncGen::new(
             machine, &compile_info.module, &self.config, &vmoffsets,
             &compile_info.memory_styles, &compile_info.table_styles, i, &locals,
