@@ -11,11 +11,14 @@ use wasmer_compiler::{
     Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
     ModuleTranslationState, OperatingSystem, Target,
 };
-use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
-use wasmer_compiler::{FunctionBody, FunctionBodyData};
+use wasmer_compiler::{
+    Compilation, CompileError, CompiledFunction, Compiler, SectionIndex,
+    FunctionBody, FunctionBodyData, CustomSection, CustomSectionProtection, SectionBody};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
+
+use crate::machine::Machine;
 
 use dynasmrt::{aarch64::Assembler as Aarch64Assembler};
 use crate::machine_aarch64::Aarch64Machine;
@@ -67,28 +70,14 @@ impl Compiler for SinglepassCompiler {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
 
-        let (
-            gen_std_trampoline,
-            gen_import_call_trampoline,
-            gen_std_dynamic_import_trampoline,
-        ): (fn(_) -> _,fn(_, _, _) -> _,fn(_, _) -> _) = match target.triple().architecture {
-            Architecture::Aarch64(_) => {
-                (FuncGen::<Aarch64Machine>::gen_std_trampoline,
-                FuncGen::<Aarch64Machine>::gen_import_call_trampoline,
-                FuncGen::<Aarch64Machine>::gen_std_dynamic_import_trampoline)
-            },
-            Architecture::X86_64 => {
-                (FuncGen::<X64Machine>::gen_std_trampoline,
-                FuncGen::<X64Machine>::gen_import_call_trampoline,
-                FuncGen::<X64Machine>::gen_std_dynamic_import_trampoline)
-            },
+        let trampoline_gen = match target.triple().architecture {
+            Architecture::Aarch64(_) => <Aarch64Machine as Machine>::trampoline_generator(),
+            Architecture::X86_64 => <X64Machine as Machine>::trampoline_generator(),
             arch => {
                 return Err(CompileError::UnsupportedTarget(arch.to_string()));
             }
         };
 
-        let memory_styles = &compile_info.memory_styles;
-        let table_styles = &compile_info.table_styles;
         let mut module = (*compile_info.module).clone();
         self.config.middlewares.apply_on_module_info(&mut module);
         compile_info.module = Arc::new(module);
@@ -98,7 +87,14 @@ impl Compiler for SinglepassCompiler {
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|i| gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]]))
+            .map(|i| {
+                CustomSection {
+                    protection: CustomSectionProtection::ReadExecute,
+                    bytes: SectionBody::new_with_vec(
+                        (trampoline_gen.gen_import_call_trampoline)(&vmoffsets, i, &module.signatures[module.functions[i]])),
+                    relocations: vec![],
+                }
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect();
@@ -108,66 +104,12 @@ impl Compiler for SinglepassCompiler {
             // .par_iter()
             .iter()
             .map(|(i, input)| {
-                let middleware_chain = self
-                    .config
-                    .middlewares
-                    .generate_function_middleware_chain(*i);
-                let mut reader =
-                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
-                reader.set_middleware_chain(middleware_chain);
-
-                // This local list excludes arguments.
-                let mut locals = vec![];
-                let num_locals = reader.read_local_count()?;
-                for _ in 0..num_locals {
-                    let (count, ty) = reader.read_local_decl()?;
-                    for _ in 0..count {
-                        locals.push(ty);
-                    }
-                }
-
                 match target.triple().architecture {
                     Architecture::Aarch64(_) => {
-                        let mut generator = FuncGen::new(
-                            Aarch64Machine::new(),
-                            module,
-                            &self.config,
-                            &vmoffsets,
-                            &memory_styles,
-                            &table_styles,
-                            *i,
-                            &locals,
-                        )
-                        .map_err(to_compile_error)?;
-
-                        while generator.has_control_frames() {
-                            generator.set_srcloc(reader.original_position() as u32);
-                            let op = reader.read_operator()?;
-                            generator.feed_operator(op).map_err(to_compile_error)?;
-                        }
-
-                        Ok(generator.finalize(&input))
+                        self.gen_function(Aarch64Machine::new(), input, &vmoffsets, &compile_info, *i)
                     },
                     Architecture::X86_64 => {
-                        let mut generator = FuncGen::new(
-                            X64Machine::new(),
-                            module,
-                            &self.config,
-                            &vmoffsets,
-                            &memory_styles,
-                            &table_styles,
-                            *i,
-                            &locals,
-                        )
-                        .map_err(to_compile_error)?;
-
-                        while generator.has_control_frames() {
-                            generator.set_srcloc(reader.original_position() as u32);
-                            let op = reader.read_operator()?;
-                            generator.feed_operator(op).map_err(to_compile_error)?;
-                        }
-
-                        Ok(generator.finalize(&input))
+                        self.gen_function(X64Machine::new(), input, &vmoffsets, &compile_info, *i)
                     },
                     arch => {
                         return Err(CompileError::UnsupportedTarget(arch.to_string()));
@@ -184,7 +126,12 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .cloned()
-            .map(gen_std_trampoline)
+            .map(|sig| {
+                FunctionBody {
+                    body: (trampoline_gen.gen_std_trampoline)(sig),
+                    unwind_info: None,
+                }
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -193,7 +140,12 @@ impl Compiler for SinglepassCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .par_iter()
-            .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, func_type))
+            .map(|func_type| {
+                FunctionBody {
+                    body: (trampoline_gen.gen_std_dynamic_import_trampoline)(&vmoffsets, func_type),
+                    unwind_info: None,
+                }
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
@@ -205,6 +157,43 @@ impl Compiler for SinglepassCompiler {
             dynamic_function_trampolines,
             None,
         ))
+    }
+}
+
+impl SinglepassCompiler {
+    fn gen_function<M: Machine>(&self, machine: M, input: &FunctionBodyData,
+        vmoffsets: &VMOffsets, compile_info: &CompileModuleInfo, i: LocalFunctionIndex)
+        -> Result<CompiledFunction, CompileError> {
+        
+        let middleware_chain = self
+            .config
+            .middlewares
+            .generate_function_middleware_chain(i);
+        let mut reader = MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+        reader.set_middleware_chain(middleware_chain);
+
+        // This local list excludes arguments.
+        let mut locals = vec![];
+        let num_locals = reader.read_local_count()?;
+        for _ in 0..num_locals {
+            let (count, ty) = reader.read_local_decl()?;
+            for _ in 0..count {
+                locals.push(ty);
+            }
+        }
+        
+        let mut generator = FuncGen::new(
+            machine, &compile_info.module, &self.config, &vmoffsets,
+            &compile_info.memory_styles, &compile_info.table_styles, i, &locals,
+        ).map_err(to_compile_error)?;
+        
+        while generator.has_control_frames() {
+            generator.set_srcloc(reader.original_position() as u32);
+            let op = reader.read_operator()?;
+            generator.feed_operator(op).map_err(to_compile_error)?;
+        }
+    
+        Ok(generator.finalize(&input))
     }
 }
 
