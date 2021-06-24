@@ -64,6 +64,33 @@ where
             _phantom: PhantomData,
         }
     }
+
+    /// Creates a subarray view from this MemoryView.
+    pub fn subarray(&self, start: u32, end: u32) -> Self {
+        assert!(start <= end);
+        assert!((end as usize) < self.length);
+        Self {
+            ptr: unsafe { self.ptr.add(start as usize) },
+            length: (end - start) as usize,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Copy the contents of the source slice into this `MemoryView`.
+    ///
+    /// This function will efficiently copy the memory from within the wasm
+    /// module’s own linear memory to this typed array.
+    pub fn copy_from(&self, src: &[T]) {
+        assert!(
+            src.len() == self.length,
+            "The source length must match the MemoryView length"
+        );
+        unsafe {
+            for (i, byte) in src.iter().enumerate() {
+                *self.ptr.offset(i as isize) = *byte;
+            }
+        }
+    }
 }
 
 impl<'a, T: Atomic> MemoryView<'a, T> {

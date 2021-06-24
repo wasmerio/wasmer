@@ -253,6 +253,7 @@
 //! [wasmer-llvm]: https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/
 //! [wasmer-wasi]: https://docs.rs/wasmer-wasi/*/wasmer_wasi/
 
+mod cell;
 mod env;
 mod exports;
 mod externals;
@@ -281,6 +282,7 @@ pub mod internals {
     pub use crate::externals::{WithEnv, WithoutEnv};
 }
 
+pub use crate::cell::WasmCell;
 pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
