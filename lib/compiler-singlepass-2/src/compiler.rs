@@ -46,6 +46,42 @@ impl SinglepassCompiler {
     fn config(&self) -> &Singlepass {
         &self.config
     }
+    
+    fn gen_function<M: Machine>(&self, input: &FunctionBodyData,
+        vmoffsets: &VMOffsets, compile_info: &CompileModuleInfo, i: LocalFunctionIndex)
+        -> Result<CompiledFunction, CompileError> {
+        
+        let middleware_chain = self
+            .config
+            .middlewares
+            .generate_function_middleware_chain(i);
+        let mut reader = MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+        reader.set_middleware_chain(middleware_chain);
+
+        // This local list excludes arguments.
+        let mut locals = vec![];
+        let num_locals = reader.read_local_count()?;
+        for _ in 0..num_locals {
+            let (count, ty) = reader.read_local_decl()?;
+            for _ in 0..count {
+                locals.push(ty);
+            }
+        }
+        
+        let machine = M::new();
+        let mut generator = FuncGen::new(
+            machine, &compile_info.module, &self.config, &vmoffsets,
+            &compile_info.memory_styles, &compile_info.table_styles, i, &locals,
+        ).map_err(to_compile_error)?;
+        
+        while generator.has_control_frames() {
+            generator.set_srcloc(reader.original_position() as u32);
+            let op = reader.read_operator()?;
+            generator.feed_operator(op).map_err(to_compile_error)?;
+        }
+    
+        Ok(generator.finalize(&input))
+    }
 }
 
 struct Generator {
@@ -70,15 +106,14 @@ impl Generator {
     }
     fn gen_std_dynamic_import_trampoline(&self, vmoffsets: &VMOffsets, sig: &FunctionType) -> FunctionBody {
         FunctionBody {
-            body: (self.std_dynamic_import_trampoline)(&vmoffsets, sig),
+            body: (self.std_dynamic_import_trampoline)(vmoffsets, sig),
             unwind_info: None,
         }
     }
     fn gen_import_call_trampoline(&self, vmoffsets: &VMOffsets, index: FunctionIndex, sig: &FunctionType) -> CustomSection {
         CustomSection {
             protection: CustomSectionProtection::ReadExecute,
-            bytes: SectionBody::new_with_vec(
-                (self.import_call_trampoline)(vmoffsets, index, sig)),
+            bytes: SectionBody::new_with_vec((self.import_call_trampoline)(vmoffsets, index, sig)),
             relocations: vec![],
         }
     }
@@ -110,17 +145,17 @@ impl Compiler for SinglepassCompiler {
             Architecture::Aarch64(_) => {
                 Generator {
                     function: Self::gen_function::<Aarch64Machine>,
-                    std_trampoline: <Aarch64Machine as Machine>::gen_std_trampoline,
-                    import_call_trampoline: <Aarch64Machine as Machine>::gen_import_call_trampoline,
-                    std_dynamic_import_trampoline: <Aarch64Machine as Machine>::gen_std_dynamic_import_trampoline,
+                    std_trampoline: Aarch64Machine::gen_std_trampoline,
+                    import_call_trampoline: Aarch64Machine::gen_import_call_trampoline,
+                    std_dynamic_import_trampoline: Aarch64Machine::gen_std_dynamic_import_trampoline,
                 }
             },
             Architecture::X86_64 => {
                 Generator {
                     function: Self::gen_function::<X64Machine>,
-                    std_trampoline: <X64Machine as Machine>::gen_std_trampoline,
-                    import_call_trampoline: <X64Machine as Machine>::gen_import_call_trampoline,
-                    std_dynamic_import_trampoline: <X64Machine as Machine>::gen_std_dynamic_import_trampoline,
+                    std_trampoline: X64Machine::gen_std_trampoline,
+                    import_call_trampoline: X64Machine::gen_import_call_trampoline,
+                    std_dynamic_import_trampoline: X64Machine::gen_std_dynamic_import_trampoline,
                 }
             },
             arch => {
@@ -175,44 +210,6 @@ impl Compiler for SinglepassCompiler {
             dynamic_function_trampolines,
             None,
         ))
-    }
-}
-
-impl SinglepassCompiler {
-    fn gen_function<M: Machine>(&self, input: &FunctionBodyData,
-        vmoffsets: &VMOffsets, compile_info: &CompileModuleInfo, i: LocalFunctionIndex)
-        -> Result<CompiledFunction, CompileError> {
-        
-        let middleware_chain = self
-            .config
-            .middlewares
-            .generate_function_middleware_chain(i);
-        let mut reader = MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
-        reader.set_middleware_chain(middleware_chain);
-
-        // This local list excludes arguments.
-        let mut locals = vec![];
-        let num_locals = reader.read_local_count()?;
-        for _ in 0..num_locals {
-            let (count, ty) = reader.read_local_decl()?;
-            for _ in 0..count {
-                locals.push(ty);
-            }
-        }
-        
-        let machine = M::new();
-        let mut generator = FuncGen::new(
-            machine, &compile_info.module, &self.config, &vmoffsets,
-            &compile_info.memory_styles, &compile_info.table_styles, i, &locals,
-        ).map_err(to_compile_error)?;
-        
-        while generator.has_control_frames() {
-            generator.set_srcloc(reader.original_position() as u32);
-            let op = reader.read_operator()?;
-            generator.feed_operator(op).map_err(to_compile_error)?;
-        }
-    
-        Ok(generator.finalize(&input))
     }
 }
 
