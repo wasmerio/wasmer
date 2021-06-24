@@ -253,6 +253,71 @@ impl X64Machine {
         }
     }
 
+    fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
+        let mut m = Self::new();
+
+        // call pushes the return address, aligning the stack to 8 bytes
+        // we need to align to 8 again in order to achieve 16 byte alignment
+        // this is not required by all x86 platforms, but some conventions require it
+        // (e.g. darwin requires that the stack is 16-byte aligned before calls)
+        let fptr_reg = 12;
+        let args_reg = 13;
+        dynasm!(m.assembler
+            ; .arch x64
+            ; sub rsp, 8
+            ; push Rq(fptr_reg)
+            ; push Rq(args_reg)
+            ; mov Rq(fptr_reg), rsi
+            ; mov Rq(args_reg), rdx);
+        
+        // Move arguments to their locations.
+        // `callee_vmctx` is already in the first argument register, so no need to move.
+        for (i, _param) in sig.params().iter().enumerate() {
+            let src = Location::Memory(args_reg, (i * 16) as _); // args_rets[i]
+            
+            let dst = match i {
+                0..=4 => Location::GPR(ARG_REGS[1 + i]),
+                _ =>     Location::Memory(SP_GPR, (i as i32 - 5) * 8),
+            };
+
+            m.move_data(Size::S64, src, dst);
+        }
+
+        dynasm!(m.assembler ; .arch x64 ; call Rq(fptr_reg));
+
+        // Write return value.
+        if !sig.results().is_empty() {
+            dynasm!(m.assembler ; .arch x64 ; mov [Rq(args_reg)], rax);
+        }
+
+        // Restore stack.
+        dynasm!(m.assembler
+            ; .arch x64
+            ; pop Rq(args_reg)
+            ; pop Rq(fptr_reg)
+            ; add rsp, 8
+            ; ret);
+        
+        m.assembler.finalize().unwrap().to_vec()
+    }
+
+    fn gen_std_dynamic_import_trampoline(
+        vmoffsets: &VMOffsets,
+        sig: &FunctionType) -> Vec<u8> {
+        let mut a = Assembler::new().unwrap();
+        dynasm!(a ; .arch x64 ; ret);
+        a.finalize().unwrap().to_vec()
+    }
+
+    fn gen_import_call_trampoline(
+        vmoffsets: &VMOffsets,
+        index: FunctionIndex,
+        sig: &FunctionType) -> Vec<u8> {
+        let mut a = Assembler::new().unwrap();
+        dynasm!(a ; .arch x64 ; ret);
+        a.finalize().unwrap().to_vec()
+    }
+
     fn emit_restore_stack_offset(&mut self, prev_offset: i32) -> bool {
         let diff = -(self.stack_offset - prev_offset);
 
@@ -1130,67 +1195,11 @@ impl Machine for X64Machine {
         self.assembler.finalize().unwrap().to_vec()
     }
 
-    fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
-        let mut m = Self::new();
-
-        // call pushes the return address, aligning the stack to 8 bytes
-        // we need to align to 8 again in order to achieve 16 byte alignment
-        // this is not required by all x86 platforms, but some conventions require it
-        // (e.g. darwin requires that the stack is 16-byte aligned before calls)
-        let fptr_reg = 12;
-        let args_reg = 13;
-        dynasm!(m.assembler
-            ; .arch x64
-            ; sub rsp, 8
-            ; push Rq(fptr_reg)
-            ; push Rq(args_reg)
-            ; mov Rq(fptr_reg), rsi
-            ; mov Rq(args_reg), rdx);
-        
-        // Move arguments to their locations.
-        // `callee_vmctx` is already in the first argument register, so no need to move.
-        for (i, _param) in sig.params().iter().enumerate() {
-            let src = Location::Memory(args_reg, (i * 16) as _); // args_rets[i]
-            
-            let dst = match i {
-                0..=4 => Location::GPR(ARG_REGS[1 + i]),
-                _ =>     Location::Memory(SP_GPR, (i as i32 - 5) * 8),
-            };
-
-            m.move_data(Size::S64, src, dst);
+    fn trampoline_generator() -> TrampolineGenerator {
+        TrampolineGenerator {
+            gen_import_call_trampoline: Self::gen_import_call_trampoline,
+            gen_std_dynamic_import_trampoline: Self::gen_std_dynamic_import_trampoline,
+            gen_std_trampoline: Self::gen_std_trampoline,
         }
-
-        dynasm!(m.assembler ; .arch x64 ; call Rq(fptr_reg));
-
-        // Write return value.
-        if !sig.results().is_empty() {
-            dynasm!(m.assembler ; .arch x64 ; mov [Rq(args_reg)], rax);
-        }
-
-        // Restore stack.
-        dynasm!(m.assembler
-            ; .arch x64
-            ; pop Rq(args_reg)
-            ; pop Rq(fptr_reg)
-            ; add rsp, 8
-            ; ret);
-        
-        m.assembler.finalize().unwrap().to_vec()
-    }
-
-    fn gen_std_dynamic_import_trampoline(
-        vmoffsets: &VMOffsets,
-        sig: &FunctionType) -> Vec<u8> {
-        let mut a = Assembler::new().unwrap();
-        dynasm!(a ; .arch x64 ; ret);
-        a.finalize().unwrap().to_vec()
-    }
-    fn gen_import_call_trampoline(
-        vmoffsets: &VMOffsets,
-        index: FunctionIndex,
-        sig: &FunctionType) -> Vec<u8> {
-        let mut a = Assembler::new().unwrap();
-        dynasm!(a ; .arch x64 ; ret);
-        a.finalize().unwrap().to_vec()
     }
 }

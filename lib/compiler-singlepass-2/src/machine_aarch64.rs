@@ -256,6 +256,88 @@ impl Aarch64Machine {
         }
     }
 
+
+
+    fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
+        let mut m = Self::new();
+        // let mut a = Assembler::new().unwrap();
+
+        let mut stack_offset: i32 = (3 + sig.params().len().saturating_sub(8)) as i32 * 8;
+        if stack_offset % 16 != 0 {
+            stack_offset += 8;
+            assert!(stack_offset % 16 == 0);
+        }
+
+        let x19_save = Location::Memory(SP, stack_offset     );
+        let x20_save = Location::Memory(SP, stack_offset -  8);
+        let x30_save = Location::Memory(SP, stack_offset - 16);
+
+        dynasm!(m.assembler ; .arch aarch64 ; sub sp, sp, stack_offset as u32);
+        m.move_data(Size::S64, Location::Reg(X19), x19_save);
+        m.move_data(Size::S64, Location::Reg(X20), x20_save);
+        m.move_data(Size::S64, Location::Reg(X30), x30_save);
+        
+        let fptr_loc = Location::Reg(X19);
+        let args_reg = X20;
+        let args_loc = Location::Reg(args_reg);
+
+        m.move_data(Size::S64, Location::Reg(X1), fptr_loc);
+        m.move_data(Size::S64, Location::Reg(X2), args_loc);
+
+        // Move arguments to their locations.
+        // `callee_vmctx` is already in the first argument register, so no need to move.
+        for (i, _param) in sig.params().iter().enumerate() {
+            let src = Location::Memory(args_reg, (i * 16) as _); // args_rets[i]
+            
+            let dst = match i {
+                0..=6 => Location::Reg(Reg::X(1 + i as u32)),
+                _ =>     Location::Memory(SP, (i as i32 - 7) * 8),
+            };
+
+            m.move_data(Size::S64, src, dst);
+        }
+
+        dynasm!(m.assembler ; .arch aarch64 ; blr x19);
+
+        // Write return value.
+        if !sig.results().is_empty() {
+            m.move_data(
+                Size::S64,
+                Location::Reg(X0),
+                Location::Memory(args_reg, 0),
+            );
+        }
+
+        m.move_data(Size::S64, x19_save, Location::Reg(X19));
+        m.move_data(Size::S64, x20_save, Location::Reg(X20));
+        m.move_data(Size::S64, x30_save, Location::Reg(X30));
+
+        // Restore stack.
+        dynasm!(m.assembler
+            ; .arch aarch64
+            ; add sp, sp, stack_offset as u32
+            ; ret);
+        
+        m.assembler.finalize().unwrap().to_vec()
+    }
+
+    fn gen_std_dynamic_import_trampoline(
+        vmoffsets: &VMOffsets,
+        sig: &FunctionType) -> Vec<u8> {
+        let mut a = Assembler::new().unwrap();
+        dynasm!(a ; .arch aarch64 ; ret);
+        a.finalize().unwrap().to_vec()
+    }
+    
+    fn gen_import_call_trampoline(
+        vmoffsets: &VMOffsets,
+        index: FunctionIndex,
+        sig: &FunctionType) -> Vec<u8> {
+        let mut a = Assembler::new().unwrap();
+        dynasm!(a ; .arch aarch64 ; ret);
+        a.finalize().unwrap().to_vec()
+    }
+
     fn emit_restore_stack_offset(&mut self, prev_offset: i32) -> bool {
         let diff = -(self.stack_offset - prev_offset) as u32;
 
@@ -1188,82 +1270,11 @@ impl Machine for Aarch64Machine {
         self.assembler.finalize().unwrap().to_vec()
     }
 
-    fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
-        let mut m = Self::new();
-        // let mut a = Assembler::new().unwrap();
-
-        let mut stack_offset: i32 = (3 + sig.params().len().saturating_sub(8)) as i32 * 8;
-        if stack_offset % 16 != 0 {
-            stack_offset += 8;
-            assert!(stack_offset % 16 == 0);
+    fn trampoline_generator() -> TrampolineGenerator {
+        TrampolineGenerator {
+            gen_import_call_trampoline: Self::gen_import_call_trampoline,
+            gen_std_dynamic_import_trampoline: Self::gen_std_dynamic_import_trampoline,
+            gen_std_trampoline: Self::gen_std_trampoline,
         }
-
-        let x19_save = Location::Memory(SP, stack_offset     );
-        let x20_save = Location::Memory(SP, stack_offset -  8);
-        let x30_save = Location::Memory(SP, stack_offset - 16);
-
-        dynasm!(m.assembler ; .arch aarch64 ; sub sp, sp, stack_offset as u32);
-        m.move_data(Size::S64, Location::Reg(X19), x19_save);
-        m.move_data(Size::S64, Location::Reg(X20), x20_save);
-        m.move_data(Size::S64, Location::Reg(X30), x30_save);
-        
-        let fptr_loc = Location::Reg(X19);
-        let args_reg = X20;
-        let args_loc = Location::Reg(args_reg);
-
-        m.move_data(Size::S64, Location::Reg(X1), fptr_loc);
-        m.move_data(Size::S64, Location::Reg(X2), args_loc);
-
-        // Move arguments to their locations.
-        // `callee_vmctx` is already in the first argument register, so no need to move.
-        for (i, _param) in sig.params().iter().enumerate() {
-            let src = Location::Memory(args_reg, (i * 16) as _); // args_rets[i]
-            
-            let dst = match i {
-                0..=6 => Location::Reg(Reg::X(1 + i as u32)),
-                _ =>     Location::Memory(SP, (i as i32 - 7) * 8),
-            };
-
-            m.move_data(Size::S64, src, dst);
-        }
-
-        dynasm!(m.assembler ; .arch aarch64 ; blr x19);
-
-        // Write return value.
-        if !sig.results().is_empty() {
-            m.move_data(
-                Size::S64,
-                Location::Reg(X0),
-                Location::Memory(args_reg, 0),
-            );
-        }
-
-        m.move_data(Size::S64, x19_save, Location::Reg(X19));
-        m.move_data(Size::S64, x20_save, Location::Reg(X20));
-        m.move_data(Size::S64, x30_save, Location::Reg(X30));
-
-        // Restore stack.
-        dynasm!(m.assembler
-            ; .arch aarch64
-            ; add sp, sp, stack_offset as u32
-            ; ret);
-        
-        m.assembler.finalize().unwrap().to_vec()
-    }
-
-    fn gen_std_dynamic_import_trampoline(
-        vmoffsets: &VMOffsets,
-        sig: &FunctionType) -> Vec<u8> {
-        let mut a = Assembler::new().unwrap();
-        dynasm!(a ; .arch aarch64 ; ret);
-        a.finalize().unwrap().to_vec()
-    }
-    fn gen_import_call_trampoline(
-        vmoffsets: &VMOffsets,
-        index: FunctionIndex,
-        sig: &FunctionType) -> Vec<u8> {
-        let mut a = Assembler::new().unwrap();
-        dynasm!(a ; .arch aarch64 ; ret);
-        a.finalize().unwrap().to_vec()
     }
 }

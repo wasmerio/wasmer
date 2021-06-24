@@ -1453,34 +1453,4 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         //     .release_locations_keep_state(&mut self.assembler, released);
         self.unreachable_depth = 1;
     }
-
-    pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
-        FunctionBody {
-            body: M::gen_std_trampoline(sig),
-            unwind_info: None,
-        }
-    }
-
-    pub fn gen_std_dynamic_import_trampoline(
-        vmoffsets: &VMOffsets,
-        sig: &FunctionType,
-    ) -> FunctionBody {
-        FunctionBody {
-            body: M::gen_std_dynamic_import_trampoline(vmoffsets, sig),
-            unwind_info: None,
-        }
-    }
-
-    pub fn gen_import_call_trampoline(
-        vmoffsets: &VMOffsets,
-        index: FunctionIndex,
-        sig: &FunctionType,
-    ) -> CustomSection {
-        CustomSection {
-            protection: CustomSectionProtection::ReadExecute,
-            bytes: SectionBody::new_with_vec(
-                M::gen_import_call_trampoline(vmoffsets, index, sig)),
-            relocations: vec![],
-        }
-    }
 }

@@ -35,6 +35,12 @@ pub struct CallInfo<T: Copy> {
     pub after_call: usize,
 }
 
+pub struct TrampolineGenerator {
+    pub gen_std_trampoline: fn(sig: &FunctionType) -> Vec<u8>,
+    pub gen_std_dynamic_import_trampoline: fn(vmoffsets: &VMOffsets, sig: &FunctionType) -> Vec<u8>,
+    pub gen_import_call_trampoline: fn(vmoffsets: &VMOffsets, index: FunctionIndex, sig: &FunctionType) -> Vec<u8>
+}
+
 pub trait Machine {
     type Location: MaybeImmediate + Copy + Eq + Debug;
     type Label: Copy;
@@ -76,15 +82,7 @@ pub trait Machine {
     fn do_restore_local(&mut self, local: Local<Self::Location>, location: Self::Location) -> Local<Self::Location>;
     fn finalize(self) -> Vec<u8>;
 
-    fn gen_std_trampoline(
-        sig: &FunctionType) -> Vec<u8>;
-    fn gen_std_dynamic_import_trampoline(
-        vmoffsets: &VMOffsets,
-        sig: &FunctionType) -> Vec<u8>;
-    fn gen_import_call_trampoline(
-        vmoffsets: &VMOffsets,
-        index: FunctionIndex,
-        sig: &FunctionType) -> Vec<u8>;
+    fn trampoline_generator() -> TrampolineGenerator;
 }
 
 // #[cfg(test)]
