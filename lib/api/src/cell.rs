@@ -1,7 +1,5 @@
 pub use std::cell::Cell;
 
-
-
 use core::cmp::Ordering;
 use core::fmt::{self, Debug, Display};
 use core::mem;
@@ -9,7 +7,7 @@ use core::ops::{Deref, DerefMut};
 use core::ptr;
 use std::fmt::Pointer;
 
-/// A mutable memory location.
+/// A mutable Wasm-memory location.
 ///
 /// # Examples
 ///
@@ -41,7 +39,6 @@ use std::fmt::Pointer;
 /// ```
 ///
 /// See the [module-level documentation](self) for more.
-#[derive(Clone)]
 #[repr(transparent)]
 pub struct WasmCell<'a, T: ?Sized> {
     inner: &'a Cell<T>,
@@ -51,27 +48,17 @@ unsafe impl<T: ?Sized> Send for WasmCell<'_, T> where T: Send {}
 
 unsafe impl<T: ?Sized> Sync for WasmCell<'_, T> {}
 
-// impl<T: Copy> Clone for WasmCell<T> {
-//     #[inline]
-//     fn clone(&self) -> WasmCell<T> {
-//         WasmCell::new(self.get())
-//     }
-// }
-
-// impl<T: Default> Default for WasmCell<T> {
-//     /// Creates a `WasmCell<T>`, with the `Default` value for T.
-//     #[inline]
-//     fn default() -> WasmCell<T> {
-//         WasmCell::new({
-//             inner: Default::default()
-//         )
-//     }
-// }
+impl<'a, T: Copy> Clone for WasmCell<'a, T> {
+    #[inline]
+    fn clone(&self) -> WasmCell<'a, T> {
+        WasmCell { inner: self.inner }
+    }
+}
 
 impl<T: PartialEq + Copy> PartialEq for WasmCell<'_, T> {
     #[inline]
     fn eq(&self, other: &WasmCell<T>) -> bool {
-        true
+        self.inner.eq(&other.inner)
     }
 }
 
@@ -111,13 +98,6 @@ impl<T: Ord + Copy> Ord for WasmCell<'_, T> {
     }
 }
 
-// impl<T> From<T> for WasmCell<T> {
-//     fn from(t: T) -> WasmCell<T> {
-//         // unimplemented!();
-//         // WasmCell::new(t)
-//     }
-// }
-
 impl<'a, T> WasmCell<'a, T> {
     /// Creates a new `WasmCell` containing the given value.
     ///
@@ -130,77 +110,8 @@ impl<'a, T> WasmCell<'a, T> {
     /// ```
     #[inline]
     pub const fn new(cell: &'a Cell<T>) -> WasmCell<'a, T> {
-        WasmCell {
-            inner: cell,
-        }
+        WasmCell { inner: cell }
     }
-
-    /// Swaps the values of two WasmCells.
-    /// Difference with `std::mem::swap` is that this function doesn't require `&mut` reference.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use wasmer::WasmCell;
-    ///
-    /// let c1 = WasmCell::new(5i32);
-    /// let c2 = WasmCell::new(10i32);
-    /// c1.swap(&c2);
-    /// assert_eq!(10, c1.get());
-    /// assert_eq!(5, c2.get());
-    /// ```
-    #[inline]
-    pub fn swap(&self, other: &Self) {
-        unimplemented!();
-        // if ptr::eq(self, other) {
-        //     return;
-        // }
-        // // SAFETY: This can be risky if called from separate threads, but `WasmCell`
-        // // is `!Sync` so this won't happen. This also won't invalidate any
-        // // pointers since `WasmCell` makes sure nothing else will be pointing into
-        // // either of these `WasmCell`s.
-        // unsafe {
-        //     ptr::swap(self.value.get(), other.value.get());
-        // }
-    }
-
-    /// Replaces the contained value with `val`, and returns the old contained value.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use wasmer::WasmCell;
-    ///
-    /// let cell = WasmCell::new(5);
-    /// assert_eq!(cell.get(), 5);
-    /// assert_eq!(cell.replace(10), 5);
-    /// assert_eq!(cell.get(), 10);
-    /// ```
-    pub fn replace(&self, val: T) -> T {
-        unimplemented!();
-        // SAFETY: This can cause data races if called from a separate thread,
-        // but `WasmCell` is `!Sync` so this won't happen.
-        // mem::replace(unsafe { &mut *self.value.get() }, val)
-    }
-
-    // /// Unwraps the value.
-    // ///
-    // /// # Examples
-    // ///
-    // /// ```
-    // /// use wasmer::WasmCell;
-    // ///
-    // /// let c = WasmCell::new(5);
-    // /// let five = c.into_inner();
-    // ///
-    // /// assert_eq!(five, 5);
-    // /// ```
-    // pub const fn into_inner(self) -> T {
-    //     // This will get the item out of the MemoryView and into
-    //     // Rust memory allocator
-    //     unimplemented!()
-    //     // self.get()
-    // }
 }
 
 impl<T: Copy> WasmCell<'_, T> {
@@ -233,7 +144,6 @@ impl<T: Debug> Debug for WasmCell<'_, T> {
         self.inner.fmt(f)
     }
 }
-
 
 impl<T: Sized> WasmCell<'_, T> {
     /// Sets the contained value.
