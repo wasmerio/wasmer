@@ -104,7 +104,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<T>> {
+    pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<'a, T>> {
         if (self.offset as usize) + mem::size_of::<T>() > memory.size().bytes().0
             || mem::size_of::<T>() == 0
         {
@@ -152,7 +152,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<Vec<WasmCell<T>>> {
+    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<Vec<WasmCell<'a, T>>> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() as u32;

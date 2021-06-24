@@ -130,6 +130,20 @@ impl<'a, T: Copy> WasmCell<'a, T> {
 
     /// Get an unsafe mutable pointer to the inner item
     /// in the Cell.
+    ///
+    /// # Safety
+    ///
+    /// This method is highly discouraged to use. We have it for
+    /// compatibility reasons with Emscripten.
+    /// It is unsafe because changing an item inline will change
+    /// the underlying memory.
+    ///
+    /// It's highly encouraged to use the `set` method instead.
+    #[deprecated(
+        since = "2.0.0",
+        note = "Please use the memory-safe set method instead"
+    )]
+    #[doc(hidden)]
     pub unsafe fn get_mut(&self) -> &'a mut T {
         &mut *self.inner.as_ptr()
     }
