@@ -94,7 +94,7 @@ impl<T: PartialOrd + Copy> PartialOrd for WasmCell<'_, T> {
 impl<T: Ord + Copy> Ord for WasmCell<'_, T> {
     #[inline]
     fn cmp(&self, other: &WasmCell<T>) -> Ordering {
-        self.get().cmp(&other.get())
+        self.inner.cmp(&other.inner)
     }
 }
 
@@ -114,7 +114,7 @@ impl<'a, T> WasmCell<'a, T> {
     }
 }
 
-impl<T: Copy> WasmCell<'_, T> {
+impl<'a, T: Copy> WasmCell<'a, T> {
     /// Returns a copy of the contained value.
     ///
     /// # Examples
@@ -133,7 +133,7 @@ impl<T: Copy> WasmCell<'_, T> {
 
     /// Get an unsafe mutable pointer to the inner item
     /// in the Cell.
-    pub unsafe fn get_mut(&self) -> &mut T {
+    pub unsafe fn get_mut(&self) -> &'a mut T {
         &mut *self.inner.as_ptr()
     }
 }
