@@ -42,13 +42,13 @@ use core::ptr;
 /// See the [module-level documentation](self) for more.
 #[derive(Clone)]
 #[repr(transparent)]
-pub struct WasmCell<T: ?Sized> {
-    inner: *const Cell<T>,
+pub struct WasmCell<'a, T: ?Sized> {
+    inner: &'a Cell<T>,
 }
 
-unsafe impl<T: ?Sized> Send for WasmCell<T> where T: Send {}
+unsafe impl<T: ?Sized> Send for WasmCell<'_, T> where T: Send {}
 
-unsafe impl<T: ?Sized> Sync for WasmCell<T> {}
+unsafe impl<T: ?Sized> Sync for WasmCell<'_, T> {}
 
 // impl<T: Copy> Clone for WasmCell<T> {
 //     #[inline]
@@ -67,16 +67,16 @@ unsafe impl<T: ?Sized> Sync for WasmCell<T> {}
 //     }
 // }
 
-impl<T: PartialEq + Copy> PartialEq for WasmCell<T> {
+impl<T: PartialEq + Copy> PartialEq for WasmCell<'_, T> {
     #[inline]
     fn eq(&self, other: &WasmCell<T>) -> bool {
         true
     }
 }
 
-impl<T: Eq + Copy> Eq for WasmCell<T> {}
+impl<T: Eq + Copy> Eq for WasmCell<'_, T> {}
 
-impl<T: PartialOrd + Copy> PartialOrd for WasmCell<T> {
+impl<T: PartialOrd + Copy> PartialOrd for WasmCell<'_, T> {
     #[inline]
     fn partial_cmp(&self, other: &WasmCell<T>) -> Option<Ordering> {
         self.inner.partial_cmp(&other.inner)
@@ -103,7 +103,7 @@ impl<T: PartialOrd + Copy> PartialOrd for WasmCell<T> {
     }
 }
 
-impl<T: Ord + Copy> Ord for WasmCell<T> {
+impl<T: Ord + Copy> Ord for WasmCell<'_, T> {
     #[inline]
     fn cmp(&self, other: &WasmCell<T>) -> Ordering {
         self.get().cmp(&other.get())
@@ -117,7 +117,7 @@ impl<T: Ord + Copy> Ord for WasmCell<T> {
 //     }
 // }
 
-impl<T> WasmCell<T> {
+impl<'a, T> WasmCell<'a, T> {
     /// Creates a new `WasmCell` containing the given value.
     ///
     /// # Examples
@@ -128,7 +128,7 @@ impl<T> WasmCell<T> {
     /// let c = WasmCell::new(5);
     /// ```
     #[inline]
-    pub const fn new(cell: *const Cell<T>) -> WasmCell<T> {
+    pub const fn new(cell: &'a Cell<T>) -> WasmCell<'a, T> {
         WasmCell {
             inner: cell,
         }
@@ -202,7 +202,7 @@ impl<T> WasmCell<T> {
     // }
 }
 
-impl<T: Copy> WasmCell<T> {
+impl<T: Copy> WasmCell<'_, T> {
     /// Returns a copy of the contained value.
     ///
     /// # Examples
@@ -216,11 +216,17 @@ impl<T: Copy> WasmCell<T> {
     /// ```
     #[inline]
     pub fn get(&self) -> T {
-        unsafe { (*self.inner).get() }
+        self.inner.get()
+    }
+
+    /// Get an unsafe mutable pointer to the inner item
+    /// in the Cell.
+    pub unsafe fn get_mut(&self) -> &mut T {
+        &mut *self.inner.as_ptr()
     }
 }
 
-impl<T: Sized> WasmCell<T> {
+impl<T: Sized> WasmCell<'_, T> {
     /// Sets the contained value.
     ///
     /// # Examples
@@ -234,6 +240,6 @@ impl<T: Sized> WasmCell<T> {
     /// ```
     #[inline]
     pub fn set(&self, val: T) {
-        unsafe { (*self.inner).set(val) };
+        self.inner.set(val);
     }
 }

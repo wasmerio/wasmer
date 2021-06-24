@@ -115,7 +115,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
                 mem::align_of::<T>(),
             ) as *const Cell<T>;
-            Some(WasmCell::new(cell_ptr))
+            Some(WasmCell::new(&*cell_ptr))
         }
     }
 
@@ -152,7 +152,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<&[Cell<T>]> {
+    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<Box<[WasmCell<T>]>> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>();
@@ -170,9 +170,9 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
             let cell_ptr = align_pointer(
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
                 mem::align_of::<T>(),
-            ) as *const Cell<T>;
-            let cell_ptrs = &std::slice::from_raw_parts(cell_ptr, slice_full_len)
-                [index as usize..slice_full_len];
+            ) as *const WasmCell<T>;
+            let cell_ptrs = std::slice::from_raw_parts(cell_ptr, slice_full_len)
+                [index as usize..slice_full_len].to_owned().into_boxed_slice();
             Some(cell_ptrs)
         }
     }
