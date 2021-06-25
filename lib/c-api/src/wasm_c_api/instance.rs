@@ -87,7 +87,7 @@ pub unsafe extern "C" fn wasm_instance_new(
 ///
 /// # Example
 ///
-/// See `wasm_instance_new`.
+/// See [`wasm_instance_new`].
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instance_t>>) {}
 

@@ -19,6 +19,10 @@ impl From<RuntimeError> for wasm_trap_t {
 ///
 /// Be careful, the message is typed with `wasm_message_t` which
 /// represents a null-terminated string.
+///
+/// # Example
+///
+/// See the module's documentation for a complete example.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_new(
     _store: &mut wasm_store_t,
@@ -53,9 +57,56 @@ pub unsafe extern "C" fn wasm_trap_new(
     Some(Box::new(trap))
 }
 
+/// Deletes a trap.
+///
+/// # Example
+///
+/// See the module's documentation for a complete example.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_delete(_trap: Option<Box<wasm_trap_t>>) {}
 
+/// Gets the message attached to the trap.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer.h"
+/// #
+/// int main() {
+///     // Create an engine and a store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create the trap message.
+///     wasm_message_t message;
+///     wasm_name_new_from_string_nt(&message, "foobar");
+///
+///     // Create the trap with its message.
+///     // The backtrace will be generated automatically.
+///     wasm_trap_t* trap = wasm_trap_new(store, &message);
+///     assert(trap);
+///
+///     // Get the trap's message back.
+///     wasm_message_t retrieved_message;
+///     wasm_trap_message(trap, &retrieved_message);
+///     assert(retrieved_message.size == message.size);
+///
+///     // Free everything.
+///     wasm_name_delete(&message);
+///     wasm_name_delete(&retrieved_message);
+///     wasm_trap_delete(trap);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_message(
     trap: &wasm_trap_t,
@@ -72,11 +123,13 @@ pub unsafe extern "C" fn wasm_trap_message(
     out.data = byte_vec.data;
 }
 
+/// Gets the origin frame attached to the trap.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_origin(trap: &wasm_trap_t) -> Option<Box<wasm_frame_t>> {
     trap.inner.trace().first().map(Into::into).map(Box::new)
 }
 
+/// Gets the trace (as a list of frames) attached to the trap.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_trace(
     trap: &wasm_trap_t,
@@ -115,6 +168,7 @@ mod tests {
                 assert(retrieved_message.size == 7);
 
                 wasm_name_delete(&original_message);
+                wasm_name_delete(&retrieved_message);
                 wasm_trap_delete(trap);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -146,6 +200,7 @@ mod tests {
                 assert(retrieved_message.size == 7);
 
                 wasm_name_delete(&original_message);
+                wasm_name_delete(&retrieved_message);
                 wasm_trap_delete(trap);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
