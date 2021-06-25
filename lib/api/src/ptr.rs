@@ -151,13 +151,13 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         }
 
         Some(
-            (0..length)
+            (0..(length as usize))
                 .map(|i| unsafe {
                     let cell_ptr = align_pointer(
                         memory
                             .view::<u8>()
                             .as_ptr()
-                            .add((self.offset + i * item_size) as usize)
+                            .add((self.offset as usize + i * item_size))
                             as usize,
                         mem::align_of::<T>(),
                     ) as *const Cell<T>;
