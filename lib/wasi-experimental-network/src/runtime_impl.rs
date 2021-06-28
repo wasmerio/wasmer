@@ -259,7 +259,7 @@ fn socket_bind(
     let memory = env.memory();
 
     let sockaddr_bytes: &[Cell<u8>] = address.deref(memory, 0, address_size).unwrap();
-    let (_, socketaddr) = unsafe {
+    let (_, sockaddr) = unsafe {
         socket::SockAddr::init(|sockaddr_storage, len| {
             ptr::copy(
                 sockaddr_bytes.as_ptr() as *const u8,
@@ -274,58 +274,49 @@ fn socket_bind(
     };
 
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    socket.bind(&socketaddr).unwrap();
+    socket.bind(&sockaddr).unwrap();
 
     __WASI_ESUCCESS
 }
 
 fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    socket.listen(backlog).unwrap();
+    socket.listen(backlog.try_into().unwrap()).unwrap();
+
+    __WASI_ESUCCESS
+}
+
+fn socket_accept(
+    env: &WasiEnv,
+    fd: __wasi_fd_t,
+    address: WasmPtr<u8, Array>,
+    address_size: WasmPtr<u32>,
+    remote_fd: WasmPtr<__wasi_fd_t>,
+) -> __wasi_errno_t {
+    let socket = unsafe { socket::Socket::from_fd(fd) };
+    let (socket, sockaddr) = socket.accept().unwrap();
+
+    let memory = env.memory();
+
+    let sockaddr_bytes: &[Cell<u8>] = address.deref(memory, 0, sockaddr.len()).unwrap();
+    unsafe {
+        ptr::copy(
+            sockaddr.as_ptr() as *const u8,
+            sockaddr_bytes as *const _ as *mut _,
+            sockaddr.len() as usize,
+        )
+    }
+
+    let address_size_cell = wasi_try!(address_size.deref(memory));
+    address_size_cell.set(sockaddr.len());
+
+    let remote_fd_cell = wasi_try!(remote_fd.deref(memory));
+    remote_fd_cell.set(socket.as_fd());
 
     __WASI_ESUCCESS
 }
 
 /*
-fn socket_accept(
-    env: &WasiEnv,
-    fd: __wasi_fd_t,
-    address: WasmPtr<u32>,
-    address_size: WasmPtr<u32>,
-    remote_fd: WasmPtr<__wasi_fd_t>,
-) -> __wasi_errno_t {
-    let memory = env.memory();
-
-    let address_size_cell = wasi_try!(address_size.deref(memory));
-    let address_size = address_size_cell.get() as usize;
-
-    let address_offset = address.offset() as usize;
-
-    if address_offset + address_size > memory.size().bytes().0 || address_size == 0 {
-        eprintln!("Failed to map `address` to something inside the memory");
-        return __WASI_EINVAL;
-    }
-
-    let address_ptr: *mut u8 = unsafe { memory.data_ptr().add(address_offset) };
-
-    let new_fd = unsafe {
-        libc::accept(
-            fd.try_into().unwrap(),
-            address_ptr as *mut _,
-            address_size_cell.as_ptr(),
-        )
-    };
-
-    if new_fd < 0 {
-        return Error::current().wasi_errno();
-    }
-
-    let remote_fd_cell = wasi_try!(remote_fd.deref(memory));
-    remote_fd_cell.set(new_fd.try_into().unwrap());
-
-    __WASI_ESUCCESS
-}
-
 fn socket_send(
     env: &WasiEnv,
     fd: __wasi_fd_t,

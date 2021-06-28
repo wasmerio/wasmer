@@ -22,7 +22,6 @@ extern "C" {
     /// “assigning a name to a socket”.
     pub fn socket_bind(fd: __wasi_fd_t, address: *const u8, address_size: u32) -> __wasi_errno_t;
 
-    /*
     /// `socket_listen` marks the socket referred to by `fd` as a
     /// passive socket, that is, a socket that will be used to accept
     /// incoming connection requests using [`socket_accept`].
@@ -63,6 +62,7 @@ extern "C" {
         remote_fd: *mut __wasi_fd_t,
     ) -> __wasi_errno_t;
 
+    /*
     /// The `socekt_connect` function connects the socket referred to
     /// by the file descriptor `fd` to the address specified by
     /// `address`. The `address_size` argument specifies the size of
