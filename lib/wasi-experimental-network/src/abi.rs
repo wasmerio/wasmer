@@ -6,22 +6,23 @@ use wasmer_wasi_types::*;
 extern "C" {
     /// `socket_create` creates an endpoint for communication.
     pub fn socket_create(
-        fd_out: *mut __wasi_fd_t,
         domain: __wasi_socket_domain_t,
         r#type: __wasi_socket_type_t,
         protocol: __wasi_socket_protocol_t,
+        fd_out: *mut __wasi_fd_t,
     ) -> __wasi_errno_t;
 
     /// When a socket is created (with [`socket_create`]), it exists
     /// in a name space (address family) but has no address assigned
     /// to it. `socket_bind` assigns the address specified by
-    /// `address` (see [`SocketAddress`] and [`SocketAddress6`]) to
-    /// the socket referred to by the file descriptor
-    /// `fd`. `address_size` specifies the size, in bytes, of the
-    /// address structure pointed to by `address`. Traditionnaly, this
-    /// operation is called “assigning a name to a socket”.
-    pub fn socket_bind(fd: __wasi_fd_t, address: NonNull<u8>, address_size: u32) -> __wasi_errno_t;
+    /// `address` (see [`SockAddrIn`] and [`SockAddrIn6`]) to the
+    /// socket referred to by the file descriptor `fd`. `address_size`
+    /// specifies the size, in bytes, of the address structure pointed
+    /// to by `address`. Traditionnaly, this operation is called
+    /// “assigning a name to a socket”.
+    pub fn socket_bind(fd: __wasi_fd_t, address: *const u8, address_size: u32) -> __wasi_errno_t;
 
+    /*
     /// `socket_listen` marks the socket referred to by `fd` as a
     /// passive socket, that is, a socket that will be used to accept
     /// incoming connection requests using [`socket_accept`].
@@ -122,4 +123,5 @@ extern "C" {
     /// The `shutdown` function causes all or part of a full-duplex
     /// connection on the socket with `fd` to be shut down.
     pub fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t;
+    */
 }

@@ -4,10 +4,33 @@ use std::fmt;
 use std::mem;
 pub use wasmer_wasi_types::*;
 
+/// A type with the same memory layout as `libc::sockaddr`.
+/// An union around `sockaddr_in` and `sockaddr_in6`.
+#[repr(C)]
+pub union SocketAddr {
+    v4: SockaddrIn,
+    v6: SockaddrIn6,
+}
+
+impl SocketAddr {
+    pub fn as_ptr(&self) -> *const u8 {
+        self as *const _ as *const _
+    }
+}
+
 /// The `sockaddr_in` struct.
 #[repr(C)]
 #[derive(Copy, Clone, Default)]
 pub struct SockaddrIn {
+    #[cfg(any(
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    pub sin_len: u8,
     pub sin_family: u16,
     pub sin_port: u16,
     pub sin_addr: [u8; 4],
@@ -38,11 +61,22 @@ impl fmt::Debug for SockaddrIn {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct SockaddrIn6 {
+    #[cfg(any(
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    pub sin6_len: u8,
     pub sin6_family: u16,
     pub sin6_port: u16,
     pub sin6_flowinfo: u32,
     pub sin6_addr: [u8; 16],
     pub sin6_scope_id: u32,
+    #[cfg(any(target_os = "solaris", target_os = "illumos"))]
+    pub __sin6_src_id: u32,
 }
 
 impl SockaddrIn6 {
@@ -64,6 +98,10 @@ pub const AF_INET: __wasi_socket_domain_t = 1;
 /// IPv6 Internet protocols.
 pub const AF_INET6: __wasi_socket_domain_t = 2;
 
+pub const AF_UNIX: __wasi_socket_domain_t = 3;
+pub const AF_PACKET: __wasi_socket_domain_t = 4;
+pub const AF_VSOCK: __wasi_socket_domain_t = 5;
+
 /// A socket has an indicated _type_, which specifies the
 /// communication semantics.
 ///
@@ -83,6 +121,9 @@ pub const SOCK_STREAM: __wasi_socket_type_t = 1;
 /// Implies UDP when used with an IP socket.
 pub const SOCK_DGRAM: __wasi_socket_type_t = 2;
 
+pub const SOCK_SEQPACKET: __wasi_socket_type_t = 3;
+pub const SOCK_RAW: __wasi_socket_type_t = 4;
+
 /// The _protocol_ specified a particular protocol to be used with the
 /// socket. Normally only a single protocol exists to support a
 /// particular socket type within a given protocol family, in which
@@ -99,6 +140,12 @@ pub type __wasi_socket_protocol_t = i32;
 /// Represents the default protocol, i.e. `0`. See
 /// [`__wasi_socket_protocol_t`] to learn more.
 pub const DEFAULT_PROTOCOL: __wasi_socket_protocol_t = 0;
+#[allow(non_upper_case_globals)]
+pub const ICMPv4: __wasi_socket_protocol_t = 1;
+#[allow(non_upper_case_globals)]
+pub const ICMPv6: __wasi_socket_protocol_t = 2;
+pub const TCP: __wasi_socket_protocol_t = 3;
+pub const UDP: __wasi_socket_protocol_t = 4;
 
 pub type __wasi_shutdown_t = i32;
 

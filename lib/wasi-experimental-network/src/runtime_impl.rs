@@ -1,12 +1,114 @@
 use crate::types::*;
+use socket2 as socket;
+use std::cell::Cell;
 use std::convert::TryInto;
 use std::fmt;
 use std::io;
+use std::mem;
+use std::ptr;
 use wasmer::{Exports, Function, Store};
 use wasmer_wasi::{
     ptr::{Array, WasmPtr},
     WasiEnv,
 };
+
+trait TryFrom<T>: Sized {
+    type Error;
+
+    fn try_from(value: T) -> Result<Self, Self::Error>;
+}
+
+impl TryFrom<__wasi_socket_type_t> for socket::Type {
+    type Error = String;
+
+    fn try_from(value: __wasi_socket_type_t) -> Result<Self, Self::Error> {
+        Ok(match value {
+            SOCK_STREAM => Self::STREAM,
+            SOCK_DGRAM => Self::DGRAM,
+            SOCK_SEQPACKET => Self::SEQPACKET,
+            #[cfg(not(target_os = "redox"))]
+            SOCK_RAW => Self::RAW,
+            t => return Err(format!("Unknown socket type `{}`", t)),
+        })
+    }
+}
+
+impl TryFrom<__wasi_socket_domain_t> for socket::Domain {
+    type Error = String;
+
+    fn try_from(value: __wasi_socket_domain_t) -> Result<Self, Self::Error> {
+        Ok(match value {
+            AF_INET => Self::IPV4,
+            AF_INET6 => Self::IPV6,
+            #[cfg(target_family = "unix")]
+            AF_UNIX => Self::UNIX,
+            #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+            AF_PACKET => Self::PACKET,
+            #[cfg(any(target_os = "android", target_os = "linux"))]
+            AF_VSOCK => Self::VSOCK,
+            d => return Err(format!("Unknown socket domain `{}`", d)),
+        })
+    }
+}
+
+impl TryFrom<__wasi_socket_protocol_t> for Option<socket::Protocol> {
+    type Error = String;
+
+    fn try_from(value: __wasi_socket_protocol_t) -> Result<Self, Self::Error> {
+        #![allow(non_upper_case_globals)]
+
+        Ok(match value {
+            DEFAULT_PROTOCOL => None,
+            ICMPv4 => Some(socket::Protocol::ICMPV4),
+            ICMPv6 => Some(socket::Protocol::ICMPV6),
+            TCP => Some(socket::Protocol::TCP),
+            UDP => Some(socket::Protocol::UDP),
+            d => return Err(format!("Unknown socket protocol `{}`", d)),
+        })
+    }
+}
+
+trait AsFd {
+    fn as_fd(&self) -> u32;
+}
+
+trait FromFd {
+    unsafe fn from_fd(fd: u32) -> Self;
+}
+
+#[cfg(target_family = "unix")]
+impl<T> AsFd for T
+where
+    T: std::os::unix::io::AsRawFd,
+{
+    fn as_fd(&self) -> u32 {
+        self.as_raw_fd().try_into().unwrap()
+    }
+}
+
+#[cfg(target_family = "windows")]
+impl<T> AsFd for T
+where
+    T: std::os::windows::io::AsRawSocket,
+{
+    fn as_fd(&self) -> u32 {
+        self.as_raw_socket().try_into().unwrap()
+    }
+}
+
+#[cfg(target_family = "unix")]
+impl FromFd for socket::Socket {
+    unsafe fn from_fd(fd: u32) -> Self {
+        std::os::unix::io::FromRawFd::from_raw_fd(fd.try_into().unwrap())
+    }
+}
+
+#[cfg(target_family = "windows")]
+impl FromFd for socket::Socket {
+    unsafe fn from_fd(fd: u32) -> Self {
+        std::os::unix::io::FromRawSocket::from_raw_socket(fd.try_into().unwrap())
+    }
+}
 
 macro_rules! wasi_try {
     ($expr:expr) => {{
@@ -24,6 +126,7 @@ macro_rules! wasi_try {
     }};
 }
 
+/*
 pub(crate) struct Error {
     inner: io::Error,
 }
@@ -124,41 +227,25 @@ impl fmt::Debug for Error {
         formatter.write_fmt(format_args!("{:?}", self.inner))
     }
 }
+*/
 
 fn socket_create(
     env: &WasiEnv,
-    fd_out: WasmPtr<__wasi_fd_t>,
     domain: __wasi_socket_domain_t,
     r#type: __wasi_socket_type_t,
     protocol: __wasi_socket_protocol_t,
+    fd_out: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
-    let domain = match domain {
-        AF_INET => libc::AF_INET,
-        AF_INET6 => libc::AF_INET6,
-        d => {
-            eprintln!("Unkown domain `{}`", d);
-            return __WASI_EINVAL;
-        }
-    };
-    let r#type = match r#type {
-        SOCK_STREAM => libc::SOCK_STREAM,
-        SOCK_DGRAM => libc::SOCK_DGRAM,
-        t => {
-            eprintln!("Unknown type `{}`", t);
-            return __WASI_EINVAL;
-        }
-    };
-    let protocol = protocol as i32;
+    let domain = domain.try_into().unwrap();
+    let r#type = r#type.try_into().unwrap();
+    let protocol = Option::<socket::Protocol>::try_from(protocol).unwrap();
 
-    let new_fd = unsafe { libc::socket(domain, r#type, protocol) };
-
-    if new_fd < 0 {
-        return Error::current().wasi_errno();
-    }
+    let socket = socket::Socket::new(domain, r#type, protocol).unwrap();
+    let fd = socket.as_fd();
 
     let memory = env.memory();
     let fd_out_cell = wasi_try!(fd_out.deref(memory));
-    fd_out_cell.set(new_fd.try_into().unwrap());
+    fd_out_cell.set(fd);
 
     __WASI_ESUCCESS
 }
@@ -166,45 +253,40 @@ fn socket_create(
 fn socket_bind(
     env: &WasiEnv,
     fd: __wasi_fd_t,
-    address: WasmPtr<u32>,
+    address: WasmPtr<u8, Array>,
     address_size: u32,
 ) -> __wasi_errno_t {
     let memory = env.memory();
 
-    let address_offset = address.offset() as usize;
+    let sockaddr_bytes: &[Cell<u8>] = address.deref(memory, 0, address_size).unwrap();
+    let (_, socketaddr) = unsafe {
+        socket::SockAddr::init(|sockaddr_storage, len| {
+            ptr::copy(
+                sockaddr_bytes.as_ptr() as *const u8,
+                sockaddr_storage as *mut _,
+                address_size as usize,
+            );
+            len.write(address_size);
 
-    if address_offset + (address_size as usize) > memory.size().bytes().0 || address_size == 0 {
-        eprintln!("Failed to map `address` to something inside the memory");
-        return __WASI_EINVAL;
-    }
-
-    let address_ptr: *mut u8 = unsafe { memory.data_ptr().add(address_offset) };
-
-    let err = unsafe {
-        libc::bind(
-            fd.try_into().unwrap(),
-            address_ptr as *const _,
-            address_size,
-        )
+            Ok(())
+        })
+        .unwrap()
     };
 
-    if err != 0 {
-        Error::current().wasi_errno()
-    } else {
-        __WASI_ESUCCESS
-    }
+    let socket = unsafe { socket::Socket::from_fd(fd) };
+    socket.bind(&socketaddr).unwrap();
+
+    __WASI_ESUCCESS
 }
 
 fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
-    let err = unsafe { libc::listen(fd.try_into().unwrap(), backlog.try_into().unwrap()) };
+    let socket = unsafe { socket::Socket::from_fd(fd) };
+    socket.listen(backlog).unwrap();
 
-    if err != 0 {
-        Error::current().wasi_errno()
-    } else {
-        __WASI_ESUCCESS
-    }
+    __WASI_ESUCCESS
 }
 
+/*
 fn socket_accept(
     env: &WasiEnv,
     fd: __wasi_fd_t,
@@ -377,3 +459,4 @@ pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Export
 
     ("wasi_experimental_network_unstable", wasi_network_imports)
 }
+*/
