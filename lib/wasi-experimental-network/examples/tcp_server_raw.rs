@@ -87,12 +87,11 @@ fn main() {
             String::from_utf8_lossy(&buffer[..io_read as usize])
         );
 
-        /*
         let mut io_written = 0;
         let err = unsafe {
             socket_send(
                 client_fd,
-                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.as_ptr(),
                 io_vec.len() as u32,
                 0,
                 &mut io_written,
@@ -114,6 +113,5 @@ fn main() {
         unsafe {
             socket_shutdown(client_fd, SHUT_RDWR);
         }
-        */
     }
 }
