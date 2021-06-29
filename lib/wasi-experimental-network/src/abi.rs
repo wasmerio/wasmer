@@ -122,4 +122,6 @@ extern "C" {
     /// The `shutdown` function causes all or part of a full-duplex
     /// connection on the socket with `fd` to be shut down.
     pub fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t;
+
+    pub fn socket_set_nonblocking(fd: __wasi_fd_t, nonblocking: bool) -> __wasi_errno_t;
 }

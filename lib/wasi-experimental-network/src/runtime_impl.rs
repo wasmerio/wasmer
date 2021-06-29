@@ -476,6 +476,16 @@ fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t {
     __WASI_ESUCCESS
 }
 
+fn socket_set_nonblocking(fd: __wasi_fd_t, nonblocking: u32) -> __wasi_errno_t {
+    let socket = unsafe { socket::Socket::from_fd(fd) };
+    socket.set_nonblocking(nonblocking > 0).unwrap();
+
+    // Do not drop/close the socket.
+    mem::forget(socket);
+
+    __WASI_ESUCCESS
+}
+
 pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Exports) {
     let mut wasi_network_imports = Exports::new();
     wasi_network_imports.insert(
@@ -502,6 +512,10 @@ pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Export
     wasi_network_imports.insert(
         "socket_shutdown",
         Function::new_native(&store, socket_shutdown),
+    );
+    wasi_network_imports.insert(
+        "socket_set_nonblocking",
+        Function::new_native(&store, socket_set_nonblocking),
     );
 
     ("wasi_experimental_network_unstable", wasi_network_imports)
