@@ -1,11 +1,13 @@
 use crate::types::*;
+use slab::Slab;
 use socket2 as socket;
 use std::cell::Cell;
 use std::convert::TryInto;
 use std::io;
 use std::mem;
 use std::net;
-use wasmer::{Exports, Function, Store};
+use std::sync::{Arc, RwLock};
+use wasmer::{Exports, Function, LazyInit, Memory, Store, WasmerEnv};
 use wasmer_wasi::{
     ptr::{Array, WasmPtr},
     WasiEnv,
@@ -277,7 +279,7 @@ macro_rules! wasi_try {
 }
 
 fn socket_create(
-    env: &WasiEnv,
+    env: &WasiNetworkEnv,
     domain: __wasi_socket_domain_t,
     r#type: __wasi_socket_type_t,
     protocol: __wasi_socket_protocol_t,
@@ -301,7 +303,7 @@ fn socket_create(
 }
 
 fn socket_bind(
-    env: &WasiEnv,
+    env: &WasiNetworkEnv,
     fd: __wasi_fd_t,
     address: WasmPtr<__wasi_socket_address_t>,
 ) -> __wasi_errno_t {
@@ -330,7 +332,7 @@ fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
 }
 
 fn socket_accept(
-    env: &WasiEnv,
+    env: &WasiNetworkEnv,
     fd: __wasi_fd_t,
     remote_address: WasmPtr<__wasi_socket_address_t>,
     remote_fd: WasmPtr<__wasi_fd_t>,
@@ -356,7 +358,7 @@ fn socket_accept(
 }
 
 fn socket_send(
-    env: &WasiEnv,
+    env: &WasiNetworkEnv,
     fd: __wasi_fd_t,
     iov: WasmPtr<__wasi_ciovec_t, Array>,
     iov_size: u32,
@@ -391,7 +393,7 @@ fn socket_send(
 }
 
 fn socket_recv(
-    env: &WasiEnv,
+    env: &WasiNetworkEnv,
     fd: __wasi_fd_t,
     iov: WasmPtr<__wasi_ciovec_t, Array>,
     iov_size: u32,
@@ -456,8 +458,131 @@ fn socket_set_nonblocking(fd: __wasi_fd_t, nonblocking: u32) -> __wasi_errno_t {
     __WASI_ESUCCESS
 }
 
+struct PollingSource(__wasi_fd_t);
+
+#[cfg(target_family = "unix")]
+impl polling::Source for PollingSource {
+    fn raw(&self) -> std::os::unix::io::RawFd {
+        self.0.try_into().unwrap()
+    }
+}
+
+#[cfg(target_family = "window")]
+impl polling::Source for PollingSource {
+    fn raw(&self) -> std::os::windows::io::RawSocket {
+        self.0.try_into().unwrap()
+    }
+}
+
+impl TryFrom<__wasi_poll_event_t> for polling::Event {
+    type Error = __wasi_errno_t;
+
+    fn try_from(value: __wasi_poll_event_t) -> Result<Self, Self::Error> {
+        Ok(polling::Event {
+            key: value.token.try_into().unwrap(),
+            readable: value.readable,
+            writable: value.writable,
+        })
+    }
+}
+
+fn poller_create(env: &WasiNetworkEnv, poll_out: WasmPtr<__wasi_poll_t>) -> __wasi_errno_t {
+    let poll = env
+        .poll_arena
+        .try_write()
+        .unwrap()
+        .insert((wasi_try!(polling::Poller::new()), Vec::new()));
+
+    let memory = env.memory();
+    let poll_out_cell = wasi_try!(poll_out.deref(memory));
+    poll_out_cell.set(poll.try_into().unwrap());
+
+    __WASI_ESUCCESS
+}
+
+fn poller_add(
+    env: &WasiNetworkEnv,
+    poll: __wasi_poll_t,
+    fd: __wasi_fd_t,
+    event: WasmPtr<__wasi_poll_event_t>,
+) -> __wasi_errno_t {
+    let memory = env.memory();
+    let poll_arena = env.poll_arena.try_read().unwrap();
+    let (poller, _) = poll_arena.get(poll.try_into().unwrap()).unwrap();
+    let event = wasi_try!(event.deref(memory)).get();
+    poller
+        .add(
+            PollingSource(fd),
+            wasi_try!(polling::Event::try_from(event)),
+        )
+        .unwrap();
+
+    __WASI_ESUCCESS
+}
+
+fn poller_wait(
+    env: &WasiNetworkEnv,
+    poll: __wasi_poll_t,
+    events_out: WasmPtr<__wasi_poll_event_t, Array>,
+    events_size: u32,
+    events_size_out: WasmPtr<u32>,
+) -> __wasi_errno_t {
+    let memory = env.memory();
+    let mut poll_arena = env.poll_arena.try_write().unwrap();
+    let (poller, events) = poll_arena.get_mut(poll.try_into().unwrap()).unwrap();
+
+    events.clear();
+    let number_of_events = poller.wait(events, None).unwrap();
+
+    let events = events
+        .iter()
+        .map(|event| __wasi_poll_event_t {
+            token: event.key.try_into().unwrap(),
+            readable: event.readable,
+            writable: event.writable,
+        })
+        .collect::<Vec<_>>();
+
+    if number_of_events > (events_size.try_into().unwrap()) {
+        panic!("`poller_wait` has too much events, cannot store them the given `events` array");
+    }
+
+    let events_out: &[Cell<__wasi_poll_event_t>] =
+        wasi_try!(events_out.deref(memory, 0, number_of_events.try_into().unwrap()));
+
+    for (event_out, event) in events_out.iter().zip(events) {
+        event_out.set(event);
+    }
+
+    let events_size_out_cell = wasi_try!(events_size_out.deref(memory));
+    events_size_out_cell.set(number_of_events.try_into().unwrap());
+
+    __WASI_ESUCCESS
+}
+
+#[derive(Debug, Clone, WasmerEnv)]
+pub struct WasiNetworkEnv {
+    wasi_env: Arc<WasiEnv>,
+    poll_arena: Arc<RwLock<Slab<(polling::Poller, Vec<polling::Event>)>>>,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
+}
+
+impl WasiNetworkEnv {
+    pub fn memory(&self) -> &Memory {
+        self.memory_ref()
+            .expect("Memory should be set on `WasiNetworkEnv` first")
+    }
+}
+
 pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Exports) {
+    let wasi_env = WasiNetworkEnv {
+        wasi_env: Arc::new(wasi_env.clone()),
+        poll_arena: Arc::new(RwLock::new(Slab::new())),
+        memory: LazyInit::new(),
+    };
     let mut wasi_network_imports = Exports::new();
+
     wasi_network_imports.insert(
         "socket_create",
         Function::new_native_with_env(&store, wasi_env.clone(), socket_create),
@@ -486,6 +611,18 @@ pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Export
     wasi_network_imports.insert(
         "socket_set_nonblocking",
         Function::new_native(&store, socket_set_nonblocking),
+    );
+    wasi_network_imports.insert(
+        "poller_create",
+        Function::new_native_with_env(&store, wasi_env.clone(), poller_create),
+    );
+    wasi_network_imports.insert(
+        "poller_add",
+        Function::new_native_with_env(&store, wasi_env.clone(), poller_add),
+    );
+    wasi_network_imports.insert(
+        "poller_wait",
+        Function::new_native_with_env(&store, wasi_env.clone(), poller_wait),
     );
 
     ("wasi_experimental_network_unstable", wasi_network_imports)

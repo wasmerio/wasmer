@@ -134,3 +134,22 @@ pub type __wasi_shutdown_t = i32;
 pub const SHUT_RD: __wasi_shutdown_t = 1;
 pub const SHUT_WR: __wasi_shutdown_t = 2;
 pub const SHUT_RDWR: __wasi_shutdown_t = 3;
+
+pub type __wasi_poll_t = u32;
+pub type __wasi_poll_token_t = u32;
+
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+pub struct __wasi_poll_event_t {
+    pub token: __wasi_poll_token_t,
+    pub readable: bool,
+    pub writable: bool,
+}
+
+unsafe impl ValueType for __wasi_poll_event_t {}
+
+/*
+pub type __wasi_poll_event_type_t = u32;
+pub const READABLE_EVENT: __wasi_poll_event_type_t = 1;
+pub const WRITABLE_EVENT: __wasi_poll_event_type_t = 2;
+*/

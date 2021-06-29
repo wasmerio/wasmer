@@ -124,4 +124,19 @@ extern "C" {
     pub fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t;
 
     pub fn socket_set_nonblocking(fd: __wasi_fd_t, nonblocking: bool) -> __wasi_errno_t;
+
+    pub fn poller_create(poll_out: *mut __wasi_poll_t) -> __wasi_errno_t;
+
+    pub fn poller_add(
+        poll: __wasi_poll_t,
+        fd: __wasi_fd_t,
+        event: __wasi_poll_event_t,
+    ) -> __wasi_errno_t;
+
+    pub fn poller_wait(
+        poll: __wasi_poll_t,
+        events: *mut __wasi_poll_event_t,
+        events_size: u32,
+        events_size_out: *mut u32,
+    ) -> __wasi_errno_t;
 }
