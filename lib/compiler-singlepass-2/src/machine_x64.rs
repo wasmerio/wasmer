@@ -4,7 +4,7 @@ use crate::common_decl::{Size};
 
 use dynasmrt::x64::Assembler;
 use dynasmrt::{dynasm, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_types::{FunctionType, FunctionIndex};
+use wasmer_types::{FunctionType, FunctionIndex, Type};
 use wasmer_vm::VMOffsets;
 
 use wasmer_compiler::wasmparser::Type as WpType;
@@ -103,32 +103,48 @@ impl Emitter<Reg> for Assembler {
     fn shrink_stack(&mut self, offset: u32) {
         dynasm!(self ; .arch x64 ; add rsp, offset as i32);
     }
-    fn move_imm32_to_mem32(&mut self, val: u32, base: Reg, offset: i32) {
+    fn move_imm32_to_mem(&mut self, sz: Size, val: u32, base: Reg, offset: i32) {
         let base = base.into_index() as u8;
-        dynasm!(self ; .arch x64 ; mov DWORD [Rq(base) + offset], val as i32);
+        match sz {
+            Size::S32 => dynasm!(self ; .arch x64 ; mov DWORD [Rq(base) + offset], val as i32),
+            Size::S64 => dynasm!(self ; .arch x64 ; mov QWORD [Rq(base) + offset], val as i32),
+            _ => unimplemented!(),
+        }
     }
-    fn move_imm32_to_reg32(&mut self, val: u32, reg: Reg) {
+    fn move_imm32_to_reg(&mut self, sz: Size, val: u32, reg: Reg) {
         let reg = reg.into_index() as u8;
         dynasm!(self ; .arch x64 ; mov Rd(reg), val as i32);
     }
-    fn move_reg32_to_reg32(&mut self, reg1: Reg, reg2: Reg) {
+    fn move_reg_to_reg(&mut self, sz: Size, reg1: Reg, reg2: Reg) {
         let reg1 = reg1.into_index() as u8;
         let reg2 = reg2.into_index() as u8;
-        dynasm!(self ; .arch x64 ; mov Rd(reg2), Rd(reg1));
+        match sz {
+            Size::S32 => dynasm!(self ; .arch x64 ; mov Rd(reg2), Rd(reg1)),
+            Size::S64 => dynasm!(self ; .arch x64 ; mov Rq(reg2), Rq(reg1)),
+            _ => unimplemented!(),
+        }
     }
-    fn move_reg32_to_mem32(&mut self, reg: Reg, base: Reg, offset: i32) {
+    fn move_reg_to_mem(&mut self, sz: Size, reg: Reg, base: Reg, offset: i32) {
         let reg = reg.into_index() as u8;
         let base = base.into_index() as u8;
-        dynasm!(self ; .arch x64 ; mov DWORD [Rq(base) + offset], Rd(reg));
+        match sz {
+            Size::S32 => dynasm!(self ; .arch x64 ; mov DWORD [Rq(base) + offset], Rd(reg)),
+            Size::S64 => dynasm!(self ; .arch x64 ; mov QWORD [Rq(base) + offset], Rq(reg)),
+            _ => unimplemented!(),
+        }
     }
-    fn move_mem32_to_reg32(&mut self, base: Reg, offset: i32, reg: Reg) {
+    fn move_mem_to_reg(&mut self, sz: Size, base: Reg, offset: i32, reg: Reg) {
         let reg = reg.into_index() as u8;
         let base = base.into_index() as u8;
-        dynasm!(self ; .arch x64 ; mov Rd(reg), DWORD [Rq(base) + offset]);
+        match sz {
+            Size::S32 => dynasm!(self ; .arch x64 ; mov Rd(reg), DWORD [Rq(base) + offset]),
+            Size::S64 => dynasm!(self ; .arch x64 ; mov Rq(reg), QWORD [Rq(base) + offset]),
+            _ => unimplemented!(),
+        }
     }
-    fn move_mem32_to_mem32(&mut self, base1: Reg, offset1: i32, base2: Reg, offset2: i32) {
-        self.move_mem32_to_reg32(base1, offset1, Reg::R10);
-        self.move_reg32_to_mem32(Reg::R10, base2, offset2);
+    fn move_mem_to_mem(&mut self, sz: Size, base1: Reg, offset1: i32, base2: Reg, offset2: i32) {
+        self.move_mem_to_reg(sz, base1, offset1, Reg::R10);
+        self.move_reg_to_mem(sz, Reg::R10, base2, offset2);
     }
 }
 
@@ -203,7 +219,7 @@ impl Machine for X64Machine {
     }
 
     fn do_const_i32(&mut self, n: i32) -> Local<Location> {
-        Local::new(Location::Imm32(n as u32))
+        Local::new(Location::Imm32(n as u32), Size::S32)
     }
 
     // N.B. `n_locals` includes `n_params`; `n_locals` will always be >= `n_params`
@@ -496,14 +512,14 @@ impl Machine for X64Machine {
         .execute(&mut self.manager, &mut self.assembler, ptr, val);
     }
 
-    fn do_ptr_offset(&mut self, ptr: Local<Location>, offset: i32) -> Local<Location> {
+    fn do_ptr_offset(&mut self, sz: Size, ptr: Local<Location>, offset: i32) -> Local<Location> {
         In1Out0::new().reg(|_, _|{}).execute(&mut self.manager, &mut self.assembler, ptr.clone());
         let reg = if let Location::Reg(reg) = ptr.location() {reg} else {unreachable!()};
-        Local::new(Location::Memory(reg, offset))
+        Local::new(Location::Memory(reg, offset), sz)
     }
 
-    fn do_vmctx_ptr_offset(&mut self, offset: i32) -> Local<Location> {
-        Local::new(Location::Memory(Descriptor::VMCTX, offset))
+    fn do_vmctx_ptr_offset(&mut self, sz: Size, offset: i32) -> Local<Location> {
+        Local::new(Location::Memory(Descriptor::VMCTX, offset), sz)
     }
 
     fn do_call(&mut self, reloc_target: RelocationTarget,
@@ -573,13 +589,18 @@ impl Machine for X64Machine {
 
         // Move arguments to their locations.
         // `callee_vmctx` is already in the first argument register, so no need to move.
-        for (i, _param) in sig.params().iter().enumerate() {
+        for (i, param) in sig.params().iter().enumerate() {
+            let sz = match *param {
+                Type::I32 => Size::S32,
+                Type::I64 => Size::S64,
+                _ => unimplemented!(),
+            };
             match i {
                 0..=4 => {
-                    m.assembler.move_mem32_to_reg32(args, (i * 16) as i32, ARG_REGS[i + 1]);
+                    m.assembler.move_mem_to_reg(sz, args, (i * 16) as i32, ARG_REGS[i + 1]);
                 },
                 _ => {
-                    m.assembler.move_mem32_to_mem32(args, (i * 16) as i32, Reg::RSP, (i as i32 - 5) * 8);
+                    m.assembler.move_mem_to_mem(sz, args, (i * 16) as i32, Reg::RSP, (i as i32 - 5) * 8);
                 },
             }
         }
@@ -588,7 +609,7 @@ impl Machine for X64Machine {
 
         // Write return value.
         if !sig.results().is_empty() {
-            m.assembler.move_reg32_to_mem32(Reg::RAX, args, 0);
+            m.assembler.move_reg_to_mem(Size::S64, Reg::RAX, args, 0);
         }
 
         // Restore stack.

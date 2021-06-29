@@ -60,8 +60,8 @@ pub trait Machine {
     fn do_load_from_vmctx(&mut self, sz: Size, offset: u32) -> Local<Self::Location>;
     fn do_deref(&mut self, sz: Size, ptr: Local<Self::Location>) -> Local<Self::Location>;
     fn do_deref_write(&mut self, sz: Size, ptr: Local<Self::Location>, val: Local<Self::Location>);
-    fn do_ptr_offset(&mut self, ptr: Local<Self::Location>, offset: i32) -> Local<Self::Location>;
-    fn do_vmctx_ptr_offset(&mut self, offset: i32) -> Local<Self::Location>;
+    fn do_ptr_offset(&mut self, sz: Size, ptr: Local<Self::Location>, offset: i32) -> Local<Self::Location>;
+    fn do_vmctx_ptr_offset(&mut self, sz: Size, offset: i32) -> Local<Self::Location>;
     fn do_normalize_local(&mut self, local: Local<Self::Location>) -> Local<Self::Location>;
     fn do_restore_local(&mut self, local: Local<Self::Location>, location: Self::Location) -> Local<Self::Location>;
     fn finalize(self) -> Vec<u8>;

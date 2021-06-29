@@ -32,6 +32,7 @@ use std::cell::Cell;
 #[derive(Debug)]
 struct LocalImpl<T: Copy> {
     loc: Cell<T>,
+    sz: Cell<Size>,
     ref_ct: Cell<u32>,
 }
 
@@ -42,9 +43,10 @@ pub struct Local<T: Copy>(Rc<LocalImpl<T>>);
 pub struct WeakLocal<T: Copy>(Weak<LocalImpl<T>>);
 
 impl<T: Copy> Local<T> {
-    pub fn new(loc: T) -> Self {
+    pub fn new(loc: T, sz: Size) -> Self {
         Self(Rc::new(LocalImpl {
             loc: Cell::new(loc),
+            sz: Cell::new(sz),
             ref_ct: Cell::new(0),
         }))
     }
@@ -67,6 +69,14 @@ impl<T: Copy> Local<T> {
 
     pub fn replace_location(&self, loc: T) -> T {
         self.0.loc.replace(loc)
+    }
+
+    pub fn size(&self) -> Size {
+        self.0.sz.get()
+    }
+
+    pub fn replace_size(&self, sz: Size) -> Size {
+        self.0.sz.replace(sz)
     }
 
     pub fn downgrade(&self) -> WeakLocal<T> {
@@ -663,7 +673,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             Operator::I32Load { memarg } => {
                 println!("{:?}", self.stack.iter().cloned().map(|l| l.location()).collect::<Vec<_>>());
                 let addr = self.pop_stack();
-                let val = self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
+                let val = self.do_memory_op(Size::S32, addr.clone(), memarg, false, 4, |this, addr| {
                     this.machine.do_deref(Size::S32, addr)
                 });
 
@@ -674,7 +684,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 let val = self.pop_stack();
                 let addr = self.pop_stack();
                 
-                self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
+                self.do_memory_op(Size::S32, addr.clone(), memarg, false, 4, |this, addr| {
                     this.machine.do_deref_write(Size::S32, addr, val.clone());
                 });
 
@@ -1197,7 +1207,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn do_memory_op<F: FnOnce(&mut Self, Local<M::Location>) -> T, T>(
-        &mut self, addr: Local<M::Location>, memarg: MemoryImmediate,
+        &mut self, sz: Size, addr: Local<M::Location>, memarg: MemoryImmediate,
         check_alignment: bool, value_size: usize, cb: F) -> T {
         let need_check = match self.memory_styles[MemoryIndex::new(0)] {
             MemoryStyle::Static { .. } => false,
@@ -1210,15 +1220,15 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             let offset = self.vmoffsets.vmctx_vmmemory_import_definition(MemoryIndex::new(0));
             let vmctx_field = self.machine.do_load_from_vmctx(Size::S64, offset);
             vmctx_field.inc_ref();
-            let ptrs = (self.machine.do_ptr_offset(vmctx_field.clone(), 0), 
-                self.machine.do_ptr_offset(vmctx_field.clone(), 8));
+            let ptrs = (self.machine.do_ptr_offset(sz, vmctx_field.clone(), 0), 
+                self.machine.do_ptr_offset(sz, vmctx_field.clone(), 8));
             vmctx_field.dec_ref();
             self.maybe_release(vmctx_field);
             ptrs
         } else {
             let offset = self.vmoffsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(0)) as i32;
-            (self.machine.do_vmctx_ptr_offset(offset),
-            self.machine.do_vmctx_ptr_offset(offset + 8))
+            (self.machine.do_vmctx_ptr_offset(sz, offset),
+            self.machine.do_vmctx_ptr_offset(sz, offset + 8))
         };
 
         // Load bound into temporary register, if needed.
