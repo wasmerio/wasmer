@@ -9,18 +9,7 @@ use wasmer_vm::VMOffsets;
 
 use wasmer_compiler::{Relocation, RelocationTarget};
 
-// const NATIVE_PAGE_SIZE: usize = 4096;
-
 use std::fmt::Debug;
-
-// pub struct Machine {
-//     used_gprs: HashSet<GPR>,
-//     used_xmms: HashSet<XMM>,
-//     stack_offset: MachineStackOffset,
-//     save_area_offset: Option<MachineStackOffset>,
-//     pub state: MachineState,
-//     pub(crate) track_state: bool,
-// }
 
 pub trait MaybeImmediate {
     fn imm_value(&self) -> Option<Value>;
@@ -41,8 +30,8 @@ pub trait Machine {
     const BR_INSTR_SIZE: usize;
 
     fn new() -> Self;
-    fn new_state() -> MachineState;
-    fn get_state(&mut self) -> &mut MachineState;
+    // fn new_state() -> MachineState;
+    // fn get_state(&mut self) -> &mut MachineState;
     fn get_assembly_offset(&mut self) -> usize;
     fn new_label(&mut self) -> Self::Label;
     fn do_const_i32(&mut self, n: i32) -> Local<Self::Location>;
@@ -60,7 +49,7 @@ pub trait Machine {
     fn do_ge_u_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_and_i32(&mut self, src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
     fn do_eqz_i32(&mut self, src: Local<Self::Location>) -> Local<Self::Location>;
-    fn do_call(&mut self, reloc_target: RelocationTarget, params: &[Local<Self::Location>], return_types: &[WpType]) -> CallInfo<Self::Location>;    
+    fn do_call(&mut self, reloc_target: RelocationTarget, args: &[Local<Self::Location>], return_types: &[WpType]) -> CallInfo<Self::Location>;    
     fn do_return(&mut self, ty: Option<WpType>, ret_val: Option<Local<Self::Location>>, end_label: Self::Label);
     fn do_emit_label(&mut self, label: Self::Label);
     fn do_load_label(&mut self, label: Self::Label) -> Local<Self::Location>;

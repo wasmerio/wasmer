@@ -3,7 +3,7 @@
 use crate::address_map::get_function_address_map;
 use crate::{common_decl::*, config::Singlepass};
 use crate::machine::*;
-use dynasmrt::{Assembler, DynamicLabel, relocations::Relocation as DynasmRelocation};
+use dynasmrt::{DynamicLabel};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
@@ -11,19 +11,18 @@ use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
 use wasmer_compiler::{
-    CompiledFunction, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
-    FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SectionIndex, SourceLoc, TrapInformation, Target, Architecture,
+    CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, FunctionBodyData,
+    InstructionAddressMap, Relocation, RelocationTarget, SectionIndex, SourceLoc, TrapInformation,
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
     FunctionType,
 };
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, SignatureIndex,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
     TableIndex, Type,
 };
-use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMOffsets};
 
 use wasmer::Value;
 
@@ -73,6 +72,10 @@ impl<T: Copy> Local<T> {
     pub fn downgrade(&self) -> WeakLocal<T> {
         WeakLocal(Rc::downgrade(&self.0))
     }
+
+    pub fn is(&self, other: Local<T>) -> bool {
+        &*self.0 as *const LocalImpl<T> == &*other.0
+    }
 }
 
 impl<T: Copy> WeakLocal<T> {
@@ -112,7 +115,7 @@ pub struct FuncGen<'a, M: Machine> {
     signature: FunctionType,
 
     /// Memory locations of local variables.
-    locals_: Vec<M::Location>,
+    // locals_: Vec<M::Location>,
 
     /// Types of local variables, including arguments.
     local_types: Vec<WpType>,
@@ -133,7 +136,7 @@ pub struct FuncGen<'a, M: Machine> {
     unreachable_depth: usize,
 
     /// Function state map. Not yet used in the reborn version but let's keep it.
-    fsm: FunctionStateMap,
+    // fsm: FunctionStateMap,
 
     /// Trap table.
     trap_table: TrapTable,
@@ -313,8 +316,8 @@ pub struct ControlFrame<M: Machine> {
     pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
     pub fp_stack_depth: usize,
-    pub state: MachineState,
-    pub state_diff_id: usize,
+    // pub state: MachineState,
+    // pub state_diff_id: usize,
 
     pub local_locations: Vec<M::Location>,
     pub stack_locations: Vec<M::Location>,
@@ -362,14 +365,14 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             .collect();
         local_types.extend_from_slice(&local_types_excluding_arguments);
 
-        let fsm = FunctionStateMap::new(
-            M::new_state(),
-            local_func_index.index() as usize,
-            32,
-            (0..local_types.len())
-                .map(|_| WasmAbstractValue::Runtime)
-                .collect(),
-        );
+        // let fsm = FunctionStateMap::new(
+        //     M::new_state(),
+        //     local_func_index.index() as usize,
+        //     32,
+        //     (0..local_types.len())
+        //         .map(|_| WasmAbstractValue::Runtime)
+        //         .collect(),
+        // );
 
         let mut machine = machine;
         let special_labels = SpecialLabelSet {
@@ -387,14 +390,14 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             memory_styles,
             // table_styles,
             signature,
-            locals_: vec![], // initialization deferred to emit_head
+            // locals_: vec![], // initialization deferred to emit_head
             local_types,
             value_stack: vec![],
             fp_stack: vec![],
             control_stack: vec![],
             machine,
             unreachable_depth: 0,
-            fsm,
+            // fsm,
             trap_table: TrapTable::default(),
             relocations: vec![],
             special_labels,
@@ -519,6 +522,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             },
             Operator::I32Const { value } => {
                 let imm = self.machine.do_const_i32(value);
+                imm.inc_ref();
                 self.push_stack(imm);
             },
             Operator::GlobalGet { global_index } => {
@@ -693,8 +697,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     },
                     value_stack_depth: self.stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
-                    state: self.machine.get_state().clone(),
-                    state_diff_id: 0,
+                    // state: self.machine.get_state().clone(),
+                    // state_diff_id: 0,
                     
                     local_locations,
                     stack_locations,
@@ -1014,9 +1018,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         //     [X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
 
         // TODO: Explicit stack check is not supported for now.
-        let diff = self.machine.get_state().diff(&M::new_state());
-        let state_diff_id = self.fsm.diffs.len();
-        self.fsm.diffs.push(diff);
+        // let diff = self.machine.get_state().diff(&M::new_state());
+        // let state_diff_id = self.fsm.diffs.len();
+        // self.fsm.diffs.push(diff);
 
         // self.assembler
         //     .emit_sub(Size::S64, Location::Imm32(32), Location::GPR(GPR::RSP)); // simulate "red zone" if not supported by the platform
@@ -1033,8 +1037,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 .collect(),
             value_stack_depth: 0,
             fp_stack_depth: 0,
-            state: self.machine.get_state().clone(),
-            state_diff_id,
+            // state: self.machine.get_state().clone(),
+            // state_diff_id,
 
             local_locations: vec![],
             stack_locations: vec![],
@@ -1050,11 +1054,11 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             .insert(offset, TrapCode::StackOverflow);
         self.mark_instruction_address_end(offset);
 
-        if self.machine.get_state().wasm_inst_offset != std::usize::MAX {
-            return Err(CodegenError {
-                message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
-            });
-        }
+        // if self.machine.get_state().wasm_inst_offset != std::usize::MAX {
+        //     return Err(CodegenError {
+        //         message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
+        //     });
+        // }
         Ok(())
     }
 
@@ -1090,21 +1094,21 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let instructions_address_map = self.instructions_address_map;
         let address_map = get_function_address_map(instructions_address_map, data, body.len());
 
-        // use std::io::Write;
-        // let mut s = String::new();
-        // for b in body.iter().copied() {
-        //     s.push_str(&format!("{:0>2X} ", b));
-        // }
-        // let asm = std::process::Command::new("cstool")
-        //     .arg("arm64")
-        //     .arg(format!("\"{}\"", s))
-        //     .output()
-        //     .unwrap()
-        //     .stdout;
-        // let mut f = std::fs::File::create(
-        //     format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
-        //     unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
-        // f.write_all(&asm).unwrap();
+        use std::io::Write;
+        let mut s = String::new();
+        for b in body.iter().copied() {
+            s.push_str(&format!("{:0>2X} ", b));
+        }
+        let asm = std::process::Command::new("cstool")
+            .arg("arm64")
+            .arg(format!("\"{}\"", s))
+            .output()
+            .unwrap()
+            .stdout;
+        let mut f = std::fs::File::create(
+            format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
+            unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
+        f.write_all(&asm).unwrap();
 
         CompiledFunction {
             body: FunctionBody {

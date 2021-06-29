@@ -14,6 +14,7 @@ mod common_decl;
 mod compiler;
 mod config;
 mod machine;
+mod machine_utils;
 mod machine_aarch64;
 mod machine_x64;
 
