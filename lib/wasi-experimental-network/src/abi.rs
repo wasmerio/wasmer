@@ -1,5 +1,4 @@
 use crate::types::*;
-use std::ptr::NonNull;
 use wasmer_wasi_types::*;
 
 #[link(wasm_import_module = "wasi_experimental_network_unstable")]
@@ -20,7 +19,7 @@ extern "C" {
     /// specifies the size, in bytes, of the address structure pointed
     /// to by `address`. Traditionnaly, this operation is called
     /// “assigning a name to a socket”.
-    pub fn socket_bind(fd: __wasi_fd_t, address: *const u8, address_size: u32) -> __wasi_errno_t;
+    pub fn socket_bind(fd: __wasi_fd_t, address: *const __wasi_socket_address_t) -> __wasi_errno_t;
 
     /// `socket_listen` marks the socket referred to by `fd` as a
     /// passive socket, that is, a socket that will be used to accept
@@ -57,8 +56,7 @@ extern "C" {
     /// should also be `null`.
     pub fn socket_accept(
         fd: __wasi_fd_t,
-        address: *mut u8,
-        address_size: *mut u32,
+        remote_address: *mut __wasi_socket_address_t,
         remote_fd: *mut __wasi_fd_t,
     ) -> __wasi_errno_t;
 
@@ -81,6 +79,7 @@ extern "C" {
         address: NonNull<u8>,
         address_size: u32,
     ) -> __wasi_errno_t;
+    */
 
     /// The `socket_send` function is used to transmit a message to
     /// another socket referred to by the file descriptor `fd`. This
@@ -95,7 +94,7 @@ extern "C" {
     /// written.
     pub fn socket_send(
         fd: __wasi_fd_t,
-        iov: NonNull<__wasi_ciovec_t>,
+        iov: *const __wasi_ciovec_t,
         iov_size: u32,
         iov_flags: __wasi_siflags_t,
         io_size_out: *mut u32,
@@ -114,7 +113,7 @@ extern "C" {
     /// read.
     pub fn socket_recv(
         fd: __wasi_fd_t,
-        iov: NonNull<__wasi_ciovec_t>,
+        iov: *mut __wasi_ciovec_t,
         iov_size: u32,
         iov_flags: __wasi_siflags_t,
         io_size_out: *mut u32,
@@ -123,5 +122,4 @@ extern "C" {
     /// The `shutdown` function causes all or part of a full-duplex
     /// connection on the socket with `fd` to be shut down.
     pub fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t;
-    */
 }

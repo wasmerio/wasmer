@@ -2,10 +2,9 @@ use crate::types::*;
 use socket2 as socket;
 use std::cell::Cell;
 use std::convert::TryInto;
-use std::fmt;
 use std::io;
 use std::mem;
-use std::ptr;
+use std::net;
 use wasmer::{Exports, Function, Store};
 use wasmer_wasi::{
     ptr::{Array, WasmPtr},
@@ -17,6 +16,25 @@ trait TryFrom<T>: Sized {
 
     fn try_from(value: T) -> Result<Self, Self::Error>;
 }
+
+/*
+trait TryInto<T>: Sized {
+    type Error;
+
+    fn try_into(self) -> Result<T, Self::Error>;
+}
+
+impl TryInto<T, U> for T
+where
+    U: TryFrom<T>,
+{
+    type Error = U::Error;
+
+    fn try_into(self) -> Result<U, U::Error> {
+        U::try_from(self)
+    }
+}
+*/
 
 impl TryFrom<__wasi_socket_type_t> for socket::Type {
     type Error = String;
@@ -64,6 +82,63 @@ impl TryFrom<__wasi_socket_protocol_t> for Option<socket::Protocol> {
             TCP => Some(socket::Protocol::TCP),
             UDP => Some(socket::Protocol::UDP),
             d => return Err(format!("Unknown socket protocol `{}`", d)),
+        })
+    }
+}
+
+impl TryFrom<__wasi_shutdown_t> for net::Shutdown {
+    type Error = String;
+
+    fn try_from(value: __wasi_shutdown_t) -> Result<Self, Self::Error> {
+        Ok(match value {
+            SHUT_RD => Self::Read,
+            SHUT_WR => Self::Write,
+            SHUT_RDWR => Self::Both,
+            s => return Err(format!("Unknown shutdown option `{}`", s)),
+        })
+    }
+}
+
+impl TryFrom<__wasi_socket_address_t> for net::SocketAddr {
+    type Error = String;
+
+    fn try_from(value: __wasi_socket_address_t) -> Result<Self, Self::Error> {
+        Ok(unsafe {
+            match value {
+                __wasi_socket_address_t {
+                    v4:
+                        __wasi_socket_address_in_t {
+                            family: AF_INET,
+                            address,
+                            port,
+                        },
+                } => {
+                    let [o, p, q, r] = address;
+
+                    net::SocketAddr::V4(net::SocketAddrV4::new(
+                        net::Ipv4Addr::new(o, p, q, r),
+                        u16::from_be(port),
+                    ))
+                }
+                _ => return Err(format!("IPv6 not supported for the moment")),
+            }
+        })
+    }
+}
+
+impl TryFrom<Option<net::SocketAddr>> for __wasi_socket_address_t {
+    type Error = String;
+
+    fn try_from(value: Option<net::SocketAddr>) -> Result<Self, Self::Error> {
+        Ok(match value {
+            Some(net::SocketAddr::V4(v4)) => __wasi_socket_address_t {
+                v4: __wasi_socket_address_in_t {
+                    family: AF_INET,
+                    address: v4.ip().octets(),
+                    port: v4.port().to_be(),
+                },
+            },
+            _ => return Err(format!("IPv6 not supported for the moment")),
         })
     }
 }
@@ -236,8 +311,8 @@ fn socket_create(
     protocol: __wasi_socket_protocol_t,
     fd_out: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
-    let domain = domain.try_into().unwrap();
-    let r#type = r#type.try_into().unwrap();
+    let domain = socket::Domain::try_from(domain).unwrap();
+    let r#type = socket::Type::try_from(r#type).unwrap();
     let protocol = Option::<socket::Protocol>::try_from(protocol).unwrap();
 
     let socket = socket::Socket::new(domain, r#type, protocol).unwrap();
@@ -247,34 +322,28 @@ fn socket_create(
     let fd_out_cell = wasi_try!(fd_out.deref(memory));
     fd_out_cell.set(fd);
 
+    // Do not drop/close the socket.
+    mem::forget(socket);
+
     __WASI_ESUCCESS
 }
 
 fn socket_bind(
     env: &WasiEnv,
     fd: __wasi_fd_t,
-    address: WasmPtr<u8, Array>,
-    address_size: u32,
+    address: WasmPtr<__wasi_socket_address_t>,
 ) -> __wasi_errno_t {
     let memory = env.memory();
+    let address = wasi_try!(address.deref(memory)).get();
 
-    let sockaddr_bytes: &[Cell<u8>] = address.deref(memory, 0, address_size).unwrap();
-    let (_, sockaddr) = unsafe {
-        socket::SockAddr::init(|sockaddr_storage, len| {
-            ptr::copy(
-                sockaddr_bytes.as_ptr() as *const u8,
-                sockaddr_storage as *mut _,
-                address_size as usize,
-            );
-            len.write(address_size);
-
-            Ok(())
-        })
-        .unwrap()
-    };
+    let socket_address = net::SocketAddr::try_from(address).unwrap();
+    let socket_address = socket::SockAddr::from(socket_address);
 
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    socket.bind(&sockaddr).unwrap();
+    socket.bind(&socket_address).unwrap();
+
+    // Do not drop/close the socket.
+    mem::forget(socket);
 
     __WASI_ESUCCESS
 }
@@ -283,40 +352,36 @@ fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
     let socket = unsafe { socket::Socket::from_fd(fd) };
     socket.listen(backlog.try_into().unwrap()).unwrap();
 
+    mem::forget(socket);
+
     __WASI_ESUCCESS
 }
 
 fn socket_accept(
     env: &WasiEnv,
     fd: __wasi_fd_t,
-    address: WasmPtr<u8, Array>,
-    address_size: WasmPtr<u32>,
+    remote_address: WasmPtr<__wasi_socket_address_t>,
     remote_fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    let (socket, sockaddr) = socket.accept().unwrap();
+    let (remote_socket, remote_socket_address) = socket.accept().unwrap();
+
+    // Do not drop/close the sockets.
+    mem::forget(socket);
 
     let memory = env.memory();
-
-    let sockaddr_bytes: &[Cell<u8>] = address.deref(memory, 0, sockaddr.len()).unwrap();
-    unsafe {
-        ptr::copy(
-            sockaddr.as_ptr() as *const u8,
-            sockaddr_bytes as *const _ as *mut _,
-            sockaddr.len() as usize,
-        )
-    }
-
-    let address_size_cell = wasi_try!(address_size.deref(memory));
-    address_size_cell.set(sockaddr.len());
+    let remote_address_cell = wasi_try!(remote_address.deref(memory));
+    remote_address_cell
+        .set(__wasi_socket_address_t::try_from(remote_socket_address.as_socket()).unwrap());
 
     let remote_fd_cell = wasi_try!(remote_fd.deref(memory));
-    remote_fd_cell.set(socket.as_fd());
+    remote_fd_cell.set(remote_socket.as_fd());
+
+    mem::forget(remote_socket);
 
     __WASI_ESUCCESS
 }
 
-/*
 fn socket_send(
     env: &WasiEnv,
     fd: __wasi_fd_t,
@@ -325,36 +390,31 @@ fn socket_send(
     iov_flags: __wasi_siflags_t,
     io_size_out: WasmPtr<u32>,
 ) -> __wasi_errno_t {
+    let socket = unsafe { socket::Socket::from_fd(fd) };
+
     let memory = env.memory();
+    let io_slices = wasi_try!(iov.deref(memory, 0, iov_size))
+        .iter()
+        .map(|iov_cell| {
+            let iov_inner = iov_cell.get();
+            let bytes: &[Cell<u8>] =
+                WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len)?;
+            let bytes: &[u8] = unsafe { mem::transmute(bytes) };
 
-    let iov = wasi_try!(iov.deref(memory, 0, iov_size));
+            Ok(io::IoSlice::new(bytes))
+        })
+        .collect::<Result<Vec<_>, __wasi_errno_t>>()
+        .unwrap();
 
-    let mut total_bytes_written: u32 = 0;
+    let total_bytes_written = socket
+        .send_vectored_with_flags(&io_slices, iov_flags.try_into().unwrap())
+        .unwrap();
 
-    for iov_cell in iov {
-        let iov_inner = iov_cell.get();
-        let bytes =
-            wasi_try!(WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len));
-        let buffer: &mut [u8] = unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
-
-        let written_bytes = unsafe {
-            libc::send(
-                fd.try_into().unwrap(),
-                buffer.as_ptr() as *mut _,
-                buffer.len(),
-                iov_flags.into(),
-            )
-        };
-
-        if written_bytes < 0 {
-            return Error::current().wasi_errno();
-        }
-
-        total_bytes_written += written_bytes as u32;
-    }
+    // Do not drop/close the socket.
+    mem::forget(socket);
 
     let io_size_out_cell = wasi_try!(io_size_out.deref(memory));
-    io_size_out_cell.set(total_bytes_written);
+    io_size_out_cell.set(total_bytes_written.try_into().unwrap());
 
     __WASI_ESUCCESS
 }
@@ -367,57 +427,53 @@ fn socket_recv(
     iov_flags: __wasi_siflags_t,
     io_size_out: WasmPtr<u32>,
 ) -> __wasi_errno_t {
+    let socket = unsafe { socket::Socket::from_fd(fd) };
+
     let memory = env.memory();
+    let mut slices: Vec<&[mem::MaybeUninit<u8>]> = Vec::with_capacity(iov_size.try_into().unwrap());
 
-    let iov = wasi_try!(iov.deref(memory, 0, iov_size));
-
-    let mut total_bytes_read: u32 = 0;
-
-    for iov_cell in iov {
+    for iov_cell in wasi_try!(iov.deref(memory, 0, iov_size)).iter() {
         let iov_inner = iov_cell.get();
-        let bytes =
+        let bytes: &[Cell<u8>] =
             wasi_try!(WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len));
-        let buffer: &mut [u8] = unsafe { &mut *(bytes as *const [_] as *mut [_] as *mut [u8]) };
-
-        let read_bytes = unsafe {
-            libc::recv(
-                fd.try_into().unwrap(),
-                buffer.as_ptr() as *mut _,
-                buffer.len(),
-                iov_flags.into(),
-            )
+        let bytes: &[mem::MaybeUninit<u8>] = unsafe {
+            &*(bytes as *const [Cell<u8>] as *const [u8] as *const [mem::MaybeUninit<u8>])
         };
 
-        if read_bytes < 0 {
-            return Error::current().wasi_errno();
-        }
-
-        total_bytes_read += read_bytes as u32;
+        slices.push(bytes);
     }
 
+    let mut io_slices: Vec<socket::MaybeUninitSlice> =
+        Vec::with_capacity(iov_size.try_into().unwrap());
+
+    for slice in slices {
+        io_slices.push(socket::MaybeUninitSlice::new(unsafe {
+            &mut *(slice as *const [_] as *mut [_])
+        }));
+    }
+
+    let (total_bytes_read, _recv_flags) = socket
+        .recv_vectored_with_flags(&mut io_slices, iov_flags.try_into().unwrap())
+        .unwrap();
+
+    // Do not drop/close the socket.
+    mem::forget(socket);
+
     let io_size_out_cell = wasi_try!(io_size_out.deref(memory));
-    io_size_out_cell.set(total_bytes_read);
+    io_size_out_cell.set(total_bytes_read.try_into().unwrap());
 
     __WASI_ESUCCESS
 }
 
 fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t {
-    let how = match how {
-        SHUT_RD => libc::SHUT_RD,
-        SHUT_WR => libc::SHUT_WR,
-        SHUT_RDWR => libc::SHUT_RDWR,
-        s => {
-            eprintln!("Unkown shutdown constant `{}`", s);
-            return __WASI_EINVAL;
-        }
-    };
-    let err = unsafe { libc::shutdown(fd.try_into().unwrap(), how) };
+    let how = net::Shutdown::try_from(how).unwrap();
+    let socket = unsafe { socket::Socket::from_fd(fd) };
+    socket.shutdown(how).unwrap();
 
-    if err != 0 {
-        Error::current().wasi_errno()
-    } else {
-        __WASI_ESUCCESS
-    }
+    // Do not drop/close the socket.
+    mem::forget(socket);
+
+    __WASI_ESUCCESS
 }
 
 pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Exports) {
@@ -450,4 +506,3 @@ pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Export
 
     ("wasi_experimental_network_unstable", wasi_network_imports)
 }
-*/

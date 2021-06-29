@@ -16,10 +16,20 @@ wasmer-types = { path = "../types", version = "2.0.0-rc2" }
 
 wasmer = { path = "../api", version = "2.0.0-rc2", optional = true }
 wasmer-wasi  = { path = "../wasi", version = "2.0.0-rc2", optional = true }
-libc = { version = "0.2", optional = true }
-mio = { git = "https://github.com/Hywan/mio", branch = "feat-events-exactsizeiterator", features = ["os-poll", "os-ext", "net"], optional = true }
-slab = { version = "0.4", optional = true }
+
+socket2 = { version = "0.4", features = ["all"], optional = true }
+
+#libc = { version = "0.2", optional = true }
+#mio = { git = "https://github.com/Hywan/mio", branch = "feat-events-exactsizeiterator", features = ["os-poll", "os-ext", "net"], optional = true }
+#slab = { version = "0.4", optional = true }
 
 [features]
 default = []
-runtime-impl = ["wasmer", "wasmer-wasi", "libc", "mio", "slab"]
+runtime-impl = [
+    "wasmer",
+    "wasmer-wasi",
+    "socket2",
+    #"libc",
+    #"mio",
+    #"slab"
+]

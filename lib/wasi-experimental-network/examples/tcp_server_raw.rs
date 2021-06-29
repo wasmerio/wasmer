@@ -1,4 +1,3 @@
-use std::ptr::NonNull;
 use wasmer_wasi_experimental_network::{abi::*, types::*};
 
 fn main() {
@@ -6,7 +5,7 @@ fn main() {
 
     let fd = {
         let mut fd: __wasi_fd_t = 0;
-        let err = unsafe { socket_create(&mut fd, AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL) };
+        let err = unsafe { socket_create(AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL, &mut fd) };
 
         if err != __WASI_ESUCCESS {
             panic!("`socket_create` failed with `{}`", err);
@@ -17,20 +16,15 @@ fn main() {
 
     println!("Binding the socket");
 
-    let address = SockaddrIn {
-        sin_family: AF_INET as _,
-        sin_port: 9002u16.to_be(),
-        sin_addr: [0; 4],
-        sin_zero: [0; 8],
+    let address = __wasi_socket_address_t {
+        v4: __wasi_socket_address_in_t {
+            family: AF_INET,
+            address: [0; 4],
+            port: 9000u16.to_be(),
+        },
     };
 
-    let err = unsafe {
-        socket_bind(
-            fd,
-            NonNull::new_unchecked(&address as *const _ as *mut _),
-            address.size_of_self(),
-        )
-    };
+    let err = unsafe { socket_bind(fd, &address) };
 
     if err != __WASI_ESUCCESS {
         panic!("`socket_bind` failed with `{}`", err);
@@ -48,16 +42,10 @@ fn main() {
         println!("Waiting to accept a new connection");
 
         let mut client_fd: __wasi_fd_t = 0;
-        let mut client_address = SockaddrIn::default();
-        let mut client_address_size = client_address.size_of_self();
-        let err = unsafe {
-            socket_accept(
-                fd,
-                &mut client_address as *mut _ as *mut u8,
-                &mut client_address_size,
-                &mut client_fd,
-            )
+        let mut client_address = __wasi_socket_address_t {
+            v4: __wasi_socket_address_in_t::default(),
         };
+        let err = unsafe { socket_accept(fd, &mut client_address, &mut client_fd) };
 
         println!("Remote client IP: `{:?}`", &client_address);
 
@@ -66,7 +54,7 @@ fn main() {
         }
 
         let mut buffer: Vec<u8> = vec![0; 128];
-        let io_vec = vec![__wasi_ciovec_t {
+        let mut io_vec = vec![__wasi_ciovec_t {
             buf: buffer.as_mut_ptr() as usize as u32,
             buf_len: buffer.len() as u32,
         }];
@@ -75,7 +63,7 @@ fn main() {
         let err = unsafe {
             socket_recv(
                 client_fd,
-                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.as_mut_ptr(),
                 io_vec.len() as u32,
                 0,
                 &mut io_read,
@@ -99,6 +87,7 @@ fn main() {
             String::from_utf8_lossy(&buffer[..io_read as usize])
         );
 
+        /*
         let mut io_written = 0;
         let err = unsafe {
             socket_send(
@@ -125,5 +114,6 @@ fn main() {
         unsafe {
             socket_shutdown(client_fd, SHUT_RDWR);
         }
+        */
     }
 }

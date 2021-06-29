@@ -1,58 +1,57 @@
 #![allow(non_camel_case_types)]
 
 use std::fmt;
-use std::mem;
+use wasmer_types::ValueType;
 pub use wasmer_wasi_types::*;
 
 /// A type with the same memory layout as `libc::sockaddr`.
 /// An union around `sockaddr_in` and `sockaddr_in6`.
 #[repr(C)]
-pub union SocketAddr {
-    v4: SockaddrIn,
-    v6: SockaddrIn6,
+#[derive(Copy, Clone)]
+pub union __wasi_socket_address_t {
+    pub v4: __wasi_socket_address_in_t,
+    pub v6: __wasi_socket_address_in6_t,
 }
 
-impl SocketAddr {
-    pub fn as_ptr(&self) -> *const u8 {
-        self as *const _ as *const _
+unsafe impl ValueType for __wasi_socket_address_t {}
+
+impl fmt::Debug for __wasi_socket_address_t {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unsafe {
+            match self {
+                Self {
+                    v4:
+                        v4
+                        @
+                        __wasi_socket_address_in_t {
+                            family: AF_INET, ..
+                        },
+                } => write!(fmt, "{:?}", v4),
+                _ => write!(fmt, "IPv6"),
+            }
+        }
     }
 }
 
 /// The `sockaddr_in` struct.
 #[repr(C)]
 #[derive(Copy, Clone, Default)]
-pub struct SockaddrIn {
-    #[cfg(any(
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "ios",
-        target_os = "macos",
-        target_os = "netbsd",
-        target_os = "openbsd"
-    ))]
-    pub sin_len: u8,
-    pub sin_family: u16,
-    pub sin_port: u16,
-    pub sin_addr: [u8; 4],
-    pub sin_zero: [u8; 8],
+pub struct __wasi_socket_address_in_t {
+    pub family: __wasi_socket_domain_t,
+    pub address: [u8; 4],
+    pub port: u16,
 }
 
-impl SockaddrIn {
-    pub fn size_of_self(&self) -> u32 {
-        mem::size_of::<Self>() as u32
-    }
-}
-
-impl fmt::Debug for SockaddrIn {
+impl fmt::Debug for __wasi_socket_address_in_t {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             fmt,
             "{}.{}.{}.{}:{}",
-            self.sin_addr[0],
-            self.sin_addr[1],
-            self.sin_addr[2],
-            self.sin_addr[3],
-            u16::from_be(self.sin_port),
+            self.address[0],
+            self.address[1],
+            self.address[2],
+            self.address[3],
+            u16::from_be(self.port),
         )
     }
 }
@@ -60,29 +59,12 @@ impl fmt::Debug for SockaddrIn {
 /// The `sockaddr_in6` struct.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default)]
-pub struct SockaddrIn6 {
-    #[cfg(any(
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "ios",
-        target_os = "macos",
-        target_os = "netbsd",
-        target_os = "openbsd"
-    ))]
-    pub sin6_len: u8,
+pub struct __wasi_socket_address_in6_t {
     pub sin6_family: u16,
     pub sin6_port: u16,
     pub sin6_flowinfo: u32,
     pub sin6_addr: [u8; 16],
     pub sin6_scope_id: u32,
-    #[cfg(any(target_os = "solaris", target_os = "illumos"))]
-    pub __sin6_src_id: u32,
-}
-
-impl SockaddrIn6 {
-    pub fn size_of_self(&self) -> u32 {
-        mem::size_of::<Self>() as u32
-    }
 }
 
 /// The _domain_ specifies a communication domain; this selects the

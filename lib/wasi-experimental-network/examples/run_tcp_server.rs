@@ -7,7 +7,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let store = Store::default();
     let module = Module::from_file(
         &store,
-        "../../../target/wasm32-wasi/release/examples/tcp_server_rust.wasm",
+        "../../../target/wasm32-wasi/release/examples/tcp_server_raw.wasm",
     )?;
 
     let mut wasi_env = WasiState::new("tcp-server").finalize()?;
