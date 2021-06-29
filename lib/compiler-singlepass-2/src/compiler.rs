@@ -19,16 +19,8 @@ use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex,
 use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
 
 use crate::machine::Machine;
-
-use dynasmrt::{aarch64::Assembler as Aarch64Assembler};
 use crate::machine_aarch64::Aarch64Machine;
-
-use dynasmrt::{x64::Assembler as X64Assembler};
 use crate::machine_x64::X64Machine;
-
-use wasmer_compiler::{CompiledFunctionFrameInfo}; // TEMPORARY
-use wasmer_types::entity::{SecondaryMap}; // TEMPORARY
-use crate::address_map::get_function_address_map; // TEMPORARY
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -160,7 +152,7 @@ impl Compiler for SinglepassCompiler {
             },
             arch => {
                 return Err(CompileError::UnsupportedTarget(arch.to_string()));
-            }
+            },
         };
 
         let mut module = (*compile_info.module).clone();
