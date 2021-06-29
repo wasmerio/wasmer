@@ -17,27 +17,8 @@ trait TryFrom<T>: Sized {
     fn try_from(value: T) -> Result<Self, Self::Error>;
 }
 
-/*
-trait TryInto<T>: Sized {
-    type Error;
-
-    fn try_into(self) -> Result<T, Self::Error>;
-}
-
-impl TryInto<T, U> for T
-where
-    U: TryFrom<T>,
-{
-    type Error = U::Error;
-
-    fn try_into(self) -> Result<U, U::Error> {
-        U::try_from(self)
-    }
-}
-*/
-
 impl TryFrom<__wasi_socket_type_t> for socket::Type {
-    type Error = String;
+    type Error = __wasi_errno_t;
 
     fn try_from(value: __wasi_socket_type_t) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -46,13 +27,13 @@ impl TryFrom<__wasi_socket_type_t> for socket::Type {
             SOCK_SEQPACKET => Self::SEQPACKET,
             #[cfg(not(target_os = "redox"))]
             SOCK_RAW => Self::RAW,
-            t => return Err(format!("Unknown socket type `{}`", t)),
+            _ => return Err(__WASI_EINVAL),
         })
     }
 }
 
 impl TryFrom<__wasi_socket_domain_t> for socket::Domain {
-    type Error = String;
+    type Error = __wasi_errno_t;
 
     fn try_from(value: __wasi_socket_domain_t) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -64,13 +45,13 @@ impl TryFrom<__wasi_socket_domain_t> for socket::Domain {
             AF_PACKET => Self::PACKET,
             #[cfg(any(target_os = "android", target_os = "linux"))]
             AF_VSOCK => Self::VSOCK,
-            d => return Err(format!("Unknown socket domain `{}`", d)),
+            _ => return Err(__WASI_EINVAL),
         })
     }
 }
 
 impl TryFrom<__wasi_socket_protocol_t> for Option<socket::Protocol> {
-    type Error = String;
+    type Error = __wasi_errno_t;
 
     fn try_from(value: __wasi_socket_protocol_t) -> Result<Self, Self::Error> {
         #![allow(non_upper_case_globals)]
@@ -81,26 +62,26 @@ impl TryFrom<__wasi_socket_protocol_t> for Option<socket::Protocol> {
             ICMPv6 => Some(socket::Protocol::ICMPV6),
             TCP => Some(socket::Protocol::TCP),
             UDP => Some(socket::Protocol::UDP),
-            d => return Err(format!("Unknown socket protocol `{}`", d)),
+            _ => return Err(__WASI_EINVAL),
         })
     }
 }
 
 impl TryFrom<__wasi_shutdown_t> for net::Shutdown {
-    type Error = String;
+    type Error = __wasi_errno_t;
 
     fn try_from(value: __wasi_shutdown_t) -> Result<Self, Self::Error> {
         Ok(match value {
             SHUT_RD => Self::Read,
             SHUT_WR => Self::Write,
             SHUT_RDWR => Self::Both,
-            s => return Err(format!("Unknown shutdown option `{}`", s)),
+            _ => return Err(__WASI_EINVAL),
         })
     }
 }
 
 impl TryFrom<__wasi_socket_address_t> for net::SocketAddr {
-    type Error = String;
+    type Error = __wasi_errno_t;
 
     fn try_from(value: __wasi_socket_address_t) -> Result<Self, Self::Error> {
         Ok(unsafe {
@@ -120,14 +101,14 @@ impl TryFrom<__wasi_socket_address_t> for net::SocketAddr {
                         u16::from_be(port),
                     ))
                 }
-                _ => return Err(format!("IPv6 not supported for the moment")),
+                _ => panic!("IPv6 not supported for the moment"),
             }
         })
     }
 }
 
 impl TryFrom<Option<net::SocketAddr>> for __wasi_socket_address_t {
-    type Error = String;
+    type Error = __wasi_errno_t;
 
     fn try_from(value: Option<net::SocketAddr>) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -138,7 +119,7 @@ impl TryFrom<Option<net::SocketAddr>> for __wasi_socket_address_t {
                     port: v4.port().to_be(),
                 },
             },
-            _ => return Err(format!("IPv6 not supported for the moment")),
+            _ => panic!("IPv6 not supported for the moment"),
         })
     }
 }
@@ -185,13 +166,107 @@ impl FromFd for socket::Socket {
     }
 }
 
+trait IntoWasiError {
+    fn into_wasi_error(&self) -> __wasi_errno_t;
+}
+
+impl IntoWasiError for __wasi_errno_t {
+    fn into_wasi_error(&self) -> __wasi_errno_t {
+        *self
+    }
+}
+
+impl IntoWasiError for io::Error {
+    fn into_wasi_error(&self) -> __wasi_errno_t {
+        match self.raw_os_error() {
+            Some(error) => match error {
+                libc::E2BIG => __WASI_E2BIG,
+                libc::EACCES => __WASI_EACCES,
+                libc::EADDRINUSE => __WASI_EADDRINUSE,
+                libc::EADDRNOTAVAIL => __WASI_EADDRNOTAVAIL,
+                libc::EAFNOSUPPORT => __WASI_EAFNOSUPPORT,
+                libc::EAGAIN => __WASI_EAGAIN,
+                libc::EALREADY => __WASI_EALREADY,
+                libc::EBADF => __WASI_EBADF,
+                libc::EBADMSG => __WASI_EBADMSG,
+                libc::EBUSY => __WASI_EBUSY,
+                libc::ECANCELED => __WASI_ECANCELED,
+                libc::ECHILD => __WASI_ECHILD,
+                libc::ECONNABORTED => __WASI_ECONNABORTED,
+                libc::ECONNREFUSED => __WASI_ECONNREFUSED,
+                libc::ECONNRESET => __WASI_ECONNRESET,
+                libc::EDEADLK => __WASI_EDEADLK,
+                libc::EDESTADDRREQ => __WASI_EDESTADDRREQ,
+                libc::EDOM => __WASI_EDOM,
+                libc::EDQUOT => __WASI_EDQUOT,
+                libc::EEXIST => __WASI_EEXIST,
+                libc::EFAULT => __WASI_EFAULT,
+                libc::EFBIG => __WASI_EFBIG,
+                libc::EHOSTUNREACH => __WASI_EHOSTUNREACH,
+                libc::EIDRM => __WASI_EIDRM,
+                libc::EILSEQ => __WASI_EILSEQ,
+                libc::EINPROGRESS => __WASI_EINPROGRESS,
+                libc::EINTR => __WASI_EINTR,
+                libc::EINVAL => __WASI_EINVAL,
+                libc::EIO => __WASI_EIO,
+                libc::EISCONN => __WASI_EISCONN,
+                libc::EISDIR => __WASI_EISDIR,
+                libc::ELOOP => __WASI_ELOOP,
+                libc::EMFILE => __WASI_EMFILE,
+                libc::EMLINK => __WASI_EMLINK,
+                libc::EMSGSIZE => __WASI_EMSGSIZE,
+                libc::EMULTIHOP => __WASI_EMULTIHOP,
+                libc::ENAMETOOLONG => __WASI_ENAMETOOLONG,
+                libc::ENETDOWN => __WASI_ENETDOWN,
+                libc::ENETRESET => __WASI_ENETRESET,
+                libc::ENETUNREACH => __WASI_ENETUNREACH,
+                libc::ENFILE => __WASI_ENFILE,
+                libc::ENOBUFS => __WASI_ENOBUFS,
+                libc::ENODEV => __WASI_ENODEV,
+                libc::ENOENT => __WASI_ENOENT,
+                libc::ENOEXEC => __WASI_ENOEXEC,
+                libc::ENOLCK => __WASI_ENOLCK,
+                libc::ENOLINK => __WASI_ENOLINK,
+                libc::ENOMEM => __WASI_ENOMEM,
+                libc::ENOMSG => __WASI_ENOMSG,
+                libc::ENOPROTOOPT => __WASI_ENOPROTOOPT,
+                libc::ENOSPC => __WASI_ENOSPC,
+                libc::ENOSYS => __WASI_ENOSYS,
+                libc::ENOTCONN => __WASI_ENOTCONN,
+                libc::ENOTDIR => __WASI_ENOTDIR,
+                libc::ENOTEMPTY => __WASI_ENOTEMPTY,
+                libc::ENOTRECOVERABLE => __WASI_ENOTRECOVERABLE,
+                libc::ENOTSOCK => __WASI_ENOTSOCK,
+                libc::ENOTSUP => __WASI_ENOTSUP,
+                libc::ENOTTY => __WASI_ENOTTY,
+                libc::ENXIO => __WASI_ENXIO,
+                libc::EOVERFLOW => __WASI_EOVERFLOW,
+                libc::EOWNERDEAD => __WASI_EOWNERDEAD,
+                libc::EPERM => __WASI_EPERM,
+                libc::EPIPE => __WASI_EPIPE,
+                libc::EPROTO => __WASI_EPROTO,
+                libc::EPROTONOSUPPORT => __WASI_EPROTONOSUPPORT,
+                libc::EPROTOTYPE => __WASI_EPROTOTYPE,
+                libc::ERANGE => __WASI_ERANGE,
+                libc::EROFS => __WASI_EROFS,
+                libc::ESPIPE => __WASI_ESPIPE,
+                libc::ESRCH => __WASI_ESRCH,
+                libc::ESTALE => __WASI_ESTALE,
+                libc::ETIMEDOUT => __WASI_ETIMEDOUT,
+                libc::ETXTBSY => __WASI_ETXTBSY,
+                libc::EXDEV => __WASI_EXDEV,
+                _ => __WASI_EFAULT,
+            },
+            None => __WASI_EFAULT,
+        }
+    }
+}
+
 macro_rules! wasi_try {
     ($expr:expr) => {{
-        let res: Result<_, __wasi_errno_t> = $expr;
-
-        match res {
+        match $expr {
             Ok(val) => val,
-            Err(err) => return err,
+            Err(err) => return err.into_wasi_error(),
         }
     }};
 
@@ -201,109 +276,6 @@ macro_rules! wasi_try {
     }};
 }
 
-/*
-pub(crate) struct Error {
-    inner: io::Error,
-}
-
-impl Error {
-    pub(crate) fn current() -> Self {
-        Self {
-            inner: io::Error::last_os_error(),
-        }
-    }
-
-    pub(crate) fn wasi_errno(&self) -> __wasi_errno_t {
-        // SAFETY: We can unwrap here because the error has been
-        // constructed with `Error::last_os_error`.
-        match self.inner.raw_os_error().unwrap() {
-            libc::E2BIG => __WASI_E2BIG,
-            libc::EACCES => __WASI_EACCES,
-            libc::EADDRINUSE => __WASI_EADDRINUSE,
-            libc::EADDRNOTAVAIL => __WASI_EADDRNOTAVAIL,
-            libc::EAFNOSUPPORT => __WASI_EAFNOSUPPORT,
-            libc::EAGAIN => __WASI_EAGAIN,
-            libc::EALREADY => __WASI_EALREADY,
-            libc::EBADF => __WASI_EBADF,
-            libc::EBADMSG => __WASI_EBADMSG,
-            libc::EBUSY => __WASI_EBUSY,
-            libc::ECANCELED => __WASI_ECANCELED,
-            libc::ECHILD => __WASI_ECHILD,
-            libc::ECONNABORTED => __WASI_ECONNABORTED,
-            libc::ECONNREFUSED => __WASI_ECONNREFUSED,
-            libc::ECONNRESET => __WASI_ECONNRESET,
-            libc::EDEADLK => __WASI_EDEADLK,
-            libc::EDESTADDRREQ => __WASI_EDESTADDRREQ,
-            libc::EDOM => __WASI_EDOM,
-            libc::EDQUOT => __WASI_EDQUOT,
-            libc::EEXIST => __WASI_EEXIST,
-            libc::EFAULT => __WASI_EFAULT,
-            libc::EFBIG => __WASI_EFBIG,
-            libc::EHOSTUNREACH => __WASI_EHOSTUNREACH,
-            libc::EIDRM => __WASI_EIDRM,
-            libc::EILSEQ => __WASI_EILSEQ,
-            libc::EINPROGRESS => __WASI_EINPROGRESS,
-            libc::EINTR => __WASI_EINTR,
-            libc::EINVAL => __WASI_EINVAL,
-            libc::EIO => __WASI_EIO,
-            libc::EISCONN => __WASI_EISCONN,
-            libc::EISDIR => __WASI_EISDIR,
-            libc::ELOOP => __WASI_ELOOP,
-            libc::EMFILE => __WASI_EMFILE,
-            libc::EMLINK => __WASI_EMLINK,
-            libc::EMSGSIZE => __WASI_EMSGSIZE,
-            libc::EMULTIHOP => __WASI_EMULTIHOP,
-            libc::ENAMETOOLONG => __WASI_ENAMETOOLONG,
-            libc::ENETDOWN => __WASI_ENETDOWN,
-            libc::ENETRESET => __WASI_ENETRESET,
-            libc::ENETUNREACH => __WASI_ENETUNREACH,
-            libc::ENFILE => __WASI_ENFILE,
-            libc::ENOBUFS => __WASI_ENOBUFS,
-            libc::ENODEV => __WASI_ENODEV,
-            libc::ENOENT => __WASI_ENOENT,
-            libc::ENOEXEC => __WASI_ENOEXEC,
-            libc::ENOLCK => __WASI_ENOLCK,
-            libc::ENOLINK => __WASI_ENOLINK,
-            libc::ENOMEM => __WASI_ENOMEM,
-            libc::ENOMSG => __WASI_ENOMSG,
-            libc::ENOPROTOOPT => __WASI_ENOPROTOOPT,
-            libc::ENOSPC => __WASI_ENOSPC,
-            libc::ENOSYS => __WASI_ENOSYS,
-            libc::ENOTCONN => __WASI_ENOTCONN,
-            libc::ENOTDIR => __WASI_ENOTDIR,
-            libc::ENOTEMPTY => __WASI_ENOTEMPTY,
-            libc::ENOTRECOVERABLE => __WASI_ENOTRECOVERABLE,
-            libc::ENOTSOCK => __WASI_ENOTSOCK,
-            libc::ENOTSUP => __WASI_ENOTSUP,
-            libc::ENOTTY => __WASI_ENOTTY,
-            libc::ENXIO => __WASI_ENXIO,
-            libc::EOVERFLOW => __WASI_EOVERFLOW,
-            libc::EOWNERDEAD => __WASI_EOWNERDEAD,
-            libc::EPERM => __WASI_EPERM,
-            libc::EPIPE => __WASI_EPIPE,
-            libc::EPROTO => __WASI_EPROTO,
-            libc::EPROTONOSUPPORT => __WASI_EPROTONOSUPPORT,
-            libc::EPROTOTYPE => __WASI_EPROTOTYPE,
-            libc::ERANGE => __WASI_ERANGE,
-            libc::EROFS => __WASI_EROFS,
-            libc::ESPIPE => __WASI_ESPIPE,
-            libc::ESRCH => __WASI_ESRCH,
-            libc::ESTALE => __WASI_ESTALE,
-            libc::ETIMEDOUT => __WASI_ETIMEDOUT,
-            libc::ETXTBSY => __WASI_ETXTBSY,
-            libc::EXDEV => __WASI_EXDEV,
-            errno => panic!("Unknown error {}", errno),
-        }
-    }
-}
-
-impl fmt::Debug for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_fmt(format_args!("{:?}", self.inner))
-    }
-}
-*/
-
 fn socket_create(
     env: &WasiEnv,
     domain: __wasi_socket_domain_t,
@@ -311,11 +283,11 @@ fn socket_create(
     protocol: __wasi_socket_protocol_t,
     fd_out: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
-    let domain = socket::Domain::try_from(domain).unwrap();
-    let r#type = socket::Type::try_from(r#type).unwrap();
-    let protocol = Option::<socket::Protocol>::try_from(protocol).unwrap();
+    let domain = wasi_try!(socket::Domain::try_from(domain));
+    let r#type = wasi_try!(socket::Type::try_from(r#type));
+    let protocol = wasi_try!(Option::<socket::Protocol>::try_from(protocol));
 
-    let socket = socket::Socket::new(domain, r#type, protocol).unwrap();
+    let socket = wasi_try!(socket::Socket::new(domain, r#type, protocol));
     let fd = socket.as_fd();
 
     let memory = env.memory();
@@ -336,11 +308,11 @@ fn socket_bind(
     let memory = env.memory();
     let address = wasi_try!(address.deref(memory)).get();
 
-    let socket_address = net::SocketAddr::try_from(address).unwrap();
+    let socket_address = wasi_try!(net::SocketAddr::try_from(address));
     let socket_address = socket::SockAddr::from(socket_address);
 
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    socket.bind(&socket_address).unwrap();
+    wasi_try!(socket.bind(&socket_address));
 
     // Do not drop/close the socket.
     mem::forget(socket);
@@ -350,7 +322,7 @@ fn socket_bind(
 
 fn socket_listen(fd: __wasi_fd_t, backlog: u32) -> __wasi_errno_t {
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    socket.listen(backlog.try_into().unwrap()).unwrap();
+    wasi_try!(socket.listen(backlog.try_into().unwrap()));
 
     mem::forget(socket);
 
@@ -364,15 +336,16 @@ fn socket_accept(
     remote_fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    let (remote_socket, remote_socket_address) = socket.accept().unwrap();
+    let (remote_socket, remote_socket_address) = wasi_try!(socket.accept());
 
     // Do not drop/close the sockets.
     mem::forget(socket);
 
     let memory = env.memory();
     let remote_address_cell = wasi_try!(remote_address.deref(memory));
-    remote_address_cell
-        .set(__wasi_socket_address_t::try_from(remote_socket_address.as_socket()).unwrap());
+    remote_address_cell.set(wasi_try!(__wasi_socket_address_t::try_from(
+        remote_socket_address.as_socket()
+    )));
 
     let remote_fd_cell = wasi_try!(remote_fd.deref(memory));
     remote_fd_cell.set(remote_socket.as_fd());
@@ -393,7 +366,7 @@ fn socket_send(
     let socket = unsafe { socket::Socket::from_fd(fd) };
 
     let memory = env.memory();
-    let io_slices = wasi_try!(iov.deref(memory, 0, iov_size))
+    let io_slices = wasi_try!(wasi_try!(iov.deref(memory, 0, iov_size))
         .iter()
         .map(|iov_cell| {
             let iov_inner = iov_cell.get();
@@ -403,12 +376,10 @@ fn socket_send(
 
             Ok(io::IoSlice::new(bytes))
         })
-        .collect::<Result<Vec<_>, __wasi_errno_t>>()
-        .unwrap();
+        .collect::<Result<Vec<_>, __wasi_errno_t>>());
 
-    let total_bytes_written = socket
-        .send_vectored_with_flags(&io_slices, iov_flags.try_into().unwrap())
-        .unwrap();
+    let total_bytes_written =
+        wasi_try!(socket.send_vectored_with_flags(&io_slices, iov_flags.try_into().unwrap()));
 
     // Do not drop/close the socket.
     mem::forget(socket);
@@ -452,9 +423,8 @@ fn socket_recv(
         }));
     }
 
-    let (total_bytes_read, _recv_flags) = socket
-        .recv_vectored_with_flags(&mut io_slices, iov_flags.try_into().unwrap())
-        .unwrap();
+    let (total_bytes_read, _recv_flags) =
+        wasi_try!(socket.recv_vectored_with_flags(&mut io_slices, iov_flags.try_into().unwrap()));
 
     // Do not drop/close the socket.
     mem::forget(socket);
@@ -466,9 +436,9 @@ fn socket_recv(
 }
 
 fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t {
-    let how = net::Shutdown::try_from(how).unwrap();
+    let how = wasi_try!(net::Shutdown::try_from(how));
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    socket.shutdown(how).unwrap();
+    wasi_try!(socket.shutdown(how));
 
     // Do not drop/close the socket.
     mem::forget(socket);
@@ -478,7 +448,7 @@ fn socket_shutdown(fd: __wasi_fd_t, how: __wasi_shutdown_t) -> __wasi_errno_t {
 
 fn socket_set_nonblocking(fd: __wasi_fd_t, nonblocking: u32) -> __wasi_errno_t {
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    socket.set_nonblocking(nonblocking > 0).unwrap();
+    wasi_try!(socket.set_nonblocking(nonblocking > 0));
 
     // Do not drop/close the socket.
     mem::forget(socket);
