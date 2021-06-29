@@ -30,9 +30,9 @@ use crate::machine_utils::{
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Reg {
     RAX = 0,
-    RBX = 1,
-    RCX = 2,
-    RDX = 3,
+    RCX = 1,
+    RDX = 2,
+    RBX = 3,
     RSP = 4,
     RBP = 5,
     RSI = 6,
@@ -47,8 +47,8 @@ pub enum Reg {
     R15 = 15,
 }
 
-const FREE_REGS: [Reg; 3] = [
-    Reg::RAX, Reg::RBX, Reg::R11,
+const FREE_REGS: [Reg; 2] = [
+    Reg::RAX, /*Reg::RBX,*/ Reg::R11,
     // Reg::R12, Reg::R13, Reg::R14, Reg::R15
 ];
 
@@ -59,7 +59,7 @@ const ARG_REGS: [Reg; 6] = [
 impl AbstractReg for Reg {
     fn is_callee_save(self) -> bool {
         const IS_CALLEE_SAVE: [bool; 16] = [
-            false,true,false,false,true,true,false,false,false,false,false,false,true,true,true,true
+            false,false,false,true,true,true,false,false,false,false,false,false,true,true,true,true
         ];
         IS_CALLEE_SAVE[self as usize]
     }
@@ -352,13 +352,13 @@ impl Machine for X64Machine {
         .reg_imm_reg(|e, src1, src2, dst| {
             let src1 = src1.into_index() as u8;
             let dst = dst.into_index() as u8;
-            dynasm!(e ; .arch x64 ; cmp Rd(src1), src2 as i32 ; setbe Rb(dst));
+            dynasm!(e ; .arch x64 ; cmp Rd(src1), src2 as i32 ; setbe Rb(dst) ; and Rq(dst), 0xff);
         })
         .reg_reg_reg(|e, src1, src2, dst| {
             let src1 = src1.into_index() as u8;
             let src2 = src2.into_index() as u8;
             let dst = dst.into_index() as u8;
-            dynasm!(e ; .arch x64 ; cmp Rd(src1), Rd(src2) ; setbe Rb(dst));
+            dynasm!(e ; .arch x64 ; cmp Rd(src1), Rd(src2) ; setbe Rb(dst) ; and Rq(dst), 0xff);
         })
         .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
@@ -369,13 +369,13 @@ impl Machine for X64Machine {
         .reg_imm_reg(|e, src1, src2, dst| {
             let src1 = src1.into_index() as u8;
             let dst = dst.into_index() as u8;
-            dynasm!(e ; .arch x64 ; cmp Rd(src1), src2 as i32 ; setb Rb(dst));
+            dynasm!(e ; .arch x64 ; cmp Rd(src1), src2 as i32; setb Rb(dst) ; and Rq(dst), 0xff);
         })
         .reg_reg_reg(|e, src1, src2, dst| {
             let src1 = src1.into_index() as u8;
             let src2 = src2.into_index() as u8;
             let dst = dst.into_index() as u8;
-            dynasm!(e ; .arch x64 ; cmp Rd(src1), Rd(src2) ; setb Rb(dst));
+            dynasm!(e ; .arch x64 ; cmp Rd(src1), Rd(src2); setb Rb(dst) ; and Rq(dst), 0xff);
         })
         .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
@@ -386,13 +386,13 @@ impl Machine for X64Machine {
         .reg_imm_reg(|e, src1, src2, dst| {
             let src1 = src1.into_index() as u8;
             let dst = dst.into_index() as u8;
-            dynasm!(e ; .arch x64 ; cmp Rd(src1), src2 as i32 ; setae Rb(dst));
+            dynasm!(e ; .arch x64 ; cmp Rd(src1), src2 as i32 ; setae Rb(dst) ; and Rq(dst), 0xff);
         })
         .reg_reg_reg(|e, src1, src2, dst| {
             let src1 = src1.into_index() as u8;
             let src2 = src2.into_index() as u8;
             let dst = dst.into_index() as u8;
-            dynasm!(e ; .arch x64 ; cmp Rd(src1), Rd(src2) ; setae Rb(dst));
+            dynasm!(e ; .arch x64 ; cmp Rd(src1), Rd(src2) ; setae Rb(dst) ; and Rq(dst), 0xff);
         })
         .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
@@ -402,7 +402,7 @@ impl Machine for X64Machine {
         .reg_reg(|e, src, dst| {
             let src = src.into_index() as u8;
             let dst = dst.into_index() as u8;
-            dynasm!(e ; .arch x64 ; cmp Rd(src), 0 ; sete Rb(dst));
+            dynasm!(e ; .arch x64 ; cmp Rd(src), 0 ; sete Rb(dst) ; and Rq(dst), 0xff);
         })
         .execute(&mut self.manager, &mut self.assembler, src)
     }
