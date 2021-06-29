@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use wasmer_wasi_experimental_network::{abi::*, types::*};
 
 fn main() {
@@ -21,7 +22,7 @@ fn main() {
             v4: __wasi_socket_address_in_t {
                 family: AF_INET,
                 address: [0; 4],
-                port: 9000u16.to_be(),
+                port: 9001u16.to_be(),
             },
         };
 
@@ -89,9 +90,14 @@ fn main() {
 
     println!("Looping");
 
+    let mut events: Vec<__wasi_poll_event_t> = Vec::with_capacity(128);
+
     loop {
-        let mut events: Vec<__wasi_poll_event_t> = Vec::with_capacity(128);
+        events.clear();
         let mut number_of_events = 0;
+
+        println!("Waiting for new events");
+
         let err = unsafe {
             poller_wait(
                 poll,
@@ -107,8 +113,50 @@ fn main() {
 
         unsafe { events.set_len(number_of_events as usize) };
 
-        println!("number of events {}", number_of_events);
-        println!("number of events {}", events.len());
-        dbg!(&events);
+        println!("Received {} new events", number_of_events);
+
+        for event in events.iter() {
+            dbg!(&event);
+
+            if event.token == token {
+                println!("Accepting new connection");
+
+                {
+                    let mut client_fd: __wasi_fd_t = 0;
+                    let mut client_address = MaybeUninit::<__wasi_socket_address_t>::uninit();
+                    let err = unsafe {
+                        socket_accept(server, client_address.as_mut_ptr(), &mut client_fd)
+                    };
+
+                    let client_address = unsafe { client_address.assume_init() };
+
+                    println!("Remote client IP: `{:?}`", &client_address);
+
+                    if err != __WASI_ESUCCESS {
+                        panic!("`socket_accept` failed with `{}`", err);
+                    }
+                }
+
+                println!("Re-registering the server");
+
+                {
+                    let err = unsafe {
+                        poller_modify(
+                            poll,
+                            server,
+                            __wasi_poll_event_t {
+                                token: token,
+                                readable: true,
+                                writable: true,
+                            },
+                        )
+                    };
+
+                    if err != __WASI_ESUCCESS {
+                        panic!("`poller_modify` failed with `{}`", err);
+                    }
+                }
+            }
+        }
     }
 }

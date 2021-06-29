@@ -520,6 +520,26 @@ fn poller_add(
     __WASI_ESUCCESS
 }
 
+fn poller_modify(
+    env: &WasiNetworkEnv,
+    poll: __wasi_poll_t,
+    fd: __wasi_fd_t,
+    event: WasmPtr<__wasi_poll_event_t>,
+) -> __wasi_errno_t {
+    let memory = env.memory();
+    let poll_arena = env.poll_arena.try_read().unwrap();
+    let (poller, _) = poll_arena.get(poll.try_into().unwrap()).unwrap();
+    let event = wasi_try!(event.deref(memory)).get();
+    poller
+        .modify(
+            PollingSource(fd),
+            wasi_try!(polling::Event::try_from(event)),
+        )
+        .unwrap();
+
+    __WASI_ESUCCESS
+}
+
 fn poller_wait(
     env: &WasiNetworkEnv,
     poll: __wasi_poll_t,
@@ -619,6 +639,10 @@ pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Export
     wasi_network_imports.insert(
         "poller_add",
         Function::new_native_with_env(&store, wasi_env.clone(), poller_add),
+    );
+    wasi_network_imports.insert(
+        "poller_modify",
+        Function::new_native_with_env(&store, wasi_env.clone(), poller_modify),
     );
     wasi_network_imports.insert(
         "poller_wait",

@@ -133,6 +133,12 @@ extern "C" {
         event: __wasi_poll_event_t,
     ) -> __wasi_errno_t;
 
+    pub fn poller_modify(
+        poll: __wasi_poll_t,
+        fd: __wasi_fd_t,
+        event: __wasi_poll_event_t,
+    ) -> __wasi_errno_t;
+
     pub fn poller_wait(
         poll: __wasi_poll_t,
         events: *mut __wasi_poll_event_t,
