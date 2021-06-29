@@ -4,7 +4,7 @@ use crate::common_decl::{Size};
 
 use dynasmrt::aarch64::Assembler;
 use dynasmrt::{dynasm, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_types::{FunctionType, FunctionIndex};
+use wasmer_types::{FunctionType, FunctionIndex, Type};
 use wasmer_vm::VMOffsets;
 
 use wasmer_compiler::wasmparser::Type as WpType;
@@ -93,11 +93,11 @@ impl Emitter<Reg> for Assembler {
     fn shrink_stack(&mut self, offset: u32) {
         dynasm!(self ; .arch aarch64 ; add sp, sp, offset);
     }
-    fn move_imm32_to_mem32(&mut self, val: u32, base: Reg, offset: i32) {
-        self.move_imm32_to_reg32(val, Reg::X18);
-        self.move_reg32_to_mem32(Reg::X18, base, offset);
+    fn move_imm32_to_mem(&mut self, sz: Size, val: u32, base: Reg, offset: i32) {
+        self.move_imm32_to_reg(sz, val, Reg::X18);
+        self.move_reg_to_mem(sz, Reg::X18, base, offset);
     }
-    fn move_imm32_to_reg32(&mut self, val: u32, reg: Reg) {
+    fn move_imm32_to_reg(&mut self, sz: Size, val: u32, reg: Reg) {
         let reg = reg.into_index() as u32;
         if val & 0xffff0000 != 0 {
             dynasm!(self ; .arch aarch64 ; mov W(reg), (val & 0xffff) as u64 ; movk W(reg), val >> 16, LSL 16);
@@ -105,24 +105,36 @@ impl Emitter<Reg> for Assembler {
             dynasm!(self ; .arch aarch64 ; mov W(reg), val as u64);
         }
     }
-    fn move_reg32_to_reg32(&mut self, reg1: Reg, reg2: Reg) {
+    fn move_reg_to_reg(&mut self, sz: Size, reg1: Reg, reg2: Reg) {
         let reg1 = reg1.into_index() as u32;
         let reg2 = reg2.into_index() as u32;
-        dynasm!(self ; .arch aarch64 ; mov W(reg2), W(reg1));
+        match sz {
+            Size::S32 => dynasm!(self ; .arch aarch64 ; mov W(reg2), W(reg1)),
+            Size::S64 => dynasm!(self ; .arch aarch64 ; mov X(reg2), X(reg1)),
+            _ => unimplemented!(),
+        }
     }
-    fn move_reg32_to_mem32(&mut self, reg: Reg, base: Reg, offset: i32) {
+    fn move_reg_to_mem(&mut self, sz: Size, reg: Reg, base: Reg, offset: i32) {
         let reg = reg.into_index() as u32;
         let base = base.into_index() as u32;
-        dynasm!(self ; .arch aarch64 ; stur W(reg), [XSP(base), offset]);
+        match sz {
+            Size::S32 => dynasm!(self ; .arch aarch64 ; stur W(reg), [XSP(base), offset]),
+            Size::S64 => dynasm!(self ; .arch aarch64 ; stur X(reg), [XSP(base), offset]),
+            _ => unimplemented!(),
+        }
     }
-    fn move_mem32_to_reg32(&mut self, base: Reg, offset: i32, reg: Reg) {
+    fn move_mem_to_reg(&mut self, sz: Size, base: Reg, offset: i32, reg: Reg) {
         let base = base.into_index() as u32;
         let reg = reg.into_index() as u32;
-        dynasm!(self ; .arch aarch64 ; ldur W(reg), [XSP(base), offset]);
+        match sz {
+            Size::S32 => dynasm!(self ; .arch aarch64 ; ldur W(reg), [XSP(base), offset]),
+            Size::S64 => dynasm!(self ; .arch aarch64 ; ldur X(reg), [XSP(base), offset]),
+            _ => unimplemented!(),
+        }
     }
-    fn move_mem32_to_mem32(&mut self, base1: Reg, offset1: i32, base2: Reg, offset2: i32) {
-        self.move_mem32_to_reg32(base1, offset1, Reg::X18);
-        self.move_reg32_to_mem32(Reg::X18, base2, offset2);
+    fn move_mem_to_mem(&mut self, sz: Size, base1: Reg, offset1: i32, base2: Reg, offset2: i32) {
+        self.move_mem_to_reg(sz, base1, offset1, Reg::X18);
+        self.move_reg_to_mem(sz, Reg::X18, base2, offset2);
     }
 }
 
@@ -200,7 +212,7 @@ impl Machine for Aarch64Machine {
     }
 
     fn do_const_i32(&mut self, n: i32) -> Local<Location> {
-        Local::new(Location::Imm32(n as u32))
+        Local::new(Location::Imm32(n as u32), Size::S32)
     }
 
     // N.B. `n_locals` includes `n_params`; `n_locals` will always be >= `n_params`
@@ -496,14 +508,14 @@ impl Machine for Aarch64Machine {
         .execute(&mut self.manager, &mut self.assembler, ptr, val);
     }
 
-    fn do_ptr_offset(&mut self, ptr: Local<Location>, offset: i32) -> Local<Location> {
+    fn do_ptr_offset(&mut self, sz: Size, ptr: Local<Location>, offset: i32) -> Local<Location> {
         In1Out0::new().reg(|_, _|{}).execute(&mut self.manager, &mut self.assembler, ptr.clone());
         let reg = if let Location::Reg(reg) = ptr.location() {reg} else {unreachable!()};
-        Local::new(Location::Memory(reg, offset))
+        Local::new(Location::Memory(reg, offset), sz)
     }
 
-    fn do_vmctx_ptr_offset(&mut self, offset: i32) -> Local<Location> {
-        Local::new(Location::Memory(Descriptor::VMCTX, offset))
+    fn do_vmctx_ptr_offset(&mut self, sz: Size, offset: i32) -> Local<Location> {
+        Local::new(Location::Memory(Descriptor::VMCTX, offset), sz)
     }
 
     fn do_call(&mut self, reloc_target: RelocationTarget,
@@ -577,13 +589,18 @@ impl Machine for Aarch64Machine {
 
         // Move arguments to their locations.
         // `callee_vmctx` is already in the first argument register, so no need to move.
-        for (i, _param) in sig.params().iter().enumerate() {
+        for (i, param) in sig.params().iter().enumerate() {
+            let sz = match *param {
+                Type::I32 => Size::S32,
+                Type::I64 => Size::S64,
+                _ => unimplemented!(),
+            };
             match i {
                 0..=6 => {
-                    m.assembler.move_mem32_to_reg32(args, (i * 16) as i32, Reg::from_index(i + 1).unwrap());
+                    m.assembler.move_mem_to_reg(sz, args, (i * 16) as i32, Reg::from_index(i + 1).unwrap());
                 },
                 _ => {
-                    m.assembler.move_mem32_to_mem32(args, (i * 16) as i32, Reg::SP, (i as i32 - 7) * 8);
+                    m.assembler.move_mem_to_mem(sz, args, (i * 16) as i32, Reg::SP, (i as i32 - 7) * 8);
                 },
             }
         }
@@ -592,7 +609,7 @@ impl Machine for Aarch64Machine {
 
         // Write return value.
         if !sig.results().is_empty() {
-            m.assembler.move_reg32_to_mem32(Reg::X0, args, 0);
+            m.assembler.move_reg_to_mem(Size::S64, Reg::X0, args, 0);
         }
 
         // Restore stack.
