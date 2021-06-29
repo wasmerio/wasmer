@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use wasmer_wasi_experimental_network::{abi::*, types::*};
 
 fn main() {
@@ -42,10 +43,10 @@ fn main() {
         println!("Waiting to accept a new connection");
 
         let mut client_fd: __wasi_fd_t = 0;
-        let mut client_address = __wasi_socket_address_t {
-            v4: __wasi_socket_address_in_t::default(),
-        };
-        let err = unsafe { socket_accept(fd, &mut client_address, &mut client_fd) };
+        let mut client_address = MaybeUninit::<__wasi_socket_address_t>::uninit();
+        let err = unsafe { socket_accept(fd, client_address.as_mut_ptr(), &mut client_fd) };
+
+        let client_address = unsafe { client_address.assume_init() };
 
         println!("Remote client IP: `{:?}`", &client_address);
 
