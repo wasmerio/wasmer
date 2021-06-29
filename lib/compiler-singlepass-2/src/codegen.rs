@@ -1094,21 +1094,21 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let instructions_address_map = self.instructions_address_map;
         let address_map = get_function_address_map(instructions_address_map, data, body.len());
 
-        use std::io::Write;
-        let mut s = String::new();
-        for b in body.iter().copied() {
-            s.push_str(&format!("{:0>2X} ", b));
-        }
-        let asm = std::process::Command::new("cstool")
-            .arg("arm64")
-            .arg(format!("\"{}\"", s))
-            .output()
-            .unwrap()
-            .stdout;
-        let mut f = std::fs::File::create(
-            format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
-            unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
-        f.write_all(&asm).unwrap();
+        // use std::io::Write;
+        // let mut s = String::new();
+        // for b in body.iter().copied() {
+        //     s.push_str(&format!("{:0>2X} ", b));
+        // }
+        // let asm = std::process::Command::new("cstool")
+        //     .arg("arm64")
+        //     .arg(format!("\"{}\"", s))
+        //     .output()
+        //     .unwrap()
+        //     .stdout;
+        // let mut f = std::fs::File::create(
+        //     format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
+        //     unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
+        // f.write_all(&asm).unwrap();
 
         CompiledFunction {
             body: FunctionBody {
