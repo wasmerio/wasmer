@@ -92,6 +92,8 @@ fn main() {
 
     let mut events: Vec<__wasi_poll_event_t> = Vec::with_capacity(128);
 
+    let mut next_token: __wasi_poll_token_t = server + 1;
+
     loop {
         events.clear();
         let mut number_of_events = 0;
@@ -121,7 +123,7 @@ fn main() {
             if event.token == token {
                 println!("Accepting new connection");
 
-                {
+                let client_fd = {
                     let mut client_fd: __wasi_fd_t = 0;
                     let mut client_address = MaybeUninit::<__wasi_socket_address_t>::uninit();
                     let err = unsafe {
@@ -135,7 +137,9 @@ fn main() {
                     if err != __WASI_ESUCCESS {
                         panic!("`socket_accept` failed with `{}`", err);
                     }
-                }
+
+                    client_fd
+                };
 
                 println!("Re-registering the server");
 
@@ -156,6 +160,28 @@ fn main() {
                         panic!("`poller_modify` failed with `{}`", err);
                     }
                 }
+
+                println!("Registering the new connection");
+
+                {
+                    let err = unsafe {
+                        poller_modify(
+                            poll,
+                            client_fd,
+                            __wasi_poll_event_t {
+                                token: next_token,
+                                readable: true,
+                                writable: true,
+                            },
+                        )
+                    };
+
+                    if err != __WASI_ESUCCESS {
+                        panic!("`poller_modify` failed with `{}`", err);
+                    }
+                }
+
+                next_token += 1;
             }
         }
     }
