@@ -147,9 +147,3 @@ pub struct __wasi_poll_event_t {
 }
 
 unsafe impl ValueType for __wasi_poll_event_t {}
-
-/*
-pub type __wasi_poll_event_type_t = u32;
-pub const READABLE_EVENT: __wasi_poll_event_type_t = 1;
-pub const WRITABLE_EVENT: __wasi_poll_event_type_t = 2;
-*/
