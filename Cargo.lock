@@ -3041,7 +3041,6 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-compiler-singlepass-2",
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",
