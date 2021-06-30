@@ -81,11 +81,11 @@ pub fn translate_module<'data>(
                 environ.reserve_passive_data(count)?;
             }
 
-            Payload::ModuleSection(_)
-            | Payload::InstanceSection(_)
+            Payload::InstanceSection(_)
             | Payload::AliasSection(_)
-            | Payload::ModuleCodeSectionStart { .. }
-            | Payload::ModuleCodeSectionEntry { .. } => {
+            | Payload::EventSection(_)
+            | Payload::ModuleSectionStart { .. }
+            | Payload::ModuleSectionEntry { .. } => {
                 unimplemented!("module linking not implemented yet")
             }
 
@@ -93,6 +93,7 @@ pub fn translate_module<'data>(
                 name: "name",
                 data,
                 data_offset,
+                ..
             } => parse_name_section(NameSectionReader::new(data, data_offset)?, environ)?,
 
             Payload::CustomSection { name, data, .. } => environ.custom_section(name, data)?,

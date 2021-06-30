@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 
 int main(int argc, const char* argv[]) {
     const char *wat_string =
@@ -77,6 +77,7 @@ int main(int argc, const char* argv[]) {
 
     printf("Results of `add_one`: %d\n", results_val[0].of.i32);
 
+    wasm_extern_vec_delete(&exports);
     wasm_store_delete(store);
     wasm_engine_delete(engine);
 }

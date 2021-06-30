@@ -1,5 +1,5 @@
 #![deny(unused_mut)]
-#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
 //! Wasmer's WASI implementation
@@ -26,12 +26,13 @@ pub use crate::state::{
     WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
-pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
+pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
 
 use thiserror::Error;
-use wasmer::{imports, Function, ImportObject, LazyInit, Memory, Module, Store, WasmerEnv};
-#[cfg(all(target_os = "macos", target_arch = "aarch64",))]
-use wasmer::{FunctionType, ValType};
+use wasmer::{
+    imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, Module,
+    NamedResolver, Store, WasmerEnv,
+};
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -67,6 +68,7 @@ impl WasiEnv {
         }
     }
 
+    /// Get an `ImportObject` for a specific version of WASI detected in the module.
     pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
         Ok(generate_import_object_from_env(
@@ -76,19 +78,30 @@ impl WasiEnv {
         ))
     }
 
+    /// Like `import_object` but containing all the WASI versions detected in
+    /// the module.
+    pub fn import_object_for_all_wasi_versions(
+        &mut self,
+        module: &Module,
+    ) -> Result<Box<dyn NamedResolver>, WasiError> {
+        let wasi_versions =
+            get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+
+        let mut resolver: Box<dyn NamedResolver> = { Box::new(()) };
+        for version in wasi_versions.iter() {
+            let new_import_object =
+                generate_import_object_from_env(module.store(), self.clone(), *version);
+            resolver = Box::new(new_import_object.chain_front(resolver));
+        }
+        Ok(resolver)
+    }
+
     /// Get the WASI state
     ///
     /// Be careful when using this in host functions that call into Wasm:
     /// if the lock is held and the Wasm calls into a host function that tries
     /// to lock this mutex, the program will deadlock.
     pub fn state(&self) -> MutexGuard<WasiState> {
-        self.state.lock().unwrap()
-    }
-
-    // TODO: delete this method before 1.0.0 release
-    #[doc(hidden)]
-    #[deprecated(since = "1.0.0-beta1", note = "Please use the `state` method instead")]
-    pub fn state_mut(&mut self) -> MutexGuard<WasiState> {
         self.state.lock().unwrap()
     }
 
@@ -122,34 +135,6 @@ pub fn generate_import_object_from_env(
             generate_import_object_snapshot1(store, wasi_env)
         }
     }
-}
-
-// Note: we use this wrapper because native functions with more than 9 params
-// fail on Apple Silicon (with Cranelift).
-fn get_path_open_for_store(store: &Store, env: WasiEnv) -> Function {
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64",)))]
-    let path_open = Function::new_native_with_env(store, env, path_open);
-    #[cfg(all(target_os = "macos", target_arch = "aarch64",))]
-    let path_open = Function::new_with_env(
-        store,
-        FunctionType::new(
-            vec![
-                ValType::I32,
-                ValType::I32,
-                ValType::I32,
-                ValType::I32,
-                ValType::I32,
-                ValType::I64,
-                ValType::I64,
-                ValType::I32,
-                ValType::I32,
-            ],
-            vec![ValType::I32],
-        ),
-        env.clone(),
-        path_open_dynamic,
-    );
-    path_open
 }
 
 /// Combines a state generating function with the import list for legacy WASI
@@ -187,7 +172,7 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
             "path_filestat_get" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::path_filestat_get),
             "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
             "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => get_path_open_for_store(store, env.clone()),
+            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
             "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
             "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
             "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
@@ -240,7 +225,7 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "path_filestat_get" => Function::new_native_with_env(store, env.clone(), path_filestat_get),
             "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
             "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => get_path_open_for_store(store, env.clone()),
+            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
             "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
             "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
             "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),

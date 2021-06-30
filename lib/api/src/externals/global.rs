@@ -5,10 +5,11 @@ use crate::types::Val;
 use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
+use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportGlobal};
-use wasmer_vm::{Global as RuntimeGlobal, VMExportGlobal};
+use wasmer_engine::Export;
+use wasmer_vm::{Global as RuntimeGlobal, VMGlobal};
 
 /// A WebAssembly `global` instance.
 ///
@@ -16,10 +17,10 @@ use wasmer_vm::{Global as RuntimeGlobal, VMExportGlobal};
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-#[derive(Clone)]
+#[derive(MemoryUsage)]
 pub struct Global {
     store: Store,
-    global: Arc<RuntimeGlobal>,
+    vm_global: VMGlobal,
 }
 
 impl Global {
@@ -74,7 +75,10 @@ impl Global {
 
         Ok(Self {
             store: store.clone(),
-            global: Arc::new(global),
+            vm_global: VMGlobal {
+                from: Arc::new(global),
+                instance_ref: None,
+            },
         })
     }
 
@@ -93,7 +97,7 @@ impl Global {
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
     pub fn ty(&self) -> &GlobalType {
-        self.global.ty()
+        self.vm_global.from.ty()
     }
 
     /// Returns the [`Store`] where the `Global` belongs.
@@ -125,7 +129,7 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
     pub fn get(&self) -> Val {
-        self.global.get()
+        self.vm_global.from.get(&self.store)
     }
 
     /// Sets a custom value [`Val`] to the runtime Global.
@@ -174,17 +178,18 @@ impl Global {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            self.global
+            self.vm_global
+                .from
                 .set(val)
                 .map_err(|e| RuntimeError::new(format!("{}", e)))?;
         }
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, vm_global: VMGlobal) -> Self {
         Self {
             store: store.clone(),
-            global: wasmer_export.vm_global.from,
+            vm_global,
         }
     }
 
@@ -201,7 +206,31 @@ impl Global {
     /// assert!(g.same(&g));
     /// ```
     pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.global, &other.global)
+        Arc::ptr_eq(&self.vm_global.from, &other.vm_global.from)
+    }
+
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_global(&self) -> &VMGlobal {
+        &self.vm_global
+    }
+}
+
+impl Clone for Global {
+    fn clone(&self) -> Self {
+        let mut vm_global = self.vm_global.clone();
+        vm_global.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_global,
+        }
     }
 }
 
@@ -217,13 +246,7 @@ impl fmt::Debug for Global {
 
 impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> Export {
-        ExportGlobal {
-            vm_global: VMExportGlobal {
-                from: self.global.clone(),
-                instance_ref: None,
-            },
-        }
-        .into()
+        self.vm_global.clone().into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
@@ -231,5 +254,12 @@ impl<'a> Exportable<'a> for Global {
             Extern::Global(global) => Ok(global),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.vm_global
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
     }
 }

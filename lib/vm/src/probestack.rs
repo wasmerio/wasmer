@@ -25,8 +25,18 @@ cfg_if::cfg_if! {
         extern "C" {
             pub fn __chkstk();
         }
-        /// The probestack for Windows when compiled with MSVC
+        /// The probestack for 64bit Windows when compiled with MSVC (note the double underscore)
         pub const PROBESTACK: unsafe extern "C" fn() = __chkstk;
+    } else if #[cfg(all(
+            target_os = "windows",
+            target_env = "msvc",
+            target_pointer_width = "32"
+            ))] {
+        extern "C" {
+            pub fn _chkstk();
+        }
+        /// The probestack for 32bit Windows when compiled with MSVC (note the singular underscore)
+        pub const PROBESTACK: unsafe extern "C" fn() = _chkstk;
     } else if #[cfg(all(target_os = "windows", target_env = "gnu"))] {
         extern "C" {
             // ___chkstk (note the triple underscore) is implemented in compiler-builtins/src/x86_64.rs

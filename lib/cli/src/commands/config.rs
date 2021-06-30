@@ -8,27 +8,27 @@ use structopt::StructOpt;
 /// The options for the `wasmer config` subcommand
 pub struct Config {
     /// Print the installation prefix.
-    #[structopt(long, conflicts_with = "pkg_config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     prefix: bool,
 
     /// Directory containing Wasmer executables.
-    #[structopt(long, conflicts_with = "pkg_config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     bindir: bool,
 
     /// Directory containing Wasmer headers.
-    #[structopt(long, conflicts_with = "pkg_config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     includedir: bool,
 
     /// Directory containing Wasmer libraries.
-    #[structopt(long, conflicts_with = "pkg_config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     libdir: bool,
 
     /// Libraries needed to link against Wasmer components.
-    #[structopt(long, conflicts_with = "pkg_config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     libs: bool,
 
     /// C compiler flags for files that include Wasmer headers.
-    #[structopt(long, conflicts_with = "pkg_config")]
+    #[structopt(long, conflicts_with = "pkg-config")]
     cflags: bool,
 
     /// It outputs the necessary details for compiling
@@ -45,10 +45,16 @@ impl Config {
     }
     fn inner_execute(&self) -> Result<()> {
         let key = "WASMER_DIR";
-        let wasmer_dir = env::var(key).context(format!(
-            "failed to retrieve the {} environment variables",
-            key
-        ))?;
+        let wasmer_dir = env::var(key)
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context(format!(
+                "failed to retrieve the {} environment variables",
+                key
+            ))?;
 
         let prefix = PathBuf::from(wasmer_dir);
 
@@ -56,7 +62,7 @@ impl Config {
         let bindir = prefix.join("bin").display().to_string();
         let includedir = prefix.join("include").display().to_string();
         let libdir = prefix.join("lib").display().to_string();
-        let cflags = format!("-I{}/wasmer", includedir);
+        let cflags = format!("-I{}", includedir);
         let libs = format!("-L{} -lwasmer", libdir);
 
         if self.pkg_config {

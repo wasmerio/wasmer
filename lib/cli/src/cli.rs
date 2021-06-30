@@ -2,7 +2,7 @@
 
 #[cfg(feature = "compiler")]
 use crate::commands::Compile;
-#[cfg(all(feature = "object-file", feature = "compiler"))]
+#[cfg(all(feature = "staticlib", feature = "compiler"))]
 use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
@@ -12,7 +12,7 @@ use anyhow::Result;
 
 use structopt::{clap::ErrorKind, StructOpt};
 
-#[derive(Debug, StructOpt)]
+#[derive(StructOpt)]
 #[cfg_attr(
     not(feature = "headless"),
     structopt(name = "wasmer", about = "WebAssembly standalone runtime.", author)
@@ -45,7 +45,7 @@ enum WasmerCLIOptions {
     Compile(Compile),
 
     /// Compile a WebAssembly binary into a native executable
-    #[cfg(all(feature = "object-file", feature = "compiler"))]
+    #[cfg(all(feature = "staticlib", feature = "compiler"))]
     #[structopt(name = "create-exe")]
     CreateExe(CreateExe),
 
@@ -77,7 +77,7 @@ impl WasmerCLIOptions {
             Self::Validate(validate) => validate.execute(),
             #[cfg(feature = "compiler")]
             Self::Compile(compile) => compile.execute(),
-            #[cfg(all(feature = "object-file", feature = "compiler"))]
+            #[cfg(all(feature = "staticlib", feature = "compiler"))]
             Self::CreateExe(create_exe) => create_exe.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),

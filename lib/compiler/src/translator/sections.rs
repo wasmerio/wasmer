@@ -105,7 +105,9 @@ pub fn parse_import_section<'data>(
                     field_name.unwrap_or_default(),
                 )?;
             }
-            ImportSectionEntryType::Module(_sig) | ImportSectionEntryType::Instance(_sig) => {
+            ImportSectionEntryType::Module(_)
+            | ImportSectionEntryType::Instance(_)
+            | ImportSectionEntryType::Event(_) => {
                 unimplemented!("module linking not implemented yet")
             }
             ImportSectionEntryType::Memory(WPMemoryType::M32 {
@@ -292,7 +294,10 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
-            ExternalKind::Type | ExternalKind::Module | ExternalKind::Instance => {
+            ExternalKind::Type
+            | ExternalKind::Module
+            | ExternalKind::Instance
+            | ExternalKind::Event => {
                 unimplemented!("module linking not implemented yet")
             }
         }
@@ -366,7 +371,7 @@ pub fn parse_element_section<'data>(
                 let index = ElemIndex::from_u32(index as u32);
                 environ.declare_passive_element(index, segments)?;
             }
-            ElementKind::Declared => return Err(wasm_unsupported!("element kind declared")),
+            ElementKind::Declared => (),
         }
     }
     Ok(())
@@ -440,6 +445,7 @@ pub fn parse_name_section<'data>(
                 }
             }
             wasmparser::Name::Local(_) => {}
+            wasmparser::Name::Unknown { .. } => {}
         };
     }
     Ok(())

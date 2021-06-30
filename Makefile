@@ -1,126 +1,350 @@
-# uname only works in *Unix like systems
-ifneq ($(OS), Windows_NT)
-	ARCH := $(shell uname -m)
-	UNAME_S := $(shell uname -s)
-	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
+SHELL=/bin/bash
+
+
+#####
+#
+# The Matrix
+#
+#####
+
+# The matrix is the product of the following columns:
+#
+# |------------|-----------|----------|--------------|-------|
+# | Compiler   ⨯ Engine    ⨯ Platform ⨯ Architecture ⨯ libc  |
+# |------------|-----------|----------|--------------|-------|
+# | Cranelift  | Universal | Linux    | amd64        | glibc |
+# | LLVM       | Dylib     | Darwin   | aarch64      | musl  |
+# | Singlepass | Staticlib | Windows  |              |       |
+# |------------|-----------|----------|--------------|-------|
+#
+# Here is what works and what doesn't:
+#
+# * Cranelift with the Universal engine works everywhere,
+#
+# * Cranelift with the Dylib engine works on Linux+Darwin/`amd64`, but
+#   it doesn't work on */`aarch64` or Windows/*.
+#
+# * LLVM with the Universal engine works on Linux+Darwin/`amd64`,
+#   but it doesn't work on */`aarch64` or Windows/*.
+#
+# * LLVM with the Dylib engine works on
+#   Linux+Darwin/`amd64`+`aarch64`, but it doesn't work on Windows/*.
+#
+# * Singlepass with the Universal engine works on Linux+Darwin/`amd64`, but
+#   it doesn't work on */`aarch64` or Windows/*.
+#
+# * Singlepass with the Dylib engine doesn't work because it doesn't
+#   know how to output object files for the moment.
+#
+# * Windows isn't tested on `aarch64`, that's why we consider it's not
+#   working, but it might possibly be.
+
+
+#####
+#
+# Define the “Platform” and “Architecture” columns of the matrix.
+#
+#####
+
+
+IS_DARWIN := 0
+IS_LINUX := 0
+IS_WINDOWS := 0
+IS_AMD64 := 0
+IS_AARCH64 := 0
+
+# Test Windows apart because it doesn't support `uname -s`.
+ifeq ($(OS), Windows_NT)
+	# We can assume it will likely be in amd64.
+	IS_AMD64 := 1
+	IS_WINDOWS := 1
 else
-	# We can assume, if in windows it will likely be in x86_64
-	ARCH := x86_64
-	UNAME_S :=
-	LIBC ?=
+	# Platform
+	uname := $(shell uname -s)
+
+	ifeq ($(uname), Darwin)
+		IS_DARWIN := 1
+	else ifeq ($(uname), Linux)
+		IS_LINUX := 1
+	else
+		# We use spaces instead of tabs to indent `$(error)`
+		# otherwise it's considered as a command outside a
+		# target and it will fail.
+                $(error Unrecognized platform, expect `Darwin`, `Linux` or `Windows_NT`)
+	endif
+
+	# Architecture
+	uname := $(shell uname -m)
+
+	ifeq ($(uname), x86_64)
+		IS_AMD64 := 1
+	else ifneq (, $(filter $(uname), aarch64 arm64))
+		IS_AARCH64 := 1
+	else
+		# We use spaces instead of tabs to indent `$(error)`
+		# otherwise it's considered as a command outside a
+		# target and it will fail.
+                $(error Unrecognized architecture, expect `x86_64`, `aarch64` or `arm64`)
+	endif
+
+	# Libc
+	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
 endif
+
+
+#####
+#
+# Define the “Compiler” column of the matrix.
+#
+#####
+
+
+# Variables that can be overriden by the users to force to enable or
+# to disable a specific compiler.
+ENABLE_CRANELIFT ?=
+ENABLE_LLVM ?=
+ENABLE_SINGLEPASS ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
-compilers := cranelift
+compilers := 
 
-# In the form "$(compiler)-$(engine)" which compiler+engine combinations to test
-# in `make test`.
-test_compilers_engines :=
+##
+# Cranelift
+##
 
-# Autodetect LLVM from llvm-config
-ifneq (, $(shell which llvm-config 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config --version)
-	# If findstring is not empty, then it have found the value
-	ifneq (, $(findstring 10,$(LLVM_VERSION)))
+# If the user didn't disable the Cranelift compiler…
+ifneq ($(ENABLE_CRANELIFT), 0)
+	# … then it can always be enabled.
+	compilers += cranelift
+	ENABLE_CRANELIFT := 1
+endif
+
+##
+# LLVM
+##
+
+# If the user didn't disable the LLVM compiler…
+ifneq ($(ENABLE_LLVM), 0)
+	# … then maybe the user forced to enable the LLVM compiler.
+	ifeq ($(ENABLE_LLVM), 1)
 		compilers += llvm
-	endif
-	ifneq (, $(findstring 11,$(LLVM_VERSION)))
-		compilers += llvm
-	endif
-else
-	ifneq (, $(shell which llvm-config-10 2>/dev/null))
-		compilers += llvm
-	endif
-	ifneq (, $(shell which llvm-config-11 2>/dev/null))
-		compilers += llvm
+	# … otherwise, we try to autodetect LLVM from `llvm-config`
+	else ifneq (, $(shell which llvm-config 2>/dev/null))
+		LLVM_VERSION := $(shell llvm-config --version)
+
+		# If findstring is not empty, then it have found the value
+		ifneq (, $(findstring 11,$(LLVM_VERSION)))
+			compilers += llvm
+		else ifneq (, $(findstring 10,$(LLVM_VERSION)))
+			compilers += llvm
+		endif
+	# … or try to autodetect LLVM from `llvm-config-<version>`.
+	else
+		ifneq (, $(shell which llvm-config-11 2>/dev/null))
+			compilers += llvm
+		else ifneq (, $(shell which llvm-config-10 2>/dev/null))
+			compilers += llvm
+		endif
 	endif
 endif
 
-ifeq ($(ARCH), x86_64)
-	test_compilers_engines += cranelift-jit
-	# LLVM could be enabled if not in Windows
-	ifneq ($(OS), Windows_NT)
-		ifneq ($(LIBC), musl)
-			# Native engine doesn't work on Windows and musl yet.
-			test_compilers_engines += cranelift-native
-		endif
-		# Singlepass doesn't work yet on Windows.
-		compilers += singlepass
-		# Singlepass doesn't work with the native engine.
-		test_compilers_engines += singlepass-jit
-		ifneq (, $(findstring llvm,$(compilers)))
-			test_compilers_engines += llvm-jit
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
+# Is failing to compile in Linux for some reason
+exclude_tests += --exclude wasmer-wasi-experimental-io-devices
+# We run integration tests separately (it requires building the c-api)
+exclude_tests += --exclude wasmer-integration-tests-cli
 
+ifneq (, $(findstring llvm,$(compilers)))
+	ENABLE_LLVM := 1
+else
+	# We exclude LLVM from our package testing
+	exclude_tests += --exclude wasmer-compiler-llvm
+endif
+
+##
+# Singlepass
+##
+
+# If the user didn't disable the Singlepass compiler…
+ifneq ($(ENABLE_SINGLEPASS), 0)
+	# … then maybe the user forced to enable the Singlepass compiler.
+	ifeq ($(ENABLE_SINGLEPASS), 1)
+		compilers += singlepass
+	# … otherwise, we try to check whether Singlepass works on this host.
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers += singlepass
+		endif
+	endif
+endif
+
+ifneq (, $(findstring singlepass,$(compilers)))
+	ENABLE_SINGLEPASS := 1
+endif
+
+##
+# Clean the `compilers` variable.
+##
+
+compilers := $(strip $(compilers))
+
+
+#####
+#
+# Define the “Engine” column of the matrix.
+#
+#####
+
+
+# The engine is part of a pair of kind (compiler, engine). All the
+# pairs are stored in the `compilers_engines` variable.
+compilers_engines :=
+
+##
+# The Cranelift case.
+##
+
+ifeq ($(ENABLE_CRANELIFT), 1)
+	compilers_engines += cranelift-universal
+
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
 			ifneq ($(LIBC), musl)
-				# Native engine doesn't work on musl yet.
-				test_compilers_engines += llvm-native
+				compilers_engines += cranelift-dylib
+			endif
+		else ifeq ($(IS_AARCH64), 1)
+			# The object crate doesn't support yet Darwin + Aarch64 relocations
+			ifneq ($(IS_DARWIN), 1)
+				compilers_engines += cranelift-dylib
 			endif
 		endif
 	endif
 endif
 
-# If it's an aarch64/arm64 chip
-# Using filter as a logical OR
-# https://stackoverflow.com/questions/7656425/makefile-ifeq-logical-or
-use_system_ffi =
-ifneq (,$(filter $(ARCH),aarch64 arm64))
-	test_compilers_engines += cranelift-jit
-	ifneq (, $(findstring llvm,$(compilers)))
-		test_compilers_engines += llvm-native
+##
+# The LLVM case.
+##
+
+ifeq ($(ENABLE_LLVM), 1)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers_engines += llvm-universal
+			compilers_engines += llvm-dylib
+		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-dylib
+		endif
 	endif
-	# if we are in macos arm64, we use the system libffi for the capi
-	ifeq ($(UNAME_S), Darwin)
-		use_system_ffi = yes
+endif
+
+##
+# The Singlepass case.
+##
+
+ifeq ($(ENABLE_SINGLEPASS), 1)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers_engines += singlepass-universal
+		endif
 	endif
 endif
 
-# if the user has set the `WASMER_CAPI_USE_SYSTEM_LIBFFI` var to 1 also
-# use the system libffi.
-ifeq ($(WASMER_CAPI_USE_SYSTEM_LIBFFI), 1)
-	use_system_ffi = yes
-endif
+# Clean the `compilers_engines` variable.
+compilers_engines := $(strip $(compilers_engines))
 
-ifdef use_system_ffi
-	capi_default_features := --features system-libffi
-endif
 
-compilers := $(filter-out ,$(compilers))
-test_compilers_engines := $(filter-out ,$(test_compilers_engines))
+#####
+#
+# Cargo features.
+#
+#####
 
-ifneq ($(OS), Windows_NT)
+# Small trick to define a space and a comma.
+space := $() $()
+comma := ,
+
+# Define the compiler Cargo features for all crates.
+compiler_features := --features $(subst $(space),$(comma),$(compilers))
+capi_compilers_engines_exclude := 
+
+# Define the compiler Cargo features for the C API. It always excludes
+# LLVM for the moment because it causes the linker to fail since LLVM is not statically linked.
+# TODO: Reenable LLVM in C-API
+capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers)))
+capi_compilers_engines_exclude += llvm-universal llvm-dylib
+
+# We exclude singlepass-universal because it doesn't support multivalue (required in wasm-c-api tests)
+capi_compilers_engines_exclude += singlepass-universal
+
+capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compilers_engines))
+
+#####
+#
+# Display information.
+#
+#####
+
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
 	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
+	yellow := $(shell tput setaf 3 2>/dev/null || echo -n '')
 	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
 endif
 
-
-compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
-compiler_features := --features "$(compiler_features_spaced)"
-
 HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
 
-ifneq (, $(LIBC))
-$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+TARGET_DIR := target/release
+
+ifneq (, $(TARGET))
+	TARGET_DIR := target/$(TARGET)/release
 endif
 
-$(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
-$(info Available compilers: $(bold)$(green)${compilers}$(reset))
-$(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
-$(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
-
+$(info -----------)
+$(info $(bold)$(green)INFORMATION$(reset))
+$(info -----------)
+$(info )
+$(info Host Target: `$(bold)$(green)$(HOST_TARGET)$(reset)`.)
+ifneq (, $(TARGET))
+	# We use spaces instead of tabs to indent `$(info)`
+	# otherwise it's considered as a command outside a
+	# target and it will fail.
+        $(info Build Target: $(bold)$(green)$(TARGET)$(reset) $(yellow)($(TARGET_DIR))$(reset))
+endif
+ifneq (, $(LIBC))
+	# We use spaces instead of tabs to indent `$(info)`
+	# otherwise it's considered as a command outside a
+	# target and it will fail.
+        $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+endif
+$(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
+$(info Testing the following compilers & engines:)
+$(info   * API: $(bold)$(green)${compilers_engines}$(reset))
+$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset))
+$(info Cargo features:)
+$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info )
+$(info )
+$(info --------------)
+$(info $(bold)$(green)RULE EXECUTION$(reset))
+$(info --------------)
+$(info )
+$(info )
 
 ############
 # Building #
 ############
 
-bench:
-	cargo bench $(compiler_features)
+# Not really "all", just the default target that builds enough so make
+# install will go through.
+all: build-wasmer build-capi
 
 build-wasmer:
 	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
 	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+
+bench:
+	cargo bench $(compiler_features)
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
@@ -134,24 +358,25 @@ build-wasmer-debug:
 # incremental = false
 # codegen-units = 1
 # rpath = false
+build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
-	RUSTFLAGS="-C panic=abort" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
-ifeq ($(UNAME_S), Darwin)
+	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+ifeq ($(IS_DARWIN), 1)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
 else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 endif
 
-WAPM_VERSION = master # v0.5.0
+WAPM_VERSION = v0.5.1
 get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
 build-wapm: get-wapm
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	# We build it without bundling sqlite, as is included by default in macos
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
 else
@@ -161,173 +386,149 @@ endif
 build-docs:
 	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
 
-build-docs-capi:
-	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
-	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
+capi-setup:
+ifeq ($(IS_WINDOWS), 1)
+  RUSTFLAGS += -C target-feature=+crt-static
+endif
 
-# We use cranelift as the default backend for the capi for now
-build-capi: build-capi-cranelift
+build-docs-capi: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
 
-build-capi-singlepass:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi $(capi_default_features)
+build-capi: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features)
 
-build-capi-singlepass-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,singlepass,wasi $(capi_default_features)
+build-capi-singlepass: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,dylib,staticlib,singlepass,wasi,middlewares
 
-build-capi-singlepass-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,singlepass,wasi $(capi_default_features)
+build-capi-singlepass-universal: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,singlepass,wasi,middlewares
 
-build-capi-singlepass-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,singlepass,wasi $(capi_default_features)
+build-capi-singlepass-dylib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,dylib,singlepass,wasi,middlewares
 
-build-capi-cranelift:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi $(capi_default_features)
+build-capi-singlepass-staticlib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,staticlib,singlepass,wasi,middlewares
 
-build-capi-cranelift-system-libffi:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi $(capi_default_features)
+build-capi-cranelift: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,dylib,staticlib,cranelift,wasi,middlewares
 
-build-capi-cranelift-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features)
+build-capi-cranelift-universal: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,cranelift,wasi,middlewares
 
-build-capi-cranelift-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features)
+build-capi-cranelift-dylib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,dylib,cranelift,wasi,middlewares
 
-build-capi-cranelift-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi $(capi_default_features)
+build-capi-cranelift-staticlib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,dylib,staticlib,cranelift,wasi,middlewares
 
-build-capi-llvm:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi $(capi_default_features)
+build-capi-llvm: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,dylib,staticlib,llvm,wasi,middlewares
 
-build-capi-llvm-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,llvm,wasi $(capi_default_features)
+build-capi-llvm-universal: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,llvm,wasi,middlewares
 
-build-capi-llvm-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features)
+build-capi-llvm-dylib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,dylib,llvm,wasi,middlewares
 
-build-capi-llvm-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,llvm,wasi $(capi_default_features)
+build-capi-llvm-staticlib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,staticlib,llvm,wasi,middlewares
 
 # Headless (we include the minimal to be able to run)
 
-build-capi-headless-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,wasi
+build-capi-headless-universal: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features universal,wasi
 
-build-capi-headless-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features native,wasi
+build-capi-headless-dylib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features dylib,wasi
 
-build-capi-headless-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features object-file,wasi
+build-capi-headless-staticlib: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features staticlib,wasi
 
-build-capi-headless-all:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,native,object-file,wasi
+build-capi-headless-all: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features universal,dylib,staticlib,wasi
+
 
 ###########
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
+test: test-compilers test-packages test-examples
 
-test-singlepass-native:
-	cargo test --release $(compiler_features) --features "test-singlepass test-native"
-
-test-singlepass-2-native:
-	cargo test --release $(compiler_features) --features "test-singlepass-2 test-native"
-
-test-singlepass-jit:
-	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
-
-test-cranelift-native:
-	cargo test --release $(compiler_features) --features "test-cranelift test-native"
-
-test-cranelift-jit:
-	cargo test --release $(compiler_features) --features "test-cranelift test-jit"
-
-test-llvm-native:
-	cargo test --release $(compiler_features) --features "test-llvm test-native"
-
-test-llvm-jit:
-	cargo test --release $(compiler_features) --features "test-llvm test-jit"
-
-test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(test_compilers_engines)),test-$(singlepass_engine))
-
-test-singlepass-2: $(foreach singlepass_engine,$(filter singlepass-2-%,$(test_compilers_engines)),test-$(singlepass_engine))
-
-test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(test_compilers_engines)),test-$(cranelift_engine))
-
-test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(test_compilers_engines)),test-$(llvm_engine))
+test-compilers:
+	cargo test --release --tests $(compiler_features)
 
 test-packages:
-	cargo test -p wasmer --release
-	cargo test -p wasmer-vm --release
-	cargo test -p wasmer-types --release
-	cargo test -p wasmer-wasi --release
-	cargo test -p wasmer-object --release
-	cargo test -p wasmer-engine-native --release --no-default-features
-	cargo test -p wasmer-engine-jit --release --no-default-features
-	cargo test -p wasmer-compiler --release
-	cargo test -p wasmer-cli --release
-	cargo test -p wasmer-cache --release
-	cargo test -p wasmer-engine --release
-	cargo test -p wasmer-derive --release
+	cargo test --all --release $(exclude_tests)
+	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
+########################
+# Testing (Compatible) #
+########################
 
-# The test-capi rules depend on the build-capi rules to build the .a files to
-# link the tests against. cargo test doesn't know that the tests will be running
-test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine))
+test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
-test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,singlepass,wasi $(capi_default_features) -- --nocapture
+test-singlepass-dylib:
+	cargo test --release --tests $(compiler_features) -- singlepass::dylib
 
-test-capi-cranelift-jit: build-capi-cranelift-jit test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features) -- --nocapture
+test-singlepass-universal:
+	cargo test --release --tests $(compiler_features) -- singlepass::universal
 
-test-capi-cranelift-native: build-capi-cranelift-native test-capi-tests
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features) -- --nocapture
+test-cranelift-dylib:
+	cargo test --release --tests $(compiler_features) -- cranelift::dylib
 
-test-capi-llvm-jit:
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,llvm,wasi $(capi_default_features) -- --nocapture
+test-cranelift-universal:
+	cargo test --release --tests $(compiler_features) -- cranelift::universal
 
-test-capi-llvm-native:
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features) -- --nocapture
+test-llvm-dylib:
+	cargo test --release --tests $(compiler_features) -- llvm::dylib
 
-test-capi-tests: package-capi
+test-llvm-universal:
+	cargo test --release --tests $(compiler_features) -- llvm::universal
+
+test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
+
+test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engines)),test-$(cranelift_engine))
+
+test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
+
+# This test requires building the capi with all the available
+# compilers first
+test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
+
+test-capi-crate-%:
+	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features) -- --nocapture
+
+test-capi-integration-%:
 	# Test the Wasmer C API tests for C
-	cd lib/c-api/tests; WASMER_DIR=`pwd`/../../../package make test
+	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples
-	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
+	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
-
-test-deprecated:
-	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
-	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
@@ -338,23 +539,23 @@ test-integration:
 
 package-wapm:
 	mkdir -p "package/bin"
-ifneq ($(OS), Windows_NT)
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/target/release/wapm package/bin/ ;\
-		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
+		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
+		echo -e "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
 		chmod +x package/bin/wax ;\
 	fi
 else
 	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/target/release/wapm package/bin/ ;\
+		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
 	fi
-ifeq ($(UNAME_S), Darwin)
-	codesign -s - package/bin/wapm
+ifeq ($(IS_DARWIN), 1)
+	codesign -s - package/bin/wapm || true
 endif
 endif
 
 package-minimal-headless-wasmer:
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless.exe" ]; then \
 		cp target/$(HOST_TARGET)/release/wasmer-headless.exe package/bin ;\
 	fi
@@ -366,12 +567,12 @@ endif
 
 package-wasmer:
 	mkdir -p "package/bin"
-ifeq ($(OS), Windows_NT)
-	cp target/release/wasmer.exe package/bin/
+ifeq ($(IS_WINDOWS), 1)
+	cp $(TARGET_DIR)/wasmer.exe package/bin/
 else
-	cp target/release/wasmer package/bin/
-ifeq ($(UNAME_S), Darwin)
-	codesign -s - package/bin/wasmer
+	cp $(TARGET_DIR)/wasmer package/bin/
+ifeq ($(IS_DARWIN), 1)
+	codesign -s - package/bin/wasmer || true
 endif
 endif
 
@@ -382,31 +583,32 @@ package-capi:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
-ifeq ($(OS), Windows_NT)
-	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
-	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
-else
-ifeq ($(UNAME_S), Darwin)
+
+	# Windows
+	if [ -f $(TARGET_DIR)/wasmer_c_api.dll ]; then \
+		cp $(TARGET_DIR)/wasmer_c_api.dll package/lib/wasmer.dll ;\
+	fi
+	if [ -f $(TARGET_DIR)/wasmer_c_api.lib ]; then \
+		cp $(TARGET_DIR)/wasmer_c_api.lib package/lib/wasmer.lib ;\
+	fi
+
 	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
 	rm -f package/lib/libwasmer.dylib
-	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
-	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
-	# Fix the rpath for the dylib
-	install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib
-else
-	# In some cases the .so may not be available, for example when building against musl (static linking)
-	if [ -f target/release/libwasmer_c_api.so ]; then \
-		cp target/release/libwasmer_c_api.so package/lib/libwasmer.so ;\
-	fi;
-	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
-endif
-endif
+	if [ -f $(TARGET_DIR)/libwasmer_c_api.dylib ]; then \
+		cp $(TARGET_DIR)/libwasmer_c_api.dylib package/lib/libwasmer.dylib ;\
+		install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib ;\
+	fi
+
+	if [ -f $(TARGET_DIR)/libwasmer_c_api.so ]; then \
+		cp $(TARGET_DIR)/libwasmer_c_api.so package/lib/libwasmer.so ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer_c_api.a ]; then \
+		cp $(TARGET_DIR)/libwasmer_c_api.a package/lib/libwasmer.a ;\
+	fi
 
 package-docs: build-docs build-docs-capi
-	mkdir -p "package/docs"
-	mkdir -p "package/docs/c/runtime-c-api"
+	mkdir -p "package/docs/c"
 	cp -R target/doc package/docs/crates
-	cp -R lib/c-api/doc/deprecated/html/ package/docs/c/runtime-c-api
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
@@ -416,15 +618,50 @@ distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	iscc scripts/windows-installer/wasmer.iss
 	cp scripts/windows-installer/WasmerInstaller.exe dist/
-else
-	cp LICENSE package/LICENSE
-	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
+endif
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
-endif
+
+########################
+# (Distro-) Installing #
+########################
+
+DESTDIR ?= /usr/local
+
+install: install-wasmer install-capi-headers install-capi-lib install-capi-staticlib install-pkgconfig install-misc
+
+install-wasmer:
+	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer
+
+install-capi-headers:
+	for header in lib/c-api/*.h; do install -Dm644 "$$header" $(DESTDIR)/include/$$(basename $$header); done
+	install -Dm644 lib/c-api/README.md $(DESTDIR)/include/wasmer-README.md
+
+# Currently implemented for linux only. TODO
+install-capi-lib:
+	pkgver=$$(target/release/wasmer --version | cut -d\  -f2) && \
+	shortver="$${pkgver%.*}" && \
+	majorver="$${shortver%.*}" && \
+	install -Dm755 target/release/libwasmer_c_api.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$shortver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$majorver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so"
+
+install-capi-staticlib:
+	install -Dm644 target/release/libwasmer_c_api.a "$(DESTDIR)/lib/libwasmer.a"
+
+install-misc:
+	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE
+
+install-pkgconfig:
+	unset WASMER_DIR # Make sure WASMER_INSTALL_PREFIX is set during build
+	target/release/wasmer config --pkg-config | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc
+
+install-wasmer-headless-minimal:
+	install -Dm755 target/release/wasmer-headless $(DESTDIR)/bin/wasmer-headless
 
 #################
 # Miscellaneous #
@@ -434,25 +671,15 @@ endif
 update-testsuite:
 	git subtree pull --prefix tests/wast/spec https://github.com/WebAssembly/testsuite.git master --squash
 
-RUSTFLAGS := "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects" # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
+lint-packages: RUSTFLAGS += -D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
 lint-packages:
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-c-api
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-vm
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-types
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-wasi
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-object
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine-native
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine-jit
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-cranelift
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-singlepass
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cli
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cache
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all $(exclude_tests)
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features)
 
 lint-formatting:
 	cargo fmt --all -- --check
+	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
 lint: lint-formatting lint-packages
 

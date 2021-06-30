@@ -1,6 +1,7 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 use crate::InstantiationError;
+use loupe::MemoryUsage;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -30,7 +31,7 @@ pub enum IoCompileError {
 ///
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub struct Module {
     store: Store,
     artifact: Arc<dyn Artifact>,
@@ -54,7 +55,7 @@ impl Module {
     ///
     /// Creating a WebAssembly module from bytecode can result in a
     /// [`CompileError`] since this operation requires to transorm the Wasm
-    /// bytecode into code the machine can easily execute (normally through a JIT).
+    /// bytecode into code the machine can easily execute.
     ///
     /// ## Example
     ///
@@ -263,16 +264,19 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle =
-                self.artifact
-                    .instantiate(self.store.tunables(), resolver, Box::new(()))?;
+            let instance_handle = self.artifact.instantiate(
+                self.store.tunables(),
+                resolver,
+                Box::new((self.store.clone(), self.artifact.clone())),
+            )?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.artifact.finish_instantiation(&instance_handle)?;
+            self.artifact
+                .finish_instantiation(&self.store, &instance_handle)?;
 
             Ok(instance_handle)
         }

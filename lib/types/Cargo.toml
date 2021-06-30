@@ -1,0 +1,28 @@
+[package]
+name = "wasmer-types"
+version = "2.0.0"
+description = "Wasmer Common Types"
+categories = ["wasm", "no-std", "data-structures"]
+keywords = ["wasm", "webassembly", "types"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
+thiserror = "1.0"
+indexmap = { version = "1.6", features = ["serde-1"] }
+rkyv = { version = "0.6.1", optional = true }
+loupe = "0.1"
+
+[features]
+default = ["std", "enable-serde", "enable-rkyv"]
+std = ["serde/std"]
+core = []
+enable-rkyv = ["rkyv"]
+enable-serde = ["serde"]
+
+# experimental / in-development features
+experimental-reference-types-extern-ref = []

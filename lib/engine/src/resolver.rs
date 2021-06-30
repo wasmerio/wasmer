@@ -70,7 +70,14 @@ impl NamedResolver for Box<dyn NamedResolver> {
     }
 }
 
-/// `Resolver` implementation that always resolves to `None`.
+impl NamedResolver for () {
+    /// Always returns `None`.
+    fn resolve_by_name(&self, _module: &str, _field: &str) -> Option<Export> {
+        None
+    }
+}
+
+/// `Resolver` implementation that always resolves to `None`. Equivalent to `()`.
 pub struct NullResolver {}
 
 impl Resolver for NullResolver {
@@ -105,10 +112,10 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
         Export::Function(ref f) => ExternType::Function(f.vm_function.signature.clone()),
-        Export::Table(ref t) => ExternType::Table(*t.vm_table.ty()),
-        Export::Memory(ref m) => ExternType::Memory(*m.vm_memory.ty()),
+        Export::Table(ref t) => ExternType::Table(*t.ty()),
+        Export::Memory(ref m) => ExternType::Memory(m.ty()),
         Export::Global(ref g) => {
-            let global = g.vm_global.from.ty();
+            let global = g.from.ty();
             ExternType::Global(*global)
         }
     }
@@ -166,17 +173,7 @@ pub fn resolve_imports(
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
                     }
-                    VMFunctionKind::Static => {
-                        // The native ABI for functions fails when defining a function natively in
-                        // macos (Darwin) with the Apple Silicon ARM chip, for functions with more than 10 args
-                        // TODO: Cranelift should have a good ABI for the ABI
-                        if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-                            let num_params = f.vm_function.signature.params().len();
-                            assert!(num_params < 9, "Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}", num_params, module_name, field);
-                        }
-
-                        f.vm_function.address
-                    }
+                    VMFunctionKind::Static => f.vm_function.address,
                 };
 
                 // Clone the host env for this `Instance`.
@@ -221,18 +218,33 @@ pub fn resolve_imports(
 
                 host_function_env_initializers.push(import_function_env);
             }
-            Export::Table(ref t) => {
-                table_imports.push(VMTableImport {
-                    definition: t.vm_table.from.vmtable(),
-                    from: t.vm_table.from.clone(),
-                });
-            }
+            Export::Table(ref t) => match import_index {
+                ImportIndex::Table(index) => {
+                    let import_table_ty = t.from.ty();
+                    let expected_table_ty = &module.tables[*index];
+                    if import_table_ty.ty != expected_table_ty.ty {
+                        return Err(LinkError::Import(
+                            module_name.to_string(),
+                            field.to_string(),
+                            ImportError::IncompatibleType(import_extern, export_extern),
+                        ));
+                    }
+
+                    table_imports.push(VMTableImport {
+                        definition: t.from.vmtable(),
+                        from: t.from.clone(),
+                    });
+                }
+                _ => {
+                    unreachable!("Table resolution did not match");
+                }
+            },
             Export::Memory(ref m) => {
                 match import_index {
                     ImportIndex::Memory(index) => {
                         // Sanity-check: Ensure that the imported memory has at least
                         // guard-page protections the importing module expects it to have.
-                        let export_memory_style = m.vm_memory.style();
+                        let export_memory_style = m.style();
                         let import_memory_style = &memory_styles[*index];
                         if let (
                             MemoryStyle::Static { bound, .. },
@@ -257,15 +269,15 @@ pub fn resolve_imports(
                 }
 
                 memory_imports.push(VMMemoryImport {
-                    definition: m.vm_memory.from.vmmemory(),
-                    from: m.vm_memory.from.clone(),
+                    definition: m.from.vmmemory(),
+                    from: m.from.clone(),
                 });
             }
 
             Export::Global(ref g) => {
                 global_imports.push(VMGlobalImport {
-                    definition: g.vm_global.from.vmglobal(),
-                    from: g.vm_global.from.clone(),
+                    definition: g.from.vmglobal(),
+                    from: g.from.clone(),
                 });
             }
         }

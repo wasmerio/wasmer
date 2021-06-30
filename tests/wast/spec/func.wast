@@ -444,6 +444,46 @@
   "unknown type"
 )
 
+(assert_malformed
+  (module quote
+    "(func $f (result f64) (f64.const 0))"  ;; adds implicit type definition
+    "(func $g (param i32))"                 ;; reuses explicit type definition
+    "(func $h (result f64) (f64.const 1))"  ;; reuses implicit type definition
+    "(type $t (func (param i32)))"
+
+    "(func (type 2) (param i32))"  ;; does not exist
+  )
+  "unknown type"
+)
+
+(module
+  (type $proc (func (result i32)))
+  (type $sig (func (param i32) (result i32)))
+
+  (func (export "f") (type $sig)
+    (local $var i32)
+    (local.get $var)
+  )
+
+  (func $g (type $sig)
+    (local $var i32)
+    (local.get $var)
+  )
+  (func (export "g") (type $sig)
+    (call $g (local.get 0))
+  )
+
+  (func (export "p") (type $proc)
+    (local $var i32)
+    (local.set 0 (i32.const 42))
+    (local.get $var)
+  )
+)
+
+(assert_return (invoke "f" (i32.const 42)) (i32.const 0))
+(assert_return (invoke "g" (i32.const 42)) (i32.const 0))
+(assert_return (invoke "p") (i32.const 42))
+
 
 (module
   (type $sig (func))

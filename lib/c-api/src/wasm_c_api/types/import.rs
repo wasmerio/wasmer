@@ -1,11 +1,12 @@
-use super::{wasm_externtype_t, wasm_name_t};
+use super::{owned_wasm_name_t, wasm_externtype_t, wasm_name_t};
 use wasmer::ImportType;
 
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
+#[repr(C)]
 pub struct wasm_importtype_t {
-    module: Box<wasm_name_t>,
-    name: Box<wasm_name_t>,
+    module: owned_wasm_name_t,
+    name: owned_wasm_name_t,
     extern_type: Box<wasm_externtype_t>,
 }
 
@@ -13,13 +14,19 @@ wasm_declare_boxed_vec!(importtype);
 
 #[no_mangle]
 pub extern "C" fn wasm_importtype_new(
-    module: Option<Box<wasm_name_t>>,
-    name: Option<Box<wasm_name_t>>,
+    module: Option<&wasm_name_t>,
+    name: Option<&wasm_name_t>,
     extern_type: Option<Box<wasm_externtype_t>>,
 ) -> Option<Box<wasm_importtype_t>> {
+    let (module, name) = unsafe {
+        (
+            owned_wasm_name_t::new(module?),
+            owned_wasm_name_t::new(name?),
+        )
+    };
     Some(Box::new(wasm_importtype_t {
-        name: name?,
-        module: module?,
+        name,
+        module,
         extern_type: extern_type?,
     }))
 }
@@ -50,8 +57,8 @@ impl From<ImportType> for wasm_importtype_t {
 
 impl From<&ImportType> for wasm_importtype_t {
     fn from(other: &ImportType) -> Self {
-        let module: Box<wasm_name_t> = Box::new(other.module().to_string().into());
-        let name: Box<wasm_name_t> = Box::new(other.name().to_string().into());
+        let module: owned_wasm_name_t = other.module().to_string().into();
+        let name: owned_wasm_name_t = other.name().to_string().into();
         let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
 
         wasm_importtype_t {

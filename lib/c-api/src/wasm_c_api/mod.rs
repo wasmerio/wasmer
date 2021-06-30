@@ -5,7 +5,7 @@
 //! be characterized as a _living standard_. As such, the API is not
 //! yet stable, even though it shows maturity over time. The API is
 //! described by the `wasm.h` C header, which is included by
-//! `wasmer_wasm.h` C header file (which contains extension of the
+//! `wasmer.h` C header file (which contains extension of the
 //! standard API, for example to provide WASI or vendor-specific
 //! features).
 //!
@@ -39,7 +39,7 @@ pub mod macros;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine.
@@ -83,7 +83,7 @@ pub mod externals;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine and the store.
@@ -141,7 +141,7 @@ pub mod instance;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine and the store.
@@ -198,7 +198,7 @@ pub mod module;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine.
@@ -224,6 +224,50 @@ pub mod module;
 /// cbindgen:ignore
 pub mod store;
 
+/// A trap represents an error which stores trace message with
+/// backtrace.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer.h"
+/// #
+/// int main() {
+///     // Create an engine and a store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create the trap message.
+///     wasm_message_t message;
+///     wasm_name_new_from_string_nt(&message, "foobar");
+///
+///     // Create the trap with its message.
+///     // The backtrace will be generated automatically.
+///     wasm_trap_t* trap = wasm_trap_new(store, &message);
+///     assert(trap);
+///
+///     wasm_name_delete(&message);
+///
+///     // Do something with the trap.
+///
+///     // Free everything.
+///     wasm_trap_delete(trap);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// Usually, a trap is returned from a host function (an imported
+/// function).
+///
 /// cbindgen:ignore
 pub mod trap;
 
@@ -244,7 +288,7 @@ pub mod value;
 
 /// Wasmer-specific API to get or query the version of this Wasm C API.
 ///
-/// The `wasmer_wasm.h` file provides the `WASMER_VERSION`,
+/// The `wasmer.h` file provides the `WASMER_VERSION`,
 /// `WASMER_VERSION_MAJOR`, `WASMER_VERSION_MINOR`,
 /// `WASMER_VERSION_PATCH` and `WASMER_VERSION_PRE`
 /// constants. However, in absence of this header file, it is possible
@@ -261,7 +305,7 @@ pub mod value;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Get and print the version.
@@ -293,7 +337,7 @@ pub mod wasi;
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Our WAT module.

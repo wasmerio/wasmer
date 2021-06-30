@@ -10,10 +10,7 @@ pub const BYTE_STR: &'static [u8] = b"abcdefghijklmnopqrstuvwxyz";
 
 fn main() {
     #[cfg(not(target_os = "wasi"))]
-    do_logic_on_path(
-        "test_fs/hamlet/act1/abc",
-        "test_fs/hamlet/act1/abc",
-    );
+    do_logic_on_path("test_fs/hamlet/act1/abc", "test_fs/hamlet/act1/abc");
 
     #[cfg(target_os = "wasi")]
     do_logic_on_path("/act1/abc", "act1-again/abc");

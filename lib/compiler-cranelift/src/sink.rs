@@ -3,6 +3,7 @@
 use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName};
+use cranelift_entity::EntityRef as CraneliftEntityRef;
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex};
@@ -20,15 +21,6 @@ pub(crate) struct RelocSink<'a> {
 }
 
 impl<'a> binemit::RelocSink for RelocSink<'a> {
-    fn reloc_block(
-        &mut self,
-        _offset: binemit::CodeOffset,
-        _reloc: binemit::Reloc,
-        _block_offset: binemit::CodeOffset,
-    ) {
-        // This should use the `offsets` field of `ir::Function`.
-        panic!("block headers not yet implemented");
-    }
     fn reloc_external(
         &mut self,
         offset: binemit::CodeOffset,
@@ -132,8 +124,9 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::IntegerDivisionByZero => TrapCode::IntegerDivisionByZero,
         ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
-        ir::TrapCode::Interrupt => TrapCode::Interrupt,
+        ir::TrapCode::Interrupt => unimplemented!("Interrupts not supported"),
         ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
+        // ir::TrapCode::Interrupt => TrapCode::Interrupt,
         // ir::TrapCode::User(user_code) => TrapCode::User(user_code),
     }
 }

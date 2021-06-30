@@ -9,17 +9,17 @@
 //! # use inline_c::assert_c;
 //! # fn main() {
 //! #    (assert_c! {
-//! # #include "tests/wasmer_wasm.h"
+//! # #include "tests/wasmer.h"
 //! #
 //! int main() {
 //!     // Declare the target triple.
-//!     wasm_triple_t* triple;
+//!     wasmer_triple_t* triple;
 //!
 //!     {
 //!         wasm_name_t triple_name;
 //!         wasm_name_new_from_string(&triple_name, "x86_64-apple-darwin");
 //!
-//!         triple = wasm_triple_new(&triple_name);
+//!         triple = wasmer_triple_new(&triple_name);
 //!
 //!         wasm_name_delete(&triple_name);
 //!     }
@@ -27,13 +27,13 @@
 //!     assert(triple);
 //!
 //!     // Declare the target CPU features.
-//!     wasm_cpu_features_t* cpu_features = wasm_cpu_features_new();
+//!     wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
 //!
 //!     {
 //!         wasm_name_t cpu_feature_name;
 //!         wasm_name_new_from_string(&cpu_feature_name, "sse2");
 //!
-//!         wasm_cpu_features_add(cpu_features, &cpu_feature_name);
+//!         wasmer_cpu_features_add(cpu_features, &cpu_feature_name);
 //!
 //!         wasm_name_delete(&cpu_feature_name);
 //!     }
@@ -41,10 +41,10 @@
 //!     assert(cpu_features);
 //!
 //!     // Create the target!
-//!     wasm_target_t* target = wasm_target_new(triple, cpu_features);
+//!     wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
 //!     assert(target);
 //!
-//!     wasm_target_delete(target);
+//!     wasmer_target_delete(target);
 //!
 //!     return 0;
 //! }
@@ -58,7 +58,7 @@ use crate::error::CApiError;
 use enumset::EnumSet;
 use std::slice;
 use std::str::{self, FromStr};
-use wasmer_compiler::{CpuFeature, Target, Triple};
+use wasmer::{CpuFeature, Target, Triple};
 
 /// Unstable non-standard Wasmer-specific API to represent a triple +
 /// CPU features pair.
@@ -68,11 +68,11 @@ use wasmer_compiler::{CpuFeature, Target, Triple};
 /// See the module's documentation.
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
-pub struct wasm_target_t {
+pub struct wasmer_target_t {
     pub(crate) inner: Target,
 }
 
-/// Creates a new [`wasm_target_t`].
+/// Creates a new [`wasmer_target_t`].
 ///
 /// It takes ownership of `triple` and `cpu_features`.
 ///
@@ -80,25 +80,25 @@ pub struct wasm_target_t {
 ///
 /// See the module's documentation.
 #[no_mangle]
-pub extern "C" fn wasm_target_new(
-    triple: Option<Box<wasm_triple_t>>,
-    cpu_features: Option<Box<wasm_cpu_features_t>>,
-) -> Option<Box<wasm_target_t>> {
+pub extern "C" fn wasmer_target_new(
+    triple: Option<Box<wasmer_triple_t>>,
+    cpu_features: Option<Box<wasmer_cpu_features_t>>,
+) -> Option<Box<wasmer_target_t>> {
     let triple = triple?;
     let cpu_features = cpu_features?;
 
-    Some(Box::new(wasm_target_t {
+    Some(Box::new(wasmer_target_t {
         inner: Target::new(triple.inner.clone(), cpu_features.inner.clone()),
     }))
 }
 
-/// Delete a [`wasm_target_t`].
+/// Delete a [`wasmer_target_t`].
 ///
 /// # Example
 ///
 /// See the module's documentation.
 #[no_mangle]
-pub extern "C" fn wasm_target_delete(_target: Option<Box<wasm_target_t>>) {}
+pub extern "C" fn wasmer_target_delete(_target: Option<Box<wasmer_target_t>>) {}
 
 /// Unstable non-standard Wasmer-specific API to represent a target
 /// “triple”.
@@ -112,16 +112,16 @@ pub extern "C" fn wasm_target_delete(_target: Option<Box<wasm_target_t>>) {}
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     wasm_name_t triple_name;
 ///     wasm_name_new_from_string(&triple_name, "x86_64-apple-darwin");
 ///
-///     wasm_triple_t* triple = wasm_triple_new(&triple_name);
+///     wasmer_triple_t* triple = wasmer_triple_new(&triple_name);
 ///     assert(triple);
 ///
-///     wasm_triple_delete(triple);
+///     wasmer_triple_delete(triple);
 ///     wasm_name_delete(&triple_name);
 ///
 ///     return 0;
@@ -131,33 +131,33 @@ pub extern "C" fn wasm_target_delete(_target: Option<Box<wasm_target_t>>) {}
 /// # }
 /// ```
 ///
-/// See also [`wasm_triple_new_from_host`].
+/// See also [`wasmer_triple_new_from_host`].
 #[allow(non_camel_case_types)]
-pub struct wasm_triple_t {
+pub struct wasmer_triple_t {
     inner: Triple,
 }
 
-/// Create a new [`wasm_triple_t`] based on a triple string.
+/// Create a new [`wasmer_triple_t`] based on a triple string.
 ///
 /// # Example
 ///
-/// See [`wasm_triple_t`] or [`wasm_triple_new_from_host`].
+/// See [`wasmer_triple_t`] or [`wasmer_triple_new_from_host`].
 #[no_mangle]
-pub unsafe extern "C" fn wasm_triple_new(
+pub unsafe extern "C" fn wasmer_triple_new(
     triple: Option<&wasm_name_t>,
-) -> Option<Box<wasm_triple_t>> {
+) -> Option<Box<wasmer_triple_t>> {
     let triple = triple?;
     let triple = c_try!(str::from_utf8(slice::from_raw_parts(
         triple.data,
         triple.size
     )));
 
-    Some(Box::new(wasm_triple_t {
+    Some(Box::new(wasmer_triple_t {
         inner: c_try!(Triple::from_str(triple).map_err(|e| CApiError { msg: e.to_string() })),
     }))
 }
 
-/// Create the [`wasm_triple_t`] for the current host.
+/// Create the [`wasmer_triple_t`] for the current host.
 ///
 /// # Example
 ///
@@ -165,13 +165,13 @@ pub unsafe extern "C" fn wasm_triple_new(
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
-///     wasm_triple_t* triple = wasm_triple_new_from_host();
+///     wasmer_triple_t* triple = wasmer_triple_new_from_host();
 ///     assert(triple);
 ///
-///     wasm_triple_delete(triple);
+///     wasmer_triple_delete(triple);
 ///
 ///     return 0;
 /// }
@@ -180,21 +180,21 @@ pub unsafe extern "C" fn wasm_triple_new(
 /// # }
 /// ```
 ///
-/// See also [`wasm_triple_new`].
+/// See also [`wasmer_triple_new`].
 #[no_mangle]
-pub extern "C" fn wasm_triple_new_from_host() -> Box<wasm_triple_t> {
-    Box::new(wasm_triple_t {
+pub extern "C" fn wasmer_triple_new_from_host() -> Box<wasmer_triple_t> {
+    Box::new(wasmer_triple_t {
         inner: Triple::host(),
     })
 }
 
-/// Delete a [`wasm_triple_t`].
+/// Delete a [`wasmer_triple_t`].
 ///
 /// # Example
 ///
-/// See [`wasm_triple_t`].
+/// See [`wasmer_triple_t`].
 #[no_mangle]
-pub extern "C" fn wasm_triple_delete(_triple: Option<Box<wasm_triple_t>>) {}
+pub extern "C" fn wasmer_triple_delete(_triple: Option<Box<wasmer_triple_t>>) {}
 
 /// Unstable non-standard Wasmer-specific API to represent a set of
 /// CPU features.
@@ -229,23 +229,23 @@ pub extern "C" fn wasm_triple_delete(_triple: Option<Box<wasm_triple_t>>) {}
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create a new CPU feature set.
-///     wasm_cpu_features_t* cpu_features = wasm_cpu_features_new();
+///     wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
 ///
 ///     // Create a new feature name, here `sse2`, and add it to the set.
 ///     {
 ///         wasm_name_t cpu_feature_name;
 ///         wasm_name_new_from_string(&cpu_feature_name, "sse2");
 ///
-///         wasm_cpu_features_add(cpu_features, &cpu_feature_name);
+///         wasmer_cpu_features_add(cpu_features, &cpu_feature_name);
 ///
 ///         wasm_name_delete(&cpu_feature_name);
 ///     }
 ///
-///     wasm_cpu_features_delete(cpu_features);
+///     wasmer_cpu_features_delete(cpu_features);
 ///
 ///     return 0;
 /// }
@@ -254,39 +254,39 @@ pub extern "C" fn wasm_triple_delete(_triple: Option<Box<wasm_triple_t>>) {}
 /// # }
 /// ```
 #[allow(non_camel_case_types)]
-pub struct wasm_cpu_features_t {
+pub struct wasmer_cpu_features_t {
     inner: EnumSet<CpuFeature>,
 }
 
-/// Create a new [`wasm_cpu_features_t`].
+/// Create a new [`wasmer_cpu_features_t`].
 ///
 /// # Example
 ///
-/// See [`wasm_cpu_features_t`].
+/// See [`wasmer_cpu_features_t`].
 #[no_mangle]
-pub extern "C" fn wasm_cpu_features_new() -> Box<wasm_cpu_features_t> {
-    Box::new(wasm_cpu_features_t {
+pub extern "C" fn wasmer_cpu_features_new() -> Box<wasmer_cpu_features_t> {
+    Box::new(wasmer_cpu_features_t {
         inner: CpuFeature::set(),
     })
 }
 
-/// Delete a [`wasm_cpu_features_t`].
+/// Delete a [`wasmer_cpu_features_t`].
 ///
 /// # Example
 ///
-/// See [`wasm_cpu_features_t`].
+/// See [`wasmer_cpu_features_t`].
 #[no_mangle]
-pub extern "C" fn wasm_cpu_features_delete(_cpu_features: Option<Box<wasm_cpu_features_t>>) {}
+pub extern "C" fn wasmer_cpu_features_delete(_cpu_features: Option<Box<wasmer_cpu_features_t>>) {}
 
 /// Add a new CPU feature into the set represented by
-/// [`wasm_cpu_features_t`].
+/// [`wasmer_cpu_features_t`].
 ///
 /// # Example
 ///
-/// See [`wasm_cpu_features_t`].
+/// See [`wasmer_cpu_features_t`].
 #[no_mangle]
-pub unsafe extern "C" fn wasm_cpu_features_add(
-    cpu_features: Option<&mut wasm_cpu_features_t>,
+pub unsafe extern "C" fn wasmer_cpu_features_add(
+    cpu_features: Option<&mut wasmer_cpu_features_t>,
     feature: Option<&wasm_name_t>,
 ) -> bool {
     let cpu_features = match cpu_features {

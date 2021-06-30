@@ -50,7 +50,11 @@ impl LinkCode {
             )
             .arg(&self.libwasmer_path.canonicalize()?);
         #[cfg(windows)]
-        let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32");
+        let command = command
+            .arg("-luserenv")
+            .arg("-lWs2_32")
+            .arg("-ladvapi32")
+            .arg("-lbcrypt");
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");
         let output = command.arg("-o").arg(&self.output_path).output()?;

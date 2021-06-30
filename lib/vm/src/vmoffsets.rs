@@ -8,6 +8,7 @@
 
 use crate::module::ModuleInfo;
 use crate::VMBuiltinFunctionIndex;
+use loupe::MemoryUsage;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasmer_types::{
@@ -33,7 +34,7 @@ const fn align(offset: u32, width: u32) -> u32 {
 /// related structs that JIT code accesses directly.
 ///
 /// [`VMContext`]: crate::vmcontext::VMContext
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, MemoryUsage)]
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pub pointer_size: u8,
@@ -331,6 +332,24 @@ impl VMOffsets {
     /// [`VMCallerCheckedAnyfunc`]: crate::vmcontext::VMCallerCheckedAnyfunc
     pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
         3 * self.pointer_size
+    }
+}
+
+/// Offsets for [`VMFuncRef`].
+///
+/// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef
+impl VMOffsets {
+    /// The offset to the pointer to the anyfunc inside the ref.
+    #[allow(clippy::erasing_op)]
+    pub const fn vm_funcref_anyfunc_ptr(&self) -> u8 {
+        0 * self.pointer_size
+    }
+
+    /// Return the size of [`VMFuncRef`].
+    ///
+    /// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef
+    pub const fn size_of_vm_funcref(&self) -> u8 {
+        1 * self.pointer_size
     }
 }
 

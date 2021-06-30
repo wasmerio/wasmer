@@ -71,7 +71,7 @@ pub struct InodeVal {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Kind {
     File {
-        /// the open file, if it's open
+        /// The open file, if it's open
         handle: Option<Box<dyn WasiFile>>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
@@ -166,129 +166,6 @@ pub struct WasiFs {
 }
 
 impl WasiFs {
-    /// Internal function for constructing a [`WasiFs`].  Please use
-    /// [`WasiState::new`].
-    #[deprecated(
-        since = "0.14.0",
-        note = "This method will change or be made private in the future.  Please use `WasiState::new` and the builder API instead."
-    )]
-    pub fn new(
-        preopened_dirs: &[PathBuf],
-        mapped_dirs: &[(String, PathBuf)],
-    ) -> Result<Self, String> {
-        let (mut wasi_fs, root_inode) = Self::new_init()?;
-
-        debug!("wasi::fs::preopen_dirs");
-        for dir in preopened_dirs {
-            debug!("Attempting to preopen {}", &dir.to_string_lossy());
-            // TODO: think about this
-            let default_rights = ALL_RIGHTS;
-            let cur_dir_metadata = dir.metadata().map_err(|e| {
-                format!(
-                    "Could not get metadata for file {:?}: {}",
-                    dir,
-                    e.to_string()
-                )
-            })?;
-            let kind = if cur_dir_metadata.is_dir() {
-                Kind::Dir {
-                    parent: Some(root_inode),
-                    path: dir.clone(),
-                    entries: Default::default(),
-                }
-            } else {
-                return Err(format!(
-                    "WASI only supports pre-opened directories right now; found \"{}\"",
-                    &dir.to_string_lossy()
-                ));
-            };
-            // TODO: handle nested pats in `file`
-            let inode = wasi_fs
-                .create_inode(kind, true, dir.to_string_lossy().into_owned())
-                .map_err(|e| {
-                    format!(
-                        "Failed to create inode for preopened dir: WASI error code: {}",
-                        e
-                    )
-                })?;
-            let fd = wasi_fs
-                .create_fd(
-                    default_rights,
-                    default_rights,
-                    0,
-                    Fd::READ | Fd::WRITE,
-                    inode,
-                )
-                .map_err(|e| format!("Could not open fd for file {:?}: {}", dir, e))?;
-            if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                let result = entries.insert(dir.to_string_lossy().into_owned(), inode);
-                if result.is_some() {
-                    return Err(format!(
-                        "Error: found collision in preopened directory names, `{}`",
-                        dir.to_string_lossy()
-                    ));
-                }
-            }
-            wasi_fs.preopen_fds.push(fd);
-        }
-        debug!("wasi::fs::mapped_dirs");
-        for (alias, real_dir) in mapped_dirs {
-            debug!("Attempting to open {:?} at {}", real_dir, alias);
-            // TODO: think about this
-            let default_rights = ALL_RIGHTS;
-            let cur_dir_metadata = real_dir.metadata().map_err(|e| {
-                format!(
-                    "Could not get metadata for file {:?}: {}",
-                    &real_dir,
-                    e.to_string()
-                )
-            })?;
-            let kind = if cur_dir_metadata.is_dir() {
-                Kind::Dir {
-                    parent: Some(root_inode),
-                    path: real_dir.clone(),
-                    entries: Default::default(),
-                }
-            } else {
-                return Err(format!(
-                    "WASI only supports pre-opened directories right now; found \"{:?}\"",
-                    &real_dir,
-                ));
-            };
-            // TODO: handle nested pats in `file`
-            let inode = wasi_fs
-                .create_inode(kind, true, alias.clone())
-                .map_err(|e| {
-                    format!(
-                        "Failed to create inode for preopened dir: WASI error code: {}",
-                        e
-                    )
-                })?;
-            let fd = wasi_fs
-                .create_fd(
-                    default_rights,
-                    default_rights,
-                    0,
-                    Fd::READ | Fd::WRITE,
-                    inode,
-                )
-                .map_err(|e| format!("Could not open fd for file {:?}: {}", &real_dir, e))?;
-            if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                let result = entries.insert(alias.clone(), inode);
-                if result.is_some() {
-                    return Err(format!(
-                        "Error: found collision in preopened directory aliases, `{}`",
-                        alias,
-                    ));
-                }
-            }
-            wasi_fs.preopen_fds.push(fd);
-        }
-
-        debug!("wasi::fs::end");
-        Ok(wasi_fs)
-    }
-
     /// Created for the builder API. like `new` but with more information
     pub(crate) fn new_with_preopen(preopens: &[PreopenedDir]) -> Result<Self, String> {
         let (mut wasi_fs, root_inode) = Self::new_init()?;
@@ -784,7 +661,7 @@ impl WasiFs {
                             let file_type = metadata.file_type();
                             // we want to insert newly opened dirs and files, but not transient symlinks
                             // TODO: explain why (think about this deeply when well rested)
-                            let mut should_insert = false;
+                            let should_insert;
 
                             let kind = if file_type.is_dir() {
                                 should_insert = true;
@@ -803,6 +680,7 @@ impl WasiFs {
                                     fd: None,
                                 }
                             } else if file_type.is_symlink() {
+                                should_insert = false;
                                 let link_value = file.read_link().ok().ok_or(__WASI_EIO)?;
                                 debug!("attempting to decompose path {:?}", link_value);
 
@@ -815,7 +693,7 @@ impl WasiFs {
                                 symlink_count += 1;
                                 Kind::Symlink {
                                     base_po_dir: pre_open_dir_fd,
-                                    path_to_symlink: relative_path,
+                                    path_to_symlink: relative_path.to_owned(),
                                     relative_path: link_value,
                                 }
                             } else {
@@ -957,18 +835,37 @@ impl WasiFs {
         Ok(cur_inode)
     }
 
-    /// Splits a path into the first preopened directory that is a parent of it,
-    /// if such a preopened directory exists, and the rest of the path.
+    /// Finds the preopened directory that is the "best match" for the given path and
+    /// returns a path relative to this preopened directory.
     ///
-    /// NOTE: this behavior seems to be not the same as what libpreopen is
-    /// doing in WASI.
+    /// The "best match" is the preopened directory that has the longest prefix of the
+    /// given path. For example, given preopened directories [`a`, `a/b`, `a/c`] and
+    /// the path `a/b/c/file`, we will return the fd corresponding to the preopened
+    /// directory, `a/b` and the relative path `c/file`.
     ///
-    /// TODO: evaluate users of this function and explain why this behavior is
-    /// not the same as libpreopen or update its behavior to be the same.
-    fn path_into_pre_open_and_relative_path(
+    /// In the case of a tie, the later preopened fd is preferred.
+    fn path_into_pre_open_and_relative_path<'path>(
         &self,
-        path: &Path,
-    ) -> Result<(__wasi_fd_t, PathBuf), __wasi_errno_t> {
+        path: &'path Path,
+    ) -> Result<(__wasi_fd_t, &'path Path), __wasi_errno_t> {
+        enum BaseFdAndRelPath<'a> {
+            None,
+            BestMatch {
+                fd: __wasi_fd_t,
+                rel_path: &'a Path,
+                max_seen: usize,
+            },
+        }
+
+        impl<'a> BaseFdAndRelPath<'a> {
+            const fn max_seen(&self) -> usize {
+                match self {
+                    Self::None => 0,
+                    Self::BestMatch { max_seen, .. } => *max_seen,
+                }
+            }
+        }
+        let mut res = BaseFdAndRelPath::None;
         // for each preopened directory
         for po_fd in &self.preopen_fds {
             let po_inode = self.fd_map[po_fd].inode;
@@ -978,46 +875,25 @@ impl WasiFs {
                 _ => unreachable!("Preopened FD that's not a directory or the root"),
             };
             // stem path based on it
-            if let Ok(rest) = path.strip_prefix(po_path) {
-                // if any path meets this criteria
-                // (verify that all remaining components are not symlinks except for maybe last? (or do the more complex logic of resolving intermediary symlinks))
-                // return preopened dir and the rest of the path
-
-                return Ok((*po_fd, rest.to_owned()));
-            }
-        }
-        Err(__WASI_EINVAL) // this may not make sense
-    }
-
-    // if this is still dead code and the year is 2020 or later, please delete this function
-    #[allow(dead_code)]
-    pub(crate) fn path_relative_to_fd(
-        &self,
-        fd: __wasi_fd_t,
-        inode: Inode,
-    ) -> Result<PathBuf, __wasi_errno_t> {
-        let mut stack = vec![];
-        let base_fd = self.get_fd(fd)?;
-        let base_inode = base_fd.inode;
-        let mut cur_inode = inode;
-
-        while cur_inode != base_inode {
-            stack.push(self.inodes[cur_inode].name.clone());
-            match &self.inodes[cur_inode].kind {
-                Kind::Dir { parent, .. } => {
-                    if let Some(p) = parent {
-                        cur_inode = *p;
-                    }
+            if let Ok(stripped_path) = path.strip_prefix(po_path) {
+                // find the max
+                let new_prefix_len = po_path.as_os_str().len();
+                // we use >= to favor later preopens because we iterate in order
+                // whereas WASI libc iterates in reverse to get this behavior.
+                if new_prefix_len >= res.max_seen() {
+                    res = BaseFdAndRelPath::BestMatch {
+                        fd: *po_fd,
+                        rel_path: stripped_path,
+                        max_seen: new_prefix_len,
+                    };
                 }
-                _ => return Err(__WASI_EINVAL),
             }
         }
-
-        let mut out = PathBuf::new();
-        for p in stack.iter().rev() {
-            out.push(p);
+        match res {
+            // this error may not make sense depending on where it's called
+            BaseFdAndRelPath::None => Err(__WASI_EINVAL),
+            BaseFdAndRelPath::BestMatch { fd, rel_path, .. } => Ok((fd, rel_path)),
         }
-        Ok(out)
     }
 
     /// finds the number of directories between the fd and the inode if they're connected

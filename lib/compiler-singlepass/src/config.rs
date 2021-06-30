@@ -2,11 +2,12 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::compiler::SinglepassCompiler;
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
 use wasmer_types::Features;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_stack_check: bool,
@@ -37,10 +38,10 @@ impl Singlepass {
         self
     }
 
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
+    fn enable_nan_canonicalization(&mut self) {
+        self.enable_nan_canonicalization = true;
+    }
+
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
         self

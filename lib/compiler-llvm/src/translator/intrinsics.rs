@@ -5,13 +5,15 @@
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
 use crate::abi::Abi;
+use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
     types::{
-        BasicType, BasicTypeEnum, FloatType, IntType, PointerType, StructType, VectorType, VoidType,
+        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType, PointerType,
+        StructType, VectorType, VoidType,
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
@@ -39,10 +41,8 @@ pub fn type_to_llvm_ptr<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ptr_ty),
         Type::F64 => Ok(intrinsics.f64_ptr_ty),
         Type::V128 => Ok(intrinsics.i128_ptr_ty),
-        ty => Err(CompileError::Codegen(format!(
-            "type_to_llvm: unimplemented wasmer_types type {:?}",
-            ty
-        ))),
+        Type::FuncRef => Ok(intrinsics.funcref_ty.ptr_type(AddressSpace::Generic)),
+        Type::ExternRef => Ok(intrinsics.externref_ty.ptr_type(AddressSpace::Generic)),
     }
 }
 
@@ -56,10 +56,8 @@ pub fn type_to_llvm<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ty.as_basic_type_enum()),
         Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
-        ty => Err(CompileError::Codegen(format!(
-            "type_to_llvm: unimplemented wasmer_types type {:?}",
-            ty
-        ))),
+        Type::FuncRef => Ok(intrinsics.funcref_ty.as_basic_type_enum()),
+        Type::ExternRef => Ok(intrinsics.externref_ty.as_basic_type_enum()),
     }
 }
 
@@ -73,23 +71,66 @@ pub struct Intrinsics<'ctx> {
 
     pub ctpop_i32: FunctionValue<'ctx>,
     pub ctpop_i64: FunctionValue<'ctx>,
+    pub ctpop_i8x16: FunctionValue<'ctx>,
+
+    pub fp_rounding_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_exception_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_ogt_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_olt_md: BasicMetadataValueEnum<'ctx>,
+    pub fp_uno_md: BasicMetadataValueEnum<'ctx>,
+
+    pub add_f32: FunctionValue<'ctx>,
+    pub add_f64: FunctionValue<'ctx>,
+    pub add_f32x4: FunctionValue<'ctx>,
+    pub add_f64x2: FunctionValue<'ctx>,
+
+    pub sub_f32: FunctionValue<'ctx>,
+    pub sub_f64: FunctionValue<'ctx>,
+    pub sub_f32x4: FunctionValue<'ctx>,
+    pub sub_f64x2: FunctionValue<'ctx>,
+
+    pub mul_f32: FunctionValue<'ctx>,
+    pub mul_f64: FunctionValue<'ctx>,
+    pub mul_f32x4: FunctionValue<'ctx>,
+    pub mul_f64x2: FunctionValue<'ctx>,
+
+    pub div_f32: FunctionValue<'ctx>,
+    pub div_f64: FunctionValue<'ctx>,
+    pub div_f32x4: FunctionValue<'ctx>,
+    pub div_f64x2: FunctionValue<'ctx>,
 
     pub sqrt_f32: FunctionValue<'ctx>,
     pub sqrt_f64: FunctionValue<'ctx>,
     pub sqrt_f32x4: FunctionValue<'ctx>,
     pub sqrt_f64x2: FunctionValue<'ctx>,
 
+    pub cmp_f32: FunctionValue<'ctx>,
+    pub cmp_f64: FunctionValue<'ctx>,
+    pub cmp_f32x4: FunctionValue<'ctx>,
+    pub cmp_f64x2: FunctionValue<'ctx>,
+
     pub ceil_f32: FunctionValue<'ctx>,
     pub ceil_f64: FunctionValue<'ctx>,
+    pub ceil_f32x4: FunctionValue<'ctx>,
+    pub ceil_f64x2: FunctionValue<'ctx>,
 
     pub floor_f32: FunctionValue<'ctx>,
     pub floor_f64: FunctionValue<'ctx>,
+    pub floor_f32x4: FunctionValue<'ctx>,
+    pub floor_f64x2: FunctionValue<'ctx>,
 
     pub trunc_f32: FunctionValue<'ctx>,
     pub trunc_f64: FunctionValue<'ctx>,
+    pub trunc_f32x4: FunctionValue<'ctx>,
+    pub trunc_f64x2: FunctionValue<'ctx>,
+
+    pub fpext_f32: FunctionValue<'ctx>,
+    pub fptrunc_f64: FunctionValue<'ctx>,
 
     pub nearbyint_f32: FunctionValue<'ctx>,
     pub nearbyint_f64: FunctionValue<'ctx>,
+    pub nearbyint_f32x4: FunctionValue<'ctx>,
+    pub nearbyint_f64x2: FunctionValue<'ctx>,
 
     pub fabs_f32: FunctionValue<'ctx>,
     pub fabs_f64: FunctionValue<'ctx>,
@@ -121,6 +162,8 @@ pub struct Intrinsics<'ctx> {
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
+    pub i2_ty: IntType<'ctx>,
+    pub i4_ty: IntType<'ctx>,
     pub i8_ty: IntType<'ctx>,
     pub i16_ty: IntType<'ctx>,
     pub i32_ty: IntType<'ctx>,
@@ -136,6 +179,7 @@ pub struct Intrinsics<'ctx> {
     pub i64x2_ty: VectorType<'ctx>,
     pub f32x4_ty: VectorType<'ctx>,
     pub f64x2_ty: VectorType<'ctx>,
+    pub i32x8_ty: VectorType<'ctx>,
 
     pub i8_ptr_ty: PointerType<'ctx>,
     pub i16_ptr_ty: PointerType<'ctx>,
@@ -147,6 +191,10 @@ pub struct Intrinsics<'ctx> {
 
     pub anyfunc_ty: StructType<'ctx>,
 
+    pub funcref_ty: PointerType<'ctx>,
+    pub externref_ty: PointerType<'ctx>,
+    pub anyref_ty: PointerType<'ctx>,
+
     pub i1_zero: IntValue<'ctx>,
     pub i8_zero: IntValue<'ctx>,
     pub i32_zero: IntValue<'ctx>,
@@ -156,6 +204,7 @@ pub struct Intrinsics<'ctx> {
     pub f64_zero: FloatValue<'ctx>,
     pub f32x4_zero: VectorValue<'ctx>,
     pub f64x2_zero: VectorValue<'ctx>,
+    pub i32_consts: [IntValue<'ctx>; 16],
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
     pub trap_call_indirect_null: BasicValueEnum<'ctx>,
@@ -167,11 +216,32 @@ pub struct Intrinsics<'ctx> {
     pub trap_unaligned_atomic: BasicValueEnum<'ctx>,
     pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
-    // VM intrinsics.
-    pub throw_trap: FunctionValue<'ctx>,
-
     pub experimental_stackmap: FunctionValue<'ctx>,
 
+    // VM libcalls.
+    pub table_copy: FunctionValue<'ctx>,
+    pub table_init: FunctionValue<'ctx>,
+    pub table_fill: FunctionValue<'ctx>,
+    pub table_size: FunctionValue<'ctx>,
+    pub imported_table_size: FunctionValue<'ctx>,
+    pub table_get: FunctionValue<'ctx>,
+    pub imported_table_get: FunctionValue<'ctx>,
+    pub table_set: FunctionValue<'ctx>,
+    pub imported_table_set: FunctionValue<'ctx>,
+    pub table_grow: FunctionValue<'ctx>,
+    pub imported_table_grow: FunctionValue<'ctx>,
+    pub memory_init: FunctionValue<'ctx>,
+    pub data_drop: FunctionValue<'ctx>,
+    pub func_ref: FunctionValue<'ctx>,
+    pub elem_drop: FunctionValue<'ctx>,
+    pub memory_copy: FunctionValue<'ctx>,
+    pub imported_memory_copy: FunctionValue<'ctx>,
+    pub memory_fill: FunctionValue<'ctx>,
+    pub imported_memory_fill: FunctionValue<'ctx>,
+
+    pub throw_trap: FunctionValue<'ctx>,
+
+    // VM builtins.
     pub vmfunction_import_ptr_ty: PointerType<'ctx>,
     pub vmfunction_import_body_element: u32,
     pub vmfunction_import_vmctx_element: u32,
@@ -185,6 +255,7 @@ pub struct Intrinsics<'ctx> {
     pub memory32_size_ptr_ty: PointerType<'ctx>,
     pub imported_memory32_size_ptr_ty: PointerType<'ctx>,
 
+    // Pointer to the VM.
     pub ctx_ptr_ty: PointerType<'ctx>,
 }
 
@@ -193,6 +264,8 @@ impl<'ctx> Intrinsics<'ctx> {
     pub fn declare(module: &Module<'ctx>, context: &'ctx Context) -> Self {
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
+        let i2_ty = context.custom_width_int_type(2);
+        let i4_ty = context.custom_width_int_type(4);
         let i8_ty = context.i8_type();
         let i16_ty = context.i16_type();
         let i32_ty = context.i32_type();
@@ -201,6 +274,8 @@ impl<'ctx> Intrinsics<'ctx> {
         let f32_ty = context.f32_type();
         let f64_ty = context.f64_type();
 
+        let i1x4_ty = i1_ty.vec_type(4);
+        let i1x2_ty = i1_ty.vec_type(2);
         let i1x128_ty = i1_ty.vec_type(128);
         let i8x16_ty = i8_ty.vec_type(16);
         let i16x8_ty = i16_ty.vec_type(8);
@@ -208,6 +283,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let i64x2_ty = i64_ty.vec_type(2);
         let f32x4_ty = f32_ty.vec_type(4);
         let f64x2_ty = f64_ty.vec_type(2);
+        let i32x8_ty = i32_ty.vec_type(8);
 
         let i8_ptr_ty = i8_ty.ptr_type(AddressSpace::Generic);
         let i16_ptr_ty = i16_ty.ptr_type(AddressSpace::Generic);
@@ -226,52 +302,160 @@ impl<'ctx> Intrinsics<'ctx> {
         let f64_zero = f64_ty.const_float(0.0);
         let f32x4_zero = f32x4_ty.const_zero();
         let f64x2_zero = f64x2_ty.const_zero();
+        let i32_consts = [
+            i32_ty.const_int(0, false),
+            i32_ty.const_int(1, false),
+            i32_ty.const_int(2, false),
+            i32_ty.const_int(3, false),
+            i32_ty.const_int(4, false),
+            i32_ty.const_int(5, false),
+            i32_ty.const_int(6, false),
+            i32_ty.const_int(7, false),
+            i32_ty.const_int(8, false),
+            i32_ty.const_int(9, false),
+            i32_ty.const_int(10, false),
+            i32_ty.const_int(11, false),
+            i32_ty.const_int(12, false),
+            i32_ty.const_int(13, false),
+            i32_ty.const_int(14, false),
+            i32_ty.const_int(15, false),
+        ];
 
-        let i1_ty_basic = i1_ty.as_basic_type_enum();
-        let i32_ty_basic = i32_ty.as_basic_type_enum();
-        let i64_ty_basic = i64_ty.as_basic_type_enum();
-        let f32_ty_basic = f32_ty.as_basic_type_enum();
-        let f64_ty_basic = f64_ty.as_basic_type_enum();
-        let i8x16_ty_basic = i8x16_ty.as_basic_type_enum();
-        let i16x8_ty_basic = i16x8_ty.as_basic_type_enum();
-        let f32x4_ty_basic = f32x4_ty.as_basic_type_enum();
-        let f64x2_ty_basic = f64x2_ty.as_basic_type_enum();
+        let md_ty = context.metadata_type();
+
         let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
+
+        let i1_ty_basic_md: BasicMetadataTypeEnum = i1_ty.into();
+        let i32_ty_basic_md: BasicMetadataTypeEnum = i32_ty.into();
+        let i64_ty_basic_md: BasicMetadataTypeEnum = i64_ty.into();
+        let f32_ty_basic_md: BasicMetadataTypeEnum = f32_ty.into();
+        let f64_ty_basic_md: BasicMetadataTypeEnum = f64_ty.into();
+        let i8x16_ty_basic_md: BasicMetadataTypeEnum = i8x16_ty.into();
+        let i16x8_ty_basic_md: BasicMetadataTypeEnum = i16x8_ty.into();
+        let f32x4_ty_basic_md: BasicMetadataTypeEnum = f32x4_ty.into();
+        let f64x2_ty_basic_md: BasicMetadataTypeEnum = f64x2_ty.into();
+        let md_ty_basic_md: BasicMetadataTypeEnum = md_ty.into();
 
         let ctx_ty = i8_ty;
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
+        let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
+        let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
         let sigindex_ty = i32_ty;
 
         let anyfunc_ty = context.struct_type(
+            &[i8_ptr_ty_basic, sigindex_ty.into(), ctx_ptr_ty_basic],
+            false,
+        );
+        let funcref_ty = anyfunc_ty.ptr_type(AddressSpace::Generic);
+        let externref_ty = funcref_ty;
+        let anyref_ty = i8_ptr_ty;
+        let anyref_ty_basic_md: BasicMetadataTypeEnum = anyref_ty.into();
+
+        let ret_i8x16_take_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic_md], false);
+        let ret_i8x16_take_i8x16_i8x16 =
+            i8x16_ty.fn_type(&[i8x16_ty_basic_md, i8x16_ty_basic_md], false);
+        let ret_i16x8_take_i16x8_i16x8 =
+            i16x8_ty.fn_type(&[i16x8_ty_basic_md, i16x8_ty_basic_md], false);
+
+        let ret_i32_take_i32_i1 = i32_ty.fn_type(&[i32_ty_basic_md, i1_ty_basic_md], false);
+        let ret_i64_take_i64_i1 = i64_ty.fn_type(&[i64_ty_basic_md, i1_ty_basic_md], false);
+
+        let ret_i32_take_i32 = i32_ty.fn_type(&[i32_ty_basic_md], false);
+        let ret_i64_take_i64 = i64_ty.fn_type(&[i64_ty_basic_md], false);
+
+        let ret_f32_take_f32 = f32_ty.fn_type(&[f32_ty_basic_md], false);
+        let ret_f64_take_f64 = f64_ty.fn_type(&[f64_ty_basic_md], false);
+        let ret_f32x4_take_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic_md], false);
+        let ret_f64x2_take_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic_md], false);
+
+        let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic_md, f32_ty_basic_md], false);
+        let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic_md, f64_ty_basic_md], false);
+        let ret_f32x4_take_f32x4_f32x4 =
+            f32x4_ty.fn_type(&[f32x4_ty_basic_md, f32x4_ty_basic_md], false);
+        let ret_f64x2_take_f64x2_f64x2 =
+            f64x2_ty.fn_type(&[f64x2_ty_basic_md, f64x2_ty_basic_md], false);
+
+        let ret_f64_take_f32_md = f64_ty.fn_type(&[f32_ty_basic_md, md_ty_basic_md], false);
+        let ret_f32_take_f64_md_md =
+            f32_ty.fn_type(&[f64_ty_basic_md, md_ty_basic_md, md_ty_basic_md], false);
+
+        let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic_md, i1_ty_basic_md], false);
+
+        let ret_i1_take_f32_f32_md_md = i1_ty.fn_type(
             &[
-                i8_ptr_ty_basic,
-                sigindex_ty.as_basic_type_enum(),
-                ctx_ptr_ty.as_basic_type_enum(),
+                f32_ty_basic_md,
+                f32_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_i1_take_f64_f64_md_md = i1_ty.fn_type(
+            &[
+                f64_ty_basic_md,
+                f64_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_i1x4_take_f32x4_f32x4_md_md = i1x4_ty.fn_type(
+            &[
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_i1x2_take_f64x2_f64x2_md_md = i1x2_ty.fn_type(
+            &[
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
             ],
             false,
         );
 
-        let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
-        let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
+        let ret_f32_take_f32_f32_md_md = f32_ty.fn_type(
+            &[
+                f32_ty_basic_md,
+                f32_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_f64_take_f64_f64_md_md = f64_ty.fn_type(
+            &[
+                f64_ty_basic_md,
+                f64_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_f32x4_take_f32x4_f32x4_md_md = f32x4_ty.fn_type(
+            &[
+                f32x4_ty_basic_md,
+                f32x4_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
+        let ret_f64x2_take_f64x2_f64x2_md_md = f64x2_ty.fn_type(
+            &[
+                f64x2_ty_basic_md,
+                f64x2_ty_basic_md,
+                md_ty_basic_md,
+                md_ty_basic_md,
+            ],
+            false,
+        );
 
-        let ret_i32_take_i32_i1 = i32_ty.fn_type(&[i32_ty_basic, i1_ty_basic], false);
-        let ret_i64_take_i64_i1 = i64_ty.fn_type(&[i64_ty_basic, i1_ty_basic], false);
-
-        let ret_i32_take_i32 = i32_ty.fn_type(&[i32_ty_basic], false);
-        let ret_i64_take_i64 = i64_ty.fn_type(&[i64_ty_basic], false);
-
-        let ret_f32_take_f32 = f32_ty.fn_type(&[f32_ty_basic], false);
-        let ret_f64_take_f64 = f64_ty.fn_type(&[f64_ty_basic], false);
-        let ret_f32x4_take_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic], false);
-        let ret_f64x2_take_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic], false);
-
-        let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
-        let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
-        let ret_f32x4_take_f32x4_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic, f32x4_ty_basic], false);
-        let ret_f64x2_take_f64x2_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic, f64x2_ty_basic], false);
-
-        let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
         let intrinsics = Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
             ctlz_i64: module.add_function("llvm.ctlz.i64", ret_i64_take_i64_i1, None),
@@ -281,6 +465,14 @@ impl<'ctx> Intrinsics<'ctx> {
 
             ctpop_i32: module.add_function("llvm.ctpop.i32", ret_i32_take_i32, None),
             ctpop_i64: module.add_function("llvm.ctpop.i64", ret_i64_take_i64, None),
+            ctpop_i8x16: module.add_function("llvm.ctpop.v16i8", ret_i8x16_take_i8x16, None),
+
+            fp_rounding_md: context.metadata_string("round.tonearest").into(),
+            fp_exception_md: context.metadata_string("fpexcept.strict").into(),
+
+            fp_ogt_md: context.metadata_string("ogt").into(),
+            fp_olt_md: context.metadata_string("olt").into(),
+            fp_uno_md: context.metadata_string("uno").into(),
 
             sqrt_f32: module.add_function("llvm.sqrt.f32", ret_f32_take_f32, None),
             sqrt_f64: module.add_function("llvm.sqrt.f64", ret_f64_take_f64, None),
@@ -289,15 +481,147 @@ impl<'ctx> Intrinsics<'ctx> {
 
             ceil_f32: module.add_function("llvm.ceil.f32", ret_f32_take_f32, None),
             ceil_f64: module.add_function("llvm.ceil.f64", ret_f64_take_f64, None),
+            ceil_f32x4: module.add_function("llvm.ceil.v4f32", ret_f32x4_take_f32x4, None),
+            ceil_f64x2: module.add_function("llvm.ceil.v2f64", ret_f64x2_take_f64x2, None),
 
             floor_f32: module.add_function("llvm.floor.f32", ret_f32_take_f32, None),
             floor_f64: module.add_function("llvm.floor.f64", ret_f64_take_f64, None),
+            floor_f32x4: module.add_function("llvm.floor.v4f32", ret_f32x4_take_f32x4, None),
+            floor_f64x2: module.add_function("llvm.floor.v2f64", ret_f64x2_take_f64x2, None),
 
             trunc_f32: module.add_function("llvm.trunc.f32", ret_f32_take_f32, None),
             trunc_f64: module.add_function("llvm.trunc.f64", ret_f64_take_f64, None),
+            trunc_f32x4: module.add_function("llvm.trunc.v4f32", ret_f32x4_take_f32x4, None),
+            trunc_f64x2: module.add_function("llvm.trunc.v2f64", ret_f64x2_take_f64x2, None),
 
             nearbyint_f32: module.add_function("llvm.nearbyint.f32", ret_f32_take_f32, None),
             nearbyint_f64: module.add_function("llvm.nearbyint.f64", ret_f64_take_f64, None),
+            nearbyint_f32x4: module.add_function(
+                "llvm.nearbyint.v4f32",
+                ret_f32x4_take_f32x4,
+                None,
+            ),
+            nearbyint_f64x2: module.add_function(
+                "llvm.nearbyint.v2f64",
+                ret_f64x2_take_f64x2,
+                None,
+            ),
+
+            add_f32: module.add_function(
+                "llvm.experimental.constrained.fadd.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            add_f64: module.add_function(
+                "llvm.experimental.constrained.fadd.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            add_f32x4: module.add_function(
+                "llvm.experimental.constrained.fadd.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            add_f64x2: module.add_function(
+                "llvm.experimental.constrained.fadd.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            sub_f32: module.add_function(
+                "llvm.experimental.constrained.fsub.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            sub_f64: module.add_function(
+                "llvm.experimental.constrained.fsub.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            sub_f32x4: module.add_function(
+                "llvm.experimental.constrained.fsub.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            sub_f64x2: module.add_function(
+                "llvm.experimental.constrained.fsub.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            mul_f32: module.add_function(
+                "llvm.experimental.constrained.fmul.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            mul_f64: module.add_function(
+                "llvm.experimental.constrained.fmul.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            mul_f32x4: module.add_function(
+                "llvm.experimental.constrained.fmul.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            mul_f64x2: module.add_function(
+                "llvm.experimental.constrained.fmul.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            div_f32: module.add_function(
+                "llvm.experimental.constrained.fdiv.f32",
+                ret_f32_take_f32_f32_md_md,
+                None,
+            ),
+            div_f64: module.add_function(
+                "llvm.experimental.constrained.fdiv.f64",
+                ret_f64_take_f64_f64_md_md,
+                None,
+            ),
+            div_f32x4: module.add_function(
+                "llvm.experimental.constrained.fdiv.v4f32",
+                ret_f32x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            div_f64x2: module.add_function(
+                "llvm.experimental.constrained.fdiv.v2f64",
+                ret_f64x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            cmp_f32: module.add_function(
+                "llvm.experimental.constrained.fcmp.f32",
+                ret_i1_take_f32_f32_md_md,
+                None,
+            ),
+            cmp_f64: module.add_function(
+                "llvm.experimental.constrained.fcmp.f64",
+                ret_i1_take_f64_f64_md_md,
+                None,
+            ),
+            cmp_f32x4: module.add_function(
+                "llvm.experimental.constrained.fcmp.v4f32",
+                ret_i1x4_take_f32x4_f32x4_md_md,
+                None,
+            ),
+            cmp_f64x2: module.add_function(
+                "llvm.experimental.constrained.fcmp.v2f64",
+                ret_i1x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            fpext_f32: module.add_function(
+                "llvm.experimental.constrained.fpext.f64.f32",
+                ret_f64_take_f32_md,
+                None,
+            ),
+            fptrunc_f64: module.add_function(
+                "llvm.experimental.constrained.fptrunc.f32.f64",
+                ret_f32_take_f64_md_md,
+                None,
+            ),
 
             fabs_f32: module.add_function("llvm.fabs.f32", ret_f32_take_f32, None),
             fabs_f64: module.add_function("llvm.fabs.f64", ret_f64_take_f64, None),
@@ -369,10 +693,12 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
-            stack_probe: context.create_string_attribute("probe-stack", "wasmer_probestack"),
+            stack_probe: context.create_string_attribute("probe-stack", "wasmer_vm_probestack"),
 
             void_ty,
             i1_ty,
+            i2_ty,
+            i4_ty,
             i8_ty,
             i16_ty,
             i32_ty,
@@ -388,6 +714,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i64x2_ty,
             f32x4_ty,
             f64x2_ty,
+            i32x8_ty,
 
             i8_ptr_ty,
             i16_ptr_ty,
@@ -399,6 +726,10 @@ impl<'ctx> Intrinsics<'ctx> {
 
             anyfunc_ty,
 
+            funcref_ty,
+            externref_ty,
+            anyref_ty,
+
             i1_zero,
             i8_zero,
             i32_zero,
@@ -408,6 +739,7 @@ impl<'ctx> Intrinsics<'ctx> {
             f64_zero,
             f32x4_zero,
             f64x2_zero,
+            i32_consts,
 
             trap_unreachable: i32_ty
                 .const_int(TrapCode::UnreachableCodeReached as _, false)
@@ -437,21 +769,230 @@ impl<'ctx> Intrinsics<'ctx> {
                 .const_int(TrapCode::TableAccessOutOfBounds as _, false)
                 .as_basic_value_enum(),
 
-            // VM intrinsics.
-            throw_trap: module.add_function(
-                "wasmer_raise_trap",
-                void_ty.fn_type(&[i32_ty_basic], false),
-                None,
-            ),
             experimental_stackmap: module.add_function(
                 "llvm.experimental.stackmap",
                 void_ty.fn_type(
                     &[
-                        i64_ty_basic, /* id */
-                        i32_ty_basic, /* numShadowBytes */
+                        i64_ty_basic_md, /* id */
+                        i32_ty_basic_md, /* numShadowBytes */
                     ],
                     true,
                 ),
+                None,
+            ),
+
+            // VM libcalls.
+            table_copy: module.add_function(
+                "wasmer_vm_table_copy",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_init: module.add_function(
+                "wasmer_vm_table_init",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_fill: module.add_function(
+                "wasmer_vm_table_fill",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        anyref_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_size: module.add_function(
+                "wasmer_vm_table_size",
+                i32_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
+                None,
+            ),
+            imported_table_size: module.add_function(
+                "wasmer_vm_imported_table_size",
+                i32_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
+                None,
+            ),
+            table_get: module.add_function(
+                "wasmer_vm_table_get",
+                anyref_ty.fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                ),
+                None,
+            ),
+            imported_table_get: module.add_function(
+                "wasmer_vm_imported_table_get",
+                anyref_ty.fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                ),
+                None,
+            ),
+            table_set: module.add_function(
+                "wasmer_vm_table_set",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        anyref_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_table_set: module.add_function(
+                "wasmer_vm_imported_table_set",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        anyref_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_grow: module.add_function(
+                "wasmer_vm_table_grow",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        anyref_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_table_grow: module.add_function(
+                "wasmer_vm_imported_table_grow",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        anyref_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            memory_init: module.add_function(
+                "wasmer_vm_memory32_init",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            memory_copy: module.add_function(
+                "wasmer_vm_memory32_copy",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_memory_copy: module.add_function(
+                "wasmer_vm_imported_memory32_copy",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            memory_fill: module.add_function(
+                "wasmer_vm_memory32_fill",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_memory_fill: module.add_function(
+                "wasmer_vm_imported_memory32_fill",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            data_drop: module.add_function(
+                "wasmer_vm_data_drop",
+                void_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
+                None,
+            ),
+            func_ref: module.add_function(
+                "wasmer_vm_func_ref",
+                funcref_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
+                None,
+            ),
+            elem_drop: module.add_function(
+                "wasmer_vm_elem_drop",
+                void_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
+                None,
+            ),
+            throw_trap: module.add_function(
+                "wasmer_vm_raise_trap",
+                void_ty.fn_type(&[i32_ty_basic_md], false),
                 None,
             ),
 
@@ -463,40 +1004,41 @@ impl<'ctx> Intrinsics<'ctx> {
 
             // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
-                .struct_type(&[i8_ptr_ty_basic, i32_ty_basic], false)
+                .struct_type(&[i8_ptr_ty_basic, i32_ty.into()], false)
                 .ptr_type(AddressSpace::Generic),
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,
 
             memory32_grow_ptr_ty: i32_ty
                 .fn_type(
-                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     false,
                 )
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_grow_ptr_ty: i32_ty
                 .fn_type(
-                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     false,
                 )
                 .ptr_type(AddressSpace::Generic),
             memory32_size_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_size_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
+                .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
                 .ptr_type(AddressSpace::Generic),
 
             ctx_ptr_ty,
         };
-
-        // TODO: mark vmctx args as nofree, align 16, dereferenceable(?)
 
         let noreturn =
             context.create_enum_attribute(Attribute::get_named_enum_kind_id("noreturn"), 0);
         intrinsics
             .throw_trap
             .add_attribute(AttributeLoc::Function, noreturn);
+        intrinsics
+            .func_ref
+            .add_attribute(AttributeLoc::Function, intrinsics.readonly);
 
         intrinsics
     }

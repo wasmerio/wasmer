@@ -1242,6 +1242,28 @@
       (i32.const 3)
     )
   )
+
+  (func (export "meet-externref") (param i32) (param externref) (result externref)
+    (block $l1 (result externref)
+      (block $l2 (result externref)
+        (br_table $l1 $l2 $l1 (local.get 1) (local.get 0))
+      )
+    )
+  )
+
+  ;; commenting this part out for now as it's a bit odd and we rely on wasmparser for
+  ;; wasm validation. Not meeting this requirement is okay for now
+  ;; (func (export "meet-bottom")
+  ;;   (block (result f64)
+  ;;     (block (result f32)
+  ;;       (unreachable)
+  ;;       (br_table 0 1 1 (i32.const 1))
+  ;;     )
+  ;;     (drop)
+  ;;     (f64.const 0)
+  ;;   )
+  ;;   (drop)
+  ;; )
 )
 
 (assert_return (invoke "type-i32"))
@@ -1425,6 +1447,10 @@
 
 (assert_return (invoke "nested-br_table-loop-block" (i32.const 1)) (i32.const 3))
 
+(assert_return (invoke "meet-externref" (i32.const 0) (ref.extern 1)) (ref.extern 1))
+(assert_return (invoke "meet-externref" (i32.const 1) (ref.extern 1)) (ref.extern 1))
+(assert_return (invoke "meet-externref" (i32.const 2) (ref.extern 1)) (ref.extern 1))
+
 (assert_invalid
   (module (func $type-arg-void-vs-num (result i32)
     (block (br_table 0 (i32.const 1)) (i32.const 1))
@@ -1460,6 +1486,16 @@
         (br_table 0 1 (f32.const 0) (i32.const 0))
       )
       (drop)
+    )
+  ))
+  "type mismatch"
+)
+(assert_invalid
+  (module (func
+    (block (result i32)
+      (block (result i64)
+        (br_table 0 1 (i32.const 0) (i32.const 0))
+      )
     )
   ))
   "type mismatch"
@@ -1552,6 +1588,45 @@
   "type mismatch"
 )
 
+(assert_invalid
+  (module
+    (func (param i32) (result i32)
+      (loop (result i32)
+        (block (result i32)
+          (br_table 0 1 (i32.const 1) (local.get 0))
+        )
+      )
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func (param i32) (result i32)
+      (block (result i32)
+        (loop (result i32)
+          (br_table 0 1 (i32.const 1) (local.get 0))
+        )
+      )
+    )
+  )
+  "type mismatch"
+)
+
+
+(assert_invalid
+  (module (func $meet-bottom (param i32) (result externref)
+    (block $l1 (result externref)
+      (drop
+        (block $l2 (result i32)
+          (br_table $l2 $l1 $l2 (ref.null extern) (local.get 0))
+        )
+      )
+      (ref.null extern)
+    )
+  ))
+  "type mismatch"
+)
 
 (assert_invalid
   (module (func $unbound-label

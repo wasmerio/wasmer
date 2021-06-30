@@ -20,7 +20,7 @@ use wasmer::{
     Type, Value,
 };
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module.
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new(&JIT::new(Cranelift::default()).engine());
+    let store = Store::new(&Universal::new(Cranelift::default()).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

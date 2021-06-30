@@ -28,8 +28,7 @@ pub unsafe extern "C" fn wasm_frame_copy(frame: &wasm_frame_t) -> Box<wasm_frame
 pub unsafe extern "C" fn wasm_frame_delete(_frame: Option<Box<wasm_frame_t>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_frame_instance(frame: &wasm_frame_t) -> *const wasm_instance_t {
-    //todo!("wasm_frame_instance")
+pub unsafe extern "C" fn wasm_frame_instance(_frame: &wasm_frame_t) -> *const wasm_instance_t {
     std::ptr::null()
 }
 

@@ -14,7 +14,10 @@ use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use wasmer_compiler::wasmparser::{Operator, Type};
 use wasmer_compiler::WasmResult;
-use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasmer_types::{
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type as WasmerType,
+};
 
 /// The value of a WebAssembly global variable.
 #[derive(Clone, Copy)]
@@ -333,6 +336,20 @@ pub trait FuncEnvironment: TargetEnvironment {
         len: ir::Value,
     ) -> WasmResult<()>;
 
+    /// Translates an externref ref count increment.
+    fn translate_externref_inc(
+        &mut self,
+        pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        externref: ir::Value,
+    ) -> WasmResult<()>;
+
+    /// Translates an externref ref count decrement.
+    fn translate_externref_dec(
+        &mut self,
+        pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        externref: ir::Value,
+    ) -> WasmResult<()>;
+
     /// Translate a `table.init` WebAssembly instruction.
     #[allow(clippy::too_many_arguments)]
     fn translate_table_init(
@@ -378,7 +395,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         value: ir::Value,
     ) -> WasmResult<ir::Value> {
         let is_null = pos.ins().is_null(value);
-        Ok(pos.ins().bint(ir::types::I32, is_null))
+        Ok(pos.ins().bint(ir::types::I64, is_null))
     }
 
     /// Translate a `ref.func` WebAssembly instruction.
@@ -467,4 +484,28 @@ pub trait FuncEnvironment: TargetEnvironment {
     ) -> WasmResult<()> {
         Ok(())
     }
+
+    /// Get the type of the global at the given index.
+    fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType>;
+
+    /// Push a local declaration on to the stack to track the type of locals.
+    fn push_local_decl_on_stack(&mut self, ty: WasmerType);
+
+    /// Push locals for a the params of a function on to the stack.
+    fn push_params_on_stack(&mut self, function_index: LocalFunctionIndex);
+
+    /// Get the type of the local at the given index.
+    fn get_local_type(&self, local_index: u32) -> Option<WasmerType>;
+
+    /// Get the types of all the current locals.
+    fn get_local_types(&self) -> &[WasmerType];
+
+    /// Get the type of the local at the given index.
+    fn get_function_type(&self, function_index: FunctionIndex) -> Option<&FunctionType>;
+
+    /// Get the type of a function with the given signature index.
+    fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
+
+    /// Drops all locals that need to be dropped. Useful for returning from functions.
+    fn translate_drop_locals(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()>;
 }

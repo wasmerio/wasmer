@@ -3,7 +3,6 @@ use backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-use std::sync::RwLockReadGuard;
 use wasmer_vm::{raise_user_trap, Trap, TrapCode};
 
 /// A struct representing an aborted instruction execution, with a message
@@ -17,6 +16,7 @@ pub struct RuntimeError {
 #[derive(Debug)]
 enum RuntimeErrorSource {
     Generic(String),
+    OOM,
     User(Box<dyn Error + Send + Sync>),
     Trap(TrapCode),
 }
@@ -26,6 +26,7 @@ impl fmt::Display for RuntimeErrorSource {
         match self {
             Self::Generic(s) => write!(f, "{}", s),
             Self::User(s) => write!(f, "{}", s),
+            Self::OOM => write!(f, "Wasmer VM out of memory"),
             Self::Trap(s) => write!(f, "{}", s.message()),
         }
     }
@@ -56,7 +57,7 @@ impl RuntimeError {
         let info = FRAME_INFO.read().unwrap();
         let msg = message.into();
         Self::new_with_trace(
-            info,
+            &info,
             None,
             RuntimeErrorSource::Generic(msg),
             Backtrace::new_unresolved(),
@@ -67,17 +68,22 @@ impl RuntimeError {
     pub fn from_trap(trap: Trap) -> Self {
         let info = FRAME_INFO.read().unwrap();
         match trap {
+            // A user error
             Trap::User(error) => {
                 match error.downcast::<Self>() {
                     // The error is already a RuntimeError, we return it directly
                     Ok(runtime_error) => *runtime_error,
                     Err(e) => Self::new_with_trace(
-                        info,
+                        &info,
                         None,
                         RuntimeErrorSource::User(e),
                         Backtrace::new_unresolved(),
                     ),
                 }
+            }
+            // A trap caused by the VM being Out of Memory
+            Trap::OOM { backtrace } => {
+                Self::new_with_trace(&info, None, RuntimeErrorSource::OOM, backtrace)
             }
             // A trap caused by an error on the generated machine code for a Wasm function
             Trap::Wasm {
@@ -85,27 +91,18 @@ impl RuntimeError {
                 signal_trap,
                 backtrace,
             } => {
-                let info = if info.should_process_frame(pc).unwrap_or(false) {
-                    drop(info);
-                    let mut info = FRAME_INFO.write().unwrap();
-                    info.maybe_process_frame(pc).unwrap();
-                    drop(info);
-                    FRAME_INFO.read().unwrap()
-                } else {
-                    info
-                };
                 let code = info
                     .lookup_trap_info(pc)
                     .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
                         info.trap_code
                     });
-                Self::new_with_trace(info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
+                Self::new_with_trace(&info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
             }
             // A trap triggered manually from the Wasmer runtime
-            Trap::Runtime {
+            Trap::Lib {
                 trap_code,
                 backtrace,
-            } => Self::new_with_trace(info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
+            } => Self::new_with_trace(&info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
         }
     }
 
@@ -115,7 +112,7 @@ impl RuntimeError {
     }
 
     fn new_with_trace(
-        info: RwLockReadGuard<GlobalFrameInfo>,
+        info: &GlobalFrameInfo,
         trap_pc: Option<usize>,
         source: RuntimeErrorSource,
         native_trace: Backtrace,
@@ -144,28 +141,6 @@ impl RuntimeError {
             })
             .collect();
 
-        // If any of the frames is not processed, we adquire the lock to
-        // modify the GlobalFrameInfo module.
-        let info = if frames
-            .iter()
-            .any(|pc| info.should_process_frame(*pc).unwrap_or(false))
-        {
-            // We drop the read lock, to get a write one.
-            // Note: this is not guaranteed because it's a RwLock:
-            // the following code may cause deadlocks.
-            // TODO: clean up this code
-            drop(info);
-            {
-                let mut info = FRAME_INFO.write().unwrap();
-                for pc in frames.iter() {
-                    info.maybe_process_frame(*pc);
-                }
-            }
-            FRAME_INFO.read().unwrap()
-        } else {
-            info
-        };
-
         // Let's construct the trace
         let wasm_trace = frames
             .into_iter()
@@ -183,7 +158,7 @@ impl RuntimeError {
 
     /// Returns a reference the `message` stored in `Trap`.
     pub fn message(&self) -> String {
-        format!("{}", self.inner.source)
+        self.inner.source.to_string()
     }
 
     /// Returns a list of function frames in WebAssembly code that led to this

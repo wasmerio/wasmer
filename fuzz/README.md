@@ -1,26 +1,45 @@
-This directory contains the fuzz tests for wasmer. To fuzz, we use the `cargo-fuzz` package.
+# Wasmer Fuzz Testing
+
+[Fuzz testing](https://en.wikipedia.org/wiki/Fuzzing) is:
+
+> An automated testing technique that involves providing invalid,
+> unexpected, or random data as inputs to a program.
+
+We use fuzz testing to automatically discover bugs in the Wasmer runtime.
+
+This `fuzz/` directory contains the configuration and the fuzz tests
+for Wasmer. To generate and to run the fuzz tests, we use the
+[`cargo-fuzz`] library.
 
 ## Installation
 
-You may need to install the `cargo-fuzz` package to get the `cargo fuzz` subcommand. Use
+You may need to install the [`cargo-fuzz`] library to get the `cargo
+fuzz` subcommand. Use
 
 ```sh
 $ cargo install cargo-fuzz
 ```
 
-`cargo-fuzz` is documented in the [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
+`cargo-fuzz` is documented in the [Rust Fuzz
+Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
 
-## Running a fuzzer (validate, jit_llvm, native_cranelift, ...)
+## Running a fuzzer
 
-Once `cargo-fuzz` is installed, you can run the `validate` fuzzer with
+This directory provides multiple fuzzers, like for example `validate`. You can run it with:
+
 ```sh
-cargo fuzz run validate
+$ cargo fuzz run validate
 ```
-or the `jit_cranelift` fuzzer
+
+Another example with the `universal_cranelift` fuzzer:
+
 ```sh
-cargo fuzz run jit_cranelift
+$ cargo fuzz run universal_cranelift
 ```
-See the [fuzz/fuzz_targets](https://github.com/wasmerio/wasmer/tree/fuzz/fuzz_targets/) directory for the full list of targets.
+
+See the
+[`fuzz/fuzz_targets`](https://github.com/wasmerio/wasmer/tree/fuzz/fuzz_targets/)
+directory for the full list of fuzzers.
 
 You should see output that looks something like this:
 
@@ -36,17 +55,26 @@ You should see output that looks something like this:
 #1409042        NEW    cov: 115073 ft: 503951 corp: 4667/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 174/4096 MS: 2 ChangeByte-ChangeASCIIInt-
 ```
 
-It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/jit_cranelift` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run jit_cranelift my_testcase.wasm`.
+It will continue to generate random inputs forever, until it finds a
+bug or is terminated. The testcases for bugs it finds go into
+`fuzz/artifacts/universal_cranelift` and you can rerun the fuzzer on a
+single input by passing it on the command line `cargo fuzz run
+universal_cranelift /path/to/testcase`.
 
-## Seeding the corpus, optional
+## The corpus
 
-The fuzzer works best when it has examples of small Wasm files to start with. Using `wast2json` from [wabt](https://github.com/WebAssembly/wabt), we can easily produce `.wasm` files out of the WebAssembly spec tests.
+Each fuzzer has an individual corpus under `fuzz/corpus/test_name`,
+created on first run if not already present. The fuzzers use
+`wasm-smith` which means that the testcase files are random number
+seeds input to the Wasm generator, not `.wasm` files themselves. In
+order to debug a testcase, you may find that you need to convert it
+into a `.wasm` file. Using the standalone `wasm-smith` tool doesn't
+work for this purpose because we use a custom configuration to our
+`wasm_smith::Module`. Instead, our fuzzers use an environment variable
+`DUMP_TESTCASE=path`. For example:
 
 ```sh
-mkdir spec-test-corpus
-for i in `find tests/ -name "*.wast"`; do wast2json --enable-all $i -o spec-test-corpus/$(basename $i).json; done
-mv spec-test-corpus/*.wasm fuzz/corpus/validate/
-rm -r spec-test-corpus
+$ DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=universal,singlepass universal_singlepass fuzz/artifacts/universal_singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
 ```
 
-The corpus directory is created on the first run of the fuzzer. If it doesn't exist, run it first and then seed the corpus. The fuzzer will pick up new files added to the corpus while it is running.
+[`cargo-fuzz`]: https://github.com/rust-fuzz/cargo-fuzz
