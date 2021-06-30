@@ -258,6 +258,13 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
         let param_locations: Vec<_> = (0..n_params).map(|i| D::callee_param_location(i + 1)).collect();
         let mut locals: Vec<Local<Location<R>>> = Vec::with_capacity(n_locals);
         
+        // + 1 because the first arg is vmctx
+        // this ASSUMES that reg args are passed first; if that's not the case, we'll need to add additional logic here
+        self.n_stack_params = (n_params + 1).saturating_sub(D::ARG_REG_COUNT);
+        for _ in 0..self.n_stack_params {
+            self.stack.push(WeakLocal::new());
+        }
+
         for loc in param_locations {
             let local = Local::new(loc, Size::S32);
             match loc {
@@ -266,7 +273,6 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
                 },
                 Location::Memory(base, offset) => {
                     assert!(base == D::FP);
-                    self.n_stack_params += 1;
                     let idx = self.stack_idx(offset);
                     self.stack[idx] = local.downgrade();
                 },
@@ -294,7 +300,8 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
 
     fn stack_idx(&self, offset: i32) -> usize {
         if (D::STACK_GROWS_DOWN && offset >= 0) || (!D::STACK_GROWS_DOWN && offset <= 0) {
-            offset as usize / D::WORD_SIZE
+            assert!(offset >= 32);
+            (offset - 32) as usize / D::WORD_SIZE
         } else {
             self.n_stack_params + (offset / -(D::WORD_SIZE as i32)) as usize - 1
         }
