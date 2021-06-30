@@ -116,10 +116,6 @@ singlepass = [
     "wasmer-compiler-singlepass",
     "compiler",
 ]
-singlepass-2 = [
-    "wasmer-compiler-singlepass-2",
-    "compiler",
-]
 cranelift = [
     "wasmer-compiler-cranelift",
     "compiler",
@@ -133,9 +129,6 @@ middlewares = ["wasmer-middlewares"]
 # Testing features
 test-singlepass = [
     "singlepass",
-]
-test-singlepass-2 = [
-    "singlepass-2",
 ]
 test-cranelift = [
     "cranelift",
