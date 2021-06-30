@@ -671,9 +671,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 );
             },
             Operator::I32Load { memarg } => {
-                println!("{:?}", self.stack.iter().cloned().map(|l| l.location()).collect::<Vec<_>>());
                 let addr = self.pop_stack();
-                let val = self.do_memory_op(Size::S32, addr.clone(), memarg, false, 4, |this, addr| {
+                let val = self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
                     this.machine.do_deref(Size::S32, addr)
                 });
 
@@ -684,7 +683,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 let val = self.pop_stack();
                 let addr = self.pop_stack();
                 
-                self.do_memory_op(Size::S32, addr.clone(), memarg, false, 4, |this, addr| {
+                self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
                     this.machine.do_deref_write(Size::S32, addr, val.clone());
                 });
 
@@ -913,12 +912,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 }
                 self.unreachable_depth = 1;
             },
-            // Operator::BrIf { relative_depth: 0 } => {
-            //     unimplemented!();
-            // },
-            // Operator::Br { relative_depth: 1 } => {
-            //     unimplemented!();
-            // },
             Operator::Return => {
                 self.do_return();
             },
@@ -1105,6 +1098,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let address_map = get_function_address_map(instructions_address_map, data, body.len());
 
         // use std::io::Write;
+        // use std::str;
+        // use regex::RegexBuilder;
         // let mut s = String::new();
         // for b in body.iter().copied() {
         //     s.push_str(&format!("{:0>2X} ", b));
@@ -1115,10 +1110,17 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         //     .output()
         //     .unwrap()
         //     .stdout;
+        // let asm_str = str::from_utf8(&asm).unwrap();
+        // let re = RegexBuilder::new(r"^\s*([\da-z]+)\s+((?:(?:[\da-z]{2}\s*)){4})(.*)")
+        //     .multi_line(true).build().unwrap();
+        // let mut asm_fmt = String::new();
+        // for cap in re.captures_iter(asm_str) {
+        //     asm_fmt.push_str(&format!("{:0>9}: {}              {}\n", cap[1].to_uppercase(), cap[2].to_uppercase(), &cap[3]));
+        // }
         // let mut f = std::fs::File::create(
-        //     format!("/Users/james/Development/parity/singlepass-arm-test/{:?}",
+        //     format!("/Users/james/Development/parity/singlepass-arm-test/{:?}.dump",
         //     unsafe { std::mem::transmute::<_, u32>(self.func_index) })).unwrap();
-        // f.write_all(&asm).unwrap();
+        // f.write_all(asm_fmt.as_bytes()).unwrap();
 
         CompiledFunction {
             body: FunctionBody {
@@ -1207,7 +1209,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn do_memory_op<F: FnOnce(&mut Self, Local<M::Location>) -> T, T>(
-        &mut self, sz: Size, addr: Local<M::Location>, memarg: MemoryImmediate,
+        &mut self, addr: Local<M::Location>, memarg: MemoryImmediate,
         check_alignment: bool, value_size: usize, cb: F) -> T {
         let need_check = match self.memory_styles[MemoryIndex::new(0)] {
             MemoryStyle::Static { .. } => false,
@@ -1220,15 +1222,15 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             let offset = self.vmoffsets.vmctx_vmmemory_import_definition(MemoryIndex::new(0));
             let vmctx_field = self.machine.do_load_from_vmctx(Size::S64, offset);
             vmctx_field.inc_ref();
-            let ptrs = (self.machine.do_ptr_offset(sz, vmctx_field.clone(), 0), 
-                self.machine.do_ptr_offset(sz, vmctx_field.clone(), 8));
+            let ptrs = (self.machine.do_ptr_offset(Size::S64, vmctx_field.clone(), 0), 
+                self.machine.do_ptr_offset(Size::S64, vmctx_field.clone(), 8));
             vmctx_field.dec_ref();
             self.maybe_release(vmctx_field);
             ptrs
         } else {
             let offset = self.vmoffsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(0)) as i32;
-            (self.machine.do_vmctx_ptr_offset(sz, offset),
-            self.machine.do_vmctx_ptr_offset(sz, offset + 8))
+            (self.machine.do_vmctx_ptr_offset(Size::S64, offset),
+            self.machine.do_vmctx_ptr_offset(Size::S64, offset + 8))
         };
 
         // Load bound into temporary register, if needed.
@@ -1258,14 +1260,13 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             let imm = self.machine.do_const_i32(memarg.offset as i32);
 
             addr = if let Some(Value::I32(0)) = addr.location().imm_value() {
-                imm.inc_ref();
-                self.maybe_release(addr);
                 imm.clone()
             } else {
                 let new_addr = self.machine.do_add_p(addr.clone(), imm.clone());
                 new_addr.inc_ref();
                 self.maybe_release(addr);
                 self.maybe_release(imm);
+                new_addr.dec_ref();
                 new_addr
             };
 
@@ -1281,6 +1282,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             new_addr.inc_ref();
             self.maybe_release(addr);
             self.maybe_release(base_ptr);
+            new_addr.dec_ref();
             addr = new_addr
         }
 

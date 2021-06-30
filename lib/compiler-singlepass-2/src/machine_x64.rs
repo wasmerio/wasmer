@@ -9,7 +9,6 @@ use wasmer_vm::VMOffsets;
 
 use wasmer_compiler::wasmparser::Type as WpType;
 
-use std::cmp::min;
 use std::fmt::Debug;
 
 use wasmer_compiler::{Relocation, RelocationTarget, RelocationKind};
@@ -111,7 +110,7 @@ impl Emitter<Reg> for Assembler {
             _ => unimplemented!(),
         }
     }
-    fn move_imm32_to_reg(&mut self, sz: Size, val: u32, reg: Reg) {
+    fn move_imm32_to_reg(&mut self, _sz: Size, val: u32, reg: Reg) {
         let reg = reg.into_index() as u8;
         dynasm!(self ; .arch x64 ; mov Rd(reg), val as i32);
     }
@@ -309,6 +308,7 @@ impl Machine for X64Machine {
     fn do_add_p(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
         .commutative(true)
+        .size(Size::S64)
         .max_imm_width(32)
         .reg_imm(|e, dst, src| {
             let dst = dst.into_index() as u8;
@@ -415,6 +415,7 @@ impl Machine for X64Machine {
 
     fn do_eqz_i32(&mut self, src: Local<Location>) -> Local<Location> {
         In1Out1::new()
+        .size(Size::S32)
         .reg_reg(|e, src, dst| {
             let src = src.into_index() as u8;
             let dst = dst.into_index() as u8;
@@ -460,6 +461,7 @@ impl Machine for X64Machine {
 
     fn do_load_label(&mut self, label: DynamicLabel) -> Local<Location> {
         In0Out1::new()
+        .size(Size::S64)
         .reg(|e, dst| {
             let dst = dst.into_index() as u8;
             dynasm!(e ; .arch x64 ; lea Rq(dst), [=>label]);
@@ -473,6 +475,7 @@ impl Machine for X64Machine {
 
     fn do_load_from_vmctx(&mut self, sz: Size, offset: u32) -> Local<Location> {
         In0Out1::new()
+        .size(sz)
         .reg(|e, reg| {
             let reg = reg.into_index() as u8;
             match sz {
@@ -486,6 +489,7 @@ impl Machine for X64Machine {
     fn do_deref(&mut self, sz: Size, loc: Local<Location>) -> Local<Location> {
         assert!(if let Location::Reg(_) = loc.location() { true } else { false });
         In1Out1::new()
+        .size(sz)
         .reg_reg(|e, src, dst| {
             let src = src.into_index() as u8;
             let dst = dst.into_index() as u8;
@@ -500,6 +504,7 @@ impl Machine for X64Machine {
 
     fn do_deref_write(&mut self, sz: Size, ptr: Local<Location>, val: Local<Location>) {
         In2Out0::new()
+        .size(sz)
         .reg_reg(|e, ptr, val| {
             let ptr = ptr.into_index() as u8;
             let val = val.into_index() as u8;
@@ -582,9 +587,8 @@ impl Machine for X64Machine {
             ; mov Rq(args.into_index() as u8), rdx);
 
         let stack_args = sig.params().len().saturating_sub(6);
-        let mut stack_offset = stack_args as u32 * 8;
         if stack_args > 0 {
-            dynasm!(m.assembler ; .arch x64 ; sub rsp, stack_offset as i32);
+            dynasm!(m.assembler ; .arch x64 ; sub rsp, stack_args as i32 * 8);
         }
 
         // Move arguments to their locations.

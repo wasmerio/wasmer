@@ -97,7 +97,7 @@ impl Emitter<Reg> for Assembler {
         self.move_imm32_to_reg(sz, val, Reg::X18);
         self.move_reg_to_mem(sz, Reg::X18, base, offset);
     }
-    fn move_imm32_to_reg(&mut self, sz: Size, val: u32, reg: Reg) {
+    fn move_imm32_to_reg(&mut self, _sz: Size, val: u32, reg: Reg) {
         let reg = reg.into_index() as u32;
         if val & 0xffff0000 != 0 {
             dynasm!(self ; .arch aarch64 ; mov W(reg), (val & 0xffff) as u64 ; movk W(reg), val >> 16, LSL 16);
@@ -303,6 +303,7 @@ impl Machine for Aarch64Machine {
     fn do_add_p(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
         .commutative(true)
+        .size(Size::S64)
         .max_imm_width(12)
         .reg_imm_reg(|e, src1, src2, dst| {
             let src1 = src1.into_index() as u32;
