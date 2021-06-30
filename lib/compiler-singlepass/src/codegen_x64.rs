@@ -186,20 +186,14 @@ trait PopMany<T> {
 
 impl<T> PopMany<T> for Vec<T> {
     fn peek1(&self) -> Result<&T, CodegenError> {
-        match self.last() {
-            Some(x) => Ok(x),
-            None => Err(CodegenError {
-                message: "peek1() expects at least 1 element".into(),
-            }),
-        }
+        self.last().ok_or_else(|| CodegenError {
+            message: "peek1() expects at least 1 element".into(),
+        })
     }
     fn pop1(&mut self) -> Result<T, CodegenError> {
-        match self.pop() {
-            Some(x) => Ok(x),
-            None => Err(CodegenError {
-                message: "pop1() expects at least 1 element".into(),
-            }),
-        }
+        self.pop().ok_or_else(|| CodegenError {
+            message: "pop1() expects at least 1 element".into(),
+        })
     }
     fn pop2(&mut self) -> Result<(T, T), CodegenError> {
         if self.len() < 2 {
@@ -336,9 +330,9 @@ impl<'a> FuncGen<'a> {
         let tmp1 = self.machine.acquire_temp_xmm().unwrap();
         let tmp2 = self.machine.acquire_temp_xmm().unwrap();
         let tmp3 = self.machine.acquire_temp_xmm().unwrap();
-        let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
 
         self.emit_relaxed_binop(Assembler::emit_mov, sz, input, Location::XMM(tmp1));
+        let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
 
         match sz {
             Size::S32 => {
@@ -5247,11 +5241,8 @@ impl<'a> FuncGen<'a> {
                 }
             }
             Operator::CallIndirect { index, table_index } => {
-                if table_index != 0 {
-                    return Err(CodegenError {
-                        message: "CallIndirect: table_index is not 0".to_string(),
-                    });
-                }
+                // TODO: removed restriction on always being table idx 0;
+                // does any code depend on this?
                 let table_index = TableIndex::new(table_index as _);
                 let index = SignatureIndex::new(index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
@@ -5341,15 +5332,25 @@ impl<'a> FuncGen<'a> {
                     .emit_jmp(Condition::BelowEqual, self.special_labels.table_access_oob);
                 self.assembler
                     .emit_mov(Size::S32, func_index, Location::GPR(table_count));
-                self.assembler.emit_imul_imm32_gpr64(
-                    self.vmoffsets.size_of_vmcaller_checked_anyfunc() as u32,
-                    table_count,
-                );
+                self.assembler
+                    .emit_imul_imm32_gpr64(self.vmoffsets.size_of_vm_funcref() as u32, table_count);
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(table_base),
                     Location::GPR(table_count),
                 );
+
+                // deref the table to get a VMFuncRef
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(table_count, self.vmoffsets.vm_funcref_anyfunc_ptr() as i32),
+                    Location::GPR(table_count),
+                );
+                // Trap if the FuncRef is null
+                self.assembler
+                    .emit_cmp(Size::S64, Location::Imm32(0), Location::GPR(table_count));
+                self.assembler
+                    .emit_jmp(Condition::Equal, self.special_labels.indirect_call_null);
                 self.assembler.emit_mov(
                     Size::S64,
                     Location::Memory(
@@ -5358,18 +5359,6 @@ impl<'a> FuncGen<'a> {
                     ),
                     Location::GPR(sigidx),
                 );
-
-                // Trap if the current table entry is null.
-                self.assembler.emit_cmp(
-                    Size::S64,
-                    Location::Imm32(0),
-                    Location::Memory(
-                        table_count,
-                        (self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize) as i32,
-                    ),
-                );
-                self.assembler
-                    .emit_jmp(Condition::Equal, self.special_labels.indirect_call_null);
 
                 // Trap if signature mismatches.
                 self.assembler.emit_cmp(
@@ -5536,7 +5525,9 @@ impl<'a> FuncGen<'a> {
                     }
                 }
             }
-            Operator::Select => {
+            // `TypedSelect` must be used for extern refs so ref counting should
+            // be done with TypedSelect. But otherwise they're the same.
+            Operator::TypedSelect { .. } | Operator::Select => {
                 let cond = self.pop_value_released();
                 let v_b = self.pop_value_released();
                 let v_a = self.pop_value_released();
@@ -5687,6 +5678,160 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::MemoryInit { segment, mem } => {
+                let len = self.value_stack.pop().unwrap();
+                let src = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[len, src, dst]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_memory_init_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, memory_index, segment_index, dst, src, len]
+                    [
+                        Location::Imm32(mem),
+                        Location::Imm32(segment),
+                        dst,
+                        src,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
+                )?;
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dst, src, len]);
+            }
+            Operator::DataDrop { segment } => {
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_data_drop_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, segment_index]
+                    iter::once(Location::Imm32(segment)),
+                )?;
+            }
+            Operator::MemoryCopy { src, dst } => {
+                // ignore until we support multiple memories
+                let _dst = dst;
+                let len = self.value_stack.pop().unwrap();
+                let src_pos = self.value_stack.pop().unwrap();
+                let dst_pos = self.value_stack.pop().unwrap();
+                self.machine
+                    .release_locations_only_regs(&[len, src_pos, dst_pos]);
+
+                let memory_index = MemoryIndex::new(src as usize);
+                let (memory_copy_index, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_copy_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_copy_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_copy_index) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, memory_index, dst, src, len]
+                    [
+                        Location::Imm32(memory_index.index() as u32),
+                        dst_pos,
+                        src_pos,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
+                )?;
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dst_pos, src_pos, len]);
+            }
+            Operator::MemoryFill { mem } => {
+                let len = self.value_stack.pop().unwrap();
+                let val = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[len, val, dst]);
+
+                let memory_index = MemoryIndex::new(mem as usize);
+                let (memory_fill_index, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_fill_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_fill_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_fill_index) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, memory_index, dst, src, len]
+                    [Location::Imm32(memory_index.index() as u32), dst, val, len]
+                        .iter()
+                        .cloned(),
+                )?;
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dst, val, len]);
             }
             Operator::MemoryGrow { mem, mem_byte: _ } => {
                 let memory_index = MemoryIndex::new(mem as usize);
@@ -8160,6 +8305,351 @@ impl<'a> FuncGen<'a> {
                 })?;
                 self.assembler.emit_pop(Size::S64, Location::GPR(value));
                 self.machine.release_temp_gpr(compare);
+            }
+
+            Operator::RefNull { .. } => {
+                self.value_stack.push(Location::Imm64(0));
+                self.machine
+                    .state
+                    .wasm_stack
+                    .push(WasmAbstractValue::Const(0));
+            }
+            Operator::RefFunc { function_index } => {
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_func_ref_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: unclear if we need this? check other new insts with no stack ops
+                // self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, func_index] -> funcref
+                    iter::once(Location::Imm32(function_index as u32)),
+                )?;
+
+                let ret = self.machine.acquire_locations(
+                    &mut self.assembler,
+                    &[(
+                        WpType::FuncRef,
+                        MachineValue::WasmStack(self.value_stack.len()),
+                    )],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::RefIsNull => {
+                self.emit_cmpop_i64_dynamic_b(Condition::Equal, Location::Imm64(0))?;
+            }
+            Operator::TableSet { table: index } => {
+                let table_index = TableIndex::new(index as _);
+                let value = self.value_stack.pop().unwrap();
+                let index = self.value_stack.pop().unwrap();
+                // double check this does what I think it does
+                self.machine.release_locations_only_regs(&[value, index]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(
+                            if self.module.local_table_index(table_index).is_some() {
+                                VMBuiltinFunctionIndex::get_table_set_index()
+                            } else {
+                                VMBuiltinFunctionIndex::get_imported_table_set_index()
+                            },
+                        ) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 2?
+                self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, table_index, elem_index, reftype]
+                    [Location::Imm32(table_index.index() as u32), index, value]
+                        .iter()
+                        .cloned(),
+                )?;
+
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[index, value]);
+            }
+            Operator::TableGet { table: index } => {
+                let table_index = TableIndex::new(index as _);
+                let index = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[index]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(
+                            if self.module.local_table_index(table_index).is_some() {
+                                VMBuiltinFunctionIndex::get_table_get_index()
+                            } else {
+                                VMBuiltinFunctionIndex::get_imported_table_get_index()
+                            },
+                        ) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, table_index, elem_index] -> reftype
+                    [Location::Imm32(table_index.index() as u32), index]
+                        .iter()
+                        .cloned(),
+                )?;
+
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[index]);
+
+                let ret = self.machine.acquire_locations(
+                    &mut self.assembler,
+                    &[(
+                        WpType::FuncRef,
+                        MachineValue::WasmStack(self.value_stack.len()),
+                    )],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.assembler
+                    .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::TableSize { table: index } => {
+                let table_index = TableIndex::new(index as _);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(
+                            if self.module.local_table_index(table_index).is_some() {
+                                VMBuiltinFunctionIndex::get_table_size_index()
+                            } else {
+                                VMBuiltinFunctionIndex::get_imported_table_size_index()
+                            },
+                        ) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, table_index] -> i32
+                    iter::once(Location::Imm32(table_index.index() as u32)),
+                )?;
+
+                let ret = self.machine.acquire_locations(
+                    &mut self.assembler,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::TableGrow { table: index } => {
+                let table_index = TableIndex::new(index as _);
+                let delta = self.value_stack.pop().unwrap();
+                let init_value = self.value_stack.pop().unwrap();
+                self.machine
+                    .release_locations_only_regs(&[delta, init_value]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(
+                            if self.module.local_table_index(table_index).is_some() {
+                                VMBuiltinFunctionIndex::get_table_grow_index()
+                            } else {
+                                VMBuiltinFunctionIndex::get_imported_table_get_index()
+                            },
+                        ) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 2?
+                self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, init_value, delta, table_index] -> u32
+                    [
+                        init_value,
+                        delta,
+                        Location::Imm32(table_index.index() as u32),
+                    ]
+                    .iter()
+                    .cloned(),
+                )?;
+
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[init_value, delta]);
+
+                let ret = self.machine.acquire_locations(
+                    &mut self.assembler,
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+            }
+            Operator::TableCopy {
+                dst_table,
+                src_table,
+            } => {
+                let len = self.value_stack.pop().unwrap();
+                let src = self.value_stack.pop().unwrap();
+                let dest = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[len, src, dest]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_copy_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, dst_table_index, src_table_index, dst, src, len]
+                    [
+                        Location::Imm32(dst_table),
+                        Location::Imm32(src_table),
+                        dest,
+                        src,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
+                )?;
+
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dest, src, len]);
+            }
+
+            Operator::TableFill { table } => {
+                let len = self.value_stack.pop().unwrap();
+                let val = self.value_stack.pop().unwrap();
+                let dest = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[len, val, dest]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_fill_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, table_index, start_idx, item, len]
+                    [Location::Imm32(table), dest, val, len].iter().cloned(),
+                )?;
+
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dest, val, len]);
+            }
+            Operator::TableInit { segment, table } => {
+                let len = self.value_stack.pop().unwrap();
+                let src = self.value_stack.pop().unwrap();
+                let dest = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[len, src, dest]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_init_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, table_index, elem_index, dst, src, len]
+                    [
+                        Location::Imm32(table),
+                        Location::Imm32(segment),
+                        dest,
+                        src,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
+                )?;
+
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dest, src, len]);
+            }
+            Operator::ElemDrop { segment } => {
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_elem_drop_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: do we need this?
+                //self.machine.release_locations_only_osr_state(1);
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, elem_index]
+                    [Location::Imm32(segment)].iter().cloned(),
+                )?;
             }
             _ => {
                 return Err(CodegenError {

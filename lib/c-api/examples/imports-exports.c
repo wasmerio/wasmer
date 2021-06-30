@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 
 wasm_trap_t* host_func_callback(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
     printf("Calling back...\n> ");
@@ -26,6 +26,7 @@ int main(int argc, const char* argv[]) {
     wasm_byte_vec_new(&wat, strlen(wat_string), wat_string);
     wasm_byte_vec_t wasm_bytes;
     wat2wasm(&wat, &wasm_bytes);
+    wasm_byte_vec_delete(&wat);
 
     printf("Creating the store...\n");
     wasm_engine_t* engine = wasm_engine_new();
@@ -123,11 +124,8 @@ int main(int argc, const char* argv[]) {
 
     printf("Got the exported memory: %p\n", memory);
 
-    wasm_func_delete(func);
-    wasm_global_delete(global);
-    wasm_table_delete(table);
-    wasm_memory_delete(memory);
     wasm_module_delete(module);
+    wasm_extern_vec_delete(&exports);
     wasm_instance_delete(instance);
     wasm_store_delete(store);
     wasm_engine_delete(engine);

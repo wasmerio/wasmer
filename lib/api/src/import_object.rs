@@ -145,20 +145,6 @@ impl IntoIterator for ImportObject {
 
 impl fmt::Debug for ImportObject {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        enum SecretOption {
-            None,
-            Some,
-        }
-
-        impl fmt::Debug for SecretOption {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                match self {
-                    Self::None => write!(f, "None"),
-                    Self::Some => write!(f, "Some(...)"),
-                }
-            }
-        }
-
         enum SecretMap {
             Empty,
             Some(usize),
@@ -318,7 +304,7 @@ mod test {
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.vm_global.from.ty().ty == Type::I64
+            happy_dog_global.from.ty().ty == Type::I64
         } else {
             false
         });
@@ -344,7 +330,7 @@ mod test {
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.vm_global.from.ty().ty == Type::I32
+            happy_dog_global.from.ty().ty == Type::I32
         } else {
             false
         });
@@ -364,7 +350,7 @@ mod test {
         let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.vm_global.from.ty().ty == Type::I32
+            happy_dog_global.from.ty().ty == Type::I32
         } else {
             false
         });

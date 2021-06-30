@@ -32,6 +32,35 @@ pub struct Item;
 ///     derefed_ptr.set(inner_val + 1);
 /// }
 /// ```
+///
+/// This type can also be used with primitive-filled structs, but be careful of
+/// guarantees required by `ValueType`.
+/// ```
+/// # use wasmer::Memory;
+/// # use wasmer::WasmPtr;
+/// # use wasmer::ValueType;
+///
+/// #[derive(Copy, Clone, Debug)]
+/// #[repr(C)]
+/// struct V3 {
+///     x: f32,
+///     y: f32,
+///     z: f32
+/// }
+/// // This is safe as the 12 bytes represented by this struct
+/// // are valid for all bit combinations.
+/// unsafe impl ValueType for V3 {
+/// }
+///
+/// fn update_vector_3(memory: Memory, ptr: WasmPtr<V3>) {
+///     let derefed_ptr = ptr.deref(&memory).expect("pointer in bounds");
+///     let mut inner_val: V3 = derefed_ptr.get();
+///     println!("Got {:?} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
+///     // update the value being pointed to
+///     inner_val.x = 10.4;
+///     derefed_ptr.set(inner_val);
+/// }
+/// ```
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item> {
     offset: u32,
@@ -125,7 +154,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<&[Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
-        let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
+        let item_size = mem::size_of::<T>();
         let slice_full_len = index as usize + length as usize;
         let memory_size = memory.size().bytes().0;
 
@@ -163,7 +192,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     ) -> Option<&mut [Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
-        let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
+        let item_size = mem::size_of::<T>();
         let slice_full_len = index as usize + length as usize;
         let memory_size = memory.size().bytes().0;
 

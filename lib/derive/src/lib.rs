@@ -61,7 +61,7 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
             ..
         }*/) => ,
         Enum(ref e) => impl_wasmer_env_for_enum(struct_name, &e.variants, &input.attrs),
-        _ => abort_call_site!("structopt only supports non-tuple structs and enums"),
+        _ => abort_call_site!("Clap only supports non-tuple structs and enums"),
     }*/
 }
 
@@ -136,12 +136,12 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                             identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
                         let mut access_expr = quote_spanned! {
                             f.span() =>
-                                instance.exports.get_with_generics::<#inner_type, _, _>(#item_name)
+                                instance.exports.get_with_generics_weak::<#inner_type, _, _>(#item_name)
                         };
                         for alias in aliases {
                             access_expr = quote_spanned! {
                                 f.span()=>
-                                    #access_expr .or_else(|_| instance.exports.get_with_generics::<#inner_type, _, _>(#alias))
+                                    #access_expr .or_else(|_| instance.exports.get_with_generics_weak::<#inner_type, _, _>(#alias))
                             };
                         }
                         if optional {
@@ -163,12 +163,12 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                         if let Some(identifier) = identifier {
                             let mut access_expr = quote_spanned! {
                                 f.span() =>
-                                    instance.exports.get_with_generics::<#inner_type, _, _>(#identifier)
+                                    instance.exports.get_with_generics_weak::<#inner_type, _, _>(#identifier)
                             };
                             for alias in aliases {
                                 access_expr = quote_spanned! {
                                     f.span()=>
-                                        #access_expr .or_else(|_| instance.exports.get_with_generics::<#inner_type, _, _>(#alias))
+                                        #access_expr .or_else(|_| instance.exports.get_with_generics_weak::<#inner_type, _, _>(#alias))
                                 };
                             }
                             let local_var =

@@ -1,6 +1,7 @@
 use std::ptr::NonNull;
 use std::sync::Arc;
 
+use loupe::MemoryUsage;
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
@@ -8,12 +9,13 @@ use wasmer::{
     Tunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 /// A custom tunables that allows you to set a memory limit.
 ///
 /// After adjusting the memory limits, it delegates all other logic
 /// to the base tunables.
+#[derive(MemoryUsage)]
 pub struct LimitingTunables<T: Tunables> {
     /// The maximum a linear memory is allowed to be (in Wasm pages, 64 KiB each).
     /// Since Wasmer ensures there is only none or one memory, this is practically
@@ -142,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Any compiler and any engine do the job here
     let compiler = Cranelift::default();
-    let engine = JIT::new(compiler).engine();
+    let engine = Universal::new(compiler).engine();
 
     // Here is where the fun begins
 

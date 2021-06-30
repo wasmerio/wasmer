@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.2"
+target_version = "2.0.0"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -34,28 +34,29 @@ dep_graph = {
     "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-vm", "wasmer-compiler"]),
     "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-vm", "wasmer-compiler"]),
     "wasmer-compiler-llvm": set(["wasmer-types", "wasmer-vm", "wasmer-compiler"]),
-    "wasmer-engine-jit": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine"]),
-    "wasmer-engine-native": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
+    "wasmer-engine-universal": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine"]),
+    "wasmer-engine-dylib": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
                                  "wasmer-object"]),
-    "wasmer-engine-object-file": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
+    "wasmer-engine-staticlib": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
                                       "wasmer-object"]),
     "wasmer": set(["wasmer-vm", "wasmer-compiler-singlepass", "wasmer-compiler-cranelift",
-                   "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-jit",
-                   "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-types", "wasmer-derive"]),
+                   "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-universal",
+                   "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-types", "wasmer-derive"]),
     "wasmer-cache": set(["wasmer"]),
-    "wasmer-wasi": set(["wasmer"]),
+    "wasmer-wasi": set(["wasmer", "wasmer-wasi-types"]),
+    "wasmer-wasi-types": set(["wasmer-types"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
     "wasmer-c-api": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
-                         "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-jit",
-                         "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-wasi", "wasmer-types"]),
+                         "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-universal",
+                         "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-wasi", "wasmer-types"]),
     "wasmer-middlewares": set(["wasmer", "wasmer-types", "wasmer-vm"]),
 }
 
 # where each crate is located in the `lib` directory
 # TODO: this could also be generated from the toml files
 location = {
-    "wasmer-types": "wasmer-types",
+    "wasmer-types": "types",
     "wasmer-derive": "derive",
     "wasmer-vm": "vm",
     "wasmer-compiler": "compiler",
@@ -65,12 +66,13 @@ location = {
     "wasmer-compiler-cranelift": "compiler-cranelift",
     "wasmer-compiler-llvm": "compiler-llvm",
     "wasmer-engine": "engine",
-    "wasmer-engine-jit": "engine-jit",
-    "wasmer-engine-native": "engine-native",
-    "wasmer-engine-object-file": "engine-object-file",
+    "wasmer-engine-universal": "engine-universal",
+    "wasmer-engine-dylib": "engine-dylib",
+    "wasmer-engine-staticlib": "engine-staticlib",
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",
+    "wasmer-wasi-types": "wasi-types",
     "wasmer-emscripten": "emscripten",
     "wasmer-wasi-experimental-io-devices": "wasi-experimental-io-devices",
     "wasmer-c-api": "c-api",

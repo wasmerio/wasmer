@@ -2,8 +2,9 @@
 *
 *.o
 
-
 # Unignore files ending with `.c` (i.e. `wasm-c-api-wasi.c`)
 !*.c
 # Unignore Makefile
 !Makefile
+!assets
+!assets/*

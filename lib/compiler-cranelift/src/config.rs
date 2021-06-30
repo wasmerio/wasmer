@@ -1,6 +1,7 @@
 use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{
     Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target,
@@ -10,7 +11,7 @@ use wasmer_compiler::{
 
 /// Possible optimization levels for the Cranelift codegen backend.
 #[non_exhaustive]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, MemoryUsage)]
 pub enum CraneliftOptLevel {
     /// No optimizations performed, minimizes compilation time by disabling most
     /// optimizations.
@@ -27,11 +28,10 @@ pub enum CraneliftOptLevel {
 ///
 /// This structure exposes a builder-like interface and is primarily
 /// consumed by `wasmer_engine::Engine::new`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
-    enable_simd: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
     /// The middleware chain.
@@ -47,7 +47,6 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
-            enable_simd: true,
             middlewares: vec![],
         }
     }
@@ -58,12 +57,6 @@ impl Cranelift {
     /// deterministically across different architectures.
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
-        self
-    }
-
-    /// Enable SIMD support.
-    pub fn enable_simd(&mut self, enable: bool) -> &mut Self {
-        self.enable_simd = enable;
         self
     }
 
@@ -151,24 +144,23 @@ impl Cranelift {
         flags
             .set("enable_verifier", enable_verifier)
             .expect("should be valid flag");
-
-        let opt_level = if self.enable_simd {
-            "none"
-        } else {
-            match self.opt_level {
-                CraneliftOptLevel::None => "none",
-                CraneliftOptLevel::Speed => "speed",
-                CraneliftOptLevel::SpeedAndSize => "speed_and_size",
-            }
-        };
-
         flags
-            .set("opt_level", opt_level)
+            .set("enable_safepoints", "true")
             .expect("should be valid flag");
 
-        let enable_simd = if self.enable_simd { "true" } else { "false" };
         flags
-            .set("enable_simd", enable_simd)
+            .set(
+                "opt_level",
+                match self.opt_level {
+                    CraneliftOptLevel::None => "none",
+                    CraneliftOptLevel::Speed => "speed",
+                    CraneliftOptLevel::SpeedAndSize => "speed_and_size",
+                },
+            )
+            .expect("should be valid flag");
+
+        flags
+            .set("enable_simd", "true")
             .expect("should be valid flag");
 
         let enable_nan_canonicalization = if self.enable_nan_canonicalization {
@@ -191,6 +183,14 @@ impl CompilerConfig for Cranelift {
 
     fn enable_verifier(&mut self) {
         self.enable_verifier = true;
+    }
+
+    fn enable_nan_canonicalization(&mut self) {
+        self.enable_nan_canonicalization = true;
+    }
+
+    fn canonicalize_nans(&mut self, enable: bool) {
+        self.enable_nan_canonicalization = enable;
     }
 
     /// Transform it into the compiler

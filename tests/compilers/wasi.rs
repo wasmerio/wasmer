@@ -1,6 +1,3 @@
-#![cfg(all(feature = "compiler", feature = "engine"))]
-
-use crate::utils::get_store;
 use std::fs::File;
 use std::io::Read;
 use wasmer_wast::WasiTest;
@@ -17,12 +14,9 @@ use wasmer_wast::WasiTest;
 // }
 include!(concat!(env!("OUT_DIR"), "/generated_wasitests.rs"));
 
-pub fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Result<()> {
-    println!(
-        "Running wasi wast `{}` with the {} compiler",
-        wast_path, compiler
-    );
-    let store = get_store(true);
+pub fn run_wasi(config: crate::Config, wast_path: &str, base_dir: &str) -> anyhow::Result<()> {
+    println!("Running wasi wast `{}`", wast_path);
+    let store = config.store();
 
     let source = {
         let mut out = String::new();

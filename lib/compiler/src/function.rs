@@ -3,15 +3,14 @@
 
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
-//!
-//! The `CompiledFunction` will be used mainly by different frontends:
-//! * `jit`: to generate a JIT
-//! * `obj`: to generate a native object
 
 use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
+use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::PrimaryMap;
@@ -22,7 +21,11 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 /// This structure is only used for reconstructing
 /// the frame information after a `Trap`.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, MemoryUsage)]
 pub struct CompiledFunctionFrameInfo {
     /// The traps (in the function body).
     ///
@@ -35,7 +38,11 @@ pub struct CompiledFunctionFrameInfo {
 
 /// The function body.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
+#[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
 pub struct FunctionBody {
     /// The function body bytes.
     #[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))]
@@ -51,6 +58,10 @@ pub struct FunctionBody {
 /// (function bytecode body, relocations, traps, jump tables
 /// and unwind information).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     /// The function body.
@@ -79,7 +90,11 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// In the future this structure may also hold other information useful
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
+#[derive(Debug, PartialEq, Eq, Clone, MemoryUsage)]
 pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// [Learn

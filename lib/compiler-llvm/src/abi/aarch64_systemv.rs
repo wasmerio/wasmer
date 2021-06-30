@@ -4,7 +4,7 @@ use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    types::{BasicType, FunctionType, StructType},
+    types::{BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
     values::{BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
@@ -83,34 +83,51 @@ impl Abi for Aarch64SystemV {
 
         Ok(match sig.results() {
             [] => (
-                intrinsics
-                    .void_ty
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                intrinsics.void_ty.fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
                 vmctx_attributes(0),
             ),
             [_] => {
                 let single_value = sig.results()[0];
                 (
-                    type_to_llvm(intrinsics, single_value)?
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    type_to_llvm(intrinsics, single_value)?.fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                     vmctx_attributes(0),
                 )
             }
             [Type::F32, Type::F32] => {
                 let f32_ty = intrinsics.f32_ty.as_basic_type_enum();
                 (
-                    context
-                        .struct_type(&[f32_ty, f32_ty], false)
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    context.struct_type(&[f32_ty, f32_ty], false).fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                     vmctx_attributes(0),
                 )
             }
             [Type::F64, Type::F64] => {
                 let f64_ty = intrinsics.f64_ty.as_basic_type_enum();
                 (
-                    context
-                        .struct_type(&[f64_ty, f64_ty], false)
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    context.struct_type(&[f64_ty, f64_ty], false).fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                     vmctx_attributes(0),
                 )
             }
@@ -119,7 +136,13 @@ impl Abi for Aarch64SystemV {
                 (
                     context
                         .struct_type(&[f32_ty, f32_ty, f32_ty], false)
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                        .fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                .as_slice(),
+                            false,
+                        ),
                     vmctx_attributes(0),
                 )
             }
@@ -128,7 +151,13 @@ impl Abi for Aarch64SystemV {
                 (
                     context
                         .struct_type(&[f32_ty, f32_ty, f32_ty, f32_ty], false)
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                        .fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                .as_slice(),
+                            false,
+                        ),
                     vmctx_attributes(0),
                 )
             }
@@ -140,15 +169,18 @@ impl Abi for Aarch64SystemV {
                         Type::I32 | Type::F32 => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
                 match sig_returns_bitwidths.as_slice() {
                     [32, 32] => (
-                        intrinsics
-                            .i64_ty
-                            .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                        intrinsics.i64_ty.fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                .as_slice(),
+                            false,
+                        ),
                         vmctx_attributes(0),
                     ),
                     [32, 64]
@@ -158,10 +190,13 @@ impl Abi for Aarch64SystemV {
                     | [64, 32, 32]
                     | [32, 32, 64]
                     | [32, 32, 32, 32] => (
-                        intrinsics
-                            .i64_ty
-                            .array_type(2)
-                            .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                        intrinsics.i64_ty.array_type(2).fn_type(
+                            param_types
+                                .map(|v| v.map(Into::into))
+                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                .as_slice(),
+                            false,
+                        ),
                         vmctx_attributes(0),
                     ),
                     _ => {
@@ -188,9 +223,13 @@ impl Abi for Aarch64SystemV {
                         attributes.append(&mut vmctx_attributes(1));
 
                         (
-                            intrinsics
-                                .void_ty
-                                .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                            intrinsics.void_ty.fn_type(
+                                param_types
+                                    .map(|v| v.map(Into::into))
+                                    .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                                    .as_slice(),
+                                false,
+                            ),
                             attributes,
                         )
                     }
@@ -285,8 +324,10 @@ impl Abi for Aarch64SystemV {
                     assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
                     value
                 }
-                Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                Type::ExternRef | Type::FuncRef => {
+                    assert!(value.get_type() == intrinsics.funcref_ty.as_basic_type_enum());
+                    value
+                }
             }
         };
 
@@ -322,8 +363,7 @@ impl Abi for Aarch64SystemV {
                         Type::I32 | Type::F32 => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
@@ -420,15 +460,12 @@ impl Abi for Aarch64SystemV {
             .results()
             .iter()
             .map(|ty| match ty {
-                Type::I32 | Type::F32 => Ok(32),
-                Type::I64 | Type::F64 => Ok(64),
-                Type::V128 => Ok(128),
-                ty => Err(CompileError::Codegen(format!(
-                    "is_sret: unimplemented wasmer_types type {:?}",
-                    ty
-                ))),
+                Type::I32 | Type::F32 => 32,
+                Type::I64 | Type::F64 => 64,
+                Type::V128 => 128,
+                Type::ExternRef | Type::FuncRef => 64, /* pointer */
             })
-            .collect::<Result<Vec<i32>, _>>()?;
+            .collect::<Vec<i32>>();
 
         Ok(!matches!(
             func_sig_returns_bitwidths.as_slice(),

@@ -4,15 +4,92 @@
 
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
+Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
 ## **[Unreleased]**
 
+### Fixed
+- [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
+
+## 2.0.0 - 2020/06/16
+
 ### Added
+- [#2411](https://github.com/wasmerio/wasmer/pull/2411) Extract types from `wasi` to a new `wasi-types` crate.
+- [#2390](https://github.com/wasmerio/wasmer/pull/2390) Make `wasmer-vm` to compile on Windows 32bits.
+- [#2402](https://github.com/wasmerio/wasmer/pull/2402) Add more examples and more doctests for `wasmer-middlewares`.
 
 ### Changed
+- [#2399](https://github.com/wasmerio/wasmer/pull/2399) Add the Dart integration in the `README.md`.
 
 ### Fixed
-- [#2097](https://github.com/wasmerio/wasmer/pull/2097) Fix how string's length is computed in `wasm_cpu_features_add` in the C API.
+- [#2386](https://github.com/wasmerio/wasmer/pull/2386) Handle properly when a module has no exported functions in the CLI.
+
+## 2.0.0-rc2 - 2020/06/03
+
+### Fixed
+- [#2383](https://github.com/wasmerio/wasmer/pull/2383) Fix bugs in the Wasmer CLI tool with the way `--version` and the name of the CLI tool itself were printed.
+
+## 2.0.0-rc1 - 2020/06/02
+
+### Added
+- [#2348](https://github.com/wasmerio/wasmer/pull/2348) Make Wasmer available on `aarch64-linux-android`.
+- [#2315](https://github.com/wasmerio/wasmer/pull/2315) Make the Cranelift compiler working with the Native engine.
+- [#2306](https://github.com/wasmerio/wasmer/pull/2306) Add support for the latest version of the Wasm SIMD proposal to compiler LLVM.
+- [#2296](https://github.com/wasmerio/wasmer/pull/2296) Add support for the bulk memory proposal in compiler Singlepass and compiler LLVM.
+- [#2291](https://github.com/wasmerio/wasmer/pull/2291) Type check tables when importing.
+- [#2262](https://github.com/wasmerio/wasmer/pull/2262) Make parallelism optional for the Singlepass compiler.
+- [#2249](https://github.com/wasmerio/wasmer/pull/2249) Make Cranelift unwind feature optional.
+- [#2208](https://github.com/wasmerio/wasmer/pull/2208) Add a new CHANGELOG.md specific to our C API to make it easier for users primarily consuming our C API to keep up to date with changes that affect them.
+- [#2154](https://github.com/wasmerio/wasmer/pull/2154) Implement Reference Types in the LLVM compiler.
+- [#2003](https://github.com/wasmerio/wasmer/pull/2003) Wasmer works with musl, and is built, tested and packaged for musl.
+- [#2250](https://github.com/wasmerio/wasmer/pull/2250) Use `rkyv` for the JIT/Universal engine.
+- [#2190](https://github.com/wasmerio/wasmer/pull/2190) Use `rkyv` to read native `Module` artifact.
+- [#2186](https://github.com/wasmerio/wasmer/pull/2186) Update and improve the Fuzz Testing infrastructure.
+- [#2161](https://github.com/wasmerio/wasmer/pull/2161) Make NaN canonicalization configurable.
+- [#2116](https://github.com/wasmerio/wasmer/pull/2116) Add a package for Windows that is not an installer, but all the `lib` and `include` files as for macOS and Linux.
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) Use `ENABLE_{{compiler_name}}=(0|1)` to resp. force to disable or enable a compiler when running the `Makefile`, e.g. `ENABLE_LLVM=1 make build-wasmer`.
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) `libwasmer` comes with all available compilers per target instead of Cranelift only.
+- [#2135](https://github.com/wasmerio/wasmer/pull/2135) [Documentation](./PACKAGING.md) for Linux distribution maintainers
+- [#2104](https://github.com/wasmerio/wasmer/pull/2104) Update WAsm core spectests and wasmparser.
+
+### Changed
+- [#2369](https://github.com/wasmerio/wasmer/pull/2369) Remove the deprecated `--backend` option in the CLI.
+- [#2368](https://github.com/wasmerio/wasmer/pull/2368) Remove the deprecated code in the `wasmer-wasi` crate.
+- [#2367](https://github.com/wasmerio/wasmer/pull/2367) Remove the `deprecated` features and associated code in the `wasmer` crate.
+- [#2366](https://github.com/wasmerio/wasmer/pull/2366) Remove the deprecated crates.
+- [#2364](https://github.com/wasmerio/wasmer/pull/2364) Rename `wasmer-engine-object-file` to `wasmer-engine-staticlib`.
+- [#2356](https://github.com/wasmerio/wasmer/pull/2356) Rename `wasmer-engine-native` to `wasmer-engine-dylib`.
+- [#2340](https://github.com/wasmerio/wasmer/pull/2340) Rename `wasmer-engine-jit` to `wasmer-engine-universal`.
+- [#2307](https://github.com/wasmerio/wasmer/pull/2307) Update Cranelift, implement low hanging fruit SIMD opcodes.
+- [#2305](https://github.com/wasmerio/wasmer/pull/2305) Clean up and improve the trap API, more deterministic errors etc.
+- [#2299](https://github.com/wasmerio/wasmer/pull/2299) Unused trap codes (due to Wasm spec changes), `HeapSetterOutOfBounds` and `TableSetterOutOfBounds` were removed from `wasmer_vm::TrapCode` and the numbering of the remaining variants has been adjusted.
+- [#2293](https://github.com/wasmerio/wasmer/pull/2293) The `Memory::ty` trait method now returns `MemoryType` by value. `wasmer_vm::LinearMemory` now recomputes `MemoryType`'s `minimum` field when accessing its type. This behavior is what's expected by the latest spectests. `wasmer::Memory::ty` has also been updated to follow suit, it now returns `MemoryType` by value.
+- [#2286](https://github.com/wasmerio/wasmer/pull/2286) Replace the `goblin` crate by the `object` crate.
+- [#2281](https://github.com/wasmerio/wasmer/pull/2281) Refactor the `wasmer_vm` crate to remove unnecessary structs, reuse data when available etc.
+- [#2251](https://github.com/wasmerio/wasmer/pull/2251) Wasmer CLI will now execute WASI modules with multiple WASI namespaces in them by default. Use `--allow-multiple-wasi-versions` to suppress the warning and use `--deny-multiple-wasi-versions` to make it an error.
+- [#2201](https://github.com/wasmerio/wasmer/pull/2201) Implement `loupe::MemoryUsage` for `wasmer::Instance`.
+- [#2200](https://github.com/wasmerio/wasmer/pull/2200) Implement `loupe::MemoryUsage` for `wasmer::Module`.
+- [#2199](https://github.com/wasmerio/wasmer/pull/2199) Implement `loupe::MemoryUsage` for `wasmer::Store`.
+- [#2195](https://github.com/wasmerio/wasmer/pull/2195) Remove dependency to `cranelift-entity`.
+- [#2140](https://github.com/wasmerio/wasmer/pull/2140) Reduce the number of dependencies in the `wasmer.dll` shared library by statically compiling CRT.
+- [#2113](https://github.com/wasmerio/wasmer/pull/2113) Bump minimum supported Rust version to 1.49
+- [#2144](https://github.com/wasmerio/wasmer/pull/2144) Bump cranelift version to 0.70
+- [#2149](https://github.com/wasmerio/wasmer/pull/2144) `wasmer-engine-native` looks for clang-11 instead of clang-10.
+- [#2157](https://github.com/wasmerio/wasmer/pull/2157) Simplify the code behind `WasmPtr`
+
+### Fixed
+- [#2397](https://github.com/wasmerio/wasmer/pull/2397) Fix WASI rename temporary file issue.
+- [#2391](https://github.com/wasmerio/wasmer/pull/2391) Fix Singlepass emit bug, [#2347](https://github.com/wasmerio/wasmer/issues/2347) and [#2159](https://github.com/wasmerio/wasmer/issues/2159)
+- [#2327](https://github.com/wasmerio/wasmer/pull/2327) Fix memory leak preventing internal instance memory from being freed when a WasmerEnv contained an exported extern (e.g. Memory, etc.).
+- [#2247](https://github.com/wasmerio/wasmer/pull/2247) Internal WasiFS logic updated to be closer to what WASI libc does when finding a preopened fd for a path.
+- [#2241](https://github.com/wasmerio/wasmer/pull/2241) Fix Undefined Behavior in setting memory in emscripten `EmEnv`.
+- [#2224](https://github.com/wasmerio/wasmer/pull/2224) Enable SIMD based on actual Wasm features in the Cranelift compiler.
+- [#2217](https://github.com/wasmerio/wasmer/pull/2217) Fix bug in `i64.rotr X 0` in the LLVM compiler.
+- [#2290](https://github.com/wasmerio/wasmer/pull/2290) Handle Wasm modules with no imports in the CLI.
+- [#2108](https://github.com/wasmerio/wasmer/pull/2108) The Object Native Engine generates code that now compiles correctly with C++.
+- [#2125](https://github.com/wasmerio/wasmer/pull/2125) Fix RUSTSEC-2021-0023.
+- [#2155](https://github.com/wasmerio/wasmer/pull/2155) Fix the implementation of shift and rotate in the LLVM compiler.
+- [#2101](https://github.com/wasmerio/wasmer/pull/2101) cflags emitted by `wasmer config --pkg-config` are now correct.
 
 ## 1.0.2 - 2021-02-04
 

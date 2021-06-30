@@ -56,7 +56,7 @@ impl CreateExe {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let engine_type = EngineType::ObjectFile;
+        let engine_type = EngineType::Staticlib;
         let (store, compiler_type) = self
             .compiler
             .get_store_for_target_and_engine(target.clone(), engine_type)?;
@@ -81,14 +81,14 @@ impl CreateExe {
             Module::from_file(&store, &wasm_module_path).context("failed to compile Wasm")?;
         let _ = module.serialize_to_file(&wasm_object_path)?;
 
-        let artifact: &wasmer_engine_object_file::ObjectFileArtifact =
+        let artifact: &wasmer_engine_staticlib::StaticlibArtifact =
             module.artifact().as_ref().downcast_ref().context(
-                "Engine type is ObjectFile but could not downcast artifact into ObjectFileArtifact",
+                "Engine type is Staticlib but could not downcast artifact into StaticlibArtifact",
             )?;
         let symbol_registry = artifact.symbol_registry();
         let metadata_length = artifact.metadata_length();
         let module_info = module.info();
-        let header_file_src = crate::c_gen::object_file_header::generate_header_file(
+        let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
             module_info,
             symbol_registry,
             metadata_length,
@@ -148,14 +148,20 @@ fn generate_header(header_file_src: &[u8]) -> anyhow::Result<()> {
         .open(&header_file_path)?;
 
     use std::io::Write;
-    header.write(header_file_src)?;
+    header.write_all(header_file_src)?;
 
     Ok(())
 }
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
     Ok(PathBuf::from(
-        env::var("WASMER_DIR").context("Trying to read env var `WASMER_DIR`")?,
+        env::var("WASMER_DIR")
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context("Trying to read env var `WASMER_DIR`")?,
     ))
 }
 
@@ -279,9 +285,13 @@ impl LinkCode {
             command
         };
         // Add libraries required per platform.
-        // We need userenv, sockets (Ws2_32), and advapi32 to call a system call (for random numbers I think).
+        // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
         #[cfg(windows)]
-        let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32");
+        let command = command
+            .arg("-luserenv")
+            .arg("-lWs2_32")
+            .arg("-ladvapi32")
+            .arg("-lbcrypt");
         // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");

@@ -1,29 +1,44 @@
 ;; Test globals
 
 (module
+  (global (import "spectest" "global_i32") i32)
+  (global (import "spectest" "global_i64") i64)
+
   (global $a i32 (i32.const -2))
-  (global (;1;) f32 (f32.const -3))
-  (global (;2;) f64 (f64.const -4))
+  (global (;3;) f32 (f32.const -3))
+  (global (;4;) f64 (f64.const -4))
   (global $b i64 (i64.const -5))
 
   (global $x (mut i32) (i32.const -12))
-  (global (;5;) (mut f32) (f32.const -13))
-  (global (;6;) (mut f64) (f64.const -14))
+  (global (;7;) (mut f32) (f32.const -13))
+  (global (;8;) (mut f64) (f64.const -14))
   (global $y (mut i64) (i64.const -15))
+
+  (global $z1 i32 (global.get 0))
+  (global $z2 i64 (global.get 1))
+
+  (global $r externref (ref.null extern))
+  (global $mr (mut externref) (ref.null extern))
+  (global funcref (ref.null func))
 
   (func (export "get-a") (result i32) (global.get $a))
   (func (export "get-b") (result i64) (global.get $b))
+  (func (export "get-r") (result externref) (global.get $r))
+  (func (export "get-mr") (result externref) (global.get $mr))
   (func (export "get-x") (result i32) (global.get $x))
   (func (export "get-y") (result i64) (global.get $y))
+  (func (export "get-z1") (result i32) (global.get $z1))
+  (func (export "get-z2") (result i64) (global.get $z2))
   (func (export "set-x") (param i32) (global.set $x (local.get 0)))
   (func (export "set-y") (param i64) (global.set $y (local.get 0)))
+  (func (export "set-mr") (param externref) (global.set $mr (local.get 0)))
 
-  (func (export "get-1") (result f32) (global.get 1))
-  (func (export "get-2") (result f64) (global.get 2))
-  (func (export "get-5") (result f32) (global.get 5))
-  (func (export "get-6") (result f64) (global.get 6))
-  (func (export "set-5") (param f32) (global.set 5 (local.get 0)))
-  (func (export "set-6") (param f64) (global.set 6 (local.get 0)))
+  (func (export "get-3") (result f32) (global.get 3))
+  (func (export "get-4") (result f64) (global.get 4))
+  (func (export "get-7") (result f32) (global.get 7))
+  (func (export "get-8") (result f64) (global.get 8))
+  (func (export "set-7") (param f32) (global.set 7 (local.get 0)))
+  (func (export "set-8") (param f64) (global.set 8 (local.get 0)))
 
   ;; As the argument of control constructs and instructions
 
@@ -180,23 +195,38 @@
 
 (assert_return (invoke "get-a") (i32.const -2))
 (assert_return (invoke "get-b") (i64.const -5))
+(assert_return (invoke "get-r") (ref.null extern))
+(assert_return (invoke "get-mr") (ref.null extern))
 (assert_return (invoke "get-x") (i32.const -12))
 (assert_return (invoke "get-y") (i64.const -15))
+(assert_return (invoke "get-z1") (i32.const 666))
+(assert_return (invoke "get-z2") (i64.const 666))
 
-(assert_return (invoke "get-1") (f32.const -3))
-(assert_return (invoke "get-2") (f64.const -4))
-(assert_return (invoke "get-5") (f32.const -13))
-(assert_return (invoke "get-6") (f64.const -14))
+(assert_return (invoke "get-3") (f32.const -3))
+(assert_return (invoke "get-4") (f64.const -4))
+(assert_return (invoke "get-7") (f32.const -13))
+(assert_return (invoke "get-8") (f64.const -14))
 
 (assert_return (invoke "set-x" (i32.const 6)))
 (assert_return (invoke "set-y" (i64.const 7)))
-(assert_return (invoke "set-5" (f32.const 8)))
-(assert_return (invoke "set-6" (f64.const 9)))
+
+(assert_return (invoke "set-7" (f32.const 8)))
+(assert_return (invoke "set-8" (f64.const 9)))
 
 (assert_return (invoke "get-x") (i32.const 6))
 (assert_return (invoke "get-y") (i64.const 7))
-(assert_return (invoke "get-5") (f32.const 8))
-(assert_return (invoke "get-6") (f64.const 9))
+(assert_return (invoke "get-7") (f32.const 8))
+(assert_return (invoke "get-8") (f64.const 9))
+
+(assert_return (invoke "set-7" (f32.const 8)))
+(assert_return (invoke "set-8" (f64.const 9)))
+(assert_return (invoke "set-mr" (ref.extern 10)))
+
+(assert_return (invoke "get-x") (i32.const 6))
+(assert_return (invoke "get-y") (i64.const 7))
+(assert_return (invoke "get-7") (f32.const 8))
+(assert_return (invoke "get-8") (f64.const 9))
+(assert_return (invoke "get-mr") (ref.extern 10))
 
 (assert_return (invoke "as-select-first") (i32.const 6))
 (assert_return (invoke "as-select-mid") (i32.const 2))
@@ -244,6 +274,11 @@
   "global is immutable"
 )
 
+(assert_invalid
+  (module (import "spectest" "global_i32" (global i32)) (func (global.set 0 (i32.const 1))))
+  "global is immutable"
+)
+
 ;; mutable globals can be exported
 (module (global (mut f32) (f32.const 0)) (export "a" (global 0)))
 (module (global (export "a") (mut f32) (f32.const 0)))
@@ -269,6 +304,11 @@
 )
 
 (assert_invalid
+  (module (global i32 (i32.ctz (i32.const 0))))
+  "constant expression required"
+)
+
+(assert_invalid
   (module (global i32 (nop)))
   "constant expression required"
 )
@@ -289,6 +329,21 @@
 )
 
 (assert_invalid
+  (module (global (import "" "") externref) (global funcref (global.get 0)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (global (import "test" "global-i32") i32) (global i32 (global.get 0) (global.get 0)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (global (import "test" "global-i32") i32) (global i32 (i32.const 0) (global.get 0)))
+  "type mismatch"
+)
+
+(assert_invalid
   (module (global i32 (global.get 0)))
   "unknown global"
 )
@@ -296,6 +351,16 @@
 (assert_invalid
   (module (global i32 (global.get 1)) (global i32 (i32.const 0)))
   "unknown global"
+)
+
+(assert_invalid
+  (module (global (import "test" "global-i32") i32) (global i32 (global.get 2)))
+  "unknown global"
+)
+
+(assert_invalid
+  (module (global (import "test" "global-mut-i32") (mut i32)) (global i32 (global.get 0)))
+  "constant expression required"
 )
 
 (module
@@ -354,6 +419,68 @@
       "\0b"               ;; end
   )
   "malformed mutability"
+)
+
+;; global.get with invalid index
+(assert_invalid
+  (module (func (result i32) (global.get 0)))
+  "unknown global"
+)
+
+(assert_invalid
+  (module
+    (global i32 (i32.const 0))
+    (func (result i32) (global.get 1))
+  )
+  "unknown global"
+)
+
+(assert_invalid
+  (module
+    (import "spectest" "global_i32" (global i32))
+    (func (result i32) (global.get 1))
+  )
+  "unknown global"
+)
+
+(assert_invalid
+  (module
+    (import "spectest" "global_i32" (global i32))
+    (global i32 (i32.const 0))
+    (func (result i32) (global.get 2))
+  )
+  "unknown global"
+)
+
+;; global.set with invalid index
+(assert_invalid
+  (module (func (i32.const 0) (global.set 0)))
+  "unknown global"
+)
+
+(assert_invalid
+  (module
+    (global i32 (i32.const 0))
+    (func (i32.const 0) (global.set 1))
+  )
+  "unknown global"
+)
+
+(assert_invalid
+  (module
+    (import "spectest" "global_i32" (global i32))
+    (func (i32.const 0) (global.set 1))
+  )
+  "unknown global"
+)
+
+(assert_invalid
+  (module
+    (import "spectest" "global_i32" (global i32))
+    (global i32 (i32.const 0))
+    (func (i32.const 0) (global.set 2))
+  )
+  "unknown global"
 )
 
 

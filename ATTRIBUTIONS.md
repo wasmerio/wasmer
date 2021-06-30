@@ -12,7 +12,6 @@ Projects:
 
 - [Emscripten](https://github.com/kripken/emscripten): for emtests test sources to ensure compatibility - [LICENSE](#emscripten)
 - [Nebulet](https://github.com/nebulet/nebulet): as the base for creating a great Rust WebAssembly runtime - [LICENSE](#nebulet)
-- [stackoverflow](https://stackoverflow.com/a/45795699/1072990): to create an efficient HashMap with pair keys
 - [WAVM](https://github.com/wavm/wavm): for their great integration and testing framework - [LICENSE](#wavm)
 - [wasmtime](https://github.com/CraneStation/wasmtime): for their API and internal documentation, as well as some internal implementations - [LICENSE](#wasmtime)
 - [WebAssembly spec](https://github.com/WebAssembly/spec/tree/master/test): for the spectests implementation
