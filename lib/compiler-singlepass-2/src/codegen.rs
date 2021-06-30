@@ -167,7 +167,7 @@ pub struct FuncGen<'a, M: Machine> {
 
     locals: Vec<Local<M::Location>>,
     stack: Vec<Local<M::Location>>,
-    func_index: FunctionIndex,
+    // func_index: FunctionIndex,
 }
 
 pub struct SpecialLabelSet<L> {
@@ -416,7 +416,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
             locals: vec![],
             stack: vec![],
-            func_index
+            // func_index
         };
         fg.begin()?;
         Ok(fg)
