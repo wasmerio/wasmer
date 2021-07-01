@@ -71,7 +71,7 @@ impl AbstractReg for Reg {
     fn from_index(n: usize) -> Result<Reg, ()>
     {
         const REGS: [Reg; 16] = [
-            Reg::RAX, Reg::RBX, Reg::RCX, Reg::RDX,
+            Reg::RAX, Reg::RCX, Reg::RDX, Reg::RBX,
             Reg::RSP, Reg::RBP, Reg::RSI, Reg::RDI,
             Reg::R8,  Reg::R9,  Reg::R10, Reg::R11,
             Reg::R12, Reg::R13, Reg::R14, Reg::R15
@@ -154,6 +154,7 @@ impl AbstractDescriptor<Reg> for Descriptor {
     const REG_COUNT: usize = 15;
     const WORD_SIZE: usize = 8;
     const STACK_GROWS_DOWN: bool = true;
+    const FP_STACK_ARG_OFFSET: i32 = 24;
     const ARG_REG_COUNT: usize = 6;
     fn callee_save_regs() -> Vec<Reg> {
         vec![
@@ -170,13 +171,13 @@ impl AbstractDescriptor<Reg> for Descriptor {
     fn callee_param_location(n: usize) -> Location {
         match n {
             0..=5 => Location::Reg(ARG_REGS[n]),
-            _ => Location::Memory(Reg::RBP, 32 + (n-8) as i32 * 8),
+            _ => Location::Memory(Reg::RBP, 24 + (n-6) as i32 * 8),
         }
     }
     fn caller_arg_location(n: usize) -> Location {
         match n {
-            0..=7 => Location::Reg(ARG_REGS[n]),
-            _ => Location::Memory(Reg::RSP, (n-7) as i32  * 8),
+            0..=5 => Location::Reg(ARG_REGS[n]),
+            _ => Location::Memory(Reg::RSP, (n-5) as i32  * 8),
         }
     }
     fn return_location() -> Location {
@@ -224,12 +225,8 @@ impl Machine for X64Machine {
     // N.B. `n_locals` includes `n_params`; `n_locals` will always be >= `n_params`
     fn func_begin(&mut self, n_locals: usize, n_params: usize) -> Vec<Local<Location>> {
         // save FP and VMCTX regs
-        // call pushes the return address, aligning the stack to 8 bytes
-        // we need to align to 8 again in order to achieve 16 byte alignment
-        // this is not required by all x86 platforms, but some conventions require is (e.g. darwin)
         dynasm!(&mut self.assembler
             ; .arch x64
-            ; sub rsp, 8
             ; push rbp
             ; push r15
             ; mov rbp, rsp
@@ -255,7 +252,6 @@ impl Machine for X64Machine {
             ; .arch x64
             ; pop r15
             ; pop rbp
-            ; add rsp, 8
             ; ret);
         
         // reserve space for relocated function pointers
@@ -531,6 +527,19 @@ impl Machine for X64Machine {
         args: &[Local<Location>], return_types: &[WpType]) -> CallInfo<Location> {
         
         const X64_MOV64_IMM_OFFSET: usize = 2;
+        
+        // here we align the stack to 8 bytes because call pushes the return address, 
+        // which will align the stack to 16 bytes at the beginning of the frame
+        // this is not required by all x86 platforms, but some conventions require it
+        // (e.g. darwin)
+        let stack_offset = self.manager.get_stack_offset();
+        let even_stack_args = (args.len() + 1) > 6 && (args.len() + 1) % 2 == 0;
+        let did_align_stack = if stack_offset % 16 == 0 && even_stack_args {
+            dynasm!(self.assembler ; .arch x64 ; sub rsp, 8);
+            true
+        } else {
+            false
+        };
 
         self.manager.before_call(&mut self.assembler, args);
 
@@ -542,7 +551,11 @@ impl Machine for X64Machine {
         let after_call = self.assembler.offset().0;
         
         let returns = self.manager.after_call(&mut self.assembler, return_types);
-
+        
+        if did_align_stack {
+            dynasm!(self.assembler ; .arch x64 ; add rsp, 8);
+        }
+        
         self.relocation_info.push((reloc_target, fn_addr_offset));
 
         CallInfo::<Location> { returns, before_call, after_call }
@@ -573,24 +586,29 @@ impl Machine for X64Machine {
     fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
         let mut m = Self::new();
 
-        // call pushes the return address, aligning the stack to 8 bytes
-        // we need to align to 8 again in order to achieve 16 byte alignment
-        // this is not required by all x86 platforms, but some conventions require it
-        // (e.g. darwin requires that the stack is 16-byte aligned before calls)
         let fptr = Reg::R12;
         let args = Reg::R13;
         dynasm!(m.assembler
             ; .arch x64
-            ; sub rsp, 8
             ; push Rq(fptr.into_index() as u8)
             ; push Rq(args.into_index() as u8)
             ; mov Rq(fptr.into_index() as u8), rsi
             ; mov Rq(args.into_index() as u8), rdx);
 
         let stack_args = sig.params().len().saturating_sub(6);
+        let mut stack_offset = 0;
         if stack_args > 0 {
-            dynasm!(m.assembler ; .arch x64 ; sub rsp, stack_args as i32 * 8);
+            stack_offset = stack_args as i32 * 8;
         }
+        // here we align the stack to 8 bytes because call pushes the return address, 
+        // which will align the stack to 16 bytes at the beginning of the frame
+        // this is not required by all x86 platforms, but some conventions require it
+        // (e.g. darwin)
+        if stack_offset % 16 == 0 {
+            stack_offset += 8;
+        }
+        
+        dynasm!(m.assembler ; .arch x64 ; sub rsp, stack_offset);
 
         // Move arguments to their locations.
         // `callee_vmctx` is already in the first argument register, so no need to move.
@@ -620,9 +638,9 @@ impl Machine for X64Machine {
         // Restore stack.
         dynasm!(m.assembler
             ; .arch x64
+            ; add rsp, stack_offset
             ; pop Rq(args.into_index() as u8)
             ; pop Rq(fptr.into_index() as u8)
-            ; add rsp, 8
             ; ret);
         
         m.assembler.finalize().unwrap().to_vec()

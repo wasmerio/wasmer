@@ -48,6 +48,7 @@ pub trait Descriptor<R: Reg> {
     const REG_COUNT: usize;
     const WORD_SIZE: usize;
     const STACK_GROWS_DOWN: bool;
+    const FP_STACK_ARG_OFFSET: i32;
     const ARG_REG_COUNT: usize;
     fn callee_save_regs() -> Vec<R>;
     fn caller_save_regs() -> Vec<R>;
@@ -253,6 +254,10 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
             _descriptor: PhantomData,
         }
     }
+    
+    pub fn get_stack_offset(&self) -> i32 {
+        self.stack_offset
+    }
 
     pub fn init_locals(&mut self, n_params: usize, n_locals: usize, free_regs: &[R]) -> Vec<Local<Location<R>>> {
         let param_locations: Vec<_> = (0..n_params).map(|i| D::callee_param_location(i + 1)).collect();
@@ -300,8 +305,8 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
 
     fn stack_idx(&self, offset: i32) -> usize {
         if (D::STACK_GROWS_DOWN && offset >= 0) || (!D::STACK_GROWS_DOWN && offset <= 0) {
-            assert!(offset >= 32);
-            (offset - 32) as usize / D::WORD_SIZE
+            assert!(offset >= D::FP_STACK_ARG_OFFSET);
+            (offset - D::FP_STACK_ARG_OFFSET) as usize / D::WORD_SIZE
         } else {
             self.n_stack_params + (offset / -(D::WORD_SIZE as i32)) as usize - 1
         }
@@ -330,6 +335,9 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
         let offset = self.get_free_stack(emitter);
         
         match loc.location() {
+            Location::Imm32(imm) => {
+                emitter.move_imm32_to_mem(loc.size(), imm, D::FP, offset);
+            },
             Location::Reg(reg) => {
                 emitter.move_reg_to_mem(loc.size(), reg, D::FP, offset);
             },
@@ -380,7 +388,7 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
     pub fn normalize_local(&mut self, emitter: &mut E, local: Local<Location<R>>) -> Local<Location<R>> {
         if let Location::Imm32(n) = local.location() {
             let new_local = Local::new(Location::Imm32(n), Size::S32);
-            self.move_to_reg(emitter, new_local.clone(), &[]);
+            self.move_to_stack(emitter, new_local.clone());
             new_local
         } else if local.ref_ct() > 1 {
             let reg = if let Location::Reg(reg) = local.location() {
@@ -470,7 +478,7 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
             // better not put all the regs in here or this loop will deadlock!!!
             loop {
                 let reg = R::from_index(self.reg_counter).unwrap();
-                if reg.is_reserved() || dont_use.contains(&reg) {
+                if reg.is_callee_save() || reg.is_reserved() || dont_use.contains(&reg) {
                     self.reg_counter = (self.reg_counter + 1) % D::REG_COUNT;
                     continue;
                 } else {
@@ -609,6 +617,14 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
         return match src.location() {
             Location::Reg(reg) => {
                 if let Some(reg_f) = rules.reg {
+                    reg_f(emitter, reg);
+                } else {
+                    unimplemented!();
+                }
+            },
+            Location::Memory(base, offset) => {
+                if let Some(reg_f) = rules.reg {
+                    let reg = self.move_to_reg(emitter, src, &[base]);
                     reg_f(emitter, reg);
                 } else {
                     unimplemented!();
@@ -777,6 +793,17 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
                     };
                     reg_reg_reg(emitter, reg, reg2, reg3);
                     self.new_local_from_reg(reg3, rules.size)
+                } else if let Some(reg_reg) = rules.reg_reg {
+                    let reg1 = if src1.ref_ct() < 1 {
+                        self.steal_reg(reg)
+                    } else {
+                        let new_reg = self.get_free_reg(emitter, &[base, reg]);
+                        emitter.move_reg_to_reg(rules.size, reg, new_reg);
+                        new_reg
+                    };
+                    let reg2 = self.move_to_reg(emitter, src2.clone(), &[base, reg]);
+                    reg_reg(emitter, reg1, reg2);
+                    self.new_local_from_reg(reg1, rules.size)
                 } else {
                     unimplemented!();
                 }
@@ -799,7 +826,7 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
                         self.steal_reg(reg)
                     } else {
                         let reg = self.get_free_reg(emitter, &[reg, base]);
-                        emitter.move_mem_to_reg(rules.size, base, offset, reg);
+                        emitter.move_mem_to_reg(src1.size(), base, offset, reg);
                         reg
                     };
                     reg_reg(emitter, reg1, reg);
@@ -820,7 +847,7 @@ impl<R: Reg, E: Emitter<R>, D: Descriptor<R>> LocalManager<R, E, D> {
                         self.steal_reg(reg)
                     } else {
                         let reg = self.get_free_reg(emitter, &[base]);
-                        emitter.move_mem_to_reg(rules.size, base, offset, reg);
+                        emitter.move_mem_to_reg(src1.size(), base, offset, reg);
                         reg
                     };
                     reg_imm(emitter, reg, imm);
