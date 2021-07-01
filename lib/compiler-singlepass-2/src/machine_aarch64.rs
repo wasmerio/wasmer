@@ -145,6 +145,7 @@ impl AbstractDescriptor<Reg> for Descriptor {
     const REG_COUNT: usize = 28;
     const WORD_SIZE: usize = 8;
     const STACK_GROWS_DOWN: bool = true;
+    const FP_STACK_ARG_OFFSET: i32 = 32;
     const ARG_REG_COUNT: usize = 8;
     fn callee_save_regs() -> Vec<Reg> {
         vec![

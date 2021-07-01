@@ -758,6 +758,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
                 // let released = &self.value_stack[frame.value_stack_depth..];
                 // self.machine.release_locations_keep_state(&mut self.assembler, released);
+                let frame_index = self.control_stack.len() - 1 - (relative_depth as usize);
+                self.restore_locations(frame_index);
+                let frame = &self.control_stack[frame_index];
                 self.machine.do_br_label(frame.label, relative_depth + 1);
                 self.unreachable_depth = 1;
             },
@@ -958,16 +961,17 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     let frame = self.control_stack.pop().unwrap();
                     self.relocations = self.machine.func_end(frame.label);
                 } else {
-                    let frame = self.control_stack.pop().unwrap();
-                    while self.stack.len() > frame.value_stack_depth {
+                    let value_stack_depth = self.control_stack.last().unwrap().value_stack_depth;
+                    while self.stack.len() > value_stack_depth {
                         let local = self.pop_stack();
                         self.maybe_release(local);
                     }
 
                     // self.fp_stack.truncate(frame.fp_stack_depth);
                     
-                    self.restore_locations(&frame);
-
+                    self.restore_locations(self.control_stack.len() - 1);
+                    
+                    let frame = self.control_stack.pop().unwrap();
                     if !frame.loop_like {
                         self.machine.block_end(frame.label);
                     }
@@ -1111,7 +1115,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         //     .unwrap()
         //     .stdout;
         // let asm_str = str::from_utf8(&asm).unwrap();
-        // let re = RegexBuilder::new(r"^\s*([\da-z]+)\s+((?:(?:[\da-z]{2}\s*)){4})(.*)")
+        // let re = RegexBuilder::new(r"^\s*([\da-f]+)\s+((?:(?:[\da-f]{2}\s))*)(.*)")
         //     .multi_line(true).build().unwrap();
         // let mut asm_fmt = String::new();
         // for cap in re.captures_iter(asm_str) {
@@ -1373,14 +1377,14 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         (local_locations, stack_locations)
     }
 
-    fn restore_locations(&mut self, frame: &ControlFrame<M>) {
+    fn restore_locations(&mut self, frame_index: usize) {
         macro_rules! restore_locations_from_vecs {
-            ($locals:expr, $locations:expr) => {
+            ($locals:expr, $locations:ident) => {
                 {
-                    assert!($locals.len() == $locations.len());
+                    assert!($locals.len() == self.control_stack[frame_index].$locations.len());
 
                     for i in 0..$locals.len() {
-                        let restored = self.machine.do_restore_local($locals[i].clone(), $locations[i]);
+                        let restored = self.machine.do_restore_local($locals[i].clone(), self.control_stack[frame_index].$locations[i]);
                         if $locals[i].ref_ct() > 1 {
                             $locals[i].dec_ref();
                             self.maybe_release($locals[i].clone());
@@ -1394,7 +1398,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     }
                     
                     // debug assertion
-                    for (local, location) in $locals.iter().cloned().zip($locations) {
+                    for (local, location) in $locals.iter().cloned().zip(&self.control_stack[frame_index].$locations) {
                         if local.location() != *location {
                             println!("assertion failed: {:?} != {:?}", local.location(), location);
                             assert!(false);
@@ -1404,19 +1408,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             }
         }
         
-        // for l in self.locals.iter().cloned() {
-        //     println!("{:?}", l.location());
-        // }
-        // println!("\n\n");
-
-        restore_locations_from_vecs!(self.locals, &frame.local_locations);
-
-        // for l in self.locals.iter().cloned() {
-        //     println!("{:?}", l.location());
-        // }
-        // println!("\n\n");
-
-        restore_locations_from_vecs!(self.stack, &frame.stack_locations);
+        restore_locations_from_vecs!(self.locals, local_locations);
+        restore_locations_from_vecs!(self.stack, stack_locations);
     }
 
     fn do_return(&mut self) {
