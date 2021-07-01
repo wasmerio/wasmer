@@ -1,5 +1,5 @@
 #![deny(
-    dead_code,
+//    dead_code,
     nonstandard_style,
     unused_imports,
     unused_mut,
