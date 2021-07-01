@@ -1,5 +1,5 @@
 mod c;
-mod sockaddr;
+mod socketaddr;
 mod tcp;
 
 pub use tcp::TcpListener;

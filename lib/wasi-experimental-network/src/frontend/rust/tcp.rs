@@ -2,8 +2,8 @@ use super::c::*;
 use crate::{abi::*, types::*};
 use std::convert::TryInto;
 use std::io;
+use std::mem::MaybeUninit;
 use std::net::{Shutdown, SocketAddr, SocketAddrV4, ToSocketAddrs};
-use std::ptr::NonNull;
 
 pub struct TcpListener {
     fd: __wasi_fd_t,
@@ -14,20 +14,13 @@ impl TcpListener {
     fn new(address: SocketAddr) -> io::Result<Self> {
         let mut fd: __wasi_fd_t = 0;
 
-        unsafe { socket_create(&mut fd, AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL) }.into_result()?;
+        unsafe { socket_create(AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL, &mut fd) }.into_result()?;
 
         match address {
             SocketAddr::V4(v4) => {
-                let address = SockaddrIn::from(&v4);
+                let address = __wasi_socket_address_t::from(&v4);
 
-                unsafe {
-                    socket_bind(
-                        fd,
-                        NonNull::new_unchecked(&address as *const _ as *mut _),
-                        address.size_of_self(),
-                    )
-                }
-                .into_result()?;
+                unsafe { socket_bind(fd, &address) }.into_result()?;
             }
 
             SocketAddr::V6(_v6) => todo!("V6 not implemented"),
@@ -60,26 +53,28 @@ impl TcpListener {
 
     pub fn accept(&self) -> io::Result<(TcpStream, SocketAddr)> {
         let mut remote_fd: __wasi_fd_t = 0;
-        let mut remote_address = SockaddrIn::default();
-        let mut remote_address_size = remote_address.size_of_self();
+        let mut remote_address = MaybeUninit::<__wasi_socket_address_t>::uninit();
 
-        unsafe {
-            socket_accept(
-                self.fd,
-                &mut remote_address as *mut _ as *mut u8,
-                &mut remote_address_size,
-                &mut remote_fd,
-            )
-        }
-        .into_result()?;
+        unsafe { socket_accept(self.fd, remote_address.as_mut_ptr(), &mut remote_fd) }
+            .into_result()?;
 
-        let remote_address = SocketAddr::V4(Into::<SocketAddrV4>::into(remote_address));
+        let remote_address = unsafe {
+            let remote_address = remote_address.assume_init();
+
+            SocketAddr::V4(Into::<SocketAddrV4>::into(remote_address.v4))
+        };
 
         Ok((TcpStream::new(remote_fd, remote_address), remote_address))
     }
 
     pub fn incoming(&self) -> Incoming<'_> {
         Incoming { listener: self }
+    }
+}
+
+impl Drop for TcpListener {
+    fn drop(&mut self) {
+        unsafe { socket_close(self.fd) };
     }
 }
 
@@ -97,6 +92,7 @@ impl<'a> Iterator for Incoming<'a> {
 
 pub struct TcpStream {
     fd: __wasi_fd_t,
+    #[allow(unused)]
     address: SocketAddr,
 }
 
@@ -122,9 +118,15 @@ impl TcpStream {
     }
 }
 
+impl Drop for TcpStream {
+    fn drop(&mut self) {
+        unsafe { socket_close(self.fd) };
+    }
+}
+
 impl io::Read for TcpStream {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        let io_vec = vec![__wasi_ciovec_t {
+        let mut io_vec = vec![__wasi_ciovec_t {
             buf: (buffer.as_mut_ptr() as usize).try_into().unwrap(),
             buf_len: buffer.len().try_into().unwrap(),
         }];
@@ -133,7 +135,7 @@ impl io::Read for TcpStream {
         unsafe {
             socket_recv(
                 self.fd,
-                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.as_mut_ptr(),
                 io_vec.len() as u32,
                 0,
                 &mut io_read,
@@ -156,7 +158,7 @@ impl io::Write for TcpStream {
         unsafe {
             socket_send(
                 self.fd,
-                NonNull::new_unchecked(io_vec.as_ptr() as *const _ as *mut _),
+                io_vec.as_ptr(),
                 io_vec.len() as u32,
                 0,
                 &mut io_written,
