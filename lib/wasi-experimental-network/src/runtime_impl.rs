@@ -528,12 +528,11 @@ fn poller_add(
     let poll_arena = env.poll_arena.try_read().unwrap();
     let (poller, _) = poll_arena.get(poll.try_into().unwrap()).unwrap();
     let event = wasi_try!(event.deref(memory)).get();
-    poller
-        .add(
-            PollingSource(fd),
-            wasi_try!(polling::Event::try_from(event)),
-        )
-        .unwrap();
+
+    wasi_try!(poller.add(
+        PollingSource(fd),
+        wasi_try!(polling::Event::try_from(event)),
+    ));
 
     __WASI_ESUCCESS
 }
@@ -548,12 +547,11 @@ fn poller_modify(
     let poll_arena = env.poll_arena.try_read().unwrap();
     let (poller, _) = poll_arena.get(poll.try_into().unwrap()).unwrap();
     let event = wasi_try!(event.deref(memory)).get();
-    poller
-        .modify(
-            PollingSource(fd),
-            wasi_try!(polling::Event::try_from(event)),
-        )
-        .unwrap();
+
+    wasi_try!(poller.modify(
+        PollingSource(fd),
+        wasi_try!(polling::Event::try_from(event)),
+    ));
 
     __WASI_ESUCCESS
 }
@@ -570,7 +568,7 @@ fn poller_wait(
     let (poller, events) = poll_arena.get_mut(poll.try_into().unwrap()).unwrap();
 
     events.clear();
-    let number_of_events = poller.wait(events, None).unwrap();
+    let number_of_events = wasi_try!(poller.wait(events, None));
 
     let events = events
         .iter()
