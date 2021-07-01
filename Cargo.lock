@@ -2864,7 +2864,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core-near"
-version = "0.17.3"
+version = "0.17.4"
 dependencies = [
  "bincode",
  "blake3",
