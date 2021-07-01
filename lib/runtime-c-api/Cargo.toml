@@ -26,6 +26,7 @@ version = "0.17.1"
 default-features = false
 path = "../runtime-core"
 version = "0.17.1"
+package = "wasmer-runtime-core-near"
 
 [dependencies.wasmer-wasi]
 default-features = false

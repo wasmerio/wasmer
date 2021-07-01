@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-runtime"
+name = "wasmer-runtime-near"
 version = "0.17.1"
 description = "Wasmer runtime library"
 license = "MIT"
@@ -11,13 +11,14 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.17.1", optional = true }
+wasmer-singlepass-backend = { path = "../singlepass-backend", version = "0.17.1", optional = true, package = "wasmer-singlepass-backend-near" }
 lazy_static = "1.4"
 memmap = "0.7"
 
 [dependencies.wasmer-runtime-core]
 path = "../runtime-core"
 version = "0.17.1"
+package = "wasmer-runtime-core-near"
 
 [dependencies.wasmer-clif-backend]
 path = "../clif-backend"

@@ -385,8 +385,8 @@ impl LocalBacking {
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
                                     let vm::ImportedFunc { func, func_ctx } =
-                                        imports.vm_functions[imported_func_index];
-                                    (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
+                                        &imports.vm_functions[imported_func_index];
+                                    (*func, func_ctx.vmctx.as_ptr())
                                 }
                             };
 
@@ -418,8 +418,8 @@ impl LocalBacking {
                                 ),
                                 LocalOrImport::Import(imported_func_index) => {
                                     let vm::ImportedFunc { func, func_ctx } =
-                                        imports.vm_functions[imported_func_index];
-                                    (func, unsafe { func_ctx.as_ref() }.vmctx.as_ptr())
+                                        &imports.vm_functions[imported_func_index];
+                                    (*func, func_ctx.vmctx.as_ptr())
                                 }
                             };
 
@@ -549,24 +549,6 @@ impl ImportBacking {
             })
         }
     }
-
-    /// Gets a `ImportedFunc` from the given `ImportedFuncIndex`.
-    pub fn imported_func(&self, index: ImportedFuncIndex) -> vm::ImportedFunc {
-        self.vm_functions[index].clone()
-    }
-}
-
-impl Drop for ImportBacking {
-    fn drop(&mut self) {
-        // Properly drop the `vm::FuncCtx` in `vm::ImportedFunc`.
-        for (_imported_func_index, imported_func) in (*self.vm_functions).iter_mut() {
-            let func_ctx_ptr = imported_func.func_ctx.as_ptr();
-
-            if !func_ctx_ptr.is_null() {
-                let _: Box<vm::FuncCtx> = unsafe { Box::from_raw(func_ctx_ptr) };
-            }
-        }
-    }
 }
 
 fn import_functions(
@@ -602,10 +584,7 @@ fn import_functions(
                 if *expected_sig == *signature {
                     functions.push(vm::ImportedFunc {
                         func: func.inner(),
-                        func_ctx: NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
-                            //                      ^^^^^^^^ `vm::FuncCtx` is purposely leaked.
-                            //                               It is dropped by the specific `Drop`
-                            //                               implementation of `ImportBacking`.
+                        func_ctx: Box::new(vm::FuncCtx {
                             vmctx: NonNull::new(match ctx {
                                 Context::External(vmctx) => vmctx,
                                 Context::ExternalWithEnv(vmctx_, _) => {
@@ -622,8 +601,7 @@ fn import_functions(
                                 Context::ExternalWithEnv(_, func_env) => func_env,
                                 _ => None,
                             },
-                        })))
-                        .unwrap(),
+                        }),
                     });
                 } else {
                     link_errors.push(LinkError::IncorrectImportSignature {
@@ -655,14 +633,10 @@ fn import_functions(
 
                     functions.push(vm::ImportedFunc {
                         func: always_trap.get_vm_func().as_ptr(),
-                        func_ctx: NonNull::new(Box::into_raw(Box::new(vm::FuncCtx {
-                            //                      ^^^^^^^^ `vm::FuncCtx` is purposely leaked.
-                            //                               It is dropped by the specific `Drop`
-                            //                               implementation of `ImportBacking`.
+                        func_ctx: Box::new(vm::FuncCtx {
                             vmctx: NonNull::new(vmctx).expect("`vmctx` must not be null."),
                             func_env: None,
-                        })))
-                        .unwrap(),
+                        }),
                     });
                 } else {
                     link_errors.push(LinkError::ImportNotFound {
