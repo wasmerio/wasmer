@@ -1,5 +1,4 @@
 use std::io::{Read, Write};
-use std::net::Shutdown;
 use wasmer_wasi_experimental_network::frontend::rust::*;
 
 fn main() {
@@ -21,7 +20,6 @@ fn main() {
         );
 
         stream.write(&buffer).unwrap();
-        stream.shutdown(Shutdown::Both).unwrap();
 
         println!("Waiting to accept a new connection");
     }
