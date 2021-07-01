@@ -1,16 +1,28 @@
+use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use wasmer_wasi_experimental_network::{abi::*, types::*};
+
+macro_rules! syscall {
+    ( $function_name:ident ( $( $arguments:expr ),* $(,)* ) ) => {
+        let err  = unsafe { $function_name( $( $arguments ),* ) };
+
+        if err != __WASI_ESUCCESS {
+            panic!(concat!("`", stringify!($function_name), "` failed with `{}`"), err);
+        }
+    }
+}
 
 fn main() {
     println!("Creating the socket");
 
     let server = {
         let mut server: __wasi_fd_t = 0;
-        let err = unsafe { socket_create(AF_INET, SOCK_STREAM, DEFAULT_PROTOCOL, &mut server) };
-
-        if err != __WASI_ESUCCESS {
-            panic!("`socket_create` failed with `{}`", err);
-        }
+        syscall!(socket_create(
+            AF_INET,
+            SOCK_STREAM,
+            DEFAULT_PROTOCOL,
+            &mut server
+        ));
 
         server
     };
@@ -22,77 +34,55 @@ fn main() {
             v4: __wasi_socket_address_in_t {
                 family: AF_INET,
                 address: [0; 4],
-                port: 9001u16.to_be(),
+                port: 9000u16.to_be(),
             },
         };
 
-        let err = unsafe { socket_bind(server, &address) };
-
-        if err != __WASI_ESUCCESS {
-            panic!("`socket_bind` failed with `{}`", err);
-        }
+        syscall!(socket_bind(server, &address));
     }
 
     println!("Listening");
 
     {
-        let err = unsafe { socket_listen(server, 3) };
-
-        if err != __WASI_ESUCCESS {
-            panic!("`socket_listen` failed with `{}`", err);
-        }
+        syscall!(socket_listen(server, 3));
     }
 
     println!("Non-blocking mode");
 
     {
-        let err = unsafe { socket_set_nonblocking(server, true) };
-
-        if err != __WASI_ESUCCESS {
-            panic!("`socket_set_nonblocking` failed with `{}`", err);
-        }
+        syscall!(socket_set_nonblocking(server, true));
     }
 
     println!("Creating the poller");
 
     let poll = {
         let mut poll: __wasi_poll_t = 0;
-        let err = unsafe { poller_create(&mut poll) };
-
-        if err != __WASI_ESUCCESS {
-            panic!("`poller_create` failed with `{}`", err);
-        }
+        syscall!(poller_create(&mut poll));
 
         poll
     };
 
-    let token: __wasi_poll_token_t = 7;
+    const SERVER_TOKEN: __wasi_poll_token_t = 1;
 
     println!("Registering the server to the poller");
 
     {
-        let err = unsafe {
-            poller_add(
-                poll,
-                server,
-                __wasi_poll_event_t {
-                    token: token,
-                    readable: true,
-                    writable: false,
-                },
-            )
-        };
-
-        if err != __WASI_ESUCCESS {
-            panic!("`poller_add` failed with `{}`", err);
-        }
+        syscall!(poller_add(
+            poll,
+            server,
+            __wasi_poll_event_t {
+                token: SERVER_TOKEN,
+                readable: true,
+                writable: false,
+            },
+        ));
     }
 
     println!("Looping");
 
     let mut events: Vec<__wasi_poll_event_t> = Vec::with_capacity(128);
-
-    let mut next_token: __wasi_poll_token_t = server + 1;
+    let mut unique_token: __wasi_poll_token_t = SERVER_TOKEN + 1;
+    let mut clients: HashMap<__wasi_poll_token_t, __wasi_fd_t> = HashMap::new();
 
     loop {
         events.clear();
@@ -100,18 +90,12 @@ fn main() {
 
         println!("Waiting for new events");
 
-        let err = unsafe {
-            poller_wait(
-                poll,
-                events.as_mut_ptr(),
-                events.capacity() as u32,
-                &mut number_of_events,
-            )
-        };
-
-        if err != __WASI_ESUCCESS {
-            panic!("`poller_wait` failed with `{}`", err);
-        }
+        syscall!(poller_wait(
+            poll,
+            events.as_mut_ptr(),
+            events.capacity() as u32,
+            &mut number_of_events,
+        ));
 
         unsafe { events.set_len(number_of_events as usize) };
 
@@ -120,69 +104,176 @@ fn main() {
         for event in events.iter() {
             dbg!(&event);
 
-            if event.token == token {
-                println!("Accepting new connection");
+            match event.token {
+                SERVER_TOKEN => {
+                    println!("Accepting new connections");
 
-                let client_fd = {
-                    let mut client_fd: __wasi_fd_t = 0;
-                    let mut client_address = MaybeUninit::<__wasi_socket_address_t>::uninit();
-                    let err = unsafe {
-                        socket_accept(server, client_address.as_mut_ptr(), &mut client_fd)
-                    };
+                    loop {
+                        let client = {
+                            let mut client: __wasi_fd_t = 0;
+                            let mut client_address =
+                                MaybeUninit::<__wasi_socket_address_t>::uninit();
+                            let err = unsafe {
+                                socket_accept(server, client_address.as_mut_ptr(), &mut client)
+                            };
 
-                    let client_address = unsafe { client_address.assume_init() };
+                            match err {
+                                __WASI_ESUCCESS => {
+                                    let client_address = unsafe { client_address.assume_init() };
+                                    println!("Accepted connection from: `{:?}`", &client_address);
 
-                    println!("Remote client IP: `{:?}`", &client_address);
+                                    client
+                                }
 
-                    if err != __WASI_ESUCCESS {
-                        panic!("`socket_accept` failed with `{}`", err);
+                                // If we get a `WouldBlock` error, we know
+                                // our listener has no more incoming
+                                // connections queued, so we can return to
+                                // polling and wait for some more.
+                                __WASI_EAGAIN => break,
+
+                                // If it was any other kind of error,
+                                // something went wrong and we terminate
+                                // with an error.
+                                _ => panic!("`socket_accept` failed with `{}`", err),
+                            }
+                        };
+
+                        println!("Registering the new connection (only writable events)");
+
+                        {
+                            let client_token = next(&mut unique_token);
+
+                            syscall!(poller_add(
+                                poll,
+                                client,
+                                __wasi_poll_event_t {
+                                    token: client_token,
+                                    readable: false,
+                                    writable: true,
+                                },
+                            ));
+
+                            clients.insert(client_token, client);
+                        }
                     }
 
-                    client_fd
-                };
+                    println!("Re-registering the server");
 
-                println!("Re-registering the server");
-
-                {
-                    let err = unsafe {
-                        poller_modify(
+                    {
+                        syscall!(poller_modify(
                             poll,
                             server,
                             __wasi_poll_event_t {
-                                token: token,
+                                token: SERVER_TOKEN,
                                 readable: true,
                                 writable: true,
                             },
-                        )
-                    };
-
-                    if err != __WASI_ESUCCESS {
-                        panic!("`poller_modify` failed with `{}`", err);
+                        ));
                     }
                 }
 
-                println!("Registering the new connection");
+                client_token => {
+                    // Maybe received an event for a TCP connection.
+                    if let Some(client) = clients.get(&client_token) {
+                        let client = *client;
 
-                {
-                    let err = unsafe {
-                        poller_modify(
-                            poll,
-                            client_fd,
-                            __wasi_poll_event_t {
-                                token: next_token,
-                                readable: true,
-                                writable: true,
-                            },
-                        )
-                    };
+                        let close_connection = if event.writable == true {
+                            println!("Sending “Welcome!” to the client");
 
-                    if err != __WASI_ESUCCESS {
-                        panic!("`poller_modify` failed with `{}`", err);
+                            let string = "Welcome!\n";
+                            let buffer = string.as_bytes();
+                            let io_vec = vec![__wasi_ciovec_t {
+                                buf: buffer.as_ptr() as usize as u32,
+                                buf_len: buffer.len() as u32,
+                            }];
+
+                            let mut io_written = 0;
+                            syscall!(socket_send(
+                                client,
+                                io_vec.as_ptr(),
+                                io_vec.len() as u32,
+                                0,
+                                &mut io_written,
+                            ));
+
+                            if io_written < (io_vec.len() as u32) {
+                                panic!(
+                                    "`socket_send` has written {} buffers, expected to write {}",
+                                    io_written,
+                                    io_vec.len()
+                                );
+                            }
+
+                            println!("Re-registering the new connection (only readable events)");
+
+                            // After we've written something, we
+                            // will re-register the connection to
+                            // only respond to readable events.
+                            syscall!(poller_modify(
+                                poll,
+                                client,
+                                __wasi_poll_event_t {
+                                    token: client_token,
+                                    readable: true,
+                                    writable: false,
+                                }
+                            ));
+
+                            false
+                        } else if event.readable == true {
+                            println!("Receiving the message from the client");
+
+                            let mut buffer: Vec<u8> = vec![0; 128];
+                            let mut io_vec = vec![__wasi_ciovec_t {
+                                buf: buffer.as_mut_ptr() as usize as u32,
+                                buf_len: buffer.len() as u32,
+                            }];
+                            let mut io_read = 0;
+
+                            syscall!(socket_recv(
+                                client,
+                                io_vec.as_mut_ptr(),
+                                io_vec.len() as u32,
+                                0,
+                                &mut io_read,
+                            ));
+
+                            if io_read < (io_vec.len() as u32) {
+                                panic!(
+                                    "`socket_recv` has read {} buffers, expected to read {}",
+                                    io_read,
+                                    io_vec.len()
+                                );
+                            }
+
+                            println!(
+                                "Read: `{:?}`",
+                                String::from_utf8_lossy(&buffer[..io_read as usize])
+                            );
+
+                            true
+                        } else {
+                            true
+                        };
+
+                        if close_connection {
+                            println!("Closing the client {}", client);
+
+                            clients.remove(&client_token);
+                            syscall!(socket_close(client));
+                        }
+                    } else {
+                        // Sporadic events happen, we can safely ignore them.
                     }
                 }
-
-                next_token += 1;
             }
         }
     }
+}
+
+fn next(token: &mut __wasi_poll_token_t) -> __wasi_poll_token_t {
+    let next = *token;
+    *token += 1;
+
+    next
 }

@@ -125,6 +125,8 @@ extern "C" {
 
     pub fn socket_set_nonblocking(fd: __wasi_fd_t, nonblocking: bool) -> __wasi_errno_t;
 
+    pub fn socket_close(fd: __wasi_fd_t) -> __wasi_errno_t;
+
     pub fn poller_create(poll_out: *mut __wasi_poll_t) -> __wasi_errno_t;
 
     pub fn poller_add(

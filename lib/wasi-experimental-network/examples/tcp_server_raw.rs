@@ -46,13 +46,13 @@ fn main() {
         let mut client_address = MaybeUninit::<__wasi_socket_address_t>::uninit();
         let err = unsafe { socket_accept(fd, client_address.as_mut_ptr(), &mut client_fd) };
 
-        let client_address = unsafe { client_address.assume_init() };
-
-        println!("Remote client IP: `{:?}`", &client_address);
-
         if err != __WASI_ESUCCESS {
             panic!("`socket_accept` failed with `{}`", err);
         }
+
+        let client_address = unsafe { client_address.assume_init() };
+
+        println!("Remote client IP: `{:?}`", &client_address);
 
         let mut buffer: Vec<u8> = vec![0; 128];
         let mut io_vec = vec![__wasi_ciovec_t {

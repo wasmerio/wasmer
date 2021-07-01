@@ -265,17 +265,39 @@ impl IntoWasiError for io::Error {
 }
 
 macro_rules! wasi_try {
-    ($expr:expr) => {{
+    ($expr:expr) => {
         match $expr {
             Ok(val) => val,
-            Err(err) => return err.into_wasi_error(),
-        }
-    }};
 
-    ($expr:expr, $e:expr) => {{
-        let opt: Option<_> = $expr;
-        wasi_try!(opt.ok_or($e))
-    }};
+            Err(err) => {
+                return err.into_wasi_error();
+            }
+        }
+    };
+
+    ($expr:expr; keep $keep:ident if $( $valid_errors:ident )|+ ) => {
+        match $expr {
+            Ok(value) => {
+                mem::forget($keep);
+
+                value
+            }
+
+            Err(err) => {
+                let err = err.into_wasi_error();
+
+                return match err {
+                    $( $valid_errors )|+ => {
+                        mem::forget($keep);
+
+                        err
+                    }
+
+                    _ => err
+                }
+            }
+        }
+    };
 }
 
 fn socket_create(
@@ -338,10 +360,8 @@ fn socket_accept(
     remote_fd: WasmPtr<__wasi_fd_t>,
 ) -> __wasi_errno_t {
     let socket = unsafe { socket::Socket::from_fd(fd) };
-    let (remote_socket, remote_socket_address) = wasi_try!(socket.accept());
-
-    // Do not drop/close the sockets.
-    mem::forget(socket);
+    let (remote_socket, remote_socket_address) =
+        wasi_try!(socket.accept(); keep socket if __WASI_EAGAIN);
 
     let memory = env.memory();
     let remote_address_cell = wasi_try!(remote_address.deref(memory));
@@ -380,11 +400,7 @@ fn socket_send(
         })
         .collect::<Result<Vec<_>, __wasi_errno_t>>());
 
-    let total_bytes_written =
-        wasi_try!(socket.send_vectored_with_flags(&io_slices, iov_flags.try_into().unwrap()));
-
-    // Do not drop/close the socket.
-    mem::forget(socket);
+    let total_bytes_written = wasi_try!(socket.send_vectored_with_flags(&io_slices, iov_flags.try_into().unwrap()); keep socket if __WASI_EAGAIN);
 
     let io_size_out_cell = wasi_try!(io_size_out.deref(memory));
     io_size_out_cell.set(total_bytes_written.try_into().unwrap());
@@ -425,11 +441,7 @@ fn socket_recv(
         }));
     }
 
-    let (total_bytes_read, _recv_flags) =
-        wasi_try!(socket.recv_vectored_with_flags(&mut io_slices, iov_flags.try_into().unwrap()));
-
-    // Do not drop/close the socket.
-    mem::forget(socket);
+    let (total_bytes_read, _recv_flags) = wasi_try!(socket.recv_vectored_with_flags(&mut io_slices, iov_flags.try_into().unwrap()); keep socket if __WASI_EAGAIN);
 
     let io_size_out_cell = wasi_try!(io_size_out.deref(memory));
     io_size_out_cell.set(total_bytes_read.try_into().unwrap());
@@ -454,6 +466,12 @@ fn socket_set_nonblocking(fd: __wasi_fd_t, nonblocking: u32) -> __wasi_errno_t {
 
     // Do not drop/close the socket.
     mem::forget(socket);
+
+    __WASI_ESUCCESS
+}
+
+fn socket_close(fd: __wasi_fd_t) -> __wasi_errno_t {
+    let _ = unsafe { socket::Socket::from_fd(fd) };
 
     __WASI_ESUCCESS
 }
@@ -632,6 +650,7 @@ pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Export
         "socket_set_nonblocking",
         Function::new_native(&store, socket_set_nonblocking),
     );
+    wasi_network_imports.insert("socket_close", Function::new_native(&store, socket_close));
     wasi_network_imports.insert(
         "poller_create",
         Function::new_native_with_env(&store, wasi_env.clone(), poller_create),
