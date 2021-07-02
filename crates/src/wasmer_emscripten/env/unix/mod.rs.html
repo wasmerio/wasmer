@@ -317,7 +317,6 @@
     <span class="ident">c_int</span>, <span class="ident">getenv</span>, <span class="ident">getgrnam</span> <span class="kw">as</span> <span class="ident">libc_getgrnam</span>, <span class="ident">getpwnam</span> <span class="kw">as</span> <span class="ident">libc_getpwnam</span>, <span class="ident">putenv</span>, <span class="ident">setenv</span>, <span class="ident">sysconf</span>,
     <span class="ident">unsetenv</span>,
 };
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">raw</span>::<span class="ident">c_char</span>;
@@ -466,11 +465,7 @@
     <span class="kw">let</span> <span class="ident">string_on_guest</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">c_char</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">call_malloc_with_cast</span>(<span class="ident">ctx</span>, <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
 
-    <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-        <span class="ident">string_on_guest</span>
-            .<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>)
-            .<span class="ident">unwrap</span>()
-    };
+    <span class="kw">let</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">string_on_guest</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>).<span class="ident">unwrap</span>();
     <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">bytes</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
         <span class="ident">writer</span>[<span class="ident">i</span>].<span class="ident">set</span>(<span class="kw-2">*</span><span class="ident">byte</span> <span class="kw">as</span> <span class="kw">_</span>);
     }
@@ -488,21 +483,23 @@
     <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">addrinfo</span>, <span class="ident">freeaddrinfo</span>};
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_getaddrinfo&quot;</span>);
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot; =&gt; node = {}&quot;</span>, <span class="kw">unsafe</span> {
+    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot; =&gt; node = {}&quot;</span>, {
         <span class="ident">node_ptr</span>
             .<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">np</span><span class="op">|</span> {
-                <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">np</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>)
-                    .<span class="ident">to_string_lossy</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">_np</span><span class="op">|</span> {
+                <span class="macro">unimplemented</span><span class="macro">!</span>();
+                <span class="comment">// std::ffi::CStr::from_ptr(np as *const Cell&lt;c_char&gt; as *const c_char)</span>
+                <span class="comment">//     .to_string_lossy()</span>
             })
             .<span class="ident">unwrap_or</span>(<span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">Cow</span>::<span class="ident">Borrowed</span>(<span class="string">&quot;null&quot;</span>))
     });
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot; =&gt; server_str = {}&quot;</span>, <span class="kw">unsafe</span> {
+    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot; =&gt; server_str = {}&quot;</span>, {
         <span class="ident">service_str_ptr</span>
             .<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">np</span><span class="op">|</span> {
-                <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">np</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>)
-                    .<span class="ident">to_string_lossy</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">_np</span><span class="op">|</span> {
+                <span class="macro">unimplemented</span><span class="macro">!</span>();
+                <span class="comment">// std::ffi::CStr::from_ptr(np as *const Cell&lt;c_char&gt; as *const c_char)</span>
+                <span class="comment">//     .to_string_lossy()</span>
             })
             .<span class="ident">unwrap_or</span>(<span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">Cow</span>::<span class="ident">Borrowed</span>(<span class="string">&quot;null&quot;</span>))
     });
@@ -526,13 +523,17 @@
     <span class="comment">// allocate equivalent memory for res_val_ptr</span>
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> {
         <span class="ident">libc</span>::<span class="ident">getaddrinfo</span>(
-            (<span class="ident">node_ptr</span>
-                .<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>))
+            (<span class="ident">node_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">_m</span><span class="op">|</span> {
+                <span class="macro">unimplemented</span><span class="macro">!</span>();
+                <span class="comment">//m as *const Cell&lt;c_char&gt; as *const c_char</span>
+            }))
             .<span class="ident">unwrap_or</span>(<span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null</span>()),
             <span class="ident">service_str_ptr</span>
                 .<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>)
+                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">_m</span><span class="op">|</span> {
+                    <span class="macro">unimplemented</span><span class="macro">!</span>();
+                    <span class="comment">// m as *const Cell&lt;c_char&gt; as *const c_char</span>
+                })
                 .<span class="ident">unwrap_or</span>(<span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">null</span>()),
             <span class="ident">hints</span>
                 .<span class="ident">as_ref</span>()
@@ -560,7 +561,7 @@
 
             <span class="comment">// connect list</span>
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">prev_guest</span>) <span class="op">=</span> <span class="ident">previous_guest_node</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pg</span> <span class="op">=</span> <span class="ident">prev_guest</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>();
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pg</span> <span class="op">=</span> <span class="ident">prev_guest</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>();
                 <span class="ident">pg</span>.<span class="ident">ai_next</span> <span class="op">=</span> <span class="ident">current_guest_node_ptr</span>;
             }
 
@@ -572,7 +573,7 @@
                 <span class="kw">let</span> <span class="ident">host_sockaddr_ptr</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">current_host_node</span>).<span class="ident">ai_addr</span>;
                 <span class="kw">let</span> <span class="ident">guest_sockaddr_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmSockAddr</span><span class="op">&gt;</span> <span class="op">=</span>
                     <span class="ident">call_malloc_with_cast</span>(<span class="ident">ctx</span>, <span class="ident">host_addrlen</span> <span class="kw">as</span> <span class="kw">_</span>);
-                <span class="kw">let</span> <span class="ident">guest_sockaddr</span> <span class="op">=</span> <span class="ident">guest_sockaddr_ptr</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>();
+                <span class="kw">let</span> <span class="ident">guest_sockaddr</span> <span class="op">=</span> <span class="ident">guest_sockaddr_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>();
 
                 <span class="ident">guest_sockaddr</span>.<span class="ident">sa_family</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">host_sockaddr_ptr</span>).<span class="ident">sa_family</span> <span class="kw">as</span> <span class="ident">i16</span>;
                 <span class="ident">guest_sockaddr</span>.<span class="ident">sa_data</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">host_sockaddr_ptr</span>).<span class="ident">sa_data</span>;
@@ -601,8 +602,7 @@
                 }
             };
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_guest_node</span> <span class="op">=</span>
-                <span class="ident">current_guest_node_ptr</span>.<span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>();
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_guest_node</span> <span class="op">=</span> <span class="ident">current_guest_node_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>();
             <span class="ident">current_guest_node</span>.<span class="ident">ai_flags</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">current_host_node</span>).<span class="ident">ai_flags</span>;
             <span class="ident">current_guest_node</span>.<span class="ident">ai_family</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">current_host_node</span>).<span class="ident">ai_family</span>;
             <span class="ident">current_guest_node</span>.<span class="ident">ai_socktype</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">current_host_node</span>).<span class="ident">ai_socktype</span>;

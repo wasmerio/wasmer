@@ -70,12 +70,12 @@
     <span class="ident">clock_getres</span>, <span class="ident">clock_gettime</span>, <span class="ident">timespec</span>, <span class="ident">CLOCK_MONOTONIC</span>, <span class="ident">CLOCK_PROCESS_CPUTIME_ID</span>,
     <span class="ident">CLOCK_REALTIME</span>, <span class="ident">CLOCK_THREAD_CPUTIME_ID</span>,
 };
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
+<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">WasmCell</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">platform_clock_res_get</span>(
     <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
-    <span class="ident">resolution</span>: <span class="kw-2">&amp;</span><span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
+    <span class="ident">resolution</span>: <span class="ident">WasmCell</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="kw">let</span> <span class="ident">unix_clock_id</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">clock_id</span> {
         <span class="ident">__WASI_CLOCK_MONOTONIC</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">CLOCK_MONOTONIC</span>,
@@ -103,7 +103,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">platform_clock_time_get</span>(
     <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
     <span class="ident">precision</span>: <span class="ident">__wasi_timestamp_t</span>,
-    <span class="ident">time</span>: <span class="kw-2">&amp;</span><span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
+    <span class="ident">time</span>: <span class="ident">WasmCell</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="kw">let</span> <span class="ident">unix_clock_id</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">clock_id</span> {
         <span class="ident">__WASI_CLOCK_MONOTONIC</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">CLOCK_MONOTONIC</span>,

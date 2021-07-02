@@ -2567,6 +2567,19 @@
 <span id="2566">2566</span>
 <span id="2567">2567</span>
 <span id="2568">2568</span>
+<span id="2569">2569</span>
+<span id="2570">2570</span>
+<span id="2571">2571</span>
+<span id="2572">2572</span>
+<span id="2573">2573</span>
+<span id="2574">2574</span>
+<span id="2575">2575</span>
+<span id="2576">2576</span>
+<span id="2577">2577</span>
+<span id="2578">2578</span>
+<span id="2579">2579</span>
+<span id="2580">2580</span>
+<span id="2581">2581</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>, <span class="ident">clippy</span>::<span class="ident">cognitive_complexity</span>)]</span>
 
@@ -2597,11 +2610,10 @@
     <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">Borrow</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::{<span class="ident">Infallible</span>, <span class="ident">TryInto</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">trace</span>};
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Memory</span>, <span class="ident">RuntimeError</span>, <span class="ident">Value</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Memory</span>, <span class="ident">RuntimeError</span>, <span class="ident">Value</span>, <span class="ident">WasmCell</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(
     <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>,
@@ -2617,7 +2629,7 @@
 <span class="kw">fn</span> <span class="ident">write_bytes_inner</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Write</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">write_loc</span>: <span class="ident">T</span>,
     <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
-    <span class="ident">iovs_arr_cell</span>: <span class="kw-2">&amp;</span>[<span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&gt;</span>],
+    <span class="ident">iovs_arr_cell</span>: <span class="kw-2">&amp;</span>[<span class="ident">WasmCell</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&gt;</span>],
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes_written</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> <span class="ident">iov</span> <span class="kw">in</span> <span class="ident">iovs_arr_cell</span> {
@@ -2636,7 +2648,7 @@
 <span class="kw">fn</span> <span class="ident">write_bytes</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Write</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">write_loc</span>: <span class="ident">T</span>,
     <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
-    <span class="ident">iovs_arr_cell</span>: <span class="kw-2">&amp;</span>[<span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&gt;</span>],
+    <span class="ident">iovs_arr_cell</span>: <span class="kw-2">&amp;</span>[<span class="ident">WasmCell</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&gt;</span>],
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">write_bytes_inner</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">write_loc</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>);
     <span class="ident">write_loc</span>.<span class="ident">flush</span>();
@@ -2646,16 +2658,27 @@
 <span class="kw">fn</span> <span class="ident">read_bytes</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Read</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">reader</span>: <span class="ident">T</span>,
     <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
-    <span class="ident">iovs_arr_cell</span>: <span class="kw-2">&amp;</span>[<span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&gt;</span>],
+    <span class="ident">iovs_arr_cell</span>: <span class="kw-2">&amp;</span>[<span class="ident">WasmCell</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&gt;</span>],
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes_read</span> <span class="op">=</span> <span class="number">0</span>;
 
+    <span class="comment">// We allocate the raw_bytes first once instead of</span>
+    <span class="comment">// N times in the loop.</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">raw_bytes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>; <span class="number">1024</span>];
+
     <span class="kw">for</span> <span class="ident">iov</span> <span class="kw">in</span> <span class="ident">iovs_arr_cell</span> {
         <span class="kw">let</span> <span class="ident">iov_inner</span> <span class="op">=</span> <span class="ident">iov</span>.<span class="ident">get</span>();
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>::<span class="ident">new</span>(<span class="ident">iov_inner</span>.<span class="ident">buf</span>).<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">iov_inner</span>.<span class="ident">buf_len</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">raw_bytes</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>] <span class="op">=</span>
-            <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="ident">bytes</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> [<span class="kw">_</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> [<span class="kw">_</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) };
-        <span class="ident">bytes_read</span> <span class="op">+</span><span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="ident">raw_bytes</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EIO</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u32</span>;
+        <span class="ident">raw_bytes</span>.<span class="ident">clear</span>();
+        <span class="ident">raw_bytes</span>.<span class="ident">resize</span>(<span class="ident">iov_inner</span>.<span class="ident">buf_len</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="number">0</span>);
+        <span class="ident">bytes_read</span> <span class="op">+</span><span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">raw_bytes</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">__WASI_EIO</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u32</span>;
+        <span class="kw">unsafe</span> {
+            <span class="ident">memory</span>
+                .<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>()
+                .<span class="ident">subarray</span>(
+                    <span class="ident">iov_inner</span>.<span class="ident">buf</span> <span class="kw">as</span> <span class="ident">usize</span>..<span class="op">=</span>(<span class="ident">iov_inner</span>.<span class="ident">buf</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">iov_inner</span>.<span class="ident">buf_len</span> <span class="kw">as</span> <span class="ident">usize</span>),
+                )
+                .<span class="ident">copy_from</span>(<span class="kw-2">&amp;</span><span class="ident">raw_bytes</span>);
+        }
     }
     <span class="prelude-val">Ok</span>(<span class="ident">bytes_read</span>)
 }
@@ -3230,7 +3253,7 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">stdin</span>) <span class="op">=</span>
                 <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stdin_mut</span>().<span class="ident">map_err</span>(<span class="ident">WasiFsError</span>::<span class="ident">into_wasi_err</span>))
             {
-                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">stdin</span>, <span class="ident">memory</span>, <span class="ident">iov_cells</span>))
+                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">stdin</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iov_cells</span>))
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="ident">__WASI_EBADF</span>;
             }
@@ -3257,7 +3280,7 @@
                             <span class="ident">h</span>.<span class="ident">seek</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">SeekFrom</span>::<span class="ident">Start</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>)).<span class="ident">ok</span>(),
                             <span class="ident">__WASI_EIO</span>
                         );
-                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">h</span>, <span class="ident">memory</span>, <span class="ident">iov_cells</span>))
+                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">h</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iov_cells</span>))
                     } <span class="kw">else</span> {
                         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
                     }
@@ -3265,7 +3288,7 @@
                 <span class="ident">Kind</span>::<span class="ident">Dir</span> { .. } <span class="op">|</span> <span class="ident">Kind</span>::<span class="ident">Root</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">__WASI_EISDIR</span>,
                 <span class="ident">Kind</span>::<span class="ident">Symlink</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;Symlinks in wasi::fd_pread&quot;</span>),
                 <span class="ident">Kind</span>::<span class="ident">Buffer</span> { <span class="ident">buffer</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>[(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..], <span class="ident">memory</span>, <span class="ident">iov_cells</span>))
+                    <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>[(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..], <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iov_cells</span>))
                 }
             }
         }
@@ -3379,7 +3402,7 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">stdout</span>) <span class="op">=</span>
                 <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stdout_mut</span>().<span class="ident">map_err</span>(<span class="ident">WasiFsError</span>::<span class="ident">into_wasi_err</span>))
             {
-                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stdout</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stdout</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="ident">__WASI_EBADF</span>;
             }
@@ -3388,7 +3411,7 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">stderr</span>) <span class="op">=</span>
                 <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stderr_mut</span>().<span class="ident">map_err</span>(<span class="ident">WasiFsError</span>::<span class="ident">into_wasi_err</span>))
             {
-                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stderr</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stderr</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="ident">__WASI_EBADF</span>;
             }
@@ -3409,7 +3432,7 @@
                 <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
                         <span class="ident">handle</span>.<span class="ident">seek</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">SeekFrom</span>::<span class="ident">Start</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>));
-                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">handle</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">handle</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
                     } <span class="kw">else</span> {
                         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
                     }
@@ -3423,7 +3446,7 @@
                     <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(
                         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buffer</span>[(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..],
                         <span class="ident">memory</span>,
-                        <span class="ident">iovs_arr_cell</span>
+                        <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>
                     ))
                 }
             }
@@ -3465,7 +3488,7 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">stdin</span>) <span class="op">=</span>
                 <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stdin_mut</span>().<span class="ident">map_err</span>(<span class="ident">WasiFsError</span>::<span class="ident">into_wasi_err</span>))
             {
-                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">stdin</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">stdin</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="ident">__WASI_EBADF</span>;
             }
@@ -3487,7 +3510,7 @@
                 <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
                         <span class="ident">handle</span>.<span class="ident">seek</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">SeekFrom</span>::<span class="ident">Start</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>));
-                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">handle</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">handle</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
                     } <span class="kw">else</span> {
                         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
                     }
@@ -3498,7 +3521,7 @@
                 }
                 <span class="ident">Kind</span>::<span class="ident">Symlink</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;Symlinks in wasi::fd_read&quot;</span>),
                 <span class="ident">Kind</span>::<span class="ident">Buffer</span> { <span class="ident">buffer</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>[<span class="ident">offset</span>..], <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                    <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>[<span class="ident">offset</span>..], <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
                 }
             };
 
@@ -3836,7 +3859,7 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">stdout</span>) <span class="op">=</span>
                 <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stdout_mut</span>().<span class="ident">map_err</span>(<span class="ident">WasiFsError</span>::<span class="ident">into_wasi_err</span>))
             {
-                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stdout</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stdout</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="ident">__WASI_EBADF</span>;
             }
@@ -3845,7 +3868,7 @@
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">stderr</span>) <span class="op">=</span>
                 <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stderr_mut</span>().<span class="ident">map_err</span>(<span class="ident">WasiFsError</span>::<span class="ident">into_wasi_err</span>))
             {
-                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stderr</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">stderr</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="ident">__WASI_EBADF</span>;
             }
@@ -3865,7 +3888,7 @@
                 <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
                         <span class="ident">handle</span>.<span class="ident">seek</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">SeekFrom</span>::<span class="ident">Start</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>));
-                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">handle</span>, <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="ident">handle</span>, <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
                     } <span class="kw">else</span> {
                         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
                     }
@@ -3876,7 +3899,7 @@
                 }
                 <span class="ident">Kind</span>::<span class="ident">Symlink</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;Symlinks in wasi::fd_write&quot;</span>),
                 <span class="ident">Kind</span>::<span class="ident">Buffer</span> { <span class="ident">buffer</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buffer</span>[<span class="ident">offset</span>..], <span class="ident">memory</span>, <span class="ident">iovs_arr_cell</span>))
+                    <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buffer</span>[<span class="ident">offset</span>..], <span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="ident">iovs_arr_cell</span>))
                 }
             };
 
@@ -5085,18 +5108,21 @@
 <span class="doccomment">///     A pointer to a buffer where the random bytes will be written</span>
 <span class="doccomment">/// - `size_t buf_len`</span>
 <span class="doccomment">///     The number of bytes that will be written</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_get</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>, <span class="ident">buf_len</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_get</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">buf</span>: <span class="ident">u32</span>, <span class="ident">buf_len</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::random_get buf_len: {}&quot;</span>, <span class="ident">buf_len</span>);
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
-
-    <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">buf</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">buf_len</span>));
-
-    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">u8_buffer</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span>(<span class="ident">buf</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> [<span class="kw">_</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> [<span class="kw">_</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]);
-        <span class="ident">getrandom</span>::<span class="ident">getrandom</span>(<span class="ident">u8_buffer</span>)
-    };
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">u8_buffer</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0</span>; <span class="ident">buf_len</span> <span class="kw">as</span> <span class="ident">usize</span>];
+    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">getrandom</span>::<span class="ident">getrandom</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">u8_buffer</span>);
     <span class="kw">match</span> <span class="ident">res</span> {
-        <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ESUCCESS</span>,
+        <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">unsafe</span> {
+                <span class="ident">memory</span>
+                    .<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>()
+                    .<span class="ident">subarray</span>(<span class="ident">buf</span> <span class="kw">as</span> <span class="ident">usize</span>..<span class="op">=</span>(<span class="ident">buf</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">buf_len</span> <span class="kw">as</span> <span class="ident">usize</span>))
+                    .<span class="ident">copy_from</span>(<span class="kw-2">&amp;</span><span class="ident">u8_buffer</span>);
+            }
+            <span class="ident">__WASI_ESUCCESS</span>
+        }
         <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EIO</span>,
     }
 }

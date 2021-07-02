@@ -85,13 +85,17 @@
 <span id="84">84</span>
 <span id="85">85</span>
 <span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This is a wrapper around the `WasmPtr` abstraction that returns __WASI_EFAULT</span>
 <span class="doccomment">//! if memory access failed</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">syscalls</span>::<span class="ident">types</span>::{<span class="ident">__wasi_errno_t</span>, <span class="ident">__WASI_EFAULT</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">fmt</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Array</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Item</span>, <span class="ident">Memory</span>, <span class="ident">ValueType</span>, <span class="ident">WasmPtr</span> <span class="kw">as</span> <span class="ident">BaseWasmPtr</span>};
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer</span>::{
+    <span class="ident">Array</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Item</span>, <span class="ident">Memory</span>, <span class="ident">ValueType</span>, <span class="ident">WasmCell</span>, <span class="ident">WasmPtr</span> <span class="kw">as</span> <span class="ident">BaseWasmPtr</span>,
+};
 
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span>, <span class="ident">Ty</span> <span class="op">=</span> <span class="ident">Item</span><span class="op">&gt;</span>(<span class="ident">BaseWasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ty</span><span class="op">&gt;</span>);
@@ -151,7 +155,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">ValueType</span><span class="op">&gt;</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Item</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">deref</span>(<span class="ident">memory</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EFAULT</span>)
     }
 }
@@ -163,7 +167,7 @@
         <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>,
         <span class="ident">index</span>: <span class="ident">u32</span>,
         <span class="ident">length</span>: <span class="ident">u32</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>], <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">__wasi_errno_t</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="ident">index</span>, <span class="ident">length</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EFAULT</span>)
     }
 
