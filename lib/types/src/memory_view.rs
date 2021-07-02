@@ -80,6 +80,14 @@ where
             Bound::Included(end) => *end,
             Bound::Excluded(end) => *end - 1,
         };
+        assert!(
+            start < self.length,
+            "The range start is bigger than current length"
+        );
+        assert!(
+            end < self.length,
+            "The range end is bigger than current length"
+        );
         Self {
             ptr: unsafe { self.ptr.add(start) },
             length: (end - start),
@@ -97,11 +105,9 @@ where
     /// This method is unsafe because the caller will need to make sure
     /// there are no data races when copying memory into the view.
     pub unsafe fn copy_from(&self, src: &[T]) {
-        assert!(
-            src.len() == self.length,
-            "The source length must match the MemoryView length"
-        );
-        for (i, byte) in src.iter().enumerate() {
+        // We cap at a max length
+        let sliced_src = &src[..self.length];
+        for (i, byte) in sliced_src.iter().enumerate() {
             *self.ptr.offset(i as isize) = *byte;
         }
     }

@@ -94,7 +94,7 @@ fn read_bytes<T: Read>(
                 .subarray(
                     iov_inner.buf as usize..=(iov_inner.buf as usize + iov_inner.buf_len as usize),
                 )
-                .copy_from(&raw_bytes[..iov_inner.buf_len as usize]);
+                .copy_from(&raw_bytes);
         }
     }
     Ok(bytes_read)
