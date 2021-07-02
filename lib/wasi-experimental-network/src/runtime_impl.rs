@@ -556,6 +556,16 @@ fn poller_modify(
     __WASI_ESUCCESS
 }
 
+fn poller_delete(env: &WasiNetworkEnv, poll: __wasi_poll_t, fd: __wasi_fd_t) -> __wasi_errno_t {
+    let memory = env.memory();
+    let poll_arena = env.poll_arena.try_read().unwrap();
+    let (poller, _) = poll_arena.get(poll.try_into().unwrap()).unwrap();
+
+    wasi_try!(poller.delete(PollingSource(fd)));
+
+    __WASI_ESUCCESS
+}
+
 fn poller_wait(
     env: &WasiNetworkEnv,
     poll: __wasi_poll_t,

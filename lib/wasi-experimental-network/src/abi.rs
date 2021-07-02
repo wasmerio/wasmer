@@ -6,7 +6,7 @@ extern "C" {
     /// `socket_create` creates an endpoint for communication.
     pub fn socket_create(
         domain: __wasi_socket_domain_t,
-        r#type: __wasi_socket_type_t,
+        ty: __wasi_socket_type_t,
         protocol: __wasi_socket_protocol_t,
         fd_out: *mut __wasi_fd_t,
     ) -> __wasi_errno_t;
@@ -140,6 +140,8 @@ extern "C" {
         fd: __wasi_fd_t,
         event: __wasi_poll_event_t,
     ) -> __wasi_errno_t;
+
+    pub fn poller_delete(poll: __wasi_poll_t, fd: __wasi_fd_t) -> __wasi_errno_t;
 
     pub fn poller_wait(
         poll: __wasi_poll_t,

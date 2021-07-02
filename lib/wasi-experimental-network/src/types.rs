@@ -147,3 +147,24 @@ pub struct __wasi_poll_event_t {
 }
 
 unsafe impl ValueType for __wasi_poll_event_t {}
+
+#[cfg(always_fail)] // Rust will ignore it, but cbindgen will read it.
+mod cbindgen {
+    pub type __wasi_fd_t = u32;
+
+    pub type __wasi_errno_t = u32;
+
+    #[repr(C)]
+    pub struct __wasi_ciovec_t {
+        pub buf: u32,
+        pub buf_len: u32,
+    }
+
+    #[repr(C)]
+    pub struct __wasi_iovec_t {
+        pub buf: u32,
+        pub buf_len: u32,
+    }
+
+    pub type __wasi_siflags_t = u16;
+}
