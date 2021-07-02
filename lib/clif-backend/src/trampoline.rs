@@ -71,6 +71,7 @@ impl Trampolines {
     pub fn new(isa: &dyn isa::TargetIsa, module: &ModuleInfo) -> Self {
         let func_index_iter = module
             .exports
+            .map
             .values()
             .filter_map(|export| match export {
                 ExportIndex::Func(func_index) => Some(func_index),

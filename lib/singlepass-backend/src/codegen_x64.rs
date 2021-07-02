@@ -3,6 +3,7 @@
 
 use crate::emitter_x64::*;
 use crate::machine::*;
+use borsh::{BorshDeserialize, BorshSerialize};
 #[cfg(target_arch = "aarch64")]
 use dynasmrt::aarch64::Assembler;
 #[cfg(target_arch = "x86_64")]
@@ -377,7 +378,7 @@ pub struct X64ExecutionContext {
 
 /// On-disk cache format.
 /// Offsets are relative to the start of the executable image.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct CacheImage {
     /// The executable image.
     code: Vec<u8>,
@@ -397,6 +398,7 @@ pub struct CacheImage {
     msm: ModuleStateMap,
 
     /// An exception table that maps instruction offsets to exception codes.
+    #[borsh_skip]
     exception_table: ExceptionTable,
 }
 
@@ -978,7 +980,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         };
 
         let cache = SinglepassCache {
-            buffer: Arc::from(bincode::serialize(&cache_image).unwrap().into_boxed_slice()),
+            buffer: Arc::from(cache_image.try_to_vec().unwrap().into_boxed_slice()),
         };
 
         Ok((
@@ -1156,7 +1158,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         let (info, _, memory) = artifact.consume();
 
-        let cache_image: CacheImage = bincode::deserialize(memory.as_slice())
+        let cache_image: CacheImage = BorshDeserialize::deserialize(&mut memory.as_slice())
             .map_err(|x| CacheError::DeserializeError(format!("{:?}", x)))?;
 
         let mut code_mem = CodeMemory::new(cache_image.code.len());

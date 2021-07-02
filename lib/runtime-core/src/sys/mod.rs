@@ -15,6 +15,8 @@ use serde::{
     ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
+use borsh::{BorshSerialize, BorshDeserialize};
+use std::io::Write;
 
 use serde_bytes::{ByteBuf, Bytes};
 
@@ -31,6 +33,15 @@ impl Serialize for Memory {
         state.serialize_field("protection", &self.protection())?;
         state.serialize_field("data", &Bytes::new(unsafe { self.as_slice() }))?;
         state.end()
+    }
+}
+
+impl BorshSerialize for Memory {
+    fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        assert!(self.protection().is_readable());
+
+        BorshSerialize::serialize(&self.protection(), writer)?;
+        BorshSerialize::serialize(&unsafe { self.as_slice() }, writer)
     }
 }
 
@@ -78,6 +89,27 @@ impl<'de> Deserialize<'de> for Memory {
         }
 
         deserializer.deserialize_struct("Memory", &["protection", "data"], MemoryVisitor)
+    }
+}
+
+impl BorshDeserialize for Memory {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let original_protection: Protect = BorshDeserialize::deserialize(buf)?;
+        let bytes: Vec<u8> = BorshDeserialize::deserialize(buf)?;
+        let mut memory = Memory::with_size_protect(bytes.len(), Protect::ReadWrite)
+            .expect("Could not create a memory");
+
+        unsafe {
+            memory.as_slice_mut().copy_from_slice(&*bytes);
+
+            if memory.protection() != original_protection {
+                memory
+                    .protect(.., original_protection)
+                    .expect("Could not protect memory as its original protection");
+            }
+        }
+
+        Ok(memory)
     }
 }
 

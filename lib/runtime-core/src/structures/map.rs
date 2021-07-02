@@ -6,14 +6,16 @@ use std::{
     ops::{Deref, DerefMut},
     slice, vec,
 };
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Dense item map
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, BorshSerialize, BorshDeserialize)]
 pub struct Map<K, V>
 where
     K: TypedIndex,
 {
     elems: Vec<V>,
+    #[borsh_skip]
     _marker: PhantomData<K>,
 }
 

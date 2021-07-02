@@ -6,6 +6,7 @@ use nix::libc;
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{fs::File, os::unix::io::IntoRawFd, path::Path, ptr, slice, sync::Arc};
+use borsh::{BorshSerialize, BorshDeserialize};
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -251,7 +252,7 @@ impl Clone for Memory {
 }
 
 /// Kinds of memory protection.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
 #[allow(dead_code)]
 pub enum Protect {
     /// Read/write/exec allowed.

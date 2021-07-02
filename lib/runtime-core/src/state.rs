@@ -3,16 +3,39 @@
 //! generated code from one tier to another, or serializing state of a running instace.
 
 use crate::backend::RunnableModule;
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
 use std::sync::Arc;
 
 /// An index to a register
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub struct RegisterIndex(pub usize);
 
 /// A kind of wasm or constant value
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub enum WasmAbstractValue {
     /// A wasm runtime value
     Runtime,
@@ -21,7 +44,7 @@ pub enum WasmAbstractValue {
 }
 
 /// A container for the state of a running wasm instance.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct MachineState {
     /// Stack values.
     pub stack_values: Vec<MachineValue>,
@@ -38,7 +61,7 @@ pub struct MachineState {
 }
 
 /// A diff of two `MachineState`s.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct MachineStateDiff {
     /// Last.
     pub last: Option<usize>,
@@ -86,8 +109,84 @@ pub enum MachineValue {
     TwoHalves(Box<(MachineValue, MachineValue)>), // 32-bit values. TODO: optimize: add another type for inner "half" value to avoid boxing?
 }
 
+impl BorshSerialize for MachineValue {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        match self {
+            MachineValue::Undefined => writer.write_all(&[0u8])?,
+            MachineValue::Vmctx => writer.write_all(&[1u8])?,
+            MachineValue::VmctxDeref(v) => {
+                writer.write(&[2u8])?;
+                BorshSerialize::serialize(&v, writer)?;
+            }
+            MachineValue::PreserveRegister(r) => {
+                writer.write(&[3u8])?;
+                BorshSerialize::serialize(&r, writer)?;
+            }
+            MachineValue::CopyStackBPRelative(i) => {
+                writer.write(&[4u8])?;
+                BorshSerialize::serialize(&i, writer)?;
+            }
+            MachineValue::ExplicitShadow => writer.write_all(&(5 as u8).to_le_bytes())?,
+            MachineValue::WasmStack(u) => {
+                writer.write_all(&[6u8])?;
+                BorshSerialize::serialize(&(*u as u64), writer)?;
+            }
+            MachineValue::WasmLocal(u) => {
+                writer.write_all(&[7u8])?;
+                BorshSerialize::serialize(&(*u as u64), writer)?;
+            }
+            MachineValue::TwoHalves(b) => {
+                writer.write_all(&[8u8])?;
+                BorshSerialize::serialize(&b, writer)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl BorshDeserialize for MachineValue {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let variant: u8 = BorshDeserialize::deserialize(buf)?;
+        Ok(match variant {
+            0 => MachineValue::Undefined,
+            1 => MachineValue::Vmctx,
+            2 => {
+                let v: Vec<usize> = BorshDeserialize::deserialize(buf)?;
+                MachineValue::VmctxDeref(v)
+            }
+            3 => {
+                let r: RegisterIndex = BorshDeserialize::deserialize(buf)?;
+                MachineValue::PreserveRegister(r)
+            }
+            4 => {
+                let i: i32 = BorshDeserialize::deserialize(buf)?;
+                MachineValue::CopyStackBPRelative(i)
+            }
+            5 => MachineValue::ExplicitShadow,
+            6 => {
+                let u: usize = BorshDeserialize::deserialize(buf)?;
+                MachineValue::WasmStack(u)
+            }
+            7 => {
+                let u: usize = BorshDeserialize::deserialize(buf)?;
+                MachineValue::WasmLocal(u)
+            }
+            8 => {
+                let b: Box<(MachineValue, MachineValue)> = BorshDeserialize::deserialize(buf)?;
+                MachineValue::TwoHalves(b)
+            }
+            _ => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Unexpected variant",
+                ))
+            }
+        })
+    }
+}
+
 /// A map of function states.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct FunctionStateMap {
     /// Initial.
     pub initial: MachineState,
@@ -112,7 +211,7 @@ pub struct FunctionStateMap {
 }
 
 /// A kind of suspend offset.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub enum SuspendOffset {
     /// A loop.
     Loop(usize),
@@ -123,7 +222,7 @@ pub enum SuspendOffset {
 }
 
 /// Info for an offset.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct OffsetInfo {
     /// End offset.
     pub end_offset: usize, // excluded bound
@@ -134,7 +233,7 @@ pub struct OffsetInfo {
 }
 
 /// A map of module state.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct ModuleStateMap {
     /// Local functions.
     pub local_functions: BTreeMap<usize, FunctionStateMap>,
