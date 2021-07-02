@@ -182,13 +182,8 @@ impl Artifact {
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         let (_, body_slice) = ArtifactHeader::read_from_slice(bytes)?;
 
-        let inner = ArtifactInner::try_from_slice(body_slice);
-        let inner = if inner.is_ok() {
-            inner.unwrap()
-        } else {
-            serde_bench::deserialize(body_slice)
-                .map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?
-        };
+        let inner = ArtifactInner::try_from_slice(body_slice)
+            .map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
 
         Ok(Artifact { inner })
     }
