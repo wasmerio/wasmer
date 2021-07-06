@@ -5,8 +5,8 @@
 // don't want to warn about unusued code here
 #![allow(dead_code)]
 
-use std::{cell::Cell, fmt};
-pub use wasmer::{Array, FromToNativeWasmType, Memory, ValueType};
+use std::fmt;
+pub use wasmer::{Array, FromToNativeWasmType, Memory, ValueType, WasmCell};
 
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = wasmer::Item>(wasmer::WasmPtr<T, Ty>);
@@ -59,45 +59,27 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
 
 impl<T: Copy + ValueType> WasmPtr<T, wasmer::Item> {
     #[inline(always)]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
+    pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<'a, T>> {
         if self.0.offset() == 0 {
             None
         } else {
             self.0.deref(memory)
         }
     }
-
-    #[inline(always)]
-    pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<&'a mut Cell<T>> {
-        if self.0.offset() == 0 {
-            None
-        } else {
-            self.0.deref_mut(memory)
-        }
-    }
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, wasmer::Array> {
     #[inline(always)]
-    pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
-        if self.0.offset() == 0 {
-            None
-        } else {
-            self.0.deref(memory, index, length)
-        }
-    }
-
-    #[inline]
-    pub unsafe fn deref_mut<'a>(
+    pub fn deref<'a>(
         self,
         memory: &'a Memory,
         index: u32,
         length: u32,
-    ) -> Option<&'a mut [Cell<T>]> {
+    ) -> Option<Vec<WasmCell<'a, T>>> {
         if self.0.offset() == 0 {
             None
         } else {
-            self.0.deref_mut(memory, index, length)
+            self.0.deref(memory, index, length)
         }
     }
 
