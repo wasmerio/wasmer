@@ -53,9 +53,8 @@ pub unsafe extern "C" fn wasm_instance_new(
         .into_slice()
         .map(|imports| imports.iter())
         .unwrap_or_else(|| [].iter())
-        .map(|imp| &imp.inner)
+        .map(|imp| Extern::from((&**imp).clone()))
         .take(module_import_count)
-        .cloned()
         .collect();
 
     let instance = match Instance::new(wasm_module, &resolver) {
@@ -88,7 +87,7 @@ pub unsafe extern "C" fn wasm_instance_new(
 ///
 /// # Example
 ///
-/// See `wasm_instance_new`.
+/// See [`wasm_instance_new`].
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instance_t>>) {}
 
@@ -100,7 +99,7 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the engine and the store.
@@ -185,18 +184,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
     let mut extern_vec = instance
         .exports
         .iter()
-        .map(|(name, r#extern)| {
-            let function = if let Extern::Function { .. } = r#extern {
-                instance.exports.get_function(&name).ok().cloned()
-            } else {
-                None
-            };
-
-            Box::into_raw(Box::new(wasm_extern_t {
-                instance: Some(Arc::clone(instance)),
-                inner: r#extern.clone(),
-            }))
-        })
+        .map(|(_name, r#extern)| Box::into_raw(Box::new(r#extern.clone().into())))
         .collect::<Vec<*mut wasm_extern_t>>();
     extern_vec.shrink_to_fit();
 
@@ -213,7 +201,7 @@ mod tests {
     #[test]
     fn test_instance_new() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             // The `sum` host function implementation.
             wasm_trap_t* sum_callback(

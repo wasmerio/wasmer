@@ -13,8 +13,8 @@ use wasmer_types::{
     SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle,
-    VMSharedSignatureIndex, VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo,
+    TableStyle, TrapHandler, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -66,6 +66,9 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
 
     /// Returns the associated VM signatures for this `Artifact`.
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
+
+    /// Get the func data registry
+    fn func_data_registry(&self) -> &FuncDataRegistry;
 
     /// Serializes an artifact into bytes
     fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
@@ -143,6 +146,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             finished_globals,
             imports,
             self.signatures().clone(),
+            self.func_data_registry(),
             host_state,
             import_function_envs,
         )
@@ -157,6 +161,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
     /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(
         &self,
+        trap_handler: &dyn TrapHandler,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
@@ -168,7 +173,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(&data_initializers)
+            .finish_instantiation(trap_handler, &data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 }

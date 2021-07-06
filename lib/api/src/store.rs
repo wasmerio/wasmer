@@ -1,10 +1,12 @@
 use crate::tunables::BaseTunables;
 use loupe::MemoryUsage;
+use std::any::Any;
 use std::fmt;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{Engine, Tunables};
+use wasmer_engine::{is_wasm_pc, Engine, Tunables};
+use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -20,6 +22,8 @@ use wasmer_engine::{Engine, Tunables};
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
     tunables: Arc<dyn Tunables + Send + Sync>,
+    #[loupe(skip)]
+    trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn>>>>,
 }
 
 impl Store {
@@ -28,10 +32,13 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
-        Self {
-            engine: engine.cloned(),
-            tunables: Arc::new(BaseTunables::for_target(engine.target())),
-        }
+        Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
+    }
+
+    /// Set the trap handler in this store.
+    pub fn set_trap_handler(&self, handler: Option<Box<TrapHandlerFn>>) {
+        let mut m = self.trap_handler.write().unwrap();
+        *m = handler;
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
@@ -39,9 +46,14 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
+        // Make sure the signal handlers are installed.
+        // This is required for handling traps.
+        init_traps(is_wasm_pc);
+
         Self {
             engine: engine.cloned(),
             tunables: Arc::new(tunables),
+            trap_handler: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -69,6 +81,26 @@ impl PartialEq for Store {
     }
 }
 
+unsafe impl TrapHandler for Store {
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
+        if let Some(handler) = *&self.trap_handler.read().unwrap().as_ref() {
+            call(handler)
+        } else {
+            false
+        }
+    }
+}
+
+// This is required to be able to set the trap_handler in the
+// Store.
+unsafe impl Send for Store {}
+unsafe impl Sync for Store {}
+
 // We only implement default if we have assigned a default compiler and engine
 #[cfg(all(feature = "default-compiler", feature = "default-engine"))]
 impl Default for Store {
@@ -94,11 +126,11 @@ impl Default for Store {
         #[allow(unreachable_code, unused_mut)]
         fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
-                if #[cfg(feature = "default-jit")] {
-                    wasmer_engine_jit::JIT::new(config)
+                if #[cfg(feature = "default-universal")] {
+                    wasmer_engine_universal::Universal::new(config)
                         .engine()
                 } else if #[cfg(feature = "default-native")] {
-                    wasmer_engine_native::Native::new(config)
+                    wasmer_engine_dylib::Dylib::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")
@@ -109,10 +141,7 @@ impl Default for Store {
         let config = get_config();
         let engine = get_engine(config);
         let tunables = BaseTunables::for_target(engine.target());
-        Store {
-            engine: Arc::new(engine),
-            tunables: Arc::new(tunables),
-        }
+        Self::new_with_tunables(&engine, tunables)
     }
 }
 

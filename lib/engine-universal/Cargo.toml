@@ -1,0 +1,34 @@
+[package]
+name = "wasmer-engine-universal"
+version = "2.0.0"
+description = "Wasmer Universal Engine"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "engine", "universal"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT OR Apache-2.0 WITH LLVM-exception "
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasmer-types = { path = "../types", version = "2.0.0", features = ["enable-rkyv"] }
+wasmer-compiler = { path = "../compiler", version = "2.0.0", features = ["translator", "enable-rkyv"] }
+wasmer-vm = { path = "../vm", version = "2.0.0", features = ["enable-rkyv"] }
+wasmer-engine = { path = "../engine", version = "2.0.0" }
+# flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
+region = "2.2"
+cfg-if = "1.0"
+leb128 = "0.2"
+rkyv = "0.6.1"
+loupe = "0.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["winnt", "impl-default"] }
+
+[features]
+# Enable the `compiler` feature if you want the engine to compile
+# and not be only on headless mode.
+compiler = ["wasmer-compiler/translator"]
+
+[badges]
+maintenance = { status = "actively-developed" }

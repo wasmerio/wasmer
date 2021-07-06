@@ -1,33 +1,33 @@
 use crate::store::{EngineType, StoreOptions};
 use crate::warning;
 use anyhow::{Context, Result};
-use clap::Clap;
 use std::path::PathBuf;
+use structopt::StructOpt;
 use wasmer::*;
 
-#[derive(Debug, Clap)]
+#[derive(Debug, StructOpt)]
 /// The options for the `wasmer compile` subcommand
 pub struct Compile {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
     output: PathBuf,
 
     /// Output path for generated header file
-    #[clap(name = "HEADER PATH", long = "header", parse(from_os_str))]
+    #[structopt(name = "HEADER PATH", long = "header", parse(from_os_str))]
     header_path: Option<PathBuf>,
 
     /// Compilation Target triple
-    #[clap(long = "target")]
+    #[structopt(long = "target")]
     target_triple: Option<Triple>,
 
-    #[clap(flatten)]
+    #[structopt(flatten)]
     store: StoreOptions,
 
-    #[clap(short = 'm', multiple = true)]
+    #[structopt(short = "m", multiple = true)]
     cpu_features: Vec<CpuFeature>,
 }
 
@@ -43,17 +43,19 @@ impl Compile {
         target_triple: &Triple,
     ) -> Result<&'static str> {
         Ok(match engine_type {
-            #[cfg(feature = "native")]
-            EngineType::Native => {
-                wasmer_engine_native::NativeArtifact::get_default_extension(target_triple)
+            #[cfg(feature = "dylib")]
+            EngineType::Dylib => {
+                wasmer_engine_dylib::DylibArtifact::get_default_extension(target_triple)
             }
-            #[cfg(feature = "jit")]
-            EngineType::JIT => wasmer_engine_jit::JITArtifact::get_default_extension(target_triple),
-            #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => {
-                wasmer_engine_object_file::ObjectFileArtifact::get_default_extension(target_triple)
+            #[cfg(feature = "universal")]
+            EngineType::Universal => {
+                wasmer_engine_universal::UniversalArtifact::get_default_extension(target_triple)
             }
-            #[cfg(not(all(feature = "native", feature = "jit", feature = "object-file")))]
+            #[cfg(feature = "staticlib")]
+            EngineType::Staticlib => {
+                wasmer_engine_staticlib::StaticlibArtifact::get_default_extension(target_triple)
+            }
+            #[cfg(not(all(feature = "dylib", feature = "universal", feature = "staticlib")))]
             _ => bail!("selected engine type is not compiled in"),
         })
     }
@@ -103,14 +105,14 @@ impl Compile {
             self.output.display(),
         );
 
-        #[cfg(feature = "object-file")]
-        if engine_type == EngineType::ObjectFile {
-            let artifact: &wasmer_engine_object_file::ObjectFileArtifact =
-                module.artifact().as_ref().downcast_ref().context("Engine type is ObjectFile but could not downcast artifact into ObjectFileArtifact")?;
+        #[cfg(feature = "staticlib")]
+        if engine_type == EngineType::Staticlib {
+            let artifact: &wasmer_engine_staticlib::StaticlibArtifact =
+                module.artifact().as_ref().downcast_ref().context("Engine type is Staticlib but could not downcast artifact into StaticlibArtifact")?;
             let symbol_registry = artifact.symbol_registry();
             let metadata_length = artifact.metadata_length();
             let module_info = module.info();
-            let header_file_src = crate::c_gen::object_file_header::generate_header_file(
+            let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
                 module_info,
                 symbol_registry,
                 metadata_length,

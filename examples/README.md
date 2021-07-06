@@ -107,7 +107,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example exported-globals --release --features "cranelift"
+   $ cargo run --example exported-global --release --features "cranelift"
    ```
 
    </details>
@@ -153,7 +153,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example imported-globals --release --features "cranelift"
+   $ cargo run --example imported-global --release --features "cranelift"
    ```
 
    </details>
@@ -220,23 +220,23 @@ example.
 
 ### Engines
 
-1. [**JIT engine**][engine-jit], explains what an engine is, what the
-   JIT engine is, and how to set it up. The example completes itself
+1. [**Universal engine**][engine-universal], explains what an engine is, what the
+   Universal engine is, and how to set it up. The example completes itself
    with the compilation of the Wasm module, its instantiation, and
    finally, by calling an exported function.
    
-   _Keywords_: JIT, engine, in-memory, executable code.
+   _Keywords_: Universal, engine, in-memory, executable code.
    
    <details>
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example engine-jit --release --features "cranelift"
+   $ cargo run --example engine-universal --release --features "cranelift"
    ```
 
    </details>
 
-2. [**Native engine**][engine-native], explains what a native engine
+2. [**Dylib engine**][engine-dylib], explains what a Dylib engine
    is, and how to set it up. The example completes itself with the
    compilation of the Wasm module, its instantiation, and finally, by
    calling an exported function.
@@ -248,7 +248,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example engine-native --release --features "cranelift"
+   $ cargo run --example engine-dylib --release --features "cranelift"
    ```
 
    </details>
@@ -375,8 +375,8 @@ example.
    </details>
 
 [hello-world]: ./hello_world.rs
-[engine-jit]: ./engine_jit.rs
-[engine-native]: ./engine_native.rs
+[engine-universal]: ./engine_universal.rs
+[engine-dylib]: ./engine_dylib.rs
 [engine-headless]: ./engine_headless.rs
 [compiler-singlepass]: ./compiler_singlepass.rs
 [compiler-cranelift]: ./compiler_cranelift.rs

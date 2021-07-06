@@ -3,12 +3,12 @@ use libc::{
     clock_getres, clock_gettime, timespec, CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
     CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
 };
-use std::cell::Cell;
 use std::mem;
+use wasmer::WasmCell;
 
 pub fn platform_clock_res_get(
     clock_id: __wasi_clockid_t,
-    resolution: &Cell<__wasi_timestamp_t>,
+    resolution: WasmCell<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let unix_clock_id = match clock_id {
         __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,
@@ -36,7 +36,7 @@ pub fn platform_clock_res_get(
 pub fn platform_clock_time_get(
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
-    time: &Cell<__wasi_timestamp_t>,
+    time: WasmCell<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let unix_clock_id = match clock_id {
         __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,

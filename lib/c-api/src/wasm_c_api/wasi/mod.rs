@@ -6,7 +6,7 @@ mod capture_files;
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
+    externals::{wasm_extern_vec_t, wasm_func_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::wasm_store_t,
@@ -199,25 +199,6 @@ pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<was
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
-/// This function is deprecated. You may safely remove all calls to it and everything
-/// will continue to work.
-///
-/// cbindgen:prefix=DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
-#[no_mangle]
-pub extern "C" fn wasi_env_set_instance(
-    _env: &mut wasi_env_t,
-    _instance: &wasm_instance_t,
-) -> bool {
-    true
-}
-
-/// This function is deprecated. You may safely remove all calls to it and everything
-/// will continue to work.
-///
-/// cbindgen:prefix=DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
-#[no_mangle]
-pub extern "C" fn wasi_env_set_memory(_env: &mut wasi_env_t, _memory: &wasm_memory_t) {}
-
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_read_stdout(
     env: &mut wasi_env_t,
@@ -390,10 +371,7 @@ fn wasi_get_imports_inner(
                 }));
             let inner = Extern::from_vm_export(store, export);
 
-            Some(Box::new(wasm_extern_t {
-                instance: None,
-                inner,
-            }))
+            Some(Box::new(inner.into()))
         })
         .collect::<Option<Vec<_>>>()?
         .into();
@@ -407,10 +385,7 @@ pub unsafe extern "C" fn wasi_get_start_function(
 ) -> Option<Box<wasm_func_t>> {
     let start = c_try!(instance.inner.exports.get_function("_start"));
 
-    Some(Box::new(wasm_func_t {
-        inner: start.clone(),
-        instance: Some(instance.inner.clone()),
-    }))
+    Some(Box::new(wasm_func_t::new(start.clone())))
 }
 
 #[cfg(test)]
@@ -420,7 +395,7 @@ mod tests {
     #[test]
     fn test_wasi_get_wasi_version_snapshot0() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -451,7 +426,7 @@ mod tests {
     #[test]
     fn test_wasi_get_wasi_version_snapshot1() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -482,7 +457,7 @@ mod tests {
     #[test]
     fn test_wasi_get_wasi_version_invalid() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();

@@ -7,8 +7,6 @@ pub use self::function::{
     FromToNativeWasmType, Function, HostFunction, WasmTypeList, WithEnv, WithoutEnv,
 };
 
-#[cfg(feature = "deprecated")]
-pub use self::function::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 pub use self::global::Global;
 pub use self::memory::Memory;
 pub use self::table::Table;
@@ -41,13 +39,13 @@ impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Self::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Self::Memory(ft) => ExternType::Memory(ft.ty()),
             Self::Table(tt) => ExternType::Table(*tt.ty()),
             Self::Global(gt) => ExternType::Global(*gt.ty()),
         }
     }
 
-    /// Create an `Extern` from an `wasmer_vm::Export`.
+    /// Create an `Extern` from an `wasmer_engine::Export`.
     pub fn from_vm_export(store: &Store, export: Export) -> Self {
         match export {
             Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
@@ -71,6 +69,15 @@ impl<'a> Exportable<'a> for Extern {
     fn get_self_from_extern(_extern: &'a Self) -> Result<&'a Self, ExportError> {
         // Since this is already an extern, we can just return it.
         Ok(_extern)
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        match self {
+            Self::Function(f) => f.into_weak_instance_ref(),
+            Self::Global(g) => g.into_weak_instance_ref(),
+            Self::Memory(m) => m.into_weak_instance_ref(),
+            Self::Table(t) => t.into_weak_instance_ref(),
+        }
     }
 }
 

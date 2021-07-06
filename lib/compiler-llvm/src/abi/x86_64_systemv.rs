@@ -4,7 +4,7 @@ use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    types::{BasicType, FunctionType, StructType},
+    types::{BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
     values::{
         BasicValue, BasicValueEnum, CallSiteValue, FloatValue, FunctionValue, IntValue,
         PointerValue, VectorValue,
@@ -92,23 +92,31 @@ impl Abi for X86_64SystemV {
                 Type::I32 | Type::F32 => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                Type::ExternRef | Type::FuncRef => 64, /* pointer */
             })
             .collect::<Vec<i32>>();
 
         Ok(match sig_returns_bitwidths.as_slice() {
             [] => (
-                intrinsics
-                    .void_ty
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                intrinsics.void_ty.fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
                 vmctx_attributes(0),
             ),
             [_] => {
                 let single_value = sig.results()[0];
                 (
-                    type_to_llvm(intrinsics, single_value)?
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    type_to_llvm(intrinsics, single_value)?.fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                     vmctx_attributes(0),
                 )
             }
@@ -120,23 +128,34 @@ impl Abi for X86_64SystemV {
                     .collect::<Result<_, _>>()?;
 
                 (
-                    context
-                        .struct_type(&basic_types, false)
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    context.struct_type(&basic_types, false).fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                     vmctx_attributes(0),
                 )
             }
             [32, 32] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
-                intrinsics
-                    .f32_ty
-                    .vec_type(2)
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                intrinsics.f32_ty.vec_type(2).fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
                 vmctx_attributes(0),
             ),
             [32, 32] => (
-                intrinsics
-                    .i64_ty
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                intrinsics.i64_ty.fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
                 vmctx_attributes(0),
             ),
             [32, 32, _] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
@@ -148,7 +167,13 @@ impl Abi for X86_64SystemV {
                         ],
                         false,
                     )
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                 vmctx_attributes(0),
             ),
             [32, 32, _] => (
@@ -160,7 +185,13 @@ impl Abi for X86_64SystemV {
                         ],
                         false,
                     )
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                 vmctx_attributes(0),
             ),
             [64, 32, 32] if sig.results()[1] == Type::F32 && sig.results()[2] == Type::F32 => (
@@ -172,7 +203,13 @@ impl Abi for X86_64SystemV {
                         ],
                         false,
                     )
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                 vmctx_attributes(0),
             ),
             [64, 32, 32] => (
@@ -184,7 +221,13 @@ impl Abi for X86_64SystemV {
                         ],
                         false,
                     )
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                 vmctx_attributes(0),
             ),
             [32, 32, 32, 32] => (
@@ -204,7 +247,13 @@ impl Abi for X86_64SystemV {
                         ],
                         false,
                     )
-                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                 vmctx_attributes(0),
             ),
             _ => {
@@ -227,9 +276,13 @@ impl Abi for X86_64SystemV {
                 attributes.append(&mut vmctx_attributes(1));
 
                 (
-                    intrinsics
-                        .void_ty
-                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    intrinsics.void_ty.fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
                     attributes,
                 )
             }
@@ -316,26 +369,7 @@ impl Abi for X86_64SystemV {
                     );
                     builder.build_bitcast(value, intrinsics.f32_ty, "")
                 }
-                Type::I64 => {
-                    assert!(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.i64_ty, "")
-                }
-                Type::F64 => {
-                    assert!(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.f64_ty, "")
-                }
-                Type::V128 => {
-                    assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
-                    value
-                }
-                Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                _ => panic!("should only be called to repack 32-bit values"),
             }
         };
 
@@ -365,8 +399,7 @@ impl Abi for X86_64SystemV {
                         Type::I32 | Type::F32 => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
@@ -475,15 +508,12 @@ impl Abi for X86_64SystemV {
             .results()
             .iter()
             .map(|ty| match ty {
-                Type::I32 | Type::F32 => Ok(32),
-                Type::I64 | Type::F64 => Ok(64),
-                Type::V128 => Ok(128),
-                ty => Err(CompileError::Codegen(format!(
-                    "is_sret: unimplemented wasmer_types type {:?}",
-                    ty
-                ))),
+                Type::I32 | Type::F32 => 32,
+                Type::I64 | Type::F64 => 64,
+                Type::V128 => 128,
+                Type::ExternRef | Type::FuncRef => 64, /* pointer */
             })
-            .collect::<Result<Vec<i32>, _>>()?;
+            .collect::<Vec<i32>>();
 
         Ok(!matches!(
             func_sig_returns_bitwidths.as_slice(),

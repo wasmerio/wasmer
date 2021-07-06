@@ -2,7 +2,7 @@ use wasmer::{
     imports, wat2wasm, Function, Instance, Module, NativeFunc, Store, TableType, Type, Value,
 };
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 
 /// A function we'll call through a table.
 fn host_callback(arg1: i32, arg2: i32) -> i32 {
@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     // We set up our store with an engine and a compiler.
-    let store = Store::new(&JIT::new(Cranelift::default()).engine());
+    let store = Store::new(&Universal::new(Cranelift::default()).engine());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};
@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
         &TableType {
             ty: Type::FuncRef,
             minimum: 3,
-            maximum: Some(6),
+            maximum: Some(6)
         }
     );
 
@@ -113,12 +113,12 @@ fn main() -> anyhow::Result<()> {
         &TableType {
             ty: Type::FuncRef,
             minimum: 3,
-            maximum: Some(6),
+            maximum: Some(6)
         }
     );
-    // Now demonstarte that the function we grew the table with is actually in the table.
+    // Now demonstrate that the function we grew the table with is actually in the table.
     for table_index in 3..6 {
-        if let Value::FuncRef(f) = guest_table.get(table_index as _).unwrap() {
+        if let Value::FuncRef(Some(f)) = guest_table.get(table_index as _).unwrap() {
             let result = f.call(&[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {
@@ -140,7 +140,7 @@ fn main() -> anyhow::Result<()> {
     // Now demonstrate that the host and guest see the same table and that both
     // get the same result.
     for table_index in 3..6 {
-        if let Value::FuncRef(f) = guest_table.get(table_index as _).unwrap() {
+        if let Value::FuncRef(Some(f)) = guest_table.get(table_index as _).unwrap() {
             let result = f.call(&[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {

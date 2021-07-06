@@ -2,39 +2,39 @@
 
 use crate::store::{CompilerOptions, EngineType};
 use anyhow::{Context, Result};
-use clap::Clap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use structopt::StructOpt;
 use wasmer::*;
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
 
-#[derive(Debug, Clap)]
+#[derive(Debug, StructOpt)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
     output: PathBuf,
 
     /// Compilation Target triple
-    #[clap(long = "target")]
+    #[structopt(long = "target")]
     target_triple: Option<Triple>,
 
-    #[clap(flatten)]
+    #[structopt(flatten)]
     compiler: CompilerOptions,
 
-    #[clap(short = 'm', multiple = true)]
+    #[structopt(short = "m", multiple = true)]
     cpu_features: Vec<CpuFeature>,
 
     /// Additional libraries to link against.
     /// This is useful for fixing linker errors that may occur on some systems.
-    #[clap(short = 'l', multiple = true)]
+    #[structopt(short = "l", multiple = true)]
     libraries: Vec<String>,
 }
 
@@ -56,7 +56,7 @@ impl CreateExe {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let engine_type = EngineType::ObjectFile;
+        let engine_type = EngineType::Staticlib;
         let (store, compiler_type) = self
             .compiler
             .get_store_for_target_and_engine(target.clone(), engine_type)?;
@@ -81,14 +81,14 @@ impl CreateExe {
             Module::from_file(&store, &wasm_module_path).context("failed to compile Wasm")?;
         let _ = module.serialize_to_file(&wasm_object_path)?;
 
-        let artifact: &wasmer_engine_object_file::ObjectFileArtifact =
+        let artifact: &wasmer_engine_staticlib::StaticlibArtifact =
             module.artifact().as_ref().downcast_ref().context(
-                "Engine type is ObjectFile but could not downcast artifact into ObjectFileArtifact",
+                "Engine type is Staticlib but could not downcast artifact into StaticlibArtifact",
             )?;
         let symbol_registry = artifact.symbol_registry();
         let metadata_length = artifact.metadata_length();
         let module_info = module.info();
-        let header_file_src = crate::c_gen::object_file_header::generate_header_file(
+        let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
             module_info,
             symbol_registry,
             metadata_length,

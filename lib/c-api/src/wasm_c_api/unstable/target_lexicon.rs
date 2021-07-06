@@ -9,7 +9,7 @@
 //! # use inline_c::assert_c;
 //! # fn main() {
 //! #    (assert_c! {
-//! # #include "tests/wasmer_wasm.h"
+//! # #include "tests/wasmer.h"
 //! #
 //! int main() {
 //!     // Declare the target triple.
@@ -112,7 +112,7 @@ pub extern "C" fn wasmer_target_delete(_target: Option<Box<wasmer_target_t>>) {}
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     wasm_name_t triple_name;
@@ -165,7 +165,7 @@ pub unsafe extern "C" fn wasmer_triple_new(
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     wasmer_triple_t* triple = wasmer_triple_new_from_host();
@@ -229,7 +229,7 @@ pub extern "C" fn wasmer_triple_delete(_triple: Option<Box<wasmer_triple_t>>) {}
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create a new CPU feature set.

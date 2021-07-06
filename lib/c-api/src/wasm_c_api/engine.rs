@@ -12,12 +12,12 @@ use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer::Engine;
-#[cfg(feature = "jit")]
-use wasmer_engine_jit::JIT;
-#[cfg(feature = "native")]
-use wasmer_engine_native::Native;
-#[cfg(feature = "object-file")]
-use wasmer_engine_object_file::ObjectFile;
+#[cfg(feature = "dylib")]
+use wasmer_engine_dylib::Dylib;
+#[cfg(feature = "staticlib")]
+use wasmer_engine_staticlib::Staticlib;
+#[cfg(feature = "universal")]
+use wasmer_engine_universal::Universal;
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -65,28 +65,28 @@ impl Default for wasmer_compiler_t {
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum wasmer_engine_t {
-    /// Variant to represent the JIT engine. See the
-    /// [`wasmer_engine_jit`] Rust crate.
-    JIT = 0,
+    /// Variant to represent the Universal engine. See the
+    /// [`wasmer_engine_universal`] Rust crate.
+    UNIVERSAL = 0,
 
-    /// Variant to represent the Native engine. See the
-    /// [`wasmer_engine_native`] Rust crate.
-    NATIVE = 1,
+    /// Variant to represent the Dylib engine. See the
+    /// [`wasmer_engine_dylib`] Rust crate.
+    DYLIB = 1,
 
-    /// Variant to represent the Object File engine. See the
-    /// [`wasmer_engine_object_file`] Rust crate.
-    OBJECT_FILE = 2,
+    /// Variant to represent the Staticlib engine. See the
+    /// [`wasmer_engine_staticlib`] Rust crate.
+    STATICLIB = 2,
 }
 
 impl Default for wasmer_engine_t {
     fn default() -> Self {
         cfg_if! {
-            if #[cfg(feature = "jit")] {
-                Self::JIT
-            } else if #[cfg(feature = "native")] {
-                Self::NATIVE
-            } else if #[cfg(feature = "object-file")] {
-                Self::OBJECT_FILE
+            if #[cfg(feature = "universal")] {
+                Self::UNIVERSAL
+            } else if #[cfg(feature = "dylib")] {
+                Self::DYLIB
+            } else if #[cfg(feature = "staticlib")] {
+                Self::STATICLIB
             } else {
                 compile_error!("Please enable one of the engines")
             }
@@ -105,6 +105,7 @@ pub struct wasm_config_t {
     compiler: wasmer_compiler_t,
     #[cfg(feature = "middlewares")]
     pub(super) middlewares: Vec<wasmer_middleware_t>,
+    pub(super) nan_canonicalization: bool,
     pub(super) features: Option<Box<wasmer_features_t>>,
     pub(super) target: Option<Box<wasmer_target_t>>,
 }
@@ -117,7 +118,7 @@ pub struct wasm_config_t {
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the configuration.
@@ -156,7 +157,7 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the configuration.
@@ -185,7 +186,7 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the configuration.
@@ -239,19 +240,19 @@ pub extern "C" fn wasm_config_set_compiler(
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create the configuration.
 ///     wasm_config_t* config = wasm_config_new();
 ///
-///     // Use the JIT engine, if available.
-///     if (wasmer_is_engine_available(JIT)) {
-///         wasm_config_set_engine(config, JIT);
+///     // Use the Universal engine, if available.
+///     if (wasmer_is_engine_available(UNIVERSAL)) {
+///         wasm_config_set_engine(config, UNIVERSAL);
 ///     }
-///     // Or maybe the Native engine?
-///     else if (wasmer_is_engine_available(NATIVE)) {
-///         wasm_config_set_engine(config, NATIVE);
+///     // Or maybe the Dylib engine?
+///     else if (wasmer_is_engine_available(DYLIB)) {
+///         wasm_config_set_engine(config, DYLIB);
 ///     }
 ///     // OK, let's do not specify any particular engine.
 ///
@@ -284,9 +285,9 @@ pub struct wasm_engine_t {
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
 
-// Compiler JIT
 #[cfg(feature = "compiler")]
 use wasmer::CompilerConfig;
+
 #[cfg(feature = "compiler")]
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
@@ -303,8 +304,8 @@ fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
 }
 
 cfg_if! {
-    if #[cfg(all(feature = "jit", feature = "compiler"))] {
-        /// Creates a new JIT engine with the default compiler.
+    if #[cfg(all(feature = "universal", feature = "compiler"))] {
+        /// Creates a new Universal engine with the default compiler.
         ///
         /// # Example
         ///
@@ -314,11 +315,11 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(compiler_config).engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Universal::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    } else if #[cfg(feature = "jit")] {
-        /// Creates a new headless JIT engine.
+    } else if #[cfg(feature = "universal")] {
+        /// Creates a new headless Universal engine.
         ///
         /// # Example
         ///
@@ -327,11 +328,11 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Universal::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    } else if #[cfg(all(feature = "native", feature = "compiler"))] {
-        /// Creates a new native engine with the default compiler.
+    } else if #[cfg(all(feature = "dylib", feature = "compiler"))] {
+        /// Creates a new Dylib engine with the default compiler.
         ///
         /// # Example
         ///
@@ -341,11 +342,11 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(compiler_config).engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Dylib::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    } else if #[cfg(feature = "native")] {
-        /// Creates a new headless native engine.
+    } else if #[cfg(feature = "dylib")] {
+        /// Creates a new headless Dylib engine.
         ///
         /// # Example
         ///
@@ -354,14 +355,14 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::headless().engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Dylib::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
-    // There are currently no uses of the object-file engine + compiler from the C API.
+    // There are currently no uses of the Staticlib engine + compiler from the C API.
     // So if we get here, we default to headless mode regardless of if `compiler` is enabled.
-    else if #[cfg(feature = "object-file")] {
-        /// Creates a new headless object-file engine.
+    else if #[cfg(feature = "staticlib")] {
+        /// Creates a new headless Staticlib engine.
         ///
         /// # Example
         ///
@@ -370,7 +371,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(ObjectFile::headless().engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Staticlib::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     } else {
@@ -383,7 +384,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            unimplemented!("No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature jit`");
+            unimplemented!("No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature universal`");
         }
     }
 }
@@ -396,7 +397,7 @@ cfg_if! {
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Create a default engine.
@@ -482,11 +483,15 @@ pub extern "C" fn wasm_engine_new_with_config(
                 compiler_config.push_middleware(middleware.inner);
             }
 
+            if config.nan_canonicalization {
+                compiler_config.canonicalize_nans(true);
+            }
+
             let inner: Arc<dyn Engine + Send + Sync> = match config.engine {
-                wasmer_engine_t::JIT => {
+                wasmer_engine_t::UNIVERSAL => {
                     cfg_if! {
-                        if #[cfg(feature = "jit")] {
-                            let mut builder = JIT::new(compiler_config);
+                        if #[cfg(feature = "universal")] {
+                            let mut builder = Universal::new(compiler_config);
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -498,14 +503,14 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `jit` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `universal` feature.");
                         }
                     }
                 },
-                wasmer_engine_t::NATIVE => {
+                wasmer_engine_t::DYLIB => {
                     cfg_if! {
-                        if #[cfg(feature = "native")] {
-                            let mut builder = Native::new(compiler_config);
+                        if #[cfg(feature = "dylib")] {
+                            let mut builder = Dylib::new(compiler_config);
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -517,16 +522,16 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `native` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `dylib` feature.");
                         }
                     }
                 },
-                wasmer_engine_t::OBJECT_FILE => {
+                wasmer_engine_t::STATICLIB => {
                     cfg_if! {
-                        // There are currently no uses of the object-file engine + compiler from the C API.
+                        // There are currently no uses of the Staticlib engine + compiler from the C API.
                         // So we run in headless mode.
-                        if #[cfg(feature = "object-file")] {
-                            let mut builder = ObjectFile::headless();
+                        if #[cfg(feature = "staticlib")] {
+                            let mut builder = Staticlib::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -538,7 +543,7 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
                         }
                     }
                 },
@@ -546,10 +551,10 @@ pub extern "C" fn wasm_engine_new_with_config(
             Some(Box::new(wasm_engine_t { inner }))
         } else {
             let inner: Arc<dyn Engine + Send + Sync> = match config.engine {
-                wasmer_engine_t::JIT => {
+                wasmer_engine_t::UNIVERSAL => {
                     cfg_if! {
-                        if #[cfg(feature = "jit")] {
-                            let mut builder = JIT::headless();
+                        if #[cfg(feature = "universal")] {
+                            let mut builder = Universal::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -561,14 +566,14 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `jit` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `universal` feature.");
                         }
                     }
                 },
-                wasmer_engine_t::NATIVE => {
+                wasmer_engine_t::DYLIB => {
                     cfg_if! {
-                        if #[cfg(feature = "native")] {
-                            let mut builder = Native::headless();
+                        if #[cfg(feature = "dylib")] {
+                            let mut builder = Dylib::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -580,14 +585,14 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `native` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `dylib` feature.");
                         }
                     }
                 },
-                wasmer_engine_t::OBJECT_FILE => {
+                wasmer_engine_t::STATICLIB => {
                     cfg_if! {
-                        if #[cfg(feature = "object-file")] {
-                            let mut builder = ObjectFile::headless();
+                        if #[cfg(feature = "staticlib")] {
+                            let mut builder = Staticlib::headless();
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
@@ -599,7 +604,7 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             Arc::new(builder.engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
                         }
                     }
                 },
@@ -616,7 +621,7 @@ mod tests {
     #[test]
     fn test_engine_new() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();

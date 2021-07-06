@@ -13,7 +13,7 @@
 //! # use inline_c::assert_c;
 //! # fn main() {
 //! #    (assert_c! {
-//! # #include "tests/wasmer_wasm.h"
+//! # #include "tests/wasmer.h"
 //! #
 //! int main() {
 //!     // Create an invalid WebAssembly module from a WAT definition,

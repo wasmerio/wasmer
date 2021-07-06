@@ -6,7 +6,7 @@ use wasm_smith::{Config, ConfiguredModule};
 use wasmer::wasmparser::Operator;
 use wasmer::{imports, CompilerConfig, Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_jit::JIT;
+use wasmer_engine_universal::Universal;
 use wasmer_middlewares::Metering;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
@@ -24,6 +24,14 @@ impl Config for NoImportsConfig {
     }
 }
 
+#[derive(Arbitrary)]
+struct WasmSmithModule(ConfiguredModule<NoImportsConfig>);
+impl std::fmt::Debug for WasmSmithModule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&wasmprinter::print_bytes(self.0.to_bytes()).unwrap())
+    }
+}
+
 fn cost(operator: &Operator) -> u64 {
     match operator {
         Operator::LocalGet { .. } | Operator::I32Const { .. } => 1,
@@ -32,23 +40,30 @@ fn cost(operator: &Operator) -> u64 {
     }
 }
 
-fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
-    let wasm_bytes = module.to_bytes();
+fuzz_target!(|module: WasmSmithModule| {
+    let wasm_bytes = module.0.to_bytes();
+
+    if let Ok(path) = std::env::var("DUMP_TESTCASE") {
+        use std::fs::File;
+        use std::io::Write;
+        let mut file = File::create(path).unwrap();
+        file.write_all(&wasm_bytes).unwrap();
+        return;
+    }
+
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
     let metering = Arc::new(Metering::new(10, cost));
     compiler.push_middleware(metering);
-    let store = Store::new(&JIT::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes).unwrap();
     match Instance::new(&module, &imports! {}) {
         Ok(_) => {}
         Err(e) => {
             let error_message = format!("{}", e);
-            if error_message
-                .contains("RuntimeError: memory out of bounds: data segment does not fit")
-                || error_message
-                    .contains("RuntimeError: table out of bounds: elements segment does not fit")
+            if error_message.starts_with("RuntimeError: ")
+                && error_message.contains("out of bounds")
             {
                 return;
             }

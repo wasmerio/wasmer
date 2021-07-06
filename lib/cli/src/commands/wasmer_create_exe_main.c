@@ -1,5 +1,4 @@
-#include "wasmer_wasm.h"
-#include "wasm.h"
+#include "wasmer.h"
 #include "my_wasm.h"
 
 #include <stdio.h>
@@ -89,11 +88,12 @@ static void handle_arguments(wasi_config_t *wasi_config, int argc,
 
 int main(int argc, char *argv[]) {
   wasm_config_t *config = wasm_config_new();
-  wasm_config_set_engine(config, OBJECT_FILE);
+  wasm_config_set_engine(config, STATICLIB);
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
 
-  wasm_module_t *module = wasmer_object_file_engine_new(store, argv[0]);
+  wasm_module_t *module = wasmer_staticlib_engine_new(store, argv[0]);
+
   if (!module) {
     fprintf(stderr, "Failed to create module\n");
     print_wasmer_error();

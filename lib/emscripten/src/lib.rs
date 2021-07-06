@@ -7,7 +7,7 @@
     unused_unsafe,
     unreachable_patterns
 )]
-#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
 #[macro_use]
@@ -17,11 +17,11 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::f64;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, Exports, ExternRef, Function, FunctionType, Global, ImportObject, Instance,
-    LazyInit, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType,
-    Val, ValType, WasmerEnv,
+    imports, namespace, Exports, Function, FunctionType, Global, ImportObject, Instance, LazyInit,
+    Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val,
+    ValType, WasmerEnv,
 };
 
 #[cfg(unix)]
@@ -71,7 +71,7 @@ pub use self::utils::{
 #[derive(Clone)]
 /// The environment provided to the Emscripten imports.
 pub struct EmEnv {
-    memory: Arc<Option<Memory>>,
+    memory: Arc<RwLock<Option<Memory>>>,
     data: Arc<Mutex<EmscriptenData>>,
 }
 
@@ -86,21 +86,19 @@ impl WasmerEnv for EmEnv {
 impl EmEnv {
     pub fn new(data: &EmscriptenGlobalsData, mapped_dirs: HashMap<String, PathBuf>) -> Self {
         Self {
-            memory: Arc::new(None),
+            memory: Arc::new(RwLock::new(None)),
             data: Arc::new(Mutex::new(EmscriptenData::new(data.clone(), mapped_dirs))),
         }
     }
 
     pub fn set_memory(&mut self, memory: Memory) {
-        let ptr = Arc::as_ptr(&self.memory) as *mut _;
-        unsafe {
-            *ptr = Some(memory);
-        }
+        let mut w = self.memory.write().unwrap();
+        *w = Some(memory);
     }
 
     /// Get a reference to the memory
-    pub fn memory(&self, _mem_idx: u32) -> &Memory {
-        (*self.memory).as_ref().unwrap()
+    pub fn memory(&self, _mem_idx: u32) -> Memory {
+        (&*self.memory.read().unwrap()).as_ref().cloned().unwrap()
     }
 }
 
@@ -477,8 +475,7 @@ impl EmscriptenGlobals {
             minimum: table_min,
             maximum: table_max,
         };
-        // TODO: review init value
-        let table = Table::new(store, table_type, Val::ExternRef(ExternRef::null())).unwrap();
+        let table = Table::new(store, table_type, Val::FuncRef(None)).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;

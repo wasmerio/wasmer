@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 
 wasm_trap_t* host_func_callback(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
     printf("Calling back...\n> ");
@@ -124,10 +124,6 @@ int main(int argc, const char* argv[]) {
 
     printf("Got the exported memory: %p\n", memory);
 
-    wasm_func_delete(func);
-    wasm_global_delete(global);
-    wasm_table_delete(table);
-    wasm_memory_delete(memory);
     wasm_module_delete(module);
     wasm_extern_vec_delete(&exports);
     wasm_instance_delete(instance);

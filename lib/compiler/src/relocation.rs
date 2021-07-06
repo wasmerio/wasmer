@@ -14,6 +14,8 @@ use crate::lib::std::vec::Vec;
 use crate::section::SectionIndex;
 use crate::{Addend, CodeOffset, JumpTable};
 use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::PrimaryMap;
@@ -22,6 +24,10 @@ use wasmer_vm::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, MemoryUsage)]
 pub enum RelocationKind {
     /// absolute 4-byte
@@ -38,21 +44,16 @@ pub enum RelocationKind {
     X86CallPCRel4,
     /// x86 call to PLT-relative 4-byte
     X86CallPLTRel4,
-    // /// x86 GOT PC-relative 4-byte
-    // X86GOTPCRel4,
-
-    // /// Arm32 call target
-    // Arm32Call,
-
-    // /// Arm64 call target
-    // Arm64Call,
-
+    /// x86 GOT PC-relative 4-byte
+    X86GOTPCRel4,
+    /// Arm32 call target
+    Arm32Call,
+    /// Arm64 call target
+    Arm64Call,
     // /// RISC-V call target
     // RiscvCall,
-
-    // /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
-    // ElfX86_64TlsGd,
-
+    /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
+    ElfX86_64TlsGd,
     // /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
     // MachOX86_64Tlv,
 }
@@ -69,10 +70,9 @@ impl fmt::Display for RelocationKind {
             Self::X86PCRelRodata4 => write!(f, "PCRelRodata4"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
-            // Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
-            // Self::Arm32Call | Self::Arm64Call | Self::RiscvCall => write!(f, "Call"),
-
-            // Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
+            Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
+            Self::Arm32Call | Self::Arm64Call => write!(f, "Call"),
+            Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }
@@ -80,6 +80,10 @@ impl fmt::Display for RelocationKind {
 
 /// A record of a relocation to perform.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
 pub struct Relocation {
     /// The relocation kind.
@@ -94,6 +98,10 @@ pub struct Relocation {
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, MemoryUsage)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).

@@ -29,7 +29,7 @@
 
 [Wasmer](https://wasmer.io/) hace posible tener contenedores ultraligeros basados en [WebAssembly](https://webassembly.org/) que pueden ser ejecutados en cualquier sitio: desde tu ordenador hasta la nube y dispositivos de IoT, además de poder ser ejecutados [*en cualquier lenguaje de programación*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> This README is also available in: [🇬🇧 English-Inglés](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇫🇷 Français-Francés](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • [🇨🇳 中文-Chino](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md).
+> This README is also available in: [🇬🇧 English-Inglés](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇫🇷 Français-Francés](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • [🇨🇳 中文-Chino](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇯🇵 日本語-japonés](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md).
 
 ## Funcionalidades
 
@@ -101,6 +101,7 @@ qjs >
 | ![R logo] | [**R**][R integration] | *sin paquete publicado* | [Documentación][r docs] |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *sin paquete publicado* | [Documentación][postgres docs] |
 |  | [**Swift**][Swift integration] | *sin paquete publicado* | |
+| ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 
 [👋 Falta algún lenguaje?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -168,6 +169,9 @@ qjs >
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
 
 [swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
+
+[zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
+[zig integration]: https://github.com/zigwasm/wasmer-zig
 
 ## Contribuye
 

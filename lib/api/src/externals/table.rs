@@ -6,8 +6,8 @@ use crate::RuntimeError;
 use crate::TableType;
 use loupe::MemoryUsage;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportTable};
-use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
+use wasmer_engine::Export;
+use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -18,16 +18,16 @@ use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-#[derive(Clone, MemoryUsage)]
+#[derive(MemoryUsage)]
 pub struct Table {
     store: Store,
-    table: Arc<dyn RuntimeTable>,
+    vm_table: VMTable,
 }
 
 fn set_table_item(
     table: &dyn RuntimeTable,
     item_index: u32,
-    item: VMCallerCheckedAnyfunc,
+    item: TableElement,
 ) -> Result<(), RuntimeError> {
     table.set(item_index, item).map_err(|e| e.into())
 }
@@ -40,7 +40,7 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::tunables::BaseTunables].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
-        let item = init.into_checked_anyfunc(store)?;
+        let item = init.into_table_reference(store)?;
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
         let table = tunables
@@ -54,13 +54,16 @@ impl Table {
 
         Ok(Self {
             store: store.clone(),
-            table,
+            vm_table: VMTable {
+                from: table,
+                instance_ref: None,
+            },
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self) -> &TableType {
-        self.table.ty()
+        self.vm_table.from.ty()
     }
 
     /// Returns the [`Store`] where the `Table` belongs.
@@ -70,19 +73,19 @@ impl Table {
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
-        let item = self.table.get(index)?;
-        Some(ValFuncRef::from_checked_anyfunc(item, &self.store))
+        let item = self.vm_table.from.get(index)?;
+        Some(ValFuncRef::from_table_reference(item, &self.store))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
-        let item = val.into_checked_anyfunc(&self.store)?;
-        set_table_item(self.table.as_ref(), index, item)
+        let item = val.into_table_reference(&self.store)?;
+        set_table_item(self.vm_table.from.as_ref(), index, item)
     }
 
     /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self) -> u32 {
-        self.table.size()
+        self.vm_table.from.size()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -95,19 +98,11 @@ impl Table {
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
-        let item = init.into_checked_anyfunc(&self.store)?;
-        match self.table.grow(delta) {
-            Some(len) => {
-                for i in 0..delta {
-                    set_table_item(self.table.as_ref(), len + i, item.clone())?;
-                }
-                Ok(len)
-            }
-            None => Err(RuntimeError::new(format!(
-                "failed to grow table by `{}`",
-                delta
-            ))),
-        }
+        let item = init.into_table_reference(&self.store)?;
+        self.vm_table
+            .from
+            .grow(delta, item)
+            .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
 
     /// Copies the `len` elements of `src_table` starting at `src_index`
@@ -130,8 +125,8 @@ impl Table {
             ));
         }
         RuntimeTable::copy(
-            dst_table.table.as_ref(),
-            src_table.table.as_ref(),
+            dst_table.vm_table.from.as_ref(),
+            src_table.vm_table.from.as_ref(),
             dst_index,
             src_index,
             len,
@@ -140,28 +135,46 @@ impl Table {
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportTable) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
         Self {
             store: store.clone(),
-            table: wasmer_export.vm_table.from,
+            vm_table,
         }
     }
 
     /// Returns whether or not these two tables refer to the same data.
     pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.table, &other.table)
+        Arc::ptr_eq(&self.vm_table.from, &other.vm_table.from)
+    }
+
+    /// Get access to the backing VM value for this extern. This function is for
+    /// tests it should not be called by users of the Wasmer API.
+    ///
+    /// # Safety
+    /// This function is unsafe to call outside of tests for the wasmer crate
+    /// because there is no stability guarantee for the returned type and we may
+    /// make breaking changes to it at any time or remove this method.
+    #[doc(hidden)]
+    pub unsafe fn get_vm_table(&self) -> &VMTable {
+        &self.vm_table
+    }
+}
+
+impl Clone for Table {
+    fn clone(&self) -> Self {
+        let mut vm_table = self.vm_table.clone();
+        vm_table.upgrade_instance_ref().unwrap();
+
+        Self {
+            store: self.store.clone(),
+            vm_table,
+        }
     }
 }
 
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
-        ExportTable {
-            vm_table: VMExportTable {
-                from: self.table.clone(),
-                instance_ref: None,
-            },
-        }
-        .into()
+        self.vm_table.clone().into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
@@ -169,5 +182,12 @@ impl<'a> Exportable<'a> for Table {
             Extern::Table(table) => Ok(table),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+
+    fn into_weak_instance_ref(&mut self) {
+        self.vm_table
+            .instance_ref
+            .as_mut()
+            .map(|v| *v = v.downgrade());
     }
 }

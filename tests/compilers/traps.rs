@@ -1,11 +1,10 @@
-use crate::utils::get_store;
 use anyhow::Result;
 use std::panic::{self, AssertUnwindSafe};
 use wasmer::*;
 
-#[test]
-fn test_trap_return() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+fn test_trap_return(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module
         (func $hello (import "" "hello"))
@@ -37,18 +36,10 @@ fn test_trap_return() -> Result<()> {
     Ok(())
 }
 
-#[test]
-#[cfg_attr(
-    any(
-        feature = "test-singlepass",
-        feature = "test-native",
-        target_arch = "aarch64",
-        target_env = "musl",
-    ),
-    ignore
-)]
-fn test_trap_trace() -> Result<()> {
-    let store = get_store(false);
+#[cfg_attr(target_env = "musl", ignore)]
+#[compiler_test(traps)]
+fn test_trap_trace(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module $hello_mod
             (func (export "run") (call $hello))
@@ -82,9 +73,9 @@ fn test_trap_trace() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_trap_trace_cb() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module $hello_mod
             (import "" "throw" (func $throw))
@@ -125,18 +116,10 @@ fn test_trap_trace_cb() -> Result<()> {
     Ok(())
 }
 
-#[test]
-#[cfg_attr(
-    any(
-        feature = "test-singlepass",
-        feature = "test-native",
-        target_arch = "aarch64",
-        target_env = "musl",
-    ),
-    ignore
-)]
-fn test_trap_stack_overflow() -> Result<()> {
-    let store = get_store(false);
+#[cfg_attr(target_env = "musl", ignore)]
+#[compiler_test(traps)]
+fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module $rec_mod
             (func $run (export "run") (call $run))
@@ -164,19 +147,10 @@ fn test_trap_stack_overflow() -> Result<()> {
     Ok(())
 }
 
-#[test]
-#[cfg_attr(
-    any(
-        feature = "test-singlepass",
-        feature = "test-llvm",
-        feature = "test-native",
-        target_arch = "aarch64",
-        target_env = "musl",
-    ),
-    ignore
-)]
-fn trap_display_pretty() -> Result<()> {
-    let store = get_store(false);
+#[cfg_attr(target_env = "musl", ignore)]
+#[compiler_test(traps)]
+fn trap_display_pretty(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module $m
             (func $die unreachable)
@@ -206,19 +180,10 @@ RuntimeError: unreachable
     Ok(())
 }
 
-#[test]
-#[cfg_attr(
-    any(
-        feature = "test-singlepass",
-        feature = "test-llvm",
-        feature = "test-native",
-        target_arch = "aarch64",
-        target_env = "musl",
-    ),
-    ignore
-)]
-fn trap_display_multi_module() -> Result<()> {
-    let store = get_store(false);
+#[cfg_attr(target_env = "musl", ignore)]
+#[compiler_test(traps)]
+fn trap_display_multi_module(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module $a
             (func $die unreachable)
@@ -268,9 +233,9 @@ RuntimeError: unreachable
     Ok(())
 }
 
-#[test]
-fn trap_start_function_import() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+fn trap_start_function_import(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let binary = r#"
         (module $a
             (import "" "" (func $foo))
@@ -303,9 +268,9 @@ fn trap_start_function_import() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn rust_panic_import() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+fn rust_panic_import(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let binary = r#"
         (module $a
             (import "" "foo" (func $foo))
@@ -348,9 +313,9 @@ fn rust_panic_import() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn rust_panic_start_function() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+fn rust_panic_start_function(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let binary = r#"
         (module $a
             (import "" "" (func $foo))
@@ -393,9 +358,9 @@ fn rust_panic_start_function() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn mismatched_arguments() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+fn mismatched_arguments(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let binary = r#"
         (module $a
             (func (export "foo") (param i32))
@@ -422,19 +387,10 @@ fn mismatched_arguments() -> Result<()> {
     Ok(())
 }
 
-#[test]
-#[cfg_attr(
-    any(
-        feature = "test-singlepass",
-        feature = "test-llvm",
-        feature = "test-native",
-        all(target_os = "macos", target_arch = "aarch64"),
-        target_env = "musl",
-    ),
-    ignore
-)]
-fn call_signature_mismatch() -> Result<()> {
-    let store = get_store(false);
+#[cfg_attr(target_env = "musl", ignore)]
+#[compiler_test(traps)]
+fn call_signature_mismatch(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let binary = r#"
         (module $a
             (func $foo
@@ -462,19 +418,10 @@ RuntimeError: indirect call type mismatch
     Ok(())
 }
 
-#[test]
-#[cfg_attr(
-    any(
-        feature = "test-singlepass",
-        feature = "test-llvm",
-        feature = "test-native",
-        target_arch = "aarch64",
-        target_env = "musl",
-    ),
-    ignore
-)]
-fn start_trap_pretty() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+#[cfg_attr(target_env = "musl", ignore)]
+fn start_trap_pretty(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let wat = r#"
         (module $m
             (func $die unreachable)
@@ -503,9 +450,9 @@ RuntimeError: unreachable
     Ok(())
 }
 
-#[test]
-fn present_after_module_drop() -> Result<()> {
-    let store = get_store(false);
+#[compiler_test(traps)]
+fn present_after_module_drop(config: crate::Config) -> Result<()> {
+    let store = config.store();
     let module = Module::new(&store, r#"(func (export "foo") unreachable)"#)?;
     let instance = Instance::new(&module, &imports! {})?;
     let func: Function = instance.exports.get_function("foo")?.clone();

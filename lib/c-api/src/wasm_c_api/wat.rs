@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_wat2wasm() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_byte_vec_t wat;
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn test_wat2wasm_failed() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_byte_vec_t wat;

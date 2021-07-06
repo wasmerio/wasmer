@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 
 int main(int argc, const char* argv[]) {
     const char *wat_string =
@@ -109,8 +109,6 @@ int main(int argc, const char* argv[]) {
     wasm_global_set(some, &some_set_value);
     printf("`some` value: %.1f\n", some_value.of.f32);
 
-    wasm_global_delete(some);
-    wasm_global_delete(one);
     wasm_module_delete(module);
     wasm_extern_vec_delete(&exports);
     wasm_instance_delete(instance);

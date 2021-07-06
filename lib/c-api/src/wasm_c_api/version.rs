@@ -43,7 +43,7 @@ pub unsafe extern "C" fn wasmer_version() -> *const c_char {
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Get and print the version components.
@@ -101,7 +101,7 @@ pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
+/// # #include "tests/wasmer.h"
 /// #
 /// int main() {
 ///     // Get and print the pre version.

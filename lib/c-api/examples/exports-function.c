@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 
 int main(int argc, const char* argv[]) {
     const char *wat_string =
@@ -77,7 +77,6 @@ int main(int argc, const char* argv[]) {
 
     printf("Results of `sum`: %d\n", results_val[0].of.i32);
 
-    wasm_func_delete(sum_func);
     wasm_module_delete(module);
     wasm_instance_delete(instance);
     wasm_extern_vec_delete(&exports);

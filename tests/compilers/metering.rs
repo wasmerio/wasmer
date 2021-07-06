@@ -1,4 +1,3 @@
-use crate::utils::get_store_with_middlewares;
 use anyhow::Result;
 use wasmer_middlewares::Metering;
 
@@ -10,11 +9,11 @@ fn cost_always_one(_: &Operator) -> u64 {
     1
 }
 
-fn run_add_with_limit(limit: u64) -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(Arc::new(Metering::new(
-        limit,
-        cost_always_one,
-    )) as Arc<dyn ModuleMiddleware>));
+fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
+    config
+        .middlewares
+        .push(Arc::new(Metering::new(limit, cost_always_one)));
+    let store = config.store();
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
@@ -31,11 +30,11 @@ fn run_add_with_limit(limit: u64) -> Result<()> {
     Ok(())
 }
 
-fn run_loop(limit: u64, iter_count: i32) -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(Arc::new(Metering::new(
-        limit,
-        cost_always_one,
-    )) as Arc<dyn ModuleMiddleware>));
+fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()> {
+    config
+        .middlewares
+        .push(Arc::new(Metering::new(limit, cost_always_one)));
+    let store = config.store();
     let wat = r#"(module
         (func (export "test") (param i32)
            (local i32)
@@ -62,35 +61,35 @@ fn run_loop(limit: u64, iter_count: i32) -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn metering_ok() -> Result<()> {
-    assert!(run_add_with_limit(4).is_ok());
+#[compiler_test(metering)]
+fn metering_ok(config: crate::Config) -> Result<()> {
+    assert!(run_add_with_limit(config, 4).is_ok());
     Ok(())
 }
 
-#[test]
-fn metering_fail() -> Result<()> {
-    assert!(run_add_with_limit(3).is_err());
+#[compiler_test(metering)]
+fn metering_fail(config: crate::Config) -> Result<()> {
+    assert!(run_add_with_limit(config, 3).is_err());
     Ok(())
 }
 
-#[test]
-fn loop_once() -> Result<()> {
-    assert!(run_loop(12, 1).is_ok());
-    assert!(run_loop(11, 1).is_err());
+#[compiler_test(metering)]
+fn loop_once(config: crate::Config) -> Result<()> {
+    assert!(run_loop(config.clone(), 12, 1).is_ok());
+    assert!(run_loop(config, 11, 1).is_err());
     Ok(())
 }
 
-#[test]
-fn loop_twice() -> Result<()> {
-    assert!(run_loop(19, 2).is_ok());
-    assert!(run_loop(18, 2).is_err());
+#[compiler_test(metering)]
+fn loop_twice(config: crate::Config) -> Result<()> {
+    assert!(run_loop(config.clone(), 19, 2).is_ok());
+    assert!(run_loop(config, 18, 2).is_err());
     Ok(())
 }
 
 /// Ported from https://github.com/wasmerio/wasmer/blob/master/tests/middleware_common.rs
-#[test]
-fn complex_loop() -> Result<()> {
+#[compiler_test(metering)]
+fn complex_loop(mut config: crate::Config) -> Result<()> {
     // Assemblyscript
     // export function add_to(x: i32, y: i32): i32 {
     //    for(var i = 0; i < x; i++){
@@ -149,10 +148,11 @@ fn complex_loop() -> Result<()> {
         (global $g0 i32 (i32.const 8))
         (elem (i32.const 0) $f1))
     "#;
-    let store = get_store_with_middlewares(std::iter::once(Arc::new(Metering::new(
-        100,
-        cost_always_one,
-    )) as Arc<dyn ModuleMiddleware>));
+    config
+        .middlewares
+        .push(Arc::new(Metering::new(100, cost_always_one)));
+    let store = config.store();
+
     let module = Module::new(&store, WAT).unwrap();
 
     let import_object = imports! {};

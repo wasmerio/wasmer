@@ -6,6 +6,7 @@
 //! Therefore, you should use this abstraction whenever possible to avoid memory
 //! related bugs when implementing an ABI.
 
+use crate::cell::WasmCell;
 use crate::{externals::Memory, FromToNativeWasmType};
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 use wasmer_types::ValueType;
@@ -30,6 +31,35 @@ pub struct Item;
 ///     println!("Got {} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
 ///     // update the value being pointed to
 ///     derefed_ptr.set(inner_val + 1);
+/// }
+/// ```
+///
+/// This type can also be used with primitive-filled structs, but be careful of
+/// guarantees required by `ValueType`.
+/// ```
+/// # use wasmer::Memory;
+/// # use wasmer::WasmPtr;
+/// # use wasmer::ValueType;
+///
+/// #[derive(Copy, Clone, Debug)]
+/// #[repr(C)]
+/// struct V3 {
+///     x: f32,
+///     y: f32,
+///     z: f32
+/// }
+/// // This is safe as the 12 bytes represented by this struct
+/// // are valid for all bit combinations.
+/// unsafe impl ValueType for V3 {
+/// }
+///
+/// fn update_vector_3(memory: Memory, ptr: WasmPtr<V3>) {
+///     let derefed_ptr = ptr.deref(&memory).expect("pointer in bounds");
+///     let mut inner_val: V3 = derefed_ptr.get();
+///     println!("Got {:?} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
+///     // update the value being pointed to
+///     inner_val.x = 10.4;
+///     derefed_ptr.set(inner_val);
 /// }
 /// ```
 #[repr(transparent)]
@@ -74,7 +104,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
+    pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<'a, T>> {
         if (self.offset as usize) + mem::size_of::<T>() > memory.size().bytes().0
             || mem::size_of::<T>() == 0
         {
@@ -85,29 +115,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
                 mem::align_of::<T>(),
             ) as *const Cell<T>;
-            Some(&*cell_ptr)
+            Some(WasmCell::new(&*cell_ptr))
         }
-    }
-
-    /// Mutably dereference this `WasmPtr` getting a `&mut Cell<T>` allowing for
-    /// direct access to a `&mut T`.
-    ///
-    /// # Safety
-    /// - This method does not do any aliasing checks: it's possible to create
-    ///  `&mut T` that point to the same memory. You should ensure that you have
-    ///   exclusive access to Wasm linear memory before calling this method.
-    #[inline]
-    pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<&'a mut Cell<T>> {
-        if (self.offset as usize) + mem::size_of::<T>() > memory.size().bytes().0
-            || mem::size_of::<T>() == 0
-        {
-            return None;
-        }
-        let cell_ptr = align_pointer(
-            memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
-            mem::align_of::<T>(),
-        ) as *mut Cell<T>;
-        Some(&mut *cell_ptr)
     }
 }
 
@@ -122,7 +131,12 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<&[Cell<T>]> {
+    pub fn deref<'a>(
+        self,
+        memory: &'a Memory,
+        index: u32,
+        length: u32,
+    ) -> Option<Vec<WasmCell<'a, T>>> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>();
@@ -130,57 +144,24 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         let memory_size = memory.size().bytes().0;
 
         if (self.offset as usize) + (item_size * slice_full_len) > memory_size
-            || self.offset as usize >= memory_size
-            || mem::size_of::<T>() == 0
+            || (self.offset as usize) >= memory_size
+            || item_size == 0
         {
             return None;
         }
-
-        unsafe {
+        let cell_ptrs = unsafe {
             let cell_ptr = align_pointer(
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
                 mem::align_of::<T>(),
             ) as *const Cell<T>;
-            let cell_ptrs = &std::slice::from_raw_parts(cell_ptr, slice_full_len)
-                [index as usize..slice_full_len];
-            Some(cell_ptrs)
-        }
-    }
+            &std::slice::from_raw_parts(cell_ptr, slice_full_len)[index as usize..slice_full_len]
+        };
 
-    /// Mutably dereference this `WasmPtr` getting a `&mut [Cell<T>]` allowing for
-    /// direct access to a `&mut [T]`.
-    ///
-    /// # Safety
-    /// - This method does not do any aliasing checks: it's possible to create
-    ///  `&mut T` that point to the same memory. You should ensure that you have
-    ///   exclusive access to Wasm linear memory before calling this method.
-    #[inline]
-    pub unsafe fn deref_mut(
-        self,
-        memory: &Memory,
-        index: u32,
-        length: u32,
-    ) -> Option<&mut [Cell<T>]> {
-        // gets the size of the item in the array with padding added such that
-        // for any index, we will always result an aligned memory access
-        let item_size = mem::size_of::<T>();
-        let slice_full_len = index as usize + length as usize;
-        let memory_size = memory.size().bytes().0;
-
-        if (self.offset as usize) + (item_size * slice_full_len) > memory.size().bytes().0
-            || self.offset as usize >= memory_size
-            || mem::size_of::<T>() == 0
-        {
-            return None;
-        }
-
-        let cell_ptr = align_pointer(
-            memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
-            mem::align_of::<T>(),
-        ) as *mut Cell<T>;
-        let cell_ptrs = &mut std::slice::from_raw_parts_mut(cell_ptr, slice_full_len)
-            [index as usize..slice_full_len];
-        Some(cell_ptrs)
+        let wasm_cells = cell_ptrs
+            .iter()
+            .map(|ptr| WasmCell::new(ptr))
+            .collect::<Vec<_>>();
+        Some(wasm_cells)
     }
 
     /// Get a UTF-8 string from the `WasmPtr` with the given length.
@@ -310,7 +291,7 @@ mod test {
     use crate::{Memory, MemoryType, Store};
 
     /// Ensure that memory accesses work on the edges of memory and that out of
-    /// bounds errors are caught with both `deref` and `deref_mut`.
+    /// bounds errors are caught with `deref`
     #[test]
     fn wasm_ptr_memory_bounds_checks_hold() {
         // create a memory
@@ -323,29 +304,23 @@ mod test {
         let start_wasm_ptr_array: WasmPtr<u8, Array> = WasmPtr::new(0);
 
         assert!(start_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { start_wasm_ptr.deref_mut(&memory).is_some() });
         assert!(start_wasm_ptr_array.deref(&memory, 0, 0).is_some());
         assert!(unsafe { start_wasm_ptr_array.get_utf8_str(&memory, 0).is_some() });
         assert!(start_wasm_ptr_array.get_utf8_string(&memory, 0).is_some());
-        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 0).is_some() });
         assert!(start_wasm_ptr_array.deref(&memory, 0, 1).is_some());
-        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
 
         // test that accessing the last valid memory address works correctly and OOB is caught
         let last_valid_address_for_u8 = (memory.size().bytes().0 - 1) as u32;
         let end_wasm_ptr: WasmPtr<u8> = WasmPtr::new(last_valid_address_for_u8);
         assert!(end_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
 
         let end_wasm_ptr_array: WasmPtr<u8, Array> = WasmPtr::new(last_valid_address_for_u8);
 
         assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
-        assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
         let invalid_idx_len_combos: [(u32, u32); 3] =
             [(last_valid_address_for_u8 + 1, 0), (0, 2), (1, 1)];
         for &(idx, len) in invalid_idx_len_combos.iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
-            assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
         }
         assert!(unsafe { end_wasm_ptr_array.get_utf8_str(&memory, 2).is_none() });
         assert!(end_wasm_ptr_array.get_utf8_string(&memory, 2).is_none());
@@ -355,9 +330,7 @@ mod test {
         let last_valid_address_for_u32 = (memory.size().bytes().0 - 4) as u32;
         let end_wasm_ptr: WasmPtr<u32> = WasmPtr::new(last_valid_address_for_u32);
         assert!(end_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
         assert!(end_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
 
         let end_wasm_ptr_oob_array: [WasmPtr<u32>; 4] = [
             WasmPtr::new(last_valid_address_for_u32 + 1),
@@ -367,17 +340,14 @@ mod test {
         ];
         for oob_end_ptr in end_wasm_ptr_oob_array.iter() {
             assert!(oob_end_ptr.deref(&memory).is_none());
-            assert!(unsafe { oob_end_ptr.deref_mut(&memory).is_none() });
         }
         let end_wasm_ptr_array: WasmPtr<u32, Array> = WasmPtr::new(last_valid_address_for_u32);
         assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
-        assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
 
         let invalid_idx_len_combos: [(u32, u32); 3] =
             [(last_valid_address_for_u32 + 1, 0), (0, 2), (1, 1)];
         for &(idx, len) in invalid_idx_len_combos.iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
-            assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
         }
 
         let end_wasm_ptr_array_oob_array: [WasmPtr<u32, Array>; 4] = [
@@ -389,9 +359,7 @@ mod test {
 
         for oob_end_array_ptr in end_wasm_ptr_array_oob_array.iter() {
             assert!(oob_end_array_ptr.deref(&memory, 0, 1).is_none());
-            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 0, 1).is_none() });
             assert!(oob_end_array_ptr.deref(&memory, 1, 0).is_none());
-            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 1, 0).is_none() });
         }
     }
 }

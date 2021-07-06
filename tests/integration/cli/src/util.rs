@@ -21,17 +21,17 @@ impl Compiler {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Engine {
-    Jit,
-    Native,
-    ObjectFile,
+    Universal,
+    Dylib,
+    Staticlib,
 }
 
 impl Engine {
     pub const fn to_flag(self) -> &'static str {
         match self {
-            Engine::Jit => "--jit",
-            Engine::Native => "--native",
-            Engine::ObjectFile => "--object-file",
+            Engine::Universal => "--universal",
+            Engine::Dylib => "--dylib",
+            Engine::Staticlib => "--staticlib",
         }
     }
 }

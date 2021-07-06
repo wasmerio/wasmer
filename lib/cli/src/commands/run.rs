@@ -11,7 +11,7 @@ use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 
-use clap::Clap;
+use structopt::StructOpt;
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -19,53 +19,53 @@ mod wasi;
 #[cfg(feature = "wasi")]
 use wasi::Wasi;
 
-#[derive(Debug, Clap, Clone)]
+#[derive(Debug, StructOpt, Clone)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
     /// Disable the cache
-    #[clap(long = "disable-cache")]
+    #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
     /// File to run
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[structopt(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Invoke a specified function
-    #[clap(long = "invoke", short = 'i')]
+    #[structopt(long = "invoke", short = "i")]
     invoke: Option<String>,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
-    #[clap(long = "command-name", hidden = true)]
+    #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
 
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
     /// as if no `cache-key` argument was passed.
-    #[clap(long = "cache-key", hidden = true)]
+    #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
-    #[clap(flatten)]
+    #[structopt(flatten)]
     store: StoreOptions,
 
     // TODO: refactor WASI structure to allow shared options with Emscripten
     #[cfg(feature = "wasi")]
-    #[clap(flatten)]
+    #[structopt(flatten)]
     wasi: Wasi,
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
-    #[clap(long = "enable-io-devices")]
+    #[structopt(long = "enable-io-devices")]
     enable_experimental_io_devices: bool,
 
     /// Enable debug output
     #[cfg(feature = "debug")]
-    #[clap(long = "debug", short = 'd')]
+    #[structopt(long = "debug", short = "d")]
     debug: bool,
 
     /// Application arguments
-    #[clap(name = "--", multiple = true)]
+    #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
 }
 
@@ -152,21 +152,45 @@ impl Run {
         // If WASI is enabled, try to execute it with it
         #[cfg(feature = "wasi")]
         {
-            let wasi_version = Wasi::get_version(&module);
-            if wasi_version.is_some() {
-                let program_name = self
-                    .command_name
-                    .clone()
-                    .or_else(|| {
-                        self.path
-                            .file_name()
-                            .map(|f| f.to_string_lossy().to_string())
-                    })
-                    .unwrap_or_default();
-                return self
-                    .wasi
-                    .execute(module, program_name, self.args.clone())
-                    .with_context(|| "WASI execution failed");
+            use std::collections::BTreeSet;
+            use wasmer_wasi::WasiVersion;
+
+            let wasi_versions = Wasi::get_versions(&module);
+            match wasi_versions {
+                Some(wasi_versions) if !wasi_versions.is_empty() => {
+                    if wasi_versions.len() >= 2 {
+                        let get_version_list = |versions: &BTreeSet<WasiVersion>| -> String {
+                            versions
+                                .iter()
+                                .map(|v| format!("`{}`", v.get_namespace_str()))
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        };
+                        if self.wasi.deny_multiple_wasi_versions {
+                            let version_list = get_version_list(&wasi_versions);
+                            bail!("Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.", version_list);
+                        } else if !self.wasi.allow_multiple_wasi_versions {
+                            let version_list = get_version_list(&wasi_versions);
+                            warning!("Found more than 1 WASI version in this module ({}). If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.", version_list);
+                        }
+                    }
+
+                    let program_name = self
+                        .command_name
+                        .clone()
+                        .or_else(|| {
+                            self.path
+                                .file_name()
+                                .map(|f| f.to_string_lossy().to_string())
+                        })
+                        .unwrap_or_default();
+                    return self
+                        .wasi
+                        .execute(module, program_name, self.args.clone())
+                        .with_context(|| "WASI execution failed");
+                }
+                // not WASI
+                _ => (),
             }
         }
 
@@ -181,19 +205,19 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        #[cfg(feature = "native")]
+        #[cfg(feature = "dylib")]
         {
-            if wasmer_engine_native::NativeArtifact::is_deserializable(&contents) {
-                let engine = wasmer_engine_native::Native::headless().engine();
+            if wasmer_engine_dylib::DylibArtifact::is_deserializable(&contents) {
+                let engine = wasmer_engine_dylib::Dylib::headless().engine();
                 let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
             }
         }
-        #[cfg(feature = "jit")]
+        #[cfg(feature = "universal")]
         {
-            if wasmer_engine_jit::JITArtifact::is_deserializable(&contents) {
-                let engine = wasmer_engine_jit::JIT::headless().engine();
+            if wasmer_engine_universal::UniversalArtifact::is_deserializable(&contents) {
+                let engine = wasmer_engine_universal::Universal::headless().engine();
                 let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
@@ -271,19 +295,21 @@ impl Run {
         let mut cache_dir_root = get_cache_dir();
         cache_dir_root.push(compiler_type.to_string());
         let mut cache = FileSystemCache::new(cache_dir_root)?;
-        // Important: Native files need to have a `.dll` extension on Windows, otherwise
-        // they will not load, so we just add an extension always to make it easier
-        // to recognize as well.
+
+        // Important: Dylib files need to have a `.dll` extension on
+        // Windows, otherwise they will not load, so we just add an
+        // extension always to make it easier to recognize as well.
         #[allow(unreachable_patterns)]
         let extension = match *engine_type {
-            #[cfg(feature = "native")]
-            EngineType::Native => {
-                wasmer_engine_native::NativeArtifact::get_default_extension(&Triple::host())
+            #[cfg(feature = "dylib")]
+            EngineType::Dylib => {
+                wasmer_engine_dylib::DylibArtifact::get_default_extension(&Triple::host())
                     .to_string()
             }
-            #[cfg(feature = "jit")]
-            EngineType::JIT => {
-                wasmer_engine_jit::JITArtifact::get_default_extension(&Triple::host()).to_string()
+            #[cfg(feature = "universal")]
+            EngineType::Universal => {
+                wasmer_engine_universal::UniversalArtifact::get_default_extension(&Triple::host())
+                    .to_string()
             }
             // We use the compiler type as the default extension
             _ => compiler_type.to_string(),
@@ -315,13 +341,17 @@ impl Run {
                     let suggested_command = format!(
                         "wasmer {} -i {} {}",
                         self.path.display(),
-                        suggested_functions.get(0).unwrap(),
+                        suggested_functions.get(0).unwrap_or(&String::new()),
                         args.join(" ")
                     );
-                    let suggestion = format!(
-                        "Similar functions found: {}.\nTry with: {}",
-                        names, suggested_command
-                    );
+                    let suggestion = if suggested_functions.len() == 0 {
+                        String::from("Can not find any export functions.")
+                    } else {
+                        format!(
+                            "Similar functions found: {}.\nTry with: {}",
+                            names, suggested_command
+                        )
+                    };
                     match e {
                         ExportError::Missing(_) => {
                             anyhow!("No export `{}` found in the module.\n{}", name, suggestion)

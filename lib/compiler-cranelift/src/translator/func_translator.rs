@@ -11,7 +11,6 @@ use super::code_translator::{bitcast_arguments, translate_operator, wasm_param_t
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
-use crate::config::Cranelift;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
@@ -19,8 +18,7 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    wasm_unsupported, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
-    WasmResult,
+    wasm_unsupported, wptype_to_type, FunctionBinaryReader, ModuleTranslationState, WasmResult,
 };
 use wasmer_types::LocalFunctionIndex;
 
@@ -64,27 +62,20 @@ impl FuncTranslator {
     pub fn translate<FE: FuncEnvironment + ?Sized>(
         &mut self,
         module_translation_state: &ModuleTranslationState,
-        code: &[u8],
-        code_offset: usize,
+        reader: &mut dyn FunctionBinaryReader,
         func: &mut ir::Function,
         environ: &mut FE,
         local_function_index: LocalFunctionIndex,
-        config: &Cranelift,
     ) -> WasmResult<()> {
-        let mut reader = MiddlewareBinaryReader::new_with_offset(code, code_offset);
-        reader.set_middleware_chain(
-            config
-                .middlewares
-                .generate_function_middleware_chain(local_function_index),
-        );
+        environ.push_params_on_stack(local_function_index);
         self.translate_from_reader(module_translation_state, reader, func, environ)
     }
 
-    /// Translate a binary WebAssembly function from a `MiddlewareBinaryReader`.
+    /// Translate a binary WebAssembly function from a `FunctionBinaryReader`.
     pub fn translate_from_reader<FE: FuncEnvironment + ?Sized>(
         &mut self,
         module_translation_state: &ModuleTranslationState,
-        mut reader: MiddlewareBinaryReader,
+        reader: &mut dyn FunctionBinaryReader,
         func: &mut ir::Function,
         environ: &mut FE,
     ) -> WasmResult<()> {
@@ -100,7 +91,7 @@ impl FuncTranslator {
 
         // This clears the `FunctionBuilderContext`.
         let mut builder = FunctionBuilder::new(func, &mut self.func_ctx);
-        builder.set_srcloc(cur_srcloc(&reader));
+        builder.set_srcloc(cur_srcloc(reader));
         let entry_block = builder.create_block();
         builder.append_block_params_for_function_params(entry_block);
         builder.switch_to_block(entry_block); // This also creates values for the arguments.
@@ -118,7 +109,7 @@ impl FuncTranslator {
         builder.append_block_params_for_function_returns(exit_block);
         self.state.initialize(&builder.func.signature, exit_block);
 
-        parse_local_decls(&mut reader, &mut builder, num_params, environ)?;
+        parse_local_decls(reader, &mut builder, num_params, environ)?;
         parse_function_body(
             module_translation_state,
             reader,
@@ -168,7 +159,7 @@ fn declare_wasm_parameters<FE: FuncEnvironment + ?Sized>(
 ///
 /// Declare local variables, starting from `num_params`.
 fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
-    reader: &mut MiddlewareBinaryReader,
+    reader: &mut dyn FunctionBinaryReader,
     builder: &mut FunctionBuilder,
     num_params: usize,
     environ: &mut FE,
@@ -211,12 +202,14 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
         ty => return Err(wasm_unsupported!("unsupported local type {:?}", ty)),
     };
 
+    let wasmer_ty = wptype_to_type(wasm_type).unwrap();
     let ty = builder.func.dfg.value_type(zeroval);
     for _ in 0..count {
         let local = Variable::new(*next_local);
         builder.declare_var(local, ty);
         builder.def_var(local, zeroval);
         builder.set_val_label(zeroval, ValueLabel::new(*next_local));
+        environ.push_local_decl_on_stack(wasmer_ty);
         *next_local += 1;
     }
     Ok(())
@@ -228,7 +221,7 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
 /// arguments and locals are declared in the builder.
 fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     module_translation_state: &ModuleTranslationState,
-    mut reader: MiddlewareBinaryReader,
+    reader: &mut dyn FunctionBinaryReader,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,
@@ -238,12 +231,14 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
 
     // Keep going until the final `End` operator which pops the outermost block.
     while !state.control_stack.is_empty() {
-        builder.set_srcloc(cur_srcloc(&reader));
+        builder.set_srcloc(cur_srcloc(reader));
         let op = reader.read_operator()?;
         environ.before_translate_operator(&op, builder, state)?;
         translate_operator(module_translation_state, &op, builder, state, environ)?;
         environ.after_translate_operator(&op, builder, state)?;
     }
+
+    // When returning we drop all values in locals and on the stack.
 
     // The final `End` operator left us in the exit block where we need to manually add a return
     // instruction.
@@ -253,6 +248,23 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     if state.reachable {
         debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
+            environ.translate_drop_locals(builder)?;
+
+            let _num_elems_to_drop = state.stack.len() - builder.func.signature.returns.len();
+            // drop elements on the stack that we're not returning
+            /*for val in state
+                .stack
+                .iter()
+                .zip(state.metadata_stack.iter())
+                .take(num_elems_to_drop)
+                .filter(|(_, metadata)| metadata.ref_counted)
+                .map(|(val, _)| val)
+            {
+                environ.translate_externref_dec(builder.cursor(), *val)?;
+            }*/
+
+            // TODO: look into what `state.reachable` check above does as well as `!builder.is_unreachable`, do we need that too for ref counting?
+
             match environ.return_mode() {
                 ReturnMode::NormalReturns => {
                     let return_types = wasm_param_types(&builder.func.signature.returns, |i| {
@@ -269,6 +281,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     // Discard any remaining values on the stack. Either we just returned them,
     // or the end of the function is unreachable.
     state.stack.clear();
+    //state.metadata_stack.clear();
 
     debug_assert!(reader.eof());
 
@@ -276,7 +289,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
 }
 
 /// Get the current source location from a reader.
-fn cur_srcloc(reader: &MiddlewareBinaryReader) -> ir::SourceLoc {
+fn cur_srcloc(reader: &dyn FunctionBinaryReader) -> ir::SourceLoc {
     // We record source locations as byte code offsets relative to the beginning of the file.
     // This will wrap around if byte code is larger than 4 GB.
     ir::SourceLoc::new(reader.original_position() as u32)

@@ -6,6 +6,7 @@ use super::state::ModuleTranslationState;
 use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
+use crate::wasmparser::{Operator, Range, Type};
 use crate::{WasmError, WasmResult};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
@@ -27,6 +28,33 @@ pub struct FunctionBodyData<'a> {
 
     /// Body offset relative to the module file.
     pub module_offset: usize,
+}
+
+/// Trait for iterating over the operators of a Wasm Function
+pub trait FunctionBinaryReader<'a> {
+    /// Read a `count` indicating the number of times to call `read_local_decl`.
+    fn read_local_count(&mut self) -> WasmResult<u32>;
+
+    /// Read a `(count, value_type)` declaration of local variables of the same type.
+    fn read_local_decl(&mut self) -> WasmResult<(u32, Type)>;
+
+    /// Reads the next available `Operator`.
+    fn read_operator(&mut self) -> WasmResult<Operator<'a>>;
+
+    /// Returns the current position.
+    fn current_position(&self) -> usize;
+
+    /// Returns the original position (with the offset)
+    fn original_position(&self) -> usize;
+
+    /// Returns the number of bytes remaining.
+    fn bytes_remaining(&self) -> usize;
+
+    /// Returns whether the readers has reached the end of the file.
+    fn eof(&self) -> bool;
+
+    /// Return the range (original offset, original offset + data length)
+    fn range(&self) -> Range;
 }
 
 /// The result of translating via `ModuleEnvironment`. Function bodies are not
@@ -331,14 +359,6 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_passive_elements(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .passive_elements
-            .reserve_exact(usize::try_from(num).unwrap());
-        Ok(())
-    }
-
     pub(crate) fn declare_table_initializers(
         &mut self,
         table_index: TableIndex,
@@ -363,7 +383,16 @@ impl<'data> ModuleEnvironment<'data> {
         elem_index: ElemIndex,
         segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        self.result.module.passive_elements[elem_index] = segments;
+        let old = self
+            .result
+            .module
+            .passive_elements
+            .insert(elem_index, segments);
+        debug_assert!(
+            old.is_none(),
+            "should never get duplicate element indices, that would be a bug in `wasmer_compiler`'s \
+             translation"
+        );
         Ok(())
     }
 
@@ -406,7 +435,8 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_passive_data(&mut self, count: u32) -> WasmResult<()> {
-        self.result.module.passive_data.reserve(count as usize);
+        let count = usize::try_from(count).unwrap();
+        self.result.module.passive_data.reserve(count);
         Ok(())
     }
 
@@ -415,7 +445,15 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        self.result.module.passive_data[data_index] = Arc::from(data);
+        let old = self
+            .result
+            .module
+            .passive_data
+            .insert(data_index, Arc::from(data));
+        debug_assert!(
+            old.is_none(),
+            "a module can't have duplicate indices, this would be a wasmer-compiler bug"
+        );
         Ok(())
     }
 

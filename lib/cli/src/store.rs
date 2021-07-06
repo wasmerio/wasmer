@@ -2,64 +2,71 @@
 //! commands.
 
 use crate::common::WasmFeatures;
-use anyhow::{Error, Result};
-use clap::Clap;
+use anyhow::Result;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
+use structopt::StructOpt;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 
-#[derive(Debug, Clone, Clap)]
+#[derive(Debug, Clone, StructOpt)]
 /// The compiler and engine options
 pub struct StoreOptions {
-    #[clap(flatten)]
+    #[structopt(flatten)]
     compiler: CompilerOptions,
 
-    /// Use JIT Engine.
-    #[clap(long, conflicts_with_all = &["native", "object_file"])]
+    /// Use the Universal Engine.
+    #[structopt(long, conflicts_with_all = &["dylib", "staticlib", "jit", "native", "object_file"])]
+    universal: bool,
+
+    /// Use the Dylib Engine.
+    #[structopt(long, conflicts_with_all = &["universal", "staticlib", "jit", "native", "object_file"])]
+    dylib: bool,
+
+    /// Use the Staticlib Engine.
+    #[structopt(long, conflicts_with_all = &["universal", "dylib", "jit", "native", "object_file"])]
+    staticlib: bool,
+
+    /// Use the JIT (Universal) Engine.
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "native", "object_file"])]
     jit: bool,
 
-    /// Use Native Engine.
-    #[clap(long, conflicts_with_all = &["jit", "object_file"])]
+    /// Use the Native (Dylib) Engine.
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "object_file"])]
     native: bool,
 
-    /// Use ObjectFile Engine.
-    #[clap(long, conflicts_with_all = &["jit", "native"])]
+    /// Use the ObjectFile (Staticlib) Engine.
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "native"])]
     object_file: bool,
 }
 
-#[derive(Debug, Clone, Clap)]
+#[derive(Debug, Clone, StructOpt)]
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
+    #[structopt(long, conflicts_with_all = &["cranelift", "llvm"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "backend"])]
+    #[structopt(long, conflicts_with_all = &["singlepass", "llvm"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
+    #[structopt(long, conflicts_with_all = &["singlepass", "cranelift"])]
     llvm: bool,
 
     /// Enable compiler internal verification.
-    #[clap(long)]
+    #[structopt(long)]
     enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
-    #[clap(long, parse(from_os_str))]
+    #[structopt(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
 
-    /// The deprecated backend flag - Please do not use
-    #[clap(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
-    backend: Option<String>,
-
-    #[clap(flatten)]
+    #[structopt(flatten)]
     features: WasmFeatures,
 }
 
@@ -72,12 +79,6 @@ impl CompilerOptions {
             Ok(CompilerType::LLVM)
         } else if self.singlepass {
             Ok(CompilerType::Singlepass)
-        } else if let Some(backend) = self.backend.clone() {
-            warning!(
-                "the `--backend={0}` flag is deprecated, please use `--{0}` instead",
-                backend
-            );
-            CompilerType::from_str(&backend)
         } else {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
@@ -136,28 +137,28 @@ impl CompilerOptions {
     ) -> Result<Box<dyn Engine + Send + Sync>> {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
         let engine: Box<dyn Engine + Send + Sync> = match engine_type {
-            #[cfg(feature = "jit")]
-            EngineType::JIT => Box::new(
-                wasmer_engine_jit::JIT::new(compiler_config)
+            #[cfg(feature = "universal")]
+            EngineType::Universal => Box::new(
+                wasmer_engine_universal::Universal::new(compiler_config)
                     .features(features)
                     .target(target)
                     .engine(),
             ),
-            #[cfg(feature = "native")]
-            EngineType::Native => Box::new(
-                wasmer_engine_native::Native::new(compiler_config)
+            #[cfg(feature = "dylib")]
+            EngineType::Dylib => Box::new(
+                wasmer_engine_dylib::Dylib::new(compiler_config)
                     .target(target)
                     .features(features)
                     .engine(),
             ),
-            #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => Box::new(
-                wasmer_engine_object_file::ObjectFile::new(compiler_config)
+            #[cfg(feature = "staticlib")]
+            EngineType::Staticlib => Box::new(
+                wasmer_engine_staticlib::Staticlib::new(compiler_config)
                     .target(target)
                     .features(features)
                     .engine(),
             ),
-            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
+            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "staticlib")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -212,18 +213,19 @@ impl CompilerOptions {
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
                 fn types_to_signature(types: &[Type]) -> String {
-                    types.iter().map(|ty| {
-                        match ty {
+                    types
+                        .iter()
+                        .map(|ty| match ty {
                             Type::I32 => "i".to_string(),
                             Type::I64 => "I".to_string(),
                             Type::F32 => "f".to_string(),
                             Type::F64 => "F".to_string(),
                             Type::V128 => "v".to_string(),
-                            _ => {
-                                unimplemented!("Function type not yet supported for generated signatures in debugging");
-                            }
-                        }
-                    }).collect::<Vec<_>>().join("")
+                            Type::ExternRef => "e".to_string(),
+                            Type::FuncRef => "r".to_string(),
+                        })
+                        .collect::<Vec<_>>()
+                        .join("")
                 }
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
@@ -292,10 +294,12 @@ impl CompilerOptions {
                 Box::new(config)
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
-            compiler => bail!(
-                "The `{}` compiler is not included in this binary.",
-                compiler.to_string()
-            ),
+            compiler => {
+                bail!(
+                    "The `{}` compiler is not included in this binary.",
+                    compiler.to_string()
+                )
+            }
         };
 
         #[allow(unreachable_code)]
@@ -341,36 +345,23 @@ impl ToString for CompilerType {
     }
 }
 
-impl FromStr for CompilerType {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "singlepass" => Ok(Self::Singlepass),
-            "cranelift" => Ok(Self::Cranelift),
-            "llvm" => Ok(Self::LLVM),
-            "headless" => Ok(Self::Headless),
-            backend => bail!("The `{}` compiler does not exist.", backend),
-        }
-    }
-}
-
 /// The engine used for the store
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum EngineType {
-    /// JIT Engine
-    JIT,
-    /// Native Engine
-    Native,
-    /// Object File Engine
-    ObjectFile,
+    /// Universal Engine
+    Universal,
+    /// Dylib Engine
+    Dylib,
+    /// Static Engine
+    Staticlib,
 }
 
 impl ToString for EngineType {
     fn to_string(&self) -> String {
         match self {
-            Self::JIT => "jit".to_string(),
-            Self::Native => "native".to_string(),
-            Self::ObjectFile => "objectfile".to_string(),
+            Self::Universal => "universal".to_string(),
+            Self::Dylib => "dylib".to_string(),
+            Self::Staticlib => "staticlib".to_string(),
         }
     }
 }
@@ -411,20 +402,20 @@ impl StoreOptions {
 #[cfg(feature = "engine")]
 impl StoreOptions {
     fn get_engine(&self) -> Result<EngineType> {
-        if self.jit {
-            Ok(EngineType::JIT)
-        } else if self.native {
-            Ok(EngineType::Native)
-        } else if self.object_file {
-            Ok(EngineType::ObjectFile)
+        if self.universal || self.jit {
+            Ok(EngineType::Universal)
+        } else if self.dylib || self.native {
+            Ok(EngineType::Dylib)
+        } else if self.staticlib || self.object_file {
+            Ok(EngineType::Staticlib)
         } else {
             // Auto mode, we choose the best engine for that platform
-            if cfg!(feature = "jit") {
-                Ok(EngineType::JIT)
-            } else if cfg!(feature = "native") {
-                Ok(EngineType::Native)
-            } else if cfg!(feature = "object-file") {
-                Ok(EngineType::ObjectFile)
+            if cfg!(feature = "universal") {
+                Ok(EngineType::Universal)
+            } else if cfg!(feature = "dylib") {
+                Ok(EngineType::Dylib)
+            } else if cfg!(feature = "staticlib") {
+                Ok(EngineType::Staticlib)
             } else {
                 bail!("There are no available engines for your architecture")
             }
@@ -438,15 +429,17 @@ impl StoreOptions {
     fn get_engine_headless(&self) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
-            #[cfg(feature = "jit")]
-            EngineType::JIT => Arc::new(wasmer_engine_jit::JIT::headless().engine()),
-            #[cfg(feature = "native")]
-            EngineType::Native => Arc::new(wasmer_engine_native::Native::headless().engine()),
-            #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => {
-                Arc::new(wasmer_engine_object_file::ObjectFile::headless().engine())
+            #[cfg(feature = "universal")]
+            EngineType::Universal => {
+                Arc::new(wasmer_engine_universal::Universal::headless().engine())
             }
-            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
+            #[cfg(feature = "dylib")]
+            EngineType::Dylib => Arc::new(wasmer_engine_dylib::Dylib::headless().engine()),
+            #[cfg(feature = "staticlib")]
+            EngineType::Staticlib => {
+                Arc::new(wasmer_engine_staticlib::Staticlib::headless().engine())
+            }
+            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "staticlib")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
