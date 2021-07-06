@@ -557,7 +557,6 @@ fn poller_modify(
 }
 
 fn poller_delete(env: &WasiNetworkEnv, poll: __wasi_poll_t, fd: __wasi_fd_t) -> __wasi_errno_t {
-    let memory = env.memory();
     let poll_arena = env.poll_arena.try_read().unwrap();
     let (poller, _) = poll_arena.get(poll.try_into().unwrap()).unwrap();
 
@@ -670,6 +669,10 @@ pub fn get_namespace(store: &Store, wasi_env: &WasiEnv) -> (&'static str, Export
     wasi_network_imports.insert(
         "poller_modify",
         Function::new_native_with_env(&store, wasi_env.clone(), poller_modify),
+    );
+    wasi_network_imports.insert(
+        "poller_delete",
+        Function::new_native_with_env(&store, wasi_env.clone(), poller_delete),
     );
     wasi_network_imports.insert(
         "poller_wait",
