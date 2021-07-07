@@ -158,7 +158,7 @@ impl RuntimeError {
 
     /// Returns a reference the `message` stored in `Trap`.
     pub fn message(&self) -> String {
-        format!("{}", self.inner.source)
+        self.inner.source.to_string()
     }
 
     /// Returns a list of function frames in WebAssembly code that led to this

@@ -76,6 +76,7 @@ fn main() {
 
     build_wasm_c_api_headers(&crate_dir, &out_dir);
     build_inline_c_env_vars();
+    build_cdylib();
 }
 
 /// Check whether we should build the C API headers or set `inline-c` up.
@@ -296,5 +297,30 @@ fn build_inline_c_env_vars() {
                 "libwasmer_c_api.a".to_string()
             }
         }
+    );
+}
+
+fn build_cdylib() {
+    // Configure the `soname`, `install_name`, `current_version`,
+    // `out-implib`, `output-def` etc. for as much platforms as
+    // possible.
+    cdylib_link_lines::shared_object_link_args(
+        "wasmer",
+        &env::var("CARGO_PKG_VERSION_MAJOR").unwrap(),
+        &env::var("CARGO_PKG_VERSION_MINOR").unwrap(),
+        &env::var("CARGO_PKG_VERSION_PATCH").unwrap(),
+        &env::var("CARGO_CFG_TARGET_ARCH").unwrap(),
+        &env::var("CARGO_CFG_TARGET_OS").unwrap(),
+        &env::var("CARGO_CFG_TARGET_ENV").unwrap(),
+        "/usr/local/lib".into(),
+        env::var_os("CARGO_TARGET_DIR").map_or(
+            {
+                let manifest_dir: PathBuf = env::var_os("CARGO_MANIFEST_DIR").unwrap().into();
+                manifest_dir
+                    .join("target")
+                    .join(env::var("PROFILE").unwrap())
+            },
+            Into::into,
+        ),
     );
 }

@@ -92,3 +92,4 @@ native = ["dylib"]
 
 [build-dependencies]
 cbindgen = "0.19"
+cdylib-link-lines = "0.1"
