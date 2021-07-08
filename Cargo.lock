@@ -2933,7 +2933,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core-near"
-version = "0.17.5"
+version = "0.18.0-pre.1"
 dependencies = [
  "bincode",
  "blake3",
@@ -2962,7 +2962,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-near"
-version = "0.17.1"
+version = "0.18.0-pre.1"
 dependencies = [
  "criterion",
  "lazy_static",
@@ -2979,7 +2979,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-singlepass-backend-near"
-version = "0.17.1"
+version = "0.18.0-pre.1"
 dependencies = [
  "bincode",
  "borsh",
