@@ -5,7 +5,7 @@
 //! by index and not by module and name.
 
 use std::iter::FromIterator;
-use wasmer::{Export, Exportable, Extern, Resolver};
+use wasmer_api::{Export, Exportable, Extern, Resolver};
 
 /// An `OrderedResolver` stores all the `externs` provided to an Instance
 /// in a Vec, so we can retrieve them later based on index.

@@ -2,7 +2,7 @@ use super::super::store::wasm_store_t;
 use super::super::types::wasm_memorytype_t;
 use super::CApiExternTag;
 use std::mem;
-use wasmer::{Memory, Pages};
+use wasmer_api::{Memory, Pages};
 
 #[allow(non_camel_case_types)]
 #[repr(C)]

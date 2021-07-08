@@ -1,5 +1,5 @@
 use super::{owned_wasm_name_t, wasm_externtype_t, wasm_name_t};
-use wasmer::ImportType;
+use wasmer_api::ImportType;
 
 #[allow(non_camel_case_types)]
 #[derive(Clone)]

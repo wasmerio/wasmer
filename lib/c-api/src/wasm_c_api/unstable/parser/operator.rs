@@ -1,4 +1,4 @@
-use wasmer::wasmparser::Operator;
+use wasmer_api::wasmparser::Operator;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
