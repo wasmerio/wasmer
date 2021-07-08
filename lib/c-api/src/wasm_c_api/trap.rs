@@ -1,7 +1,7 @@
 use super::store::wasm_store_t;
 use super::types::{wasm_byte_vec_t, wasm_frame_t, wasm_frame_vec_t, wasm_message_t};
 use std::ffi::CString;
-use wasmer::RuntimeError;
+use wasmer_api::RuntimeError;
 
 // opaque type which is a `RuntimeError`
 #[allow(non_camel_case_types)]

@@ -6,7 +6,7 @@ use super::{
 use std::convert::{TryFrom, TryInto};
 use std::mem;
 use thiserror::Error;
-use wasmer::ExternType;
+use wasmer_api::ExternType;
 
 #[allow(non_camel_case_types)]
 type wasm_externkind_t = u8;

@@ -8,7 +8,7 @@ pub use global::*;
 pub use memory::*;
 use std::mem;
 pub use table::*;
-use wasmer::{Extern, ExternType};
+use wasmer_api::{Extern, ExternType};
 
 #[allow(non_camel_case_types)]
 #[repr(transparent)]

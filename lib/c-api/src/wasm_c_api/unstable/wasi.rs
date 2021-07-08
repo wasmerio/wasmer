@@ -9,7 +9,7 @@ use super::super::{
     wasi::wasi_env_t,
 };
 use crate::error::CApiError;
-use wasmer::Extern;
+use wasmer_api::Extern;
 use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 
 /// Unstable non-standard type wrapping `wasm_extern_t` with the
