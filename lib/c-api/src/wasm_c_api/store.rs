@@ -1,5 +1,5 @@
 use super::engine::wasm_engine_t;
-use wasmer::Store;
+use wasmer_api::Store;
 
 /// Opaque type representing a WebAssembly store.
 #[allow(non_camel_case_types)]

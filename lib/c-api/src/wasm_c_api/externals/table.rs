@@ -1,7 +1,7 @@
 use super::super::store::wasm_store_t;
 use super::super::types::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
 use super::CApiExternTag;
-use wasmer::Table;
+use wasmer_api::Table;
 
 #[allow(non_camel_case_types)]
 #[repr(C)]

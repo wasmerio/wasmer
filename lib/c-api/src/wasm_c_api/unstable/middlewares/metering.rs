@@ -135,7 +135,7 @@ use super::super::super::instance::wasm_instance_t;
 use super::super::parser::operator::wasmer_parser_operator_t;
 use super::wasmer_middleware_t;
 use std::sync::Arc;
-use wasmer::wasmparser::Operator;
+use wasmer_api::wasmparser::Operator;
 use wasmer_middlewares::{
     metering::{get_remaining_points, set_remaining_points, MeteringPoints},
     Metering,
