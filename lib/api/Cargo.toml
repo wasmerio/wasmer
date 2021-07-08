@@ -46,8 +46,6 @@ maintenance = { status = "actively-developed" }
 default = ["wat", "default-cranelift", "default-universal"]
 compiler = [
     "wasmer-compiler/translator",
-    "wasmer-engine-universal/compiler",
-    "wasmer-engine-dylib/compiler",
 ]
 engine = []
 universal = [
