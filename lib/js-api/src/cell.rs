@@ -109,31 +109,10 @@ impl<'a, T: Copy> WasmCell<'a, T> {
     pub fn get(&self) -> T {
         let vec = self.memory.to_vec();
         unsafe { *(vec.as_ptr() as *const T) }
-        // unimplemented!();
-    }
-
-    /// Get an unsafe mutable pointer to the inner item
-    /// in the Cell.
-    ///
-    /// # Safety
-    ///
-    /// This method is highly discouraged to use. We have it for
-    /// compatibility reasons with Emscripten.
-    /// It is unsafe because changing an item inline will change
-    /// the underlying memory.
-    ///
-    /// It's highly encouraged to use the `set` method instead.
-    #[deprecated(
-        since = "2.0.0",
-        note = "Please use the memory-safe set method instead"
-    )]
-    #[doc(hidden)]
-    pub unsafe fn get_mut(&self) -> &'a mut T {
-        &mut *self.inner.as_ptr()
     }
 }
 
-impl<T: Debug> Debug for WasmCell<'_, T> {
+impl<T: Debug + Copy> Debug for WasmCell<'_, T> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
