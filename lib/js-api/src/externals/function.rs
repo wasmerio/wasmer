@@ -45,8 +45,8 @@ pub struct VMFunctionBody(u8);
 // #[derive(PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
+    ty: FunctionType,
     pub(crate) exported: VMFunction,
-    pub(crate) environment: Option<*const u8>, // environment: Option<WasmRefCell<Box<Any>>>,
 }
 
 impl PartialEq for Function {
@@ -172,11 +172,11 @@ impl Function {
         let ft = wasm_bindgen::function_table();
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(call_func_dynamic as usize as u32).unwrap();
-        let environment = None;
+        // let environment: Option<Arc>
         Self {
             store: store.clone(),
-            exported: func,
-            environment,
+            ty: ty.into(),
+            exported: VMFunction::new(func, None),
         }
         // Function::new
         // let wrapped_func =
@@ -311,11 +311,11 @@ impl Function {
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
         let binded_func = func.bind1(&JsValue::UNDEFINED, &JsValue::UNDEFINED);
-        let environment = None;
+        let ty = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             store: store.clone(),
-            exported: binded_func,
-            environment,
+            ty,
+            exported: VMFunction::new(binded_func, None),
         }
 
         // let vmctx = VMFunctionEnvironment {
@@ -340,6 +340,11 @@ impl Function {
         //     },
         // }
     }
+
+    // /// Get a reference to the Function environment, if any
+    // pub fn get_host_env(&self) -> Option<&Any> {
+    //     self.environment.as_ref().map(|e|&**e)
+    // }
 
     /// Creates a new host `Function` from a native function and a provided environment.
     ///
@@ -380,17 +385,19 @@ impl Function {
         let ft = wasm_bindgen::function_table();
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
+        let ty = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         // let b: Box<Any> = Box::new(env);
         // let environment = Some(WasmRefCell::new(b));
-        let environment = Box::into_raw(Box::new(env)) as *mut u8;
+        let environment = Box::new(env);
         let binded_func = func.bind1(
             &JsValue::UNDEFINED,
-            &JsValue::from_f64(environment as usize as f64),
+            &JsValue::from_f64(&*environment as *const Env as *const u8 as usize as f64),
         );
+        // panic!("Function env {:?}", environment.type_id());
         Self {
             store: store.clone(),
-            exported: binded_func,
-            environment: Some(environment),
+            ty,
+            exported: VMFunction::new(binded_func, Some(environment)),
         }
 
         // let function = inner::Function::<Args, Rets>::new(func);
@@ -590,8 +597,10 @@ impl Function {
             let js_value = param.as_jsvalue();
             arr.set(i as u32, js_value);
         }
-        let result = js_sys::Reflect::apply(&self.exported, &wasm_bindgen::JsValue::NULL, &arr);
-        Ok(vec![Val::F64(result.unwrap().as_f64().unwrap())].into_boxed_slice())
+        let result =
+            js_sys::Reflect::apply(&self.exported.function, &wasm_bindgen::JsValue::NULL, &arr);
+        // Ok(vec![Val::F64(result.unwrap().as_f64().unwrap())].into_boxed_slice())
+        Ok(Box::new([]))
         // if let Some(trampoline) = self.exported.vm_function.call_trampoline {
         //     let mut results = vec![Val::null(); self.result_arity()];
         //     self.call_wasm(trampoline, params, &mut results)?;
@@ -602,11 +611,10 @@ impl Function {
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: VMFunction) -> Self {
-        let environment = None;
         Self {
             store: store.clone(),
+            ty: FunctionType::new(vec![], vec![]),
             exported: wasmer_export,
-            environment,
         }
     }
 
@@ -749,15 +757,6 @@ impl<'a> Exportable<'a> for Function {
             Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),
         }
-    }
-
-    fn into_weak_instance_ref(&mut self) {
-        unimplemented!();
-        // self.exported
-        //     .vm_function
-        //     .instance_ref
-        //     .as_mut()
-        //     .map(|v| *v = v.downgrade());
     }
 }
 

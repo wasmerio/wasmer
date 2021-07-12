@@ -42,6 +42,6 @@ wasm-bindgen-test = "0.3.0"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["wat", "std"]
+default = ["std"]
 std = []
 core = []

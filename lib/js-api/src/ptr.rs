@@ -112,18 +112,6 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
         let subarray = memory.uint8view().subarray(self.offset, total_len as u32);
         Some(WasmCell::new(subarray))
     }
-
-    /// Mutably dereference this `WasmPtr` getting a `&mut Cell<T>` allowing for
-    /// direct access to a `&mut T`.
-    ///
-    /// # Safety
-    /// - This method does not do any aliasing checks: it's possible to create
-    ///  `&mut T` that point to the same memory. You should ensure that you have
-    ///   exclusive access to Wasm linear memory before calling this method.
-    #[inline]
-    pub unsafe fn deref_mut<'a>(self, memory: &'a Memory) -> Option<WasmCell<T>> {
-        self.deref(memory)
-    }
 }
 
 /// Methods for `WasmPtr`s to arrays of data that can be dereferenced, namely to
@@ -137,7 +125,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<Box<[WasmCell<T>]>> {
+    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<Vec<WasmCell<T>>> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() as u32;
@@ -160,26 +148,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
                     );
                     WasmCell::new(subarray)
                 })
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
+                .collect::<Vec<_>>(),
         )
-    }
-
-    /// Mutably dereference this `WasmPtr` getting a `&mut [Cell<T>]` allowing for
-    /// direct access to a `&mut [T]`.
-    ///
-    /// # Safety
-    /// - This method does not do any aliasing checks: it's possible to create
-    ///  `&mut T` that point to the same memory. You should ensure that you have
-    ///   exclusive access to Wasm linear memory before calling this method.
-    #[inline]
-    pub unsafe fn deref_mut(
-        self,
-        memory: &Memory,
-        index: u32,
-        length: u32,
-    ) -> Option<Box<[WasmCell<T>]>> {
-        self.deref(memory, index, length)
     }
 
     /// Get a UTF-8 string from the `WasmPtr` with the given length.
@@ -212,7 +182,9 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
             return None;
         }
         let subarray_as_vec = memory.uint8view().subarray(self.offset, str_len).to_vec();
-        String::from_utf8(subarray_as_vec).ok().map(std::borrow::Cow::from)
+        String::from_utf8(subarray_as_vec)
+            .ok()
+            .map(std::borrow::Cow::from)
     }
 
     /// Get a UTF-8 `String` from the `WasmPtr` with the given length.
@@ -319,29 +291,23 @@ mod test {
         let start_wasm_ptr_array: WasmPtr<u8, Array> = WasmPtr::new(0);
 
         assert!(start_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { start_wasm_ptr.deref_mut(&memory).is_some() });
         assert!(start_wasm_ptr_array.deref(&memory, 0, 0).is_some());
         assert!(unsafe { start_wasm_ptr_array.get_utf8_str(&memory, 0).is_some() });
         assert!(start_wasm_ptr_array.get_utf8_string(&memory, 0).is_some());
-        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 0).is_some() });
         assert!(start_wasm_ptr_array.deref(&memory, 0, 1).is_some());
-        assert!(unsafe { start_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
 
         // test that accessing the last valid memory address works correctly and OOB is caught
         let last_valid_address_for_u8 = (memory.size().bytes().0 - 1) as u32;
         let end_wasm_ptr: WasmPtr<u8> = WasmPtr::new(last_valid_address_for_u8);
         assert!(end_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
 
         let end_wasm_ptr_array: WasmPtr<u8, Array> = WasmPtr::new(last_valid_address_for_u8);
 
         assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
-        assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
         let invalid_idx_len_combos: [(u32, u32); 3] =
             [(last_valid_address_for_u8 + 1, 0), (0, 2), (1, 1)];
         for &(idx, len) in invalid_idx_len_combos.iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
-            assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
         }
         assert!(unsafe { end_wasm_ptr_array.get_utf8_str(&memory, 2).is_none() });
         assert!(end_wasm_ptr_array.get_utf8_string(&memory, 2).is_none());
@@ -351,9 +317,7 @@ mod test {
         let last_valid_address_for_u32 = (memory.size().bytes().0 - 4) as u32;
         let end_wasm_ptr: WasmPtr<u32> = WasmPtr::new(last_valid_address_for_u32);
         assert!(end_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
         assert!(end_wasm_ptr.deref(&memory).is_some());
-        assert!(unsafe { end_wasm_ptr.deref_mut(&memory).is_some() });
 
         let end_wasm_ptr_oob_array: [WasmPtr<u32>; 4] = [
             WasmPtr::new(last_valid_address_for_u32 + 1),
@@ -363,17 +327,14 @@ mod test {
         ];
         for oob_end_ptr in end_wasm_ptr_oob_array.iter() {
             assert!(oob_end_ptr.deref(&memory).is_none());
-            assert!(unsafe { oob_end_ptr.deref_mut(&memory).is_none() });
         }
         let end_wasm_ptr_array: WasmPtr<u32, Array> = WasmPtr::new(last_valid_address_for_u32);
         assert!(end_wasm_ptr_array.deref(&memory, 0, 1).is_some());
-        assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, 0, 1).is_some() });
 
         let invalid_idx_len_combos: [(u32, u32); 3] =
             [(last_valid_address_for_u32 + 1, 0), (0, 2), (1, 1)];
         for &(idx, len) in invalid_idx_len_combos.iter() {
             assert!(end_wasm_ptr_array.deref(&memory, idx, len).is_none());
-            assert!(unsafe { end_wasm_ptr_array.deref_mut(&memory, idx, len).is_none() });
         }
 
         let end_wasm_ptr_array_oob_array: [WasmPtr<u32, Array>; 4] = [
@@ -385,9 +346,7 @@ mod test {
 
         for oob_end_array_ptr in end_wasm_ptr_array_oob_array.iter() {
             assert!(oob_end_array_ptr.deref(&memory, 0, 1).is_none());
-            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 0, 1).is_none() });
             assert!(oob_end_array_ptr.deref(&memory, 1, 0).is_none());
-            assert!(unsafe { oob_end_array_ptr.deref_mut(&memory, 1, 0).is_none() });
         }
     }
 }

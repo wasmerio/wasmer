@@ -239,11 +239,4 @@ impl<'a> Exportable<'a> for Global {
             _ => Err(ExportError::IncompatibleType),
         }
     }
-
-    fn into_weak_instance_ref(&mut self) {
-        self.vm_global
-            .instance_ref
-            .as_mut()
-            .map(|v| *v = v.downgrade());
-    }
 }

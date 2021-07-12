@@ -46,7 +46,7 @@ extern "C" {
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Memory {
     store: Store,
     ty: MemoryType,
@@ -300,18 +300,18 @@ impl Memory {
     }
 }
 
-impl Clone for Memory {
-    fn clone(&self) -> Self {
-        unimplemented!();
-        // let mut vm_memory = self.vm_memory.clone();
-        // vm_memory.upgrade_instance_ref().unwrap();
+// impl Clone for Memory {
+//     fn clone(&self) -> Self {
+//         unimplemented!();
+//         // let mut vm_memory = self.vm_memory.clone();
+//         // vm_memory.upgrade_instance_ref().unwrap();
 
-        // Self {
-        //     store: self.store.clone(),
-        //     vm_memory,
-        // }
-    }
-}
+//         // Self {
+//         //     store: self.store.clone(),
+//         //     vm_memory,
+//         // }
+//     }
+// }
 
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {
@@ -324,13 +324,5 @@ impl<'a> Exportable<'a> for Memory {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
-    }
-
-    fn into_weak_instance_ref(&mut self) {
-        unimplemented!();
-        // self.vm_memory
-        //     .instance_ref
-        //     .as_mut()
-        //     .map(|v| *v = v.downgrade());
     }
 }

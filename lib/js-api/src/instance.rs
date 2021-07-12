@@ -109,9 +109,9 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new(module: &Module, resolver: &dyn NamedResolver) -> Result<Self, InstantiationError> {
+    pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
         let store = module.store();
-        let instance = module.instantiate(resolver).unwrap();
+        let (instance, functions) = module.instantiate(resolver).unwrap();
         let instance_exports = instance.exports();
         let exports = module
             .exports()
@@ -123,11 +123,15 @@ impl Instance {
             })
             .collect::<Exports>();
 
-        Ok(Self {
+        let self_instance = Self {
             module: module.clone(),
             instance: instance,
             exports,
-        })
+        };
+        for mut func in functions {
+            func.init_envs(&self_instance);
+        }
+        Ok(self_instance)
     }
 
     /// Gets the [`Module`] associated with this instance.

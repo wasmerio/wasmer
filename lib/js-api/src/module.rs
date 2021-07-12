@@ -1,5 +1,6 @@
+use crate::export::{Export, VMFunction};
 use crate::iterators::{ExportsIterator, ImportsIterator};
-use crate::resolver::{NamedResolver, Resolver};
+use crate::resolver::Resolver;
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 // use crate::InstantiationError;
@@ -175,12 +176,13 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
-        resolver: &dyn NamedResolver,
-    ) -> Result<WebAssembly::Instance, ()> {
+        resolver: &dyn Resolver,
+    ) -> Result<(WebAssembly::Instance, Vec<VMFunction>), ()> {
         let imports = js_sys::Object::new();
-        for import_type in self.imports() {
+        let mut functions: Vec<VMFunction> = vec![];
+        for (i, import_type) in self.imports().enumerate() {
             let resolved_import =
-                resolver.resolve_by_name(import_type.module(), import_type.name());
+                resolver.resolve(i as u32, import_type.module(), import_type.name());
             if let Some(import) = resolved_import {
                 match js_sys::Reflect::get(&imports, &import_type.module().into()) {
                     Ok(val) => {
@@ -192,6 +194,7 @@ impl Module {
                                 import.as_jsvalue(),
                             );
                         } else {
+                            // If the namespace doesn't exist
                             let import_namespace = js_sys::Object::new();
                             js_sys::Reflect::set(
                                 &import_namespace,
@@ -207,9 +210,17 @@ impl Module {
                     }
                     Err(_) => return Err(()),
                 };
+                if let Export::Function(func) = import {
+                    functions.push(func);
+                }
             }
+            // in case the import is not found, the JS Wasm VM will handle
+            // the error for us, so we don't need to handle it
         }
-        Ok(WebAssembly::Instance::new(&self.module, &imports).unwrap())
+        Ok((
+            WebAssembly::Instance::new(&self.module, &imports).unwrap(),
+            functions,
+        ))
     }
 
     /// Returns the name of the current module.

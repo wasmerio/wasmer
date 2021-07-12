@@ -69,15 +69,6 @@ impl<'a> Exportable<'a> for Extern {
         // Since this is already an extern, we can just return it.
         Ok(_extern)
     }
-
-    fn into_weak_instance_ref(&mut self) {
-        match self {
-            Self::Function(f) => f.into_weak_instance_ref(),
-            // Self::Global(g) => g.into_weak_instance_ref(),
-            Self::Memory(m) => m.into_weak_instance_ref(),
-            // Self::Table(t) => t.into_weak_instance_ref(),
-        }
-    }
 }
 
 impl StoreObject for Extern {}

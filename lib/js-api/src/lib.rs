@@ -287,11 +287,11 @@ mod error;
 mod export;
 mod exports;
 mod externals;
-mod resolver;
 mod import_object;
 mod instance;
 mod iterators;
 mod module;
+mod resolver;
 // mod native;
 mod ptr;
 mod store;
@@ -303,6 +303,7 @@ mod utils;
 /// See the [`WasmerEnv`] trait for more information.
 pub use wasmer_derive::WasmerEnv;
 
+pub use crate::cell::WasmCell;
 pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
@@ -316,6 +317,8 @@ pub use crate::module::Module;
 pub use wasm_bindgen::JsValue as RuntimeError;
 // pub use crate::native::NativeFunc;
 pub use crate::ptr::{Array, Item, WasmPtr};
+pub use crate::resolver::{ChainableNamedResolver, NamedResolver, NamedResolverChain, Resolver};
+
 pub use crate::store::{Store, StoreObject};
 pub use crate::types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,

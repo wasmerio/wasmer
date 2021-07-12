@@ -3,7 +3,7 @@ use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 /// Import resolver connects imports with available exported values.
-pub trait Resolver: Sized {
+pub trait Resolver {
     /// Resolves an import a WebAssembly module to an export it's hooked up to.
     ///
     /// The `index` provided is the index of the import in the wasm module
@@ -73,5 +73,95 @@ pub struct NullResolver {}
 impl Resolver for NullResolver {
     fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Option<Export> {
         None
+    }
+}
+
+/// A [`Resolver`] that links two resolvers together in a chain.
+pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
+    a: A,
+    b: B,
+}
+
+/// A trait for chaining resolvers together.
+///
+/// ```
+/// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
+/// # fn chainable_test<A, B>(imports1: A, imports2: B)
+/// # where A: NamedResolver + Sized,
+/// #       B: NamedResolver + Sized,
+/// # {
+/// // override duplicates with imports from `imports2`
+/// imports1.chain_front(imports2);
+/// # }
+/// ```
+pub trait ChainableNamedResolver: NamedResolver + Sized {
+    /// Chain a resolver in front of the current resolver.
+    ///
+    /// This will cause the second resolver to override the first.
+    ///
+    /// ```
+    /// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
+    /// # fn chainable_test<A, B>(imports1: A, imports2: B)
+    /// # where A: NamedResolver + Sized,
+    /// #       B: NamedResolver + Sized,
+    /// # {
+    /// // override duplicates with imports from `imports2`
+    /// imports1.chain_front(imports2);
+    /// # }
+    /// ```
+    fn chain_front<U>(self, other: U) -> NamedResolverChain<U, Self>
+    where
+        U: NamedResolver,
+    {
+        NamedResolverChain { a: other, b: self }
+    }
+
+    /// Chain a resolver behind the current resolver.
+    ///
+    /// This will cause the first resolver to override the second.
+    ///
+    /// ```
+    /// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
+    /// # fn chainable_test<A, B>(imports1: A, imports2: B)
+    /// # where A: NamedResolver + Sized,
+    /// #       B: NamedResolver + Sized,
+    /// # {
+    /// // override duplicates with imports from `imports1`
+    /// imports1.chain_back(imports2);
+    /// # }
+    /// ```
+    fn chain_back<U>(self, other: U) -> NamedResolverChain<Self, U>
+    where
+        U: NamedResolver,
+    {
+        NamedResolverChain { a: self, b: other }
+    }
+}
+
+// We give these chain methods to all types implementing NamedResolver
+impl<T: NamedResolver> ChainableNamedResolver for T {}
+
+impl<A, B> NamedResolver for NamedResolverChain<A, B>
+where
+    A: NamedResolver,
+    B: NamedResolver,
+{
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+        self.a
+            .resolve_by_name(module, field)
+            .or_else(|| self.b.resolve_by_name(module, field))
+    }
+}
+
+impl<A, B> Clone for NamedResolverChain<A, B>
+where
+    A: NamedResolver + Clone,
+    B: NamedResolver + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            a: self.a.clone(),
+            b: self.b.clone(),
+        }
     }
 }
