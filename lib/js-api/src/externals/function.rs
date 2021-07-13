@@ -3,24 +3,15 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::{AsJs /* ValFuncRef */, Val};
 use crate::{FunctionType, ValType};
-use core::any::Any;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::{JsCast, __rt::WasmRefCell};
+use wasm_bindgen::JsCast;
 // use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 
 use crate::export::{Export, VMFunction};
-use std::cmp::max;
-use std::ffi::c_void;
 use std::fmt;
-use std::sync::Arc; // ExportFunction, ExportFunctionMetadata
-                    // use wasmer_vm::{
-                    //     raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
-                    //     VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,
-                    //     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
-                    // };
 
 #[repr(C)]
 pub struct VMFunctionBody(u8);
@@ -902,7 +893,7 @@ impl fmt::Debug for Function {
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {
-    use super::{JsValue, VMFunctionBody};
+    use super::VMFunctionBody;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
     use std::error::Error;

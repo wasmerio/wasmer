@@ -1,12 +1,8 @@
 use core::cmp::Ordering;
-use core::fmt::{self, Debug, Display};
-use core::mem;
-use core::ops::{Deref, DerefMut};
-use core::ptr;
+use core::fmt::{self, Debug};
 use std::marker::PhantomData;
 
 use js_sys::Uint8Array;
-use wasm_bindgen::JsValue;
 
 /// A mutable Wasm-memory location.
 pub struct WasmCell<'a, T: ?Sized> {

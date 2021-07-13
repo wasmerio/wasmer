@@ -8,7 +8,7 @@
 
 use crate::cell::WasmCell;
 use crate::{externals::Memory, FromToNativeWasmType};
-use std::{cell::Cell, fmt, marker::PhantomData, mem};
+use std::{fmt, marker::PhantomData, mem};
 use wasmer_types::ValueType;
 
 /// The `Array` marker type. This type can be used like `WasmPtr<T, Array>`

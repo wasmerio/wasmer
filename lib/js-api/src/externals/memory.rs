@@ -4,11 +4,8 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::{MemoryType, MemoryView};
 use std::convert::TryInto;
-use std::slice;
-use std::sync::Arc;
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use wasmer_types::{Bytes, Pages, ValueType};
 
 pub type MemoryError = ();

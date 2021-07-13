@@ -1,9 +1,7 @@
 use crate::instance::Instance;
 use crate::WasmerEnv;
-use core::any::TypeId;
 use js_sys::Function;
 use js_sys::WebAssembly::Memory;
-use std::any::Any;
 use std::cell::RefCell;
 use std::fmt;
 use std::sync::Arc;

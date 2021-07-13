@@ -19,11 +19,8 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# executor = "0.8.0"
 wasm-bindgen = { version = "0.2.74" }
 js-sys = { version = "0.3.51" }
-# wasm-bindgen = { version = "0.2.74", path = "../../../wasm-bindgen/"}
-# js-sys = { version = "0.3.51", path = "../../../wasm-bindgen/crates/js-sys"}
 wasmer-types = { path = "../types", version = "2.0.0", default-features = false, features = ["std"] }
 indexmap = { version = "1.6", features = ["serde-1"] }
 cfg-if = "1.0"

@@ -7,18 +7,14 @@ use crate::types::{ExportType, ImportType};
 use crate::error::CompileError;
 #[cfg(feature = "wat")]
 use crate::error::WasmError;
-use js_sys::{Function, Object, Reflect, Uint8Array, WebAssembly};
+use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
 use std::io;
 use std::path::Path;
-use std::sync::Arc;
 use thiserror::Error;
 use wasmer_types::{
     ExternType, FunctionType, GlobalType, MemoryType, Mutability, Pages, TableType, Type,
 };
-
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {

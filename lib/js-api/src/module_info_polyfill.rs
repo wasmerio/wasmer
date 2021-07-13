@@ -7,25 +7,20 @@
 //! https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
 use crate::iterators::{ExportsIterator, ImportsIterator};
 use core::convert::TryFrom;
-use std::boxed::Box;
-use std::collections::HashMap;
 use std::vec::Vec;
-use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType,
-    GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, MemoryIndex, MemoryType, Pages,
-    SignatureIndex, TableIndex, TableType, Type, V128,
+    ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType, GlobalIndex, GlobalType,
+    ImportIndex, ImportType, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType,
+    Type,
 };
 
 use indexmap::IndexMap;
 use wasmparser::{
-    self, BinaryReaderError, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems,
-    ElementKind, ElementSectionReader, Export, ExportSectionReader, ExternalKind,
-    FuncType as WPFunctionType, FunctionSectionReader, GlobalSectionReader,
-    GlobalType as WPGlobalType, ImportSectionEntryType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Naming, NamingReader, Operator, Parser, Payload,
-    TableSectionReader, TypeDef, TypeSectionReader,
+    self, BinaryReaderError, Export, ExportSectionReader, ExternalKind, FuncType as WPFunctionType,
+    FunctionSectionReader, GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionEntryType,
+    ImportSectionReader, MemorySectionReader, MemoryType as WPMemoryType, NameSectionReader,
+    Parser, Payload, TableSectionReader, TypeDef, TypeSectionReader,
 };
 
 pub type WasmResult<T> = Result<T, String>;

@@ -1,6 +1,4 @@
 use crate::export::Export;
-use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 /// Import resolver connects imports with available exported values.
 pub trait Resolver {

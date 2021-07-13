@@ -4,8 +4,8 @@ use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 // use crate::{HostEnvInitError, LinkError, RuntimeError};
-use crate::resolver::{NamedResolver, Resolver};
-use js_sys::{Object, Reflect, WebAssembly};
+use crate::resolver::Resolver;
+use js_sys::WebAssembly;
 use std::fmt;
 use thiserror::Error;
 
