@@ -480,6 +480,9 @@ test-packages:
 	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
+test-js:
+	cd lib/js-api && wasm-pack test --node -- --features=wat
+
 ########################
 # Testing (Compatible) #
 ########################
