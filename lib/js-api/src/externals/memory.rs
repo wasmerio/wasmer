@@ -49,7 +49,6 @@ extern "C" {
 #[derive(Debug, Clone)]
 pub struct Memory {
     store: Store,
-    ty: MemoryType,
     vm_memory: VMMemory,
 }
 
@@ -75,11 +74,11 @@ impl Memory {
         }
         js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into());
 
-        let memory = VMMemory::new(&descriptor).unwrap();
-        // unimplemented!();
+        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor).unwrap();
+
+        let memory = VMMemory::new(js_memory, ty);
         Ok(Self {
             store: store.clone(),
-            ty,
             vm_memory: memory,
         })
     }
@@ -98,9 +97,7 @@ impl Memory {
     /// assert_eq!(m.ty(), mt);
     /// ```
     pub fn ty(&self) -> MemoryType {
-        self.ty.clone()
-        // unimplemented!();
-        // self.vm_memory.from.ty()
+        self.vm_memory.ty.clone()
     }
 
     /// Returns the [`Store`] where the `Memory` belongs.
@@ -158,7 +155,7 @@ impl Memory {
 
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> u64 {
-        let bytes = js_sys::Reflect::get(&self.vm_memory.buffer(), &"byteLength".into())
+        let bytes = js_sys::Reflect::get(&self.vm_memory.memory.buffer(), &"byteLength".into())
             .unwrap()
             .as_f64()
             .unwrap() as u64;
@@ -180,7 +177,7 @@ impl Memory {
     /// assert_eq!(m.size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        let bytes = js_sys::Reflect::get(&self.vm_memory.buffer(), &"byteLength".into())
+        let bytes = js_sys::Reflect::get(&self.vm_memory.memory.buffer(), &"byteLength".into())
             .unwrap()
             .as_f64()
             .unwrap() as u64;
@@ -225,7 +222,7 @@ impl Memory {
         let pages = delta.into();
         // let new_pages = js_memory_grow(&self.vm_memory.unchecked_into::<JSMemory>(), pages.0).unwrap();
         // let new_pages = self.vm_memory.unchecked_ref::<JSMemory>().grow(pages.0);
-        let new_pages = self.vm_memory.grow(pages.0);
+        let new_pages = self.vm_memory.memory.grow(pages.0);
         Ok(Pages(new_pages))
     }
 
@@ -271,13 +268,12 @@ impl Memory {
 
     /// example view
     pub fn uint8view(&self) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new(&self.vm_memory.buffer())
+        js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
         Self {
             store: store.clone(),
-            ty: MemoryType::new(Pages(1), None, false),
             vm_memory,
         }
     }

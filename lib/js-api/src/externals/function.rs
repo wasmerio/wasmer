@@ -2,7 +2,7 @@ use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::{AsJs /* ValFuncRef */, Val};
-use crate::FunctionType;
+use crate::{FunctionType, ValType};
 use core::any::Any;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, __rt::WasmRefCell};
@@ -45,7 +45,6 @@ pub struct VMFunctionBody(u8);
 // #[derive(PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
-    ty: FunctionType,
     pub(crate) exported: VMFunction,
 }
 
@@ -175,8 +174,7 @@ impl Function {
         // let environment: Option<Arc>
         Self {
             store: store.clone(),
-            ty: ty.into(),
-            exported: VMFunction::new(func, None),
+            exported: VMFunction::new(func, ty.into(), None),
         }
         // Function::new
         // let wrapped_func =
@@ -314,8 +312,7 @@ impl Function {
         let ty = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             store: store.clone(),
-            ty,
-            exported: VMFunction::new(binded_func, None),
+            exported: VMFunction::new(binded_func, ty, None),
         }
 
         // let vmctx = VMFunctionEnvironment {
@@ -396,8 +393,7 @@ impl Function {
         // panic!("Function env {:?}", environment.type_id());
         Self {
             store: store.clone(),
-            ty,
-            exported: VMFunction::new(binded_func, Some(environment)),
+            exported: VMFunction::new(binded_func, ty, Some(environment)),
         }
 
         // let function = inner::Function::<Args, Rets>::new(func);
@@ -443,8 +439,7 @@ impl Function {
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self) -> &FunctionType {
-        unimplemented!();
-        // &self.exported.vm_function.signature
+        &self.exported.ty
     }
 
     /// Returns the [`Store`] where the `Function` belongs.
@@ -599,8 +594,25 @@ impl Function {
         }
         let result =
             js_sys::Reflect::apply(&self.exported.function, &wasm_bindgen::JsValue::NULL, &arr);
-        // Ok(vec![Val::F64(result.unwrap().as_f64().unwrap())].into_boxed_slice())
-        Ok(Box::new([]))
+
+        let result_types = self.exported.ty.results();
+        match result_types.len() {
+            0 => Ok(Box::new([])),
+            1 => {
+                let num_value = result.unwrap().as_f64().unwrap();
+                let value = match result_types[0] {
+                    ValType::I32 => Val::I32(num_value as _),
+                    ValType::I64 => Val::I64(num_value as _),
+                    ValType::F32 => Val::F32(num_value as _),
+                    ValType::F64 => Val::F64(num_value),
+                    _ => unimplemented!(),
+                };
+                Ok(vec![value].into_boxed_slice())
+            }
+            _ => unimplemented!(),
+        }
+        //
+
         // if let Some(trampoline) = self.exported.vm_function.call_trampoline {
         //     let mut results = vec![Val::null(); self.result_arity()];
         //     self.call_wasm(trampoline, params, &mut results)?;
@@ -613,7 +625,6 @@ impl Function {
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: VMFunction) -> Self {
         Self {
             store: store.clone(),
-            ty: FunctionType::new(vec![], vec![]),
             exported: wasmer_export,
         }
     }

@@ -313,7 +313,7 @@ pub use crate::externals::{
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::{Instance, InstantiationError};
-pub use crate::module::Module;
+pub use crate::module::{Module, ModuleTypeHints};
 pub use wasm_bindgen::JsValue as RuntimeError;
 // pub use crate::native::NativeFunc;
 pub use crate::ptr::{Array, Item, WasmPtr};

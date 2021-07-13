@@ -101,11 +101,20 @@ fn exports() {
     let store = Store::default();
     let wat = r#"(module
     (func (export "func") nop)
-    (memory (export "memory") 1)
-    (table (export "table") 1 funcref)
+    (memory (export "memory") 2)
+    (table (export "table") 2 funcref)
     (global (export "global") i32 (i32.const 0))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+    let mut module = Module::new(&store, wat).unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        exports: vec![
+            ExternType::Function(FunctionType::new(vec![], vec![])),
+            ExternType::Memory(MemoryType::new(Pages(2), None, false)),
+            ExternType::Table(TableType::new(Type::FuncRef, 2, None)),
+            ExternType::Global(GlobalType::new(Type::I32, Mutability::Const)),
+        ],
+        imports: vec![],
+    });
     assert_eq!(
         module.exports().collect::<Vec<_>>(),
         vec![
@@ -115,11 +124,11 @@ fn exports() {
             ),
             ExportType::new(
                 "memory",
-                ExternType::Memory(MemoryType::new(Pages(1), None, false))
+                ExternType::Memory(MemoryType::new(Pages(2), None, false))
             ),
             ExportType::new(
                 "table",
-                ExternType::Table(TableType::new(Type::FuncRef, 1, None))
+                ExternType::Table(TableType::new(Type::FuncRef, 2, None))
             ),
             ExportType::new(
                 "global",
@@ -137,14 +146,14 @@ fn exports() {
         module.exports().memories().collect::<Vec<_>>(),
         vec![ExportType::new(
             "memory",
-            MemoryType::new(Pages(1), None, false)
+            MemoryType::new(Pages(2), None, false)
         ),]
     );
     assert_eq!(
         module.exports().tables().collect::<Vec<_>>(),
         vec![ExportType::new(
             "table",
-            TableType::new(Type::FuncRef, 1, None)
+            TableType::new(Type::FuncRef, 2, None)
         ),]
     );
     assert_eq!(

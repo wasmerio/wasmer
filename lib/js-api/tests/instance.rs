@@ -67,7 +67,7 @@ fn test_exported_memory() {
 #[wasm_bindgen_test]
 fn test_exported_function() {
     let store = Store::default();
-    let module = Module::new(
+    let mut module = Module::new(
         &store,
         br#"
     (module
@@ -78,6 +78,13 @@ fn test_exported_function() {
     "#,
     )
     .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![],
+        exports: vec![ExternType::Function(FunctionType::new(
+            vec![],
+            vec![Type::I32],
+        ))],
+    });
 
     let import_object = imports! {};
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -87,8 +94,12 @@ fn test_exported_function() {
     // assert_eq!(memory.data_size(), 65536);
 
     let get_magic = instance.exports.get_function("get_magic").unwrap();
+    assert_eq!(
+        get_magic.ty().clone(),
+        FunctionType::new(vec![], vec![Type::I32])
+    );
 
-    let expected = vec![Val::F64(42.0)].into_boxed_slice();
+    let expected = vec![Val::I32(42)].into_boxed_slice();
     assert_eq!(get_magic.call(&[]), Ok(expected));
 }
 
@@ -122,7 +133,7 @@ fn test_exported_function() {
 #[wasm_bindgen_test]
 fn test_imported_function_dynamic() {
     let store = Store::default();
-    let module = Module::new(
+    let mut module = Module::new(
         &store,
         br#"
     (module
@@ -134,6 +145,16 @@ fn test_imported_function_dynamic() {
     "#,
     )
     .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+        exports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+    });
 
     let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
     let imported = Function::new(&store, &imported_signature, |args| {
@@ -156,14 +177,14 @@ fn test_imported_function_dynamic() {
 
     let exported = instance.exports.get_function("exported").unwrap();
 
-    let expected = vec![Val::F64(5.0)].into_boxed_slice();
+    let expected = vec![Val::I32(5)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 }
 
 #[wasm_bindgen_test]
 fn test_imported_function_native() {
     let store = Store::default();
-    let module = Module::new(
+    let mut module = Module::new(
         &store,
         br#"
     (module
@@ -175,6 +196,16 @@ fn test_imported_function_native() {
     "#,
     )
     .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+        exports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+    });
 
     fn imported_fn(arg: u32) -> u32 {
         return arg + 1;
@@ -195,14 +226,14 @@ fn test_imported_function_native() {
 
     let exported = instance.exports.get_function("exported").unwrap();
 
-    let expected = vec![Val::F64(5.0)].into_boxed_slice();
+    let expected = vec![Val::I32(5)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 }
 
 #[wasm_bindgen_test]
 fn test_imported_function_native_with_env() {
     let store = Store::default();
-    let module = Module::new(
+    let mut module = Module::new(
         &store,
         br#"
     (module
@@ -214,6 +245,16 @@ fn test_imported_function_native_with_env() {
     "#,
     )
     .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+        exports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+    });
 
     #[derive(WasmerEnv, Clone)]
     struct Env {
@@ -239,14 +280,14 @@ fn test_imported_function_native_with_env() {
 
     let exported = instance.exports.get_function("exported").unwrap();
 
-    let expected = vec![Val::F64(12.0)].into_boxed_slice();
+    let expected = vec![Val::I32(12)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 }
 
 #[wasm_bindgen_test]
 fn test_imported_function_native_with_wasmer_env() {
     let store = Store::default();
-    let module = Module::new(
+    let mut module = Module::new(
         &store,
         br#"
     (module
@@ -259,6 +300,16 @@ fn test_imported_function_native_with_wasmer_env() {
     "#,
     )
     .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+        exports: vec![
+            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
+            ExternType::Memory(MemoryType::new(Pages(1), None, false)),
+        ],
+    });
 
     #[derive(WasmerEnv, Clone)]
     struct Env {
@@ -301,11 +352,11 @@ fn test_imported_function_native_with_wasmer_env() {
     let exported = instance.exports.get_function("exported").unwrap();
 
     /// It with the provided memory
-    let expected = vec![Val::F64(24.0)].into_boxed_slice();
+    let expected = vec![Val::I32(24)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 
     /// It works if we update the memory
     memory.uint8view().set_index(0, 3);
-    let expected = vec![Val::F64(36.0)].into_boxed_slice();
+    let expected = vec![Val::I32(36)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 }

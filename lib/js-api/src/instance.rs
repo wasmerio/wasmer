@@ -1,3 +1,4 @@
+use crate::export::Export;
 use crate::exports::Exports;
 use crate::externals::Extern;
 use crate::module::Module;
@@ -117,8 +118,10 @@ impl Instance {
             .exports()
             .map(|export_type| {
                 let name = export_type.name();
-                let export = js_sys::Reflect::get(&instance_exports, &name.into()).unwrap();
-                let extern_ = Extern::from_vm_export(store, export.into());
+                let extern_type = export_type.ty().clone();
+                let js_export = js_sys::Reflect::get(&instance_exports, &name.into()).unwrap();
+                let export: Export = (js_export, extern_type).into();
+                let extern_ = Extern::from_vm_export(store, export);
                 (name.to_string(), extern_)
             })
             .collect::<Exports>();

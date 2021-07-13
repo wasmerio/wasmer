@@ -9,18 +9,36 @@ use std::fmt;
 use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
+use wasmer_types::{ExternType, FunctionType, MemoryType};
 
-pub type VMMemory = Memory;
+#[derive(Clone, Debug, PartialEq)]
+pub struct VMMemory {
+    pub(crate) memory: Memory,
+    pub(crate) ty: MemoryType,
+}
+
+impl VMMemory {
+    pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
+        Self { memory, ty }
+    }
+}
+
 #[derive(Clone)]
 pub struct VMFunction {
     pub(crate) function: Function,
+    pub(crate) ty: FunctionType,
     pub(crate) environment: Option<Arc<RefCell<Box<dyn WasmerEnv>>>>,
 }
 
 impl VMFunction {
-    pub(crate) fn new(function: Function, environment: Option<Box<dyn WasmerEnv>>) -> Self {
+    pub(crate) fn new(
+        function: Function,
+        ty: FunctionType,
+        environment: Option<Box<dyn WasmerEnv>>,
+    ) -> Self {
         Self {
             function,
+            ty,
             environment: environment.map(|env| Arc::new(RefCell::new(env))),
         }
     }
@@ -63,22 +81,38 @@ pub enum Export {
 impl Export {
     pub fn as_jsvalue(&self) -> &JsValue {
         match self {
-            Export::Memory(js_wasm_memory) => js_wasm_memory.as_ref(),
+            Export::Memory(js_wasm_memory) => js_wasm_memory.memory.as_ref(),
             Export::Function(js_func) => js_func.function.as_ref(),
             _ => unimplemented!(),
         }
     }
 }
 
-impl From<JsValue> for Export {
-    fn from(val: JsValue) -> Export {
-        if val.is_instance_of::<Memory>() {
-            return Export::Memory(val.unchecked_into::<Memory>());
+impl From<(JsValue, ExternType)> for Export {
+    fn from((val, extern_type): (JsValue, ExternType)) -> Export {
+        match extern_type {
+            ExternType::Memory(memory_type) => {
+                if val.is_instance_of::<Memory>() {
+                    return Export::Memory(VMMemory::new(
+                        val.unchecked_into::<Memory>(),
+                        memory_type,
+                    ));
+                } else {
+                    panic!("Extern type doesn't match js value type");
+                }
+            }
+            ExternType::Function(function_type) => {
+                if val.is_instance_of::<Function>() {
+                    return Export::Function(VMFunction::new(
+                        val.unchecked_into::<Function>(),
+                        function_type,
+                        None,
+                    ));
+                } else {
+                    panic!("Extern type doesn't match js value type");
+                }
+            }
+            _ => unimplemented!(),
         }
-        // Leave this last
-        else if val.is_instance_of::<Function>() {
-            return Export::Function(VMFunction::new(val.unchecked_into::<Function>(), None));
-        }
-        unimplemented!();
     }
 }
