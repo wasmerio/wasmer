@@ -173,7 +173,7 @@ impl Exports {
         Rets: WasmTypeList,
         T: ExportableWithGenerics<'a, Args, Rets>,
     {
-        let mut out: T = self.get_with_generics(name)?;
+        let out: T = self.get_with_generics(name)?;
         Ok(out)
     }
 

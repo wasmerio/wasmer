@@ -44,13 +44,6 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::tunables::BaseTunables].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
-        // let item = init.into_table_reference(store)?;
-        // let tunables = store.tunables();
-        // let style = tunables.table_style(&ty);
-        // let table = tunables
-        //     .create_host_table(&ty, &style)
-        //     .map_err(RuntimeError::new)?;
-
         let descriptor = js_sys::Object::new();
         js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into());
         if let Some(max) = ty.maximum {
@@ -114,7 +107,7 @@ impl Table {
     /// # Errors
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
-    pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
+    pub fn grow(&self, _delta: u32, _init: Val) -> Result<u32, RuntimeError> {
         unimplemented!();
         // let item = init.into_table_reference(&self.store)?;
         // self.vm_table
@@ -131,11 +124,11 @@ impl Table {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy(
-        dst_table: &Self,
-        dst_index: u32,
-        src_table: &Self,
-        src_index: u32,
-        len: u32,
+        _dst_table: &Self,
+        _dst_index: u32,
+        _src_table: &Self,
+        _src_index: u32,
+        _len: u32,
     ) -> Result<(), RuntimeError> {
         unimplemented!();
         // if !Store::same(&dst_table.store, &src_table.store) {

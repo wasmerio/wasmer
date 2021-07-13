@@ -22,7 +22,7 @@ impl Store {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine. The
     /// tunables are excluded from the logic.
-    pub fn same(a: &Self, b: &Self) -> bool {
+    pub fn same(_a: &Self, _b: &Self) -> bool {
         true
     }
 }
@@ -53,7 +53,7 @@ impl fmt::Debug for Store {
 /// A trait represinting any object that lives in the `Store`.
 pub trait StoreObject {
     /// Return true if the object `Store` is the same as the provided `Store`.
-    fn comes_from_same_store(&self, store: &Store) -> bool {
+    fn comes_from_same_store(&self, _store: &Store) -> bool {
         true
     }
 }

@@ -27,7 +27,7 @@ impl<'a, T: Copy> Clone for WasmCell<'a, T> {
 impl<T: PartialEq + Copy> PartialEq for WasmCell<'_, T> {
     #[inline]
     fn eq(&self, other: &WasmCell<T>) -> bool {
-        true
+        self.get() == other.get()
     }
 }
 

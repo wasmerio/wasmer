@@ -133,7 +133,7 @@ impl Module {
     }
 
     /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
+    pub fn from_file(store: &Store, _file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
         unimplemented!();
     }
 
@@ -158,7 +158,7 @@ impl Module {
         store: &Store,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let js_bytes = unsafe { Uint8Array::view(binary) };
+        let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
         // The module is now validated, so we can safely parse it's types
@@ -202,7 +202,7 @@ impl Module {
         }
     }
 
-    fn compile(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
+    fn compile(_store: &Store, _binary: &[u8]) -> Result<Self, CompileError> {
         unimplemented!();
     }
 

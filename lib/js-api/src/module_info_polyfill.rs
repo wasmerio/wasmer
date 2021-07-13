@@ -582,13 +582,10 @@ pub fn parse_global_section(
     module_info.reserve_globals(globals.get_count())?;
 
     for entry in globals {
-        let wasmparser::Global {
-            ty: WPGlobalType {
-                content_type,
-                mutable,
-            },
-            init_expr,
-        } = entry.map_err(transform_err)?;
+        let WPGlobalType {
+            content_type,
+            mutable,
+        } = entry.map_err(transform_err)?.ty;
         let global = GlobalType {
             ty: wptype_to_type(content_type).unwrap(),
             mutability: mutable.into(),
@@ -654,7 +651,7 @@ pub fn parse_name_section<'data>(
 ) -> WasmResult<()> {
     while let Ok(subsection) = names.read() {
         match subsection {
-            wasmparser::Name::Function(function_subsection) => {
+            wasmparser::Name::Function(_function_subsection) => {
                 // if let Some(function_names) = function_subsection
                 //     .get_map()
                 //     .ok()

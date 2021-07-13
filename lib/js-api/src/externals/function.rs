@@ -41,7 +41,7 @@ pub struct Function {
 
 impl wasmer_types::WasmValueType for Function {
     /// Write the value.
-    unsafe fn write_value_to(&self, p: *mut i128) {
+    unsafe fn write_value_to(&self, _p: *mut i128) {
         // let func_ref =
         //     Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
         // std::ptr::write(p as *mut VMFuncRef, func_ref);
@@ -51,7 +51,7 @@ impl wasmer_types::WasmValueType for Function {
     /// Read the value.
     // TODO(reftypes): this entire function should be cleaned up, `dyn Any` should
     // ideally be removed
-    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
+    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
         unimplemented!();
         // let func_ref = std::ptr::read(p as *const VMFuncRef);
         // let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
@@ -146,7 +146,7 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F>(store: &Store, ty: FT, func: F) -> Self
+    pub fn new<FT, F>(store: &Store, ty: FT, _func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
@@ -212,7 +212,7 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_with_env<FT, F, Env>(store: &Store, ty: FT, env: Env, func: F) -> Self
+    pub fn new_with_env<FT, F, Env>(_store: &Store, _ty: FT, _env: Env, _func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,

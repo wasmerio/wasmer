@@ -95,7 +95,6 @@ impl Export {
             Export::Memory(js_wasm_memory) => js_wasm_memory.memory.as_ref(),
             Export::Function(js_func) => js_func.function.as_ref(),
             Export::Table(js_wasm_table) => js_wasm_table.table.as_ref(),
-            _ => unimplemented!(),
         }
     }
 }

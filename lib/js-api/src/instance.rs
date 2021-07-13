@@ -131,7 +131,7 @@ impl Instance {
             instance: instance,
             exports,
         };
-        for mut func in functions {
+        for func in functions {
             func.init_envs(&self_instance);
         }
         Ok(self_instance)
