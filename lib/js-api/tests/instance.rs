@@ -42,7 +42,7 @@ use wasmer_js::*;
 #[wasm_bindgen_test]
 fn test_exported_memory() {
     let store = Store::default();
-    let module = Module::new(
+    let mut module = Module::new(
         &store,
         br#"
     (module
@@ -51,17 +51,23 @@ fn test_exported_memory() {
     "#,
     )
     .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![],
+        exports: vec![ExternType::Memory(MemoryType::new(Pages(1), None, false))],
+    });
 
     let import_object = imports! {};
     let instance = Instance::new(&module, &import_object).unwrap();
 
     let memory = instance.exports.get_memory("mem").unwrap();
+    assert_eq!(memory.ty(), MemoryType::new(Pages(1), None, false));
     assert_eq!(memory.size(), Pages(1));
     assert_eq!(memory.data_size(), 65536);
 
-    // let load = instance
-    //     .exports
-    //     .get_native_function::<(), (WasmPtr<u8, Array>, i32)>("load")?;
+    memory.grow(Pages(1)).unwrap();
+    assert_eq!(memory.ty(), MemoryType::new(Pages(2), None, false));
+    assert_eq!(memory.size(), Pages(2));
+    assert_eq!(memory.data_size(), 65536 * 2);
 }
 
 #[wasm_bindgen_test]

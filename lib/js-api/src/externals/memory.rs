@@ -97,7 +97,9 @@ impl Memory {
     /// assert_eq!(m.ty(), mt);
     /// ```
     pub fn ty(&self) -> MemoryType {
-        self.vm_memory.ty.clone()
+        let mut ty = self.vm_memory.ty.clone();
+        ty.minimum = self.size();
+        ty
     }
 
     /// Returns the [`Store`] where the `Memory` belongs.
