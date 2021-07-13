@@ -291,6 +291,7 @@ mod import_object;
 mod instance;
 mod iterators;
 mod module;
+#[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
 mod resolver;
 // mod native;
@@ -340,3 +341,46 @@ pub use wat::parse_bytes as wat2wasm;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+#[no_mangle]
+/// example doc
+pub fn example() -> bool {
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"
+    (module
+        (func $imported (import "env" "imported") (param i32) (result i32))
+        (func (export "exported") (param i32) (result i32)
+            (call $imported (local.get 0))
+        )
+    )
+    "#,
+    )
+    .unwrap();
+
+    fn imported_fn(arg: u32) -> u32 {
+        return arg + 1;
+    }
+
+    let imported = Function::new_native(&store, imported_fn);
+
+    let import_object = imports! {
+        "env" => {
+            "imported" => imported,
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    // let memory = instance.exports.get_memory("mem").unwrap();
+    // assert_eq!(memory.size(), Pages(1));
+    // assert_eq!(memory.data_size(), 65536);
+
+    let exported = instance.exports.get_function("exported").unwrap();
+
+    let expected = vec![Val::F64(5.0)].into_boxed_slice();
+    exported.call(&[Val::I32(4)]) == Ok(expected)
+}
