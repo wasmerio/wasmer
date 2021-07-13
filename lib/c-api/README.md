@@ -20,8 +20,7 @@ $WASMER_DIR/
 Wasmer binary also ships with [`wasmer-config`](#wasmer-config)
 an utility tool that outputs config information needed to compile programs which use Wasmer.
 
-The full C API documentation can be found here:
-https://wasmerio.github.io/wasmer/c/
+The full C API documentation can be found here: https://wasmerio.github.io/wasmer/crates/wasmer_c_api/index.html
 
 Here is a simple example to use the C API:
 

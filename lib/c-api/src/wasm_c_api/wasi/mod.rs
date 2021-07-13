@@ -17,7 +17,7 @@ use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
-use wasmer::{Extern, NamedResolver};
+use wasmer_api::{Extern, NamedResolver};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiState,
     WasiStateBuilder, WasiVersion,

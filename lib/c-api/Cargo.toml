@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-c-api"
-version = "2.0.0-rc2"
+version = "2.0.0"
 description = "Wasmer C API library"
 categories = ["wasm", "api-bindings"]
 keywords = ["wasm", "webassembly", "runtime"]
@@ -12,21 +12,28 @@ readme = "README.md"
 edition = "2018"
 
 [lib]
+# The library name is `wasmer` so that we generate dylib like
+# `libwasmer.so`, `libwasmer.dylib`, `wasmer.dll` etc. But it creates
+# a conflict with the existing `wasmer` crate, see below.
+name = "wasmer" # ##lib.name##
+                # ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
 crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
-wasmer = { version = "2.0.0-rc2", path = "../api", default-features = false }
-wasmer-compiler-cranelift = { version = "2.0.0-rc2", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "2.0.0-rc2", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "2.0.0-rc2", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "2.0.0-rc2", path = "../emscripten", optional = true }
-wasmer-engine = { version = "2.0.0-rc2", path = "../engine" }
-wasmer-engine-universal = { version = "2.0.0-rc2", path = "../engine-universal", optional = true }
-wasmer-engine-dylib = { version = "2.0.0-rc2", path = "../engine-dylib", optional = true }
-wasmer-engine-staticlib = { version = "2.0.0-rc2", path = "../engine-staticlib", optional = true }
-wasmer-middlewares = { version = "2.0.0-rc2", path = "../middlewares", optional = true }
-wasmer-wasi = { version = "2.0.0-rc2", path = "../wasi", optional = true }
-wasmer-types = { version = "2.0.0-rc2", path = "../types" }
+# We rename `wasmer` to `wasmer-api` to avoid the conflict with this
+# library name (see `[lib]`).
+wasmer-api = { version = "2.0.0", path = "../api", default-features = false, package = "wasmer" }
+wasmer-compiler-cranelift = { version = "2.0.0", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "2.0.0", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "2.0.0", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "2.0.0", path = "../emscripten", optional = true }
+wasmer-engine = { version = "2.0.0", path = "../engine" }
+wasmer-engine-universal = { version = "2.0.0", path = "../engine-universal", optional = true }
+wasmer-engine-dylib = { version = "2.0.0", path = "../engine-dylib", optional = true }
+wasmer-engine-staticlib = { version = "2.0.0", path = "../engine-staticlib", optional = true }
+wasmer-middlewares = { version = "2.0.0", path = "../middlewares", optional = true }
+wasmer-wasi = { version = "2.0.0", path = "../wasi", optional = true }
+wasmer-types = { version = "2.0.0", path = "../types" }
 enumset = "1.0"
 cfg-if = "1.0"
 lazy_static = "1.4"
@@ -48,7 +55,7 @@ default = [
     "wasi",
     "middlewares",
 ]
-wat = ["wasmer/wat"]
+wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
 middlewares = ["wasmer-middlewares"]
@@ -65,7 +72,7 @@ staticlib = [
     "engine",
 ]
 compiler = [
-    "wasmer/compiler",
+    "wasmer-api/compiler",
     "wasmer-engine-universal/compiler",
     "wasmer-engine-dylib/compiler",
     "wasmer-engine-staticlib/compiler"
@@ -91,4 +98,4 @@ native = ["dylib"]
 #emscripten = ["wasmer-emscripten"]
 
 [build-dependencies]
-cbindgen = "0.18"
+cbindgen = "0.19"

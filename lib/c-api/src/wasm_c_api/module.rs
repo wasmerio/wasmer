@@ -6,7 +6,7 @@ use super::types::{
 use crate::error::{update_last_error, CApiError};
 use std::ptr::NonNull;
 use std::sync::Arc;
-use wasmer::Module;
+use wasmer_api::Module;
 
 /// Opaque type representing a WebAssembly module.
 #[allow(non_camel_case_types)]

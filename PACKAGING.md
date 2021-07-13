@@ -16,7 +16,9 @@
   with `WASMER_INSTALL_PREFIX`, e.g.:
 
   ```sh
-  $ WASMER_INSTALL_PREFIX=/usr make install
+  export WASMER_INSTALL_PREFIX=/usr
+  make
+  DESTDIR=.../usr make install
   ```
 
 * In case you must build/install directly with `cargo`, make sure to

@@ -8,6 +8,14 @@ Looking for changes to the Wasmer CLI and the Rust API? See our [Primary Changel
 
 ## **[Unreleased]**
 
+### Added
+- [#2449](https://github.com/wasmerio/wasmer/pull/2449) Configure `soname`, `install_name`, `out-implib`, etc.
+
+### Fixed
+- [#2444](https://github.com/wasmerio/wasmer/pull/2444) Trap's messages are always null terminated.
+
+## 2.0.0 - 2020/06/16
+
 ## 2.0.0-rc1 - 2020/06/02
 
 ### Added

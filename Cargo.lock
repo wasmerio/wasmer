@@ -215,9 +215,9 @@ dependencies = [
 
 [[package]]
 name = "cbindgen"
-version = "0.18.0"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97449daf9b8c245bcad10bbc7c9f4a37c06172c18dd5f9fac340deefc309b957"
+checksum = "38728c31b994e4b849cf59feefb4a8bf26acd299ee0b92c9fb35bd14ad4b8dfa"
 dependencies = [
  "clap",
  "heck",
@@ -1114,9 +1114,9 @@ dependencies = [
 
 [[package]]
 name = "loupe"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d79b0cc3aa7552a59274f642a0a6e7419b7f5438aba06a0a82825918ba69f0e6"
+checksum = "9b6a72dfa44fe15b5e76b94307eeb2ff995a8c5b283b55008940c02e0c5b634d"
 dependencies = [
  "indexmap",
  "loupe-derive",
@@ -1125,9 +1125,9 @@ dependencies = [
 
 [[package]]
 name = "loupe-derive"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a545b22ceeec36de91c46206afd384c17946bd62b95b76e927a2adb77fbdcc0"
+checksum = "c0fbfc88337168279f2e9ae06e157cfed4efd3316e14dc96ed074d4f2e6c5952"
 dependencies = [
  "quote",
  "syn",
@@ -2352,7 +2352,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
@@ -2396,7 +2396,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -2425,7 +2425,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "blake3",
  "criterion",
@@ -2441,7 +2441,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -2473,7 +2473,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "enumset",
  "hashbrown",
@@ -2491,7 +2491,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -2512,7 +2512,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -2535,7 +2535,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2554,7 +2554,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -2579,7 +2579,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -2598,7 +2598,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dummy"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "bincode",
  "loupe",
@@ -2612,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dylib"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
  "leb128",
@@ -2632,7 +2632,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-staticlib"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
@@ -2651,7 +2651,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-universal"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
  "leb128",
@@ -2667,7 +2667,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -2675,7 +2675,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "loupe",
  "wasmer",
@@ -2685,7 +2685,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "object",
  "thiserror",
@@ -2695,7 +2695,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "indexmap",
  "loupe",
@@ -2706,7 +2706,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "backtrace",
  "cc",
@@ -2726,25 +2726,24 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "bincode",
- "byteorder",
  "generational-arena",
  "getrandom",
  "libc",
  "serde",
  "thiserror",
- "time",
  "tracing",
  "typetag",
  "wasmer",
+ "wasmer-wasi-types",
  "winapi",
 ]
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "minifb",
  "ref_thread_local",
@@ -2755,8 +2754,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wasi-types"
+version = "2.0.0"
+dependencies = [
+ "byteorder",
+ "serde",
+ "time",
+ "wasmer-types",
+]
+
+[[package]]
 name = "wasmer-wast"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -2770,7 +2779,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "2.0.0-rc2"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "blake3",

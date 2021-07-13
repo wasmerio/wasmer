@@ -1,5 +1,5 @@
 use super::{wasm_externtype_t, WasmExternType};
-use wasmer::{ExternType, MemoryType, Pages};
+use wasmer_api::{ExternType, MemoryType, Pages};
 
 #[derive(Debug, Clone)]
 pub(crate) struct WasmMemoryType {

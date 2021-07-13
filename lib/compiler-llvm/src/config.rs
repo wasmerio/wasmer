@@ -137,14 +137,16 @@ impl LLVM {
         let cpu_features = &target.cpu_features();
 
         match triple.architecture {
-            Architecture::X86_64 => InkwellTarget::initialize_x86(&InitializationConfig {
-                asm_parser: true,
-                asm_printer: true,
-                base: true,
-                disassembler: true,
-                info: true,
-                machine_code: true,
-            }),
+            Architecture::X86_64 | Architecture::X86_32(_) => {
+                InkwellTarget::initialize_x86(&InitializationConfig {
+                    asm_parser: true,
+                    asm_printer: true,
+                    base: true,
+                    disassembler: true,
+                    info: true,
+                    machine_code: true,
+                })
+            }
             Architecture::Aarch64(_) => InkwellTarget::initialize_aarch64(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,

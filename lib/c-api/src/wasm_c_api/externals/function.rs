@@ -6,7 +6,7 @@ use super::CApiExternTag;
 use std::convert::TryInto;
 use std::ffi::c_void;
 use std::sync::Arc;
-use wasmer::{Function, RuntimeError, Val};
+use wasmer_api::{Function, RuntimeError, Val};
 
 #[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
@@ -108,12 +108,14 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
 
-    #[derive(wasmer::WasmerEnv, Clone)]
+    #[derive(Clone)]
     #[repr(C)]
     struct WrapperEnv {
         env: *mut c_void,
         env_finalizer: Arc<Option<wasm_env_finalizer_t>>,
     }
+
+    impl wasmer_api::WasmerEnv for WrapperEnv {}
 
     // Only relevant when using multiple threads in the C API;
     // Synchronization will be done via the C API / on the C side.
