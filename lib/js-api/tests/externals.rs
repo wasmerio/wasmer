@@ -177,75 +177,73 @@ fn memory_grow() {
     // assert!(bad_result.is_err());
 }
 
-// #[test]
-// fn function_new() -> Result<()> {
-//     let store = Store::default();
-//     let function = Function::new_native(&store, || {});
-//     assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
-//     let function = Function::new_native(&store, |_a: i32| {});
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![Type::I32], vec![])
-//     );
-//     let function = Function::new_native(&store, |_a: i32, _b: i64, _c: f32, _d: f64| {});
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
-//     );
-//     let function = Function::new_native(&store, || -> i32 { 1 });
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![], vec![Type::I32])
-//     );
-//     let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
-//     );
-//     Ok(())
-// }
+#[wasm_bindgen_test]
+fn function_new() {
+    let store = Store::default();
+    let function = Function::new_native(&store, || {});
+    assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
+    let function = Function::new_native(&store, |_a: i32| {});
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![Type::I32], vec![])
+    );
+    let function = Function::new_native(&store, |_a: i32, _b: i64, _c: f32, _d: f64| {});
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
+    );
+    let function = Function::new_native(&store, || -> i32 { 1 });
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![], vec![Type::I32])
+    );
+    let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
+    );
+}
 
-// #[test]
-// fn function_new_env() -> Result<()> {
-//     let store = Store::default();
-//     #[derive(Clone, WasmerEnv)]
-//     struct MyEnv {}
+#[wasm_bindgen_test]
+fn function_new_env() {
+    let store = Store::default();
+    #[derive(Clone, WasmerEnv)]
+    struct MyEnv {}
 
-//     let my_env = MyEnv {};
-//     let function = Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| {});
-//     assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
-//     let function =
-//         Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv, _a: i32| {});
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![Type::I32], vec![])
-//     );
-//     let function = Function::new_native_with_env(
-//         &store,
-//         my_env.clone(),
-//         |_env: &MyEnv, _a: i32, _b: i64, _c: f32, _d: f64| {},
-//     );
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
-//     );
-//     let function =
-//         Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| -> i32 { 1 });
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![], vec![Type::I32])
-//     );
-//     let function = Function::new_native_with_env(
-//         &store,
-//         my_env.clone(),
-//         |_env: &MyEnv| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
-//     );
-//     assert_eq!(
-//         function.ty().clone(),
-//         FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
-//     );
-//     Ok(())
-// }
+    let my_env = MyEnv {};
+    let function = Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| {});
+    assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
+    let function =
+        Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv, _a: i32| {});
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![Type::I32], vec![])
+    );
+    let function = Function::new_native_with_env(
+        &store,
+        my_env.clone(),
+        |_env: &MyEnv, _a: i32, _b: i64, _c: f32, _d: f64| {},
+    );
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
+    );
+    let function =
+        Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| -> i32 { 1 });
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![], vec![Type::I32])
+    );
+    let function = Function::new_native_with_env(
+        &store,
+        my_env.clone(),
+        |_env: &MyEnv| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
+    );
+    assert_eq!(
+        function.ty().clone(),
+        FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64])
+    );
+}
 
 // #[test]
 // fn function_new_dynamic() -> Result<()> {
@@ -374,31 +372,35 @@ fn memory_grow() {
 //     Ok(())
 // }
 
-// #[test]
-// fn function_outlives_instance() -> Result<()> {
-//     let store = Store::default();
-//     let wat = r#"(module
-//   (type $sum_t (func (param i32 i32) (result i32)))
-//   (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
-//     local.get $x
-//     local.get $y
-//     i32.add)
-//   (export "sum" (func $sum_f)))
-// "#;
+#[wasm_bindgen_test]
+fn function_outlives_instance() {
+    let store = Store::default();
+    let wat = r#"(module
+  (type $sum_t (func (param i32 i32) (result i32)))
+  (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
+    local.get $x
+    local.get $y
+    i32.add)
+  (export "sum" (func $sum_f)))
+"#;
 
-//     let f = {
-//         let module = Module::new(&store, wat)?;
-//         let instance = Instance::new(&module, &imports! {})?;
-//         let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("sum")?;
+    let f = {
+        let module = Module::new(&store, wat).unwrap();
+        let instance = Instance::new(&module, &imports! {}).unwrap();
+        let f = instance.exports.get_function("sum").unwrap();
 
-//         assert_eq!(f.call(4, 5)?, 9);
-//         f
-//     };
+        assert_eq!(
+            f.call(&[Val::I32(4), Val::I32(5)]).unwrap(),
+            vec![Val::I32(9)].into_boxed_slice()
+        );
+        f.clone()
+    };
 
-//     assert_eq!(f.call(4, 5)?, 9);
-
-//     Ok(())
-// }
+    assert_eq!(
+        f.call(&[Val::I32(4), Val::I32(5)]).unwrap(),
+        vec![Val::I32(9)].into_boxed_slice()
+    );
+}
 
 // #[test]
 // fn weak_instance_ref_externs_after_instance() -> Result<()> {

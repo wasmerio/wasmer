@@ -33,15 +33,10 @@ pub struct VMFunctionBody(u8);
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
+#[derive(Clone, PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) exported: VMFunction,
-}
-
-impl PartialEq for Function {
-    fn eq(&self, other: &Self) -> bool {
-        self.exported == other.exported
-    }
 }
 
 impl wasmer_types::WasmValueType for Function {
@@ -758,19 +753,6 @@ impl<'a> Exportable<'a> for Function {
             Extern::Function(func) => Ok(func),
             _ => Err(ExportError::IncompatibleType),
         }
-    }
-}
-
-impl Clone for Function {
-    fn clone(&self) -> Self {
-        unimplemented!();
-        // let mut exported = self.exported.clone();
-        // exported.vm_function.upgrade_instance_ref().unwrap();
-
-        // Self {
-        //     store: self.store.clone(),
-        //     exported,
-        // }
     }
 }
 

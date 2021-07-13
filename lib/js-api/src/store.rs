@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt;
 
 /// The store represents all global state that can be manipulated by
