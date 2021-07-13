@@ -164,11 +164,31 @@ impl Module {
     ) -> Result<Self, CompileError> {
         let js_bytes = unsafe { Uint8Array::view(binary) };
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
+
+        // The module is now validated, so we can safely parse it's types
+        let info = crate::module_info_polyfill::translate_module(binary).unwrap();
+        #[cfg(feature = "wasm-types-polyfill")]
+        let (type_hints, name) = (
+            Some(ModuleTypeHints {
+                imports: info
+                    .imports()
+                    .map(|import| import.ty().clone())
+                    .collect::<Vec<_>>(),
+                exports: info
+                    .exports()
+                    .map(|export| export.ty().clone())
+                    .collect::<Vec<_>>(),
+            }),
+            info.name,
+        );
+        #[cfg(not(feature = "wasm-types-polyfill"))]
+        let (type_hints, name) = (None, None);
+
         Ok(Self {
             store: store.clone(),
             module,
-            type_hints: None,
-            name: None,
+            type_hints,
+            name,
         })
     }
 

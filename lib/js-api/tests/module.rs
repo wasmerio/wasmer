@@ -16,9 +16,8 @@ fn module_set_name() {
     let wat = r#"(module $name)"#;
     let mut module = Module::new(&store, wat).unwrap();
 
-    // We explicitly don't test the wasm name from the name section
-    // because it adds unnecessary overhead for really little gain.
-    // assert_eq!(module.name(), Some("name"));
+    #[cfg(feature = "wasm-types-polyfill")]
+    assert_eq!(module.name(), Some("name"));
 
     module.set_name("new_name");
     assert_eq!(module.name(), Some("new_name"));

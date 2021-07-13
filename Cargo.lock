@@ -2739,6 +2739,7 @@ dependencies = [
  "wasm-bindgen-test",
  "wasmer-derive",
  "wasmer-types",
+ "wasmparser",
  "wat",
 ]
 

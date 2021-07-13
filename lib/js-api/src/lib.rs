@@ -291,6 +291,7 @@ mod import_object;
 mod instance;
 mod iterators;
 mod module;
+mod module_info_polyfill;
 mod resolver;
 // mod native;
 mod ptr;
