@@ -39,8 +39,11 @@ fn main() -> anyhow::Result<()> {
 ## Config flags
 
 Wasmer has the following configuration flags:
-* `wat` (enabled by default): It allows to read WebAssembly files in their text format.
-  *This feature is normally used only in development environments*
+* `wasm-types-polyfill` (enabled by default): it parses the Wasm file to introspect the inner types. __It adds 80Kb to the Wasm bundle__. You can disable it and use `Module::set_type_hints` manually instead if you want a lightweight alternative.
+  This is needed until the [Wasm JS introspection API proposal](https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md) is adopted by browsers
+
+* `wat`: It allows to read WebAssembly files in their text format.
+  *This feature is normally used only in development environments, __it will add around 800Kb to the Wasm bundle__*
 
 # Build
 
