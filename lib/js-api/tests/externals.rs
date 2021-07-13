@@ -427,32 +427,30 @@ fn memory_grow() {
 //     Ok(())
 // }
 
-// #[test]
-// fn manually_generate_wasmer_env() -> Result<()> {
-//     let store = Store::default();
-//     #[derive(WasmerEnv, Clone)]
-//     struct MyEnv {
-//         val: u32,
-//         memory: LazyInit<Memory>,
-//     }
+#[wasm_bindgen_test]
+fn manually_generate_wasmer_env() {
+    let store = Store::default();
+    #[derive(WasmerEnv, Clone)]
+    struct MyEnv {
+        val: u32,
+        memory: LazyInit<Memory>,
+    }
 
-//     fn host_function(env: &mut MyEnv, arg1: u32, arg2: u32) -> u32 {
-//         env.val + arg1 + arg2
-//     }
+    fn host_function(env: &mut MyEnv, arg1: u32, arg2: u32) -> u32 {
+        env.val + arg1 + arg2
+    }
 
-//     let mut env = MyEnv {
-//         val: 5,
-//         memory: LazyInit::new(),
-//     };
+    let mut env = MyEnv {
+        val: 5,
+        memory: LazyInit::new(),
+    };
 
-//     let result = host_function(&mut env, 7, 9);
-//     assert_eq!(result, 21);
+    let result = host_function(&mut env, 7, 9);
+    assert_eq!(result, 21);
 
-//     let memory = Memory::new(&store, MemoryType::new(0, None, false))?;
-//     env.memory.initialize(memory);
+    let memory = Memory::new(&store, MemoryType::new(0, None, false)).unwrap();
+    env.memory.initialize(memory);
 
-//     let result = host_function(&mut env, 1, 2);
-//     assert_eq!(result, 8);
-
-//     Ok(())
-// }
+    let result = host_function(&mut env, 1, 2);
+    assert_eq!(result, 8);
+}
