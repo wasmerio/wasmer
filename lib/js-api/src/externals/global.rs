@@ -1,14 +1,16 @@
+use crate::export::Export;
+use crate::export::VMGlobal;
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::{Store, StoreObject};
-use crate::types::Val;
+use crate::types::{Val, ValType};
+use crate::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_engine::Export;
-use wasmer_vm::{Global as RuntimeGlobal, VMGlobal};
+use wasm_bindgen::JsValue;
 
 /// A WebAssembly `global` instance.
 ///
@@ -16,7 +18,10 @@ use wasmer_vm::{Global as RuntimeGlobal, VMGlobal};
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
+#[derive(Debug, Clone, PartialEq)]
 pub struct Global {
+    store: Store,
+    vm_global: VMGlobal,
 }
 
 impl Global {
@@ -56,25 +61,33 @@ impl Global {
 
     /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
     fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Self, RuntimeError> {
-        if !val.comes_from_same_store(store) {
-            return Err(RuntimeError::new("cross-`Store` globals are not supported"));
-        }
-        let global = RuntimeGlobal::new(GlobalType {
+        let global_ty = GlobalType {
             mutability,
             ty: val.ty(),
-        });
-        unsafe {
-            global
-                .set_unchecked(val.clone())
-                .map_err(|e| RuntimeError::new(format!("create global for {:?}: {}", val, e)))?;
         };
+        let descriptor = js_sys::Object::new();
+        let (type_str, value) = match val {
+            Val::I32(i) => ("i32", JsValue::from_f64(i as _)),
+            Val::I64(i) => ("i64", JsValue::from_f64(i as _)),
+            Val::F32(f) => ("f32", JsValue::from_f64(f as _)),
+            Val::F64(f) => ("f64", JsValue::from_f64(f)),
+            _ => unimplemented!("The type is not yet supported in the JS Global API"),
+        };
+        // This is the value type as string, even though is incorrectly called "value"
+        // in the JS API.
+        js_sys::Reflect::set(&descriptor, &"value".into(), &type_str.into());
+        js_sys::Reflect::set(
+            &descriptor,
+            &"mutable".into(),
+            &mutability.is_mutable().into(),
+        );
+
+        let js_global = JSGlobal::new(&descriptor, &value).unwrap();
+        let global = VMGlobal::new(js_global, global_ty);
 
         Ok(Self {
             store: store.clone(),
-            vm_global: VMGlobal {
-                from: Arc::new(global),
-                instance_ref: None,
-            },
+            vm_global: global,
         })
     }
 
@@ -93,7 +106,7 @@ impl Global {
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
     pub fn ty(&self) -> &GlobalType {
-        self.vm_global.from.ty()
+        &self.vm_global.ty
     }
 
     /// Returns the [`Store`] where the `Global` belongs.
@@ -125,7 +138,13 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
     pub fn get(&self) -> Val {
-        self.vm_global.from.get(&self.store)
+        match self.vm_global.ty.ty {
+            ValType::I32 => Val::I32(self.vm_global.global.value().as_f64().unwrap() as _),
+            ValType::I64 => Val::I64(self.vm_global.global.value().as_f64().unwrap() as _),
+            ValType::F32 => Val::F32(self.vm_global.global.value().as_f64().unwrap() as _),
+            ValType::F64 => Val::F64(self.vm_global.global.value().as_f64().unwrap()),
+            _ => unimplemented!("The type is not yet supported in the JS Global API"),
+        }
     }
 
     /// Sets a custom value [`Val`] to the runtime Global.
@@ -170,15 +189,20 @@ impl Global {
     /// g.set(Value::I64(2)).unwrap();
     /// ```
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
-        if !val.comes_from_same_store(&self.store) {
-            return Err(RuntimeError::new("cross-`Store` values are not supported"));
+        if self.vm_global.ty.mutability == Mutability::Const {
+            return Err(RuntimeError::from_str("The global is immutable"));
         }
-        unsafe {
-            self.vm_global
-                .from
-                .set(val)
-                .map_err(|e| RuntimeError::new(format!("{}", e)))?;
+        if val.ty() != self.vm_global.ty.ty {
+            return Err(RuntimeError::from_str("The types don't match"));
         }
+        let new_value = match val {
+            Val::I32(i) => JsValue::from_f64(i as _),
+            Val::I64(i) => JsValue::from_f64(i as _),
+            Val::F32(f) => JsValue::from_f64(f as _),
+            Val::F64(f) => JsValue::from_f64(f),
+            _ => unimplemented!("The type is not yet supported in the JS Global API"),
+        };
+        self.vm_global.global.set_value(&new_value);
         Ok(())
     }
 
@@ -202,35 +226,13 @@ impl Global {
     /// assert!(g.same(&g));
     /// ```
     pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.vm_global.from, &other.vm_global.from)
-    }
-}
-
-impl Clone for Global {
-    fn clone(&self) -> Self {
-        let mut vm_global = self.vm_global.clone();
-        vm_global.upgrade_instance_ref().unwrap();
-
-        Self {
-            store: self.store.clone(),
-            vm_global,
-        }
-    }
-}
-
-impl fmt::Debug for Global {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter
-            .debug_struct("Global")
-            .field("ty", &self.ty())
-            .field("value", &self.get())
-            .finish()
+        self.vm_global == other.vm_global
     }
 }
 
 impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> Export {
-        self.vm_global.clone().into()
+        Export::Global(self.vm_global.clone())
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

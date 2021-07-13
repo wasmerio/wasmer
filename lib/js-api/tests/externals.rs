@@ -2,62 +2,56 @@ use wasm_bindgen_test::*;
 // use anyhow::Result;
 use wasmer_js::*;
 
-// #[test]
-// fn global_new() -> Result<()> {
-//     let store = Store::default();
-//     let global = Global::new(&store, Value::I32(10));
-//     assert_eq!(
-//         *global.ty(),
-//         GlobalType {
-//             ty: Type::I32,
-//             mutability: Mutability::Const
-//         }
-//     );
+#[wasm_bindgen_test]
+fn global_new() {
+    let store = Store::default();
+    let global = Global::new(&store, Value::I32(10));
+    assert_eq!(
+        *global.ty(),
+        GlobalType {
+            ty: Type::I32,
+            mutability: Mutability::Const
+        }
+    );
 
-//     let global_mut = Global::new_mut(&store, Value::I32(10));
-//     assert_eq!(
-//         *global_mut.ty(),
-//         GlobalType {
-//             ty: Type::I32,
-//             mutability: Mutability::Var
-//         }
-//     );
+    let global_mut = Global::new_mut(&store, Value::I32(10));
+    assert_eq!(
+        *global_mut.ty(),
+        GlobalType {
+            ty: Type::I32,
+            mutability: Mutability::Var
+        }
+    );
+}
 
-//     Ok(())
-// }
+#[wasm_bindgen_test]
+fn global_get() {
+    let store = Store::default();
+    let global_i32 = Global::new(&store, Value::I32(10));
+    assert_eq!(global_i32.get(), Value::I32(10));
+    // let global_i64 = Global::new(&store, Value::I64(20));
+    // assert_eq!(global_i64.get(), Value::I64(20));
+    let global_f32 = Global::new(&store, Value::F32(10.0));
+    assert_eq!(global_f32.get(), Value::F32(10.0));
+    // let global_f64 = Global::new(&store, Value::F64(20.0));
+    // assert_eq!(global_f64.get(), Value::F64(20.0));
+}
 
-// #[test]
-// fn global_get() -> Result<()> {
-//     let store = Store::default();
-//     let global_i32 = Global::new(&store, Value::I32(10));
-//     assert_eq!(global_i32.get(), Value::I32(10));
-//     let global_i64 = Global::new(&store, Value::I64(20));
-//     assert_eq!(global_i64.get(), Value::I64(20));
-//     let global_f32 = Global::new(&store, Value::F32(10.0));
-//     assert_eq!(global_f32.get(), Value::F32(10.0));
-//     let global_f64 = Global::new(&store, Value::F64(20.0));
-//     assert_eq!(global_f64.get(), Value::F64(20.0));
+#[wasm_bindgen_test]
+fn global_set() {
+    let store = Store::default();
+    let global_i32 = Global::new(&store, Value::I32(10));
+    // Set on a constant should error
+    assert!(global_i32.set(Value::I32(20)).is_err());
 
-//     Ok(())
-// }
+    let global_i32_mut = Global::new_mut(&store, Value::I32(10));
+    // Set on different type should error
+    assert!(global_i32_mut.set(Value::I64(20)).is_err());
 
-// #[test]
-// fn global_set() -> Result<()> {
-//     let store = Store::default();
-//     let global_i32 = Global::new(&store, Value::I32(10));
-//     // Set on a constant should error
-//     assert!(global_i32.set(Value::I32(20)).is_err());
-
-//     let global_i32_mut = Global::new_mut(&store, Value::I32(10));
-//     // Set on different type should error
-//     assert!(global_i32_mut.set(Value::I64(20)).is_err());
-
-//     // Set on same type should succeed
-//     global_i32_mut.set(Value::I32(20))?;
-//     assert_eq!(global_i32_mut.get(), Value::I32(20));
-
-//     Ok(())
-// }
+    // Set on same type should succeed
+    global_i32_mut.set(Value::I32(20)).unwrap();
+    assert_eq!(global_i32_mut.get(), Value::I32(20));
+}
 
 #[wasm_bindgen_test]
 fn table_new() {

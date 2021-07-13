@@ -1,4 +1,5 @@
 use crate::instance::Instance;
+use crate::wasm_bindgen_polyfill::Global;
 use crate::WasmerEnv;
 use js_sys::Function;
 use js_sys::WebAssembly::{Memory, Table};
@@ -7,7 +8,7 @@ use std::fmt;
 use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
-use wasmer_types::{ExternType, FunctionType, MemoryType, TableType};
+use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
@@ -18,6 +19,18 @@ pub struct VMMemory {
 impl VMMemory {
     pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct VMGlobal {
+    pub(crate) global: Global,
+    pub(crate) ty: GlobalType,
+}
+
+impl VMGlobal {
+    pub(crate) fn new(global: Global, ty: GlobalType) -> Self {
+        Self { global, ty }
     }
 }
 
@@ -85,8 +98,9 @@ pub enum Export {
 
     /// A memory export value.
     Memory(VMMemory),
-    // /// A global export value.
-    // Global(VMGlobal),
+
+    /// A global export value.
+    Global(VMGlobal),
 }
 
 impl Export {
@@ -95,6 +109,7 @@ impl Export {
             Export::Memory(js_wasm_memory) => js_wasm_memory.memory.as_ref(),
             Export::Function(js_func) => js_func.function.as_ref(),
             Export::Table(js_wasm_table) => js_wasm_table.table.as_ref(),
+            Export::Global(js_wasm_global) => js_wasm_global.global.as_ref(),
         }
     }
 }
@@ -107,6 +122,16 @@ impl From<(JsValue, ExternType)> for Export {
                     return Export::Memory(VMMemory::new(
                         val.unchecked_into::<Memory>(),
                         memory_type,
+                    ));
+                } else {
+                    panic!("Extern type doesn't match js value type");
+                }
+            }
+            ExternType::Global(global_type) => {
+                if val.is_instance_of::<Global>() {
+                    return Export::Global(VMGlobal::new(
+                        val.unchecked_into::<Global>(),
+                        global_type,
                     ));
                 } else {
                     panic!("Extern type doesn't match js value type");

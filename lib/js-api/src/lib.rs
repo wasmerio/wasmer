@@ -294,6 +294,7 @@ mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
 mod resolver;
+mod wasm_bindgen_polyfill;
 // mod native;
 mod ptr;
 mod store;
@@ -309,9 +310,7 @@ pub use crate::cell::WasmCell;
 pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
-    Extern, FromToNativeWasmType, Function, HostFunction, Memory, Table,
-    /* Global, */
-    WasmTypeList,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::{Instance, InstantiationError};

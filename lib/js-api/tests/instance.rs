@@ -290,3 +290,57 @@ fn test_imported_function_native_with_wasmer_env() {
     let expected = vec![Val::I32(36)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 }
+
+#[wasm_bindgen_test]
+fn test_imported_exported_global() {
+    let store = Store::default();
+    let mut module = Module::new(
+        &store,
+        br#"
+    (module
+        (global $mut_i32_import (import "" "global") (mut i32))
+        (func (export "getGlobal") (result i32) (global.get $mut_i32_import))
+        (func (export "incGlobal") (global.set $mut_i32_import (
+            i32.add (i32.const 1) (global.get $mut_i32_import)
+        )))
+    )
+    "#,
+    )
+    .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![ExternType::Global(GlobalType::new(
+            ValType::I32,
+            Mutability::Var,
+        ))],
+        exports: vec![
+            ExternType::Function(FunctionType::new(vec![], vec![Type::I32])),
+            ExternType::Function(FunctionType::new(vec![], vec![])),
+        ],
+    });
+    let mut global = Global::new_mut(&store, Value::I32(0));
+    let import_object = imports! {
+        "" => {
+            "global" => global.clone()
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    let get_global = instance.exports.get_function("getGlobal").unwrap();
+    assert_eq!(
+        get_global.call(&[]),
+        Ok(vec![Val::I32(0)].into_boxed_slice())
+    );
+
+    global.set(Value::I32(42));
+    assert_eq!(
+        get_global.call(&[]),
+        Ok(vec![Val::I32(42)].into_boxed_slice())
+    );
+
+    let inc_global = instance.exports.get_function("incGlobal").unwrap();
+    inc_global.call(&[]);
+    assert_eq!(
+        get_global.call(&[]),
+        Ok(vec![Val::I32(43)].into_boxed_slice())
+    );
+}
