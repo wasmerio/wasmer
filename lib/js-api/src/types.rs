@@ -29,6 +29,7 @@ impl AsJs for Val {
             Self::I64(i) => JsValue::from_f64(*i as f64),
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
+            Self::FuncRef(func) => func.as_ref().unwrap().exported.function.clone().into(),
             _ => unimplemented!(),
         }
     }

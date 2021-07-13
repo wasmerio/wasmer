@@ -1,13 +1,13 @@
+use crate::export::VMFunction;
+use crate::export::{Export, VMTable};
 use crate::exports::{ExportError, Exportable};
-use crate::externals::Extern;
+use crate::externals::{Extern, Function as WasmerFunction};
 use crate::store::Store;
-use crate::types::{Val, ValFuncRef};
+use crate::types::Val;
 use crate::RuntimeError;
 use crate::TableType;
-use loupe::MemoryUsage;
-use std::sync::Arc;
-use wasmer_engine::Export;
-use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
+use js_sys::Function;
+use wasmer_types::FunctionType;
 
 /// A WebAssembly `table` instance.
 ///
@@ -18,18 +18,22 @@ use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-#[derive(MemoryUsage)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Table {
     store: Store,
     vm_table: VMTable,
 }
 
-fn set_table_item(
-    table: &dyn RuntimeTable,
-    item_index: u32,
-    item: TableElement,
-) -> Result<(), RuntimeError> {
-    table.set(item_index, item).map_err(|e| e.into())
+fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(), RuntimeError> {
+    table.table.set(item_index, item).map_err(|e| e.into())
+}
+
+fn get_function(val: Val) -> Result<Function, RuntimeError> {
+    match val {
+        Val::FuncRef(func) => Ok(func.as_ref().unwrap().exported.function.clone().into()),
+        // Only funcrefs is supported by the spec atm
+        _ => unimplemented!(),
+    }
 }
 
 impl Table {
@@ -40,30 +44,38 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::tunables::BaseTunables].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
-        let item = init.into_table_reference(store)?;
-        let tunables = store.tunables();
-        let style = tunables.table_style(&ty);
-        let table = tunables
-            .create_host_table(&ty, &style)
-            .map_err(RuntimeError::new)?;
+        // let item = init.into_table_reference(store)?;
+        // let tunables = store.tunables();
+        // let style = tunables.table_style(&ty);
+        // let table = tunables
+        //     .create_host_table(&ty, &style)
+        //     .map_err(RuntimeError::new)?;
 
-        let num_elements = table.size();
+        let descriptor = js_sys::Object::new();
+        js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into());
+        if let Some(max) = ty.maximum {
+            js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.into());
+        }
+        js_sys::Reflect::set(&descriptor, &"element".into(), &"anyfunc".into());
+
+        let js_table = js_sys::WebAssembly::Table::new(&descriptor).unwrap();
+        let table = VMTable::new(js_table, ty);
+
+        let num_elements = table.table.length();
+        let func = get_function(init)?;
         for i in 0..num_elements {
-            set_table_item(table.as_ref(), i, item.clone())?;
+            set_table_item(&table, i, &func)?;
         }
 
         Ok(Self {
             store: store.clone(),
-            vm_table: VMTable {
-                from: table,
-                instance_ref: None,
-            },
+            vm_table: table,
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self) -> &TableType {
-        self.vm_table.from.ty()
+        &self.vm_table.ty
     }
 
     /// Returns the [`Store`] where the `Table` belongs.
@@ -73,19 +85,24 @@ impl Table {
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
-        let item = self.vm_table.from.get(index)?;
-        Some(ValFuncRef::from_table_reference(item, &self.store))
+        let func = self.vm_table.table.get(index).ok()?;
+        let ty = FunctionType::new(vec![], vec![]);
+        Some(Val::FuncRef(Some(WasmerFunction::from_vm_export(
+            &self.store,
+            VMFunction::new(func, ty, None),
+        ))))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
-        let item = val.into_table_reference(&self.store)?;
-        set_table_item(self.vm_table.from.as_ref(), index, item)
+        let func = get_function(val)?;
+        set_table_item(&self.vm_table, index, &func)?;
+        Ok(())
     }
 
     /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self) -> u32 {
-        self.vm_table.from.size()
+        self.vm_table.table.length()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -98,11 +115,12 @@ impl Table {
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
-        let item = init.into_table_reference(&self.store)?;
-        self.vm_table
-            .from
-            .grow(delta, item)
-            .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
+        unimplemented!();
+        // let item = init.into_table_reference(&self.store)?;
+        // self.vm_table
+        //     .from
+        //     .grow(delta, item)
+        //     .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
 
     /// Copies the `len` elements of `src_table` starting at `src_index`
@@ -119,20 +137,21 @@ impl Table {
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
-        if !Store::same(&dst_table.store, &src_table.store) {
-            return Err(RuntimeError::new(
-                "cross-`Store` table copies are not supported",
-            ));
-        }
-        RuntimeTable::copy(
-            dst_table.vm_table.from.as_ref(),
-            src_table.vm_table.from.as_ref(),
-            dst_index,
-            src_index,
-            len,
-        )
-        .map_err(RuntimeError::from_trap)?;
-        Ok(())
+        unimplemented!();
+        // if !Store::same(&dst_table.store, &src_table.store) {
+        //     return Err(RuntimeError::new(
+        //         "cross-`Store` table copies are not supported",
+        //     ));
+        // }
+        // RuntimeTable::copy(
+        //     dst_table.vm_table.from.as_ref(),
+        //     src_table.vm_table.from.as_ref(),
+        //     dst_index,
+        //     src_index,
+        //     len,
+        // )
+        // .map_err(RuntimeError::from_trap)?;
+        // Ok(())
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
@@ -144,7 +163,7 @@ impl Table {
 
     /// Returns whether or not these two tables refer to the same data.
     pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.vm_table.from, &other.vm_table.from)
+        self.vm_table == other.vm_table
     }
 
     /// Get access to the backing VM value for this extern. This function is for
@@ -160,21 +179,10 @@ impl Table {
     }
 }
 
-impl Clone for Table {
-    fn clone(&self) -> Self {
-        let mut vm_table = self.vm_table.clone();
-        vm_table.upgrade_instance_ref().unwrap();
-
-        Self {
-            store: self.store.clone(),
-            vm_table,
-        }
-    }
-}
-
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
-        self.vm_table.clone().into()
+        // self.vm_table.clone().into()
+        unimplemented!();
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
@@ -183,5 +191,4 @@ impl<'a> Exportable<'a> for Table {
             _ => Err(ExportError::IncompatibleType),
         }
     }
-
 }

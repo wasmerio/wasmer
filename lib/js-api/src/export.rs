@@ -1,13 +1,13 @@
 use crate::instance::Instance;
 use crate::WasmerEnv;
 use js_sys::Function;
-use js_sys::WebAssembly::Memory;
+use js_sys::WebAssembly::{Memory, Table};
 use std::cell::RefCell;
 use std::fmt;
 use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
-use wasmer_types::{ExternType, FunctionType, MemoryType};
+use wasmer_types::{ExternType, FunctionType, MemoryType, TableType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
@@ -18,6 +18,18 @@ pub struct VMMemory {
 impl VMMemory {
     pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct VMTable {
+    pub(crate) table: Table,
+    pub(crate) ty: TableType,
+}
+
+impl VMTable {
+    pub(crate) fn new(table: Table, ty: TableType) -> Self {
+        Self { table, ty }
     }
 }
 
@@ -68,8 +80,9 @@ pub enum Export {
     /// A function export value.
     Function(VMFunction),
 
-    // /// A table export value.
-    // Table(VMTable),
+    /// A table export value.
+    Table(VMTable),
+
     /// A memory export value.
     Memory(VMMemory),
     // /// A global export value.
@@ -81,6 +94,7 @@ impl Export {
         match self {
             Export::Memory(js_wasm_memory) => js_wasm_memory.memory.as_ref(),
             Export::Function(js_func) => js_func.function.as_ref(),
+            Export::Table(js_wasm_table) => js_wasm_table.table.as_ref(),
             _ => unimplemented!(),
         }
     }
@@ -106,6 +120,13 @@ impl From<(JsValue, ExternType)> for Export {
                         function_type,
                         None,
                     ));
+                } else {
+                    panic!("Extern type doesn't match js value type");
+                }
+            }
+            ExternType::Table(table_type) => {
+                if val.is_instance_of::<Table>() {
+                    return Export::Table(VMTable::new(val.unchecked_into::<Table>(), table_type));
                 } else {
                     panic!("Extern type doesn't match js value type");
                 }

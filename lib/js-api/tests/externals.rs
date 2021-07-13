@@ -59,29 +59,28 @@ use wasmer_js::*;
 //     Ok(())
 // }
 
-// #[test]
-// fn table_new() -> Result<()> {
-//     let store = Store::default();
-//     let table_type = TableType {
-//         ty: Type::FuncRef,
-//         minimum: 0,
-//         maximum: None,
-//     };
-//     let f = Function::new_native(&store, || {});
-//     let table = Table::new(&store, table_type, Value::FuncRef(Some(f)))?;
-//     assert_eq!(*table.ty(), table_type);
+#[wasm_bindgen_test]
+fn table_new() {
+    let store = Store::default();
+    let table_type = TableType {
+        ty: Type::FuncRef,
+        minimum: 0,
+        maximum: None,
+    };
+    let f = Function::new_native(&store, || {});
+    let table = Table::new(&store, table_type, Value::FuncRef(Some(f))).unwrap();
+    assert_eq!(*table.ty(), table_type);
 
-//     // Anyrefs not yet supported
-//     // let table_type = TableType {
-//     //     ty: Type::ExternRef,
-//     //     minimum: 0,
-//     //     maximum: None,
-//     // };
-//     // let table = Table::new(&store, table_type, Value::ExternRef(ExternRef::Null))?;
-//     // assert_eq!(*table.ty(), table_type);
-
-//     Ok(())
-// }
+    // table.get()
+    // Anyrefs not yet supported
+    // let table_type = TableType {
+    //     ty: Type::ExternRef,
+    //     minimum: 0,
+    //     maximum: None,
+    // };
+    // let table = Table::new(&store, table_type, Value::ExternRef(ExternRef::Null))?;
+    // assert_eq!(*table.ty(), table_type);
+}
 
 // #[test]
 // #[ignore]
