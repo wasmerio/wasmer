@@ -33,7 +33,6 @@ pub struct VMFunctionBody(u8);
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-// #[derive(PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) exported: VMFunction,
@@ -41,7 +40,7 @@ pub struct Function {
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
-        self.exported == other.exported && self.store == other.store
+        self.exported == other.exported
     }
 }
 

@@ -43,7 +43,7 @@ extern "C" {
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Memory {
     store: Store,
     vm_memory: VMMemory,
@@ -290,8 +290,7 @@ impl Memory {
     /// assert!(m.same(&m));
     /// ```
     pub fn same(&self, other: &Self) -> bool {
-        unimplemented!();
-        // Arc::ptr_eq(&self.vm_memory.from, &other.vm_memory.from)
+        self.vm_memory == other.vm_memory
     }
 }
 
