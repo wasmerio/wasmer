@@ -153,15 +153,15 @@ fn memory_grow() {
     assert_eq!(result, Pages(10));
     assert_eq!(memory.size(), Pages(12));
 
-    // let result = memory.grow(Pages(10));
-    // assert!(result.is_err());
-    // assert_eq!(
-    //     result,
-    //     Err(MemoryError::CouldNotGrow {
-    //         current: 12.into(),
-    //         attempted_delta: 10.into()
-    //     })
-    // );
+    let result = memory.grow(Pages(10));
+    assert!(result.is_err());
+    assert_eq!(
+        result,
+        Err(MemoryError::CouldNotGrow {
+            current: 12.into(),
+            attempted_delta: 10.into()
+        })
+    );
 
     // let bad_desc = MemoryType::new(Pages(15), Some(Pages(10)), false);
     // let bad_result = Memory::new(&store, bad_desc);

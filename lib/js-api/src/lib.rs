@@ -310,7 +310,8 @@ pub use crate::cell::WasmCell;
 pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, Table,
+    WasmTypeList,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::{Instance, InstantiationError};

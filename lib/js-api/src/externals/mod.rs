@@ -8,7 +8,7 @@ pub use self::function::{
 };
 
 pub use self::global::Global;
-pub use self::memory::Memory;
+pub use self::memory::{Memory, MemoryError};
 pub use self::table::Table;
 
 use crate::export::Export;

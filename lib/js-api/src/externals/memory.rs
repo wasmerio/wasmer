@@ -4,11 +4,28 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::{MemoryType, MemoryView};
 use std::convert::TryInto;
+use thiserror::Error;
 
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use wasmer_types::{Bytes, Pages, ValueType};
 
-pub type MemoryError = ();
+/// Error type describing things that can go wrong when operating on Wasm Memories.
+#[derive(Error, Debug, Clone, PartialEq, Hash)]
+pub enum MemoryError {
+    /// The operation would cause the size of the memory to exceed the maximum or would cause
+    /// an overflow leading to unindexable memory.
+    #[error("The memory could not grow: current size {} pages, requested increase: {} pages", current.0, attempted_delta.0)]
+    CouldNotGrow {
+        /// The current size in pages.
+        current: Pages,
+        /// The attempted amount to grow by in pages.
+        attempted_delta: Pages,
+    },
+    /// A user defined error value, used for error cases not listed above.
+    #[error("A user-defined error occurred: {0}")]
+    Generic(String),
+}
 
 #[wasm_bindgen]
 extern "C" {
@@ -219,9 +236,17 @@ impl Memory {
         IntoPages: Into<Pages>,
     {
         let pages = delta.into();
-        // let new_pages = js_memory_grow(&self.vm_memory.unchecked_into::<JSMemory>(), pages.0).unwrap();
-        // let new_pages = self.vm_memory.unchecked_ref::<JSMemory>().grow(pages.0);
-        let new_pages = self.vm_memory.memory.grow(pages.0);
+        let js_memory = self.vm_memory.memory.clone().unchecked_into::<JSMemory>();
+        let new_pages = js_memory.grow(pages.0).map_err(|err| {
+            if err.is_instance_of::<js_sys::RangeError>() {
+                MemoryError::CouldNotGrow {
+                    current: self.size(),
+                    attempted_delta: pages,
+                }
+            } else {
+                MemoryError::Generic(err.as_string().unwrap())
+            }
+        })?;
         Ok(Pages(new_pages))
     }
 
