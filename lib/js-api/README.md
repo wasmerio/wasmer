@@ -39,11 +39,11 @@ fn main() -> anyhow::Result<()> {
 ## Config flags
 
 Wasmer has the following configuration flags:
-* `wasm-types-polyfill` (enabled by default): it parses the Wasm file to introspect the inner types. __It adds 80Kb to the Wasm bundle__. You can disable it and use `Module::set_type_hints` manually instead if you want a lightweight alternative.
+* `wasm-types-polyfill` (enabled by default): it parses the Wasm file to introspect the inner types. __It adds 100Kb to the Wasm bundle__ (28Kb gzipped). You can disable it and use `Module::set_type_hints` manually instead if you want a lightweight alternative.
   This is needed until the [Wasm JS introspection API proposal](https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md) is adopted by browsers
 
 * `wat`: It allows to read WebAssembly files in their text format.
-  *This feature is normally used only in development environments, __it will add around 800Kb to the Wasm bundle__*
+  *This feature is normally used only in development environments, __it will add around 650Kb to the Wasm bundle__* (120Kb gzipped).
 
 # Build
 
@@ -53,7 +53,7 @@ You can use `wasm-pack` to build wasmer-js:
 wasm-pack build --release
 ```
 
-> The provided `wasmer_js.wasm` file should weight around 75kB when optmized via `wasm-opt` and stripped via `wasm-strip`, so it's relatively slim.
+> The provided `wasmer_js.wasm` file should weight around 60kB (27Kb gzipped) when optmized via `wasm-opt` and stripped via `wasm-strip`, so it's quite slim.
 
 # Test
 
