@@ -343,4 +343,5 @@ fn test_imported_exported_global() {
         get_global.call(&[]),
         Ok(vec![Val::I32(43)].into_boxed_slice())
     );
+    assert_eq!(global.get(), Val::I32(43));
 }
