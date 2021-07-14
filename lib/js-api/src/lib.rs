@@ -146,38 +146,3 @@ pub use wat::parse_bytes as wat2wasm;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-// #[cfg(test)]
-// wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
-
-// use wasm_bindgen::prelude::*;
-
-// #[wasm_bindgen]
-// #[no_mangle]
-// /// example doc
-// pub fn example() -> bool {
-//     let store = Store::default();
-//     let module = Module::new(
-//         &store,
-//         br#"(module
-//             (func $add (import "env" "sum") (param i32 i32) (result i32))
-//             (func (export "add_one") (param i32) (result i32)
-//                 (call $imported (local.get 0))
-//             )
-//         )"#)
-//         .unwrap();
-
-//     fn sum(a: i32, b: i32) -> i32 {
-//         a+b
-//     }
-
-//     let import_object = imports! {
-//         "env" => {
-//             "sum" => Function::new_native(&store, sum),
-//         }
-//     };
-//     let instance = Instance::new(&module, &import_object).unwrap();
-
-//     let add_one: NativeFunc<i32, i32> = instance.exports.get_native_function("add_one").unwrap();
-//     assert_eq!(add_one(1), 2)
-// }
