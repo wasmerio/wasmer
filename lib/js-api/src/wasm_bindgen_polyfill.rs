@@ -1,6 +1,5 @@
 use js_sys::Object;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 
 // WebAssembly.Global
 #[wasm_bindgen]
