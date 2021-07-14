@@ -472,7 +472,7 @@ impl Function {
                 let value = param_from_js(&result_types[0], &result);
                 Ok(vec![value].into_boxed_slice())
             }
-            n => {
+            _n => {
                 let result_array: Array = result.into();
                 Ok(result_array
                     .iter()
