@@ -148,7 +148,7 @@ ifneq ($(ENABLE_LLVM), 0)
 	endif
 endif
 
-exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-js
 # Is failing to compile in Linux for some reason
 exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)

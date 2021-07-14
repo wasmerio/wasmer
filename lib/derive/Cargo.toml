@@ -11,6 +11,7 @@ edition = "2018"
 proc-macro = true
 
 [features]
+default-features = []
 # It will make imports from `wasmer_js::` instead of `wasmer::`
 js = []
 
