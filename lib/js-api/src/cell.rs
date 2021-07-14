@@ -7,6 +7,7 @@ use js_sys::Uint8Array;
 /// A mutable Wasm-memory location.
 pub struct WasmCell<'a, T: ?Sized> {
     pub(crate) memory: Uint8Array,
+    #[allow(dead_code)]
     phantom: &'a PhantomData<T>,
 }
 

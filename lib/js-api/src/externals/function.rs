@@ -301,7 +301,7 @@ impl Function {
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
         let binded_func = func.bind1(&JsValue::UNDEFINED, &JsValue::UNDEFINED);
-        let ty = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let ty = function.ty();
         Self {
             store: store.clone(),
             exported: VMFunction::new(binded_func, ty, None),
@@ -347,7 +347,7 @@ impl Function {
         let ft = wasm_bindgen::function_table();
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
-        let ty = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let ty = function.ty();
         let environment = Box::new(env);
         let binded_func = func.bind1(
             &JsValue::UNDEFINED,

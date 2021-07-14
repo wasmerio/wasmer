@@ -86,13 +86,6 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
     }
 }
 
-#[inline(always)]
-fn align_pointer(ptr: usize, align: usize) -> usize {
-    // clears bits below aligment amount (assumes power of 2) to align pointer
-    debug_assert!(align.count_ones() == 1);
-    ptr & !(align - 1)
-}
-
 /// Methods for `WasmPtr`s to data that can be dereferenced, namely to types
 /// that implement [`ValueType`], meaning that they're valid for all possible
 /// bit patterns.
