@@ -128,7 +128,7 @@ impl Instance {
 
         let self_instance = Self {
             module: module.clone(),
-            instance: instance,
+            instance,
             exports,
         };
         for func in functions {

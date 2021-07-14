@@ -69,6 +69,7 @@ fn test_exported_function() {
 }
 
 #[wasm_bindgen_test]
+#[ignore] // We ignore because in old versions of Node, only single return values are supported
 fn test_imported_function_dynamic() {
     let store = Store::default();
     let mut module = Module::new(

@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 use crate::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::export::VMFunction;
-use crate::types::{param_from_js, AsJs};
+use crate::types::param_from_js;
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
@@ -90,13 +90,12 @@ macro_rules! impl_native_traits {
                         let val = param_from_js(&ty, &results);
                         val.write_value_to(mut_rets);
                     }
-                    n => {
+                    _n => {
                         let results: Array = results.into();
                         for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
                             let ret = results.get(i as u32);
                             unsafe {
                                 let val = param_from_js(&ret_type, &ret);
-                                let p = mut_rets.add(i);
                                 val.write_value_to(mut_rets.add(i));
                             }
                         }
