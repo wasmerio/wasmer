@@ -7,8 +7,7 @@ use js_sys::WebAssembly::{Memory, Table};
 use std::cell::RefCell;
 use std::fmt;
 use std::sync::Arc;
-use wasm_bindgen::JsCast;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
 
 #[derive(Clone, Debug, PartialEq)]

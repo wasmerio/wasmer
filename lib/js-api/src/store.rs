@@ -11,12 +11,12 @@ use std::fmt;
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 #[derive(Clone)]
-pub struct Store {}
+pub struct Store;
 
 impl Store {
     /// Creates a new `Store`.
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 
     /// Checks whether two stores are identical. A store is considered
