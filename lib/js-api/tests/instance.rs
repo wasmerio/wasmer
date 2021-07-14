@@ -553,3 +553,32 @@ fn test_imported_exported_global() {
     );
     assert_eq!(global.get(), Val::I32(43));
 }
+
+#[wasm_bindgen_test]
+fn test_native_function() {
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"(module
+            (func $add (import "env" "sum") (param i32 i32) (result i32))
+            (func (export "add_one") (param i32) (result i32)
+                (call $add (local.get 0) (i32.const 1))
+            )
+        )"#,
+    )
+    .unwrap();
+
+    fn sum(a: i32, b: i32) -> i32 {
+        a + b
+    }
+
+    let import_object = imports! {
+        "env" => {
+            "sum" => Function::new_native(&store, sum),
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    let add_one: NativeFunc<i32, i32> = instance.exports.get_native_function("add_one").unwrap();
+    assert_eq!(add_one.call(1), Ok(2));
+}

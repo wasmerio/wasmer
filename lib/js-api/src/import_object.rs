@@ -251,6 +251,7 @@ mod test {
     use crate::ChainableNamedResolver;
     use crate::Type;
     use crate::{Global, Store, Val};
+    use wasm_bindgen_test::*;
 
     #[wasm_bindgen_test]
     fn chaining_works() {
@@ -287,7 +288,7 @@ mod test {
     fn extending_conflict_overwrites() {
         let store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
-        let g2 = Global::new(&store, Val::I64(0));
+        let g2 = Global::new(&store, Val::F32(0.));
 
         let imports1 = imports! {
             "dog" => {
@@ -305,7 +306,7 @@ mod test {
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.from.ty().ty == Type::I64
+            happy_dog_global.ty.ty == Type::F32
         } else {
             false
         });
@@ -313,7 +314,7 @@ mod test {
         // now test it in reverse
         let store = Store::default();
         let g1 = Global::new(&store, Val::I32(0));
-        let g2 = Global::new(&store, Val::I64(0));
+        let g2 = Global::new(&store, Val::F32(0.));
 
         let imports1 = imports! {
             "dog" => {
@@ -331,7 +332,7 @@ mod test {
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.from.ty().ty == Type::I32
+            happy_dog_global.ty.ty == Type::I32
         } else {
             false
         });
@@ -351,7 +352,7 @@ mod test {
         let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.from.ty().ty == Type::I32
+            happy_dog_global.ty.ty == Type::I32
         } else {
             false
         });

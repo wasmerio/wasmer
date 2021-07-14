@@ -414,18 +414,6 @@ impl Module {
         Ok(())
     }
 
-    // /// Get the custom sections of the module given a `name`.
-    // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-    //     self.custom_sections
-    //         .iter()
-    //         .filter_map(move |(section_name, section_index)| {
-    //             if name != section_name {
-    //                 return None;
-    //             }
-    //             Some(self.custom_sections_data[*section_index].clone())
-    //         })
-    // }
-
     /// Returns an iterator over the exported types in the Module.
     ///
     /// The order of the exports is guaranteed to be the same as in the
@@ -500,16 +488,17 @@ impl Module {
             size: exports.length() as usize,
         }
     }
-    /// Get the custom sections of the module given a `name`.
-    ///
-    /// # Important
-    ///
-    /// Following the WebAssembly spec, one name can have multiple
-    /// custom sections. That's why an iterator (rather than one element)
-    /// is returned.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-        unimplemented!();
-    }
+
+    // /// Get the custom sections of the module given a `name`.
+    // ///
+    // /// # Important
+    // ///
+    // /// Following the WebAssembly spec, one name can have multiple
+    // /// custom sections. That's why an iterator (rather than one element)
+    // /// is returned.
+    // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
+    //     unimplemented!();
+    // }
 
     /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {

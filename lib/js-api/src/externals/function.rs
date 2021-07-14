@@ -630,6 +630,19 @@ impl fmt::Debug for Function {
     }
 }
 
+// This is needed for reference types
+impl wasmer_types::WasmValueType for Function {
+    /// Write the value.
+    unsafe fn write_value_to(&self, _p: *mut i128) {
+        unimplemented!();
+    }
+
+    /// Read the value.
+    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
+        unimplemented!();
+    }
+}
+
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {

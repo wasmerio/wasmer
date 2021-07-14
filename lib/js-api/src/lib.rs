@@ -351,36 +351,25 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 //     let store = Store::default();
 //     let module = Module::new(
 //         &store,
-//         br#"
-//     (module
-//         (func $imported (import "env" "imported") (param i32) (result i32))
-//         (func (export "exported") (param i32) (result i32)
-//             (call $imported (local.get 0))
-//         )
-//     )
-//     "#,
-//     )
-//     .unwrap();
+//         br#"(module
+//             (func $add (import "env" "sum") (param i32 i32) (result i32))
+//             (func (export "add_one") (param i32) (result i32)
+//                 (call $imported (local.get 0))
+//             )
+//         )"#)
+//         .unwrap();
 
-//     fn imported_fn(arg: u32) -> u32 {
-//         return arg + 1;
+//     fn sum(a: i32, b: i32) -> i32 {
+//         a+b
 //     }
-
-//     let imported = Function::new_native(&store, imported_fn);
 
 //     let import_object = imports! {
 //         "env" => {
-//             "imported" => imported,
+//             "sum" => Function::new_native(&store, sum),
 //         }
 //     };
 //     let instance = Instance::new(&module, &import_object).unwrap();
 
-//     // let memory = instance.exports.get_memory("mem").unwrap();
-//     // assert_eq!(memory.size(), Pages(1));
-//     // assert_eq!(memory.data_size(), 65536);
-
-//     let exported = instance.exports.get_function("exported").unwrap();
-
-//     let expected = vec![Val::F64(5.0)].into_boxed_slice();
-//     exported.call(&[Val::I32(4)]) == Ok(expected)
+//     let add_one: NativeFunc<i32, i32> = instance.exports.get_native_function("add_one").unwrap();
+//     assert_eq!(add_one(1), 2)
 // }
