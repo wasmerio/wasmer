@@ -603,19 +603,20 @@ fn test_custom_error() {
         local.get $y))
   (export "run" (func $run)))
 "#,
-    ).unwrap();
+    )
+    .unwrap();
 
     use std::fmt;
 
     #[derive(Debug, Clone, Copy)]
     struct ExitCode(u32);
-    
+
     impl fmt::Display for ExitCode {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "{}", self.0)
         }
     }
-    
+
     impl std::error::Error for ExitCode {}
 
     fn early_exit() {
@@ -629,11 +630,13 @@ fn test_custom_error() {
     };
     let instance = Instance::new(&module, &import_object).unwrap();
 
-    let run_func: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("run").unwrap();
+    let run_func: NativeFunc<(i32, i32), i32> =
+        instance.exports.get_native_function("run").unwrap();
 
     match run_func.call(1, 7) {
         Ok(result) => {
-            assert!(false,
+            assert!(
+                false,
                 "Expected early termination with `ExitCode`, found: {}",
                 result
             );
@@ -641,13 +644,14 @@ fn test_custom_error() {
         Err(e) => {
             assert!(false, "Unknown error `{:?}`", e);
             match e.downcast::<ExitCode>() {
-            // We found the exit code used to terminate execution.
-            Ok(exit_code) => {
-                assert_eq!(exit_code.0, 1);
+                // We found the exit code used to terminate execution.
+                Ok(exit_code) => {
+                    assert_eq!(exit_code.0, 1);
+                }
+                Err(e) => {
+                    assert!(false, "Unknown error `{:?}` found. expected `ErrorCode`", e);
+                }
             }
-            Err(e) => {
-                assert!(false, "Unknown error `{:?}` found. expected `ErrorCode`", e);
-            }
-        }},
+        }
     }
 }

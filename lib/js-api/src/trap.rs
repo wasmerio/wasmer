@@ -1,11 +1,11 @@
 // use super::frame_info::{FrameInfo, GlobalFrameInfo, FRAME_INFO};
+use std::convert::TryInto;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-use std::convert::TryInto;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::JsValue;
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
@@ -61,8 +61,7 @@ impl RuntimeError {
     pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
         let error = if error.is::<RuntimeError>() {
             *error.downcast::<RuntimeError>().unwrap()
-        }
-        else {
+        } else {
             RuntimeError {
                 inner: Arc::new(RuntimeErrorSource::User(error)),
             }
@@ -131,13 +130,13 @@ impl From<JsValue> for RuntimeError {
         //     Ok(rt) => rt,
         //     Err(_) =>         RuntimeError {
         //         inner: Arc::new(RuntimeErrorSource::Js(original)),
-        //     }    
+        //     }
         // }
         // match original.dyn_into::<RuntimeError>() {
         //     Ok(rt) => rt,
         //     Err(original) =>         RuntimeError {
         //         inner: Arc::new(RuntimeErrorSource::Js(original)),
-        //     }    
+        //     }
         // }
     }
 }

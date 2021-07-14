@@ -65,6 +65,7 @@ impl VMFunction {
             environment: environment.map(|env| Arc::new(RefCell::new(env))),
         }
     }
+
     pub(crate) fn init_envs(&self, instance: &Instance) -> Result<(), HostEnvInitError> {
         if let Some(env) = &self.environment {
             let mut borrowed_env = env.borrow_mut();
