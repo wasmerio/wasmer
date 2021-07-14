@@ -642,7 +642,6 @@ fn test_custom_error() {
             );
         }
         Err(e) => {
-            assert!(false, "Unknown error `{:?}`", e);
             match e.downcast::<ExitCode>() {
                 // We found the exit code used to terminate execution.
                 Ok(exit_code) => {

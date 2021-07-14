@@ -1,10 +1,9 @@
 // use super::frame_info::{FrameInfo, GlobalFrameInfo, FRAME_INFO};
-use std::convert::TryInto;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
+use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 
 /// A struct representing an aborted instruction execution, with a message
@@ -120,23 +119,29 @@ impl std::error::Error for RuntimeError {
     }
 }
 
+pub fn generic_of_jsval<T: FromWasmAbi<Abi = u32>>(
+    js: JsValue,
+    classname: &str,
+) -> Result<T, JsValue> {
+    use js_sys::{Object, Reflect};
+    let ctor_name = Object::get_prototype_of(&js).constructor().name();
+    if ctor_name == classname {
+        let ptr = Reflect::get(&js, &JsValue::from_str("ptr"))?;
+        let ptr_u32: u32 = ptr.as_f64().ok_or(JsValue::NULL)? as u32;
+        let foo = unsafe { T::from_abi(ptr_u32) };
+        Ok(foo)
+    } else {
+        Err(js)
+    }
+}
+
 impl From<JsValue> for RuntimeError {
     fn from(original: JsValue) -> Self {
-        RuntimeError {
-            inner: Arc::new(RuntimeErrorSource::Js(original)),
-        }
-        // let into_runtime: Result<RuntimeError, _> = original.clone().try_into();
-        // match into_runtime {
-        //     Ok(rt) => rt,
-        //     Err(_) =>         RuntimeError {
-        //         inner: Arc::new(RuntimeErrorSource::Js(original)),
-        //     }
-        // }
-        // match original.dyn_into::<RuntimeError>() {
-        //     Ok(rt) => rt,
-        //     Err(original) =>         RuntimeError {
-        //         inner: Arc::new(RuntimeErrorSource::Js(original)),
-        //     }
-        // }
+        // We try to downcast the error and see if it's
+        // an instance of RuntimeError instead, so we don't need
+        // to re-wrap it.
+        generic_of_jsval(original, "RuntimeError").unwrap_or_else(|js| RuntimeError {
+            inner: Arc::new(RuntimeErrorSource::Js(js)),
+        })
     }
 }
