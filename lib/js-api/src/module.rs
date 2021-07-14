@@ -133,7 +133,7 @@ impl Module {
     }
 
     /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(store: &Store, _file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
+    pub fn from_file(_store: &Store, _file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
         unimplemented!();
     }
 
@@ -197,7 +197,7 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(store: &Store, binary: &[u8]) -> Result<(), CompileError> {
+    pub fn validate(_store: &Store, binary: &[u8]) -> Result<(), CompileError> {
         let js_bytes = unsafe { Uint8Array::view(binary) };
         match WebAssembly::validate(&js_bytes.into()) {
             Ok(true) => Ok(()),

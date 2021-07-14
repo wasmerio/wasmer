@@ -140,8 +140,7 @@ impl Memory {
     /// modify the memory contents in any way including by calling a wasm
     /// function that writes to the memory or by resizing the memory.
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        unimplemented!();
-        // self.data_unchecked_mut()
+        unimplemented!("direct data pointer access is not possible in js");
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -155,18 +154,12 @@ impl Memory {
     /// by resizing this Memory.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        unimplemented!();
-        // let definition = self.vm_memory.from.vmmemory();
-        // let def = definition.as_ref();
-        // slice::from_raw_parts_mut(def.base, def.current_length.try_into().unwrap())
+        unimplemented!("direct data pointer access is not possible in js");
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
     pub fn data_ptr(&self) -> *mut u8 {
-        unimplemented!();
-        // let definition = self.vm_memory.from.vmmemory();
-        // let def = unsafe { definition.as_ref() };
-        // def.base
+        unimplemented!("direct data pointer access is not possible in js");
     }
 
     /// Returns the size (in bytes) of the `Memory`.
@@ -176,8 +169,6 @@ impl Memory {
             .as_f64()
             .unwrap() as u64;
         return bytes;
-        // let def = unsafe { definition.as_ref() };
-        // def.current_length.into()
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -198,7 +189,6 @@ impl Memory {
             .as_f64()
             .unwrap() as u64;
         Bytes(bytes as usize).try_into().unwrap()
-        // self.vm_memory.from.size()
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -283,11 +273,6 @@ impl Memory {
     /// ```
     pub fn view<T: ValueType>(&self) -> MemoryView<T> {
         unimplemented!();
-        // let base = self.data_ptr();
-
-        // let length = self.size().bytes().0 / std::mem::size_of::<T>();
-
-        // unsafe { MemoryView::new(base as _, length as u32) }
     }
 
     /// example view
@@ -318,19 +303,6 @@ impl Memory {
         self.vm_memory == other.vm_memory
     }
 }
-
-// impl Clone for Memory {
-//     fn clone(&self) -> Self {
-//         unimplemented!();
-//         // let mut vm_memory = self.vm_memory.clone();
-//         // vm_memory.upgrade_instance_ref().unwrap();
-
-//         // Self {
-//         //     store: self.store.clone(),
-//         //     vm_memory,
-//         // }
-//     }
-// }
 
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {

@@ -155,7 +155,6 @@ impl From<(JsValue, ExternType)> for Export {
                     panic!("Extern type doesn't match js value type");
                 }
             }
-            _ => unimplemented!(),
         }
     }
 }

@@ -180,7 +180,7 @@ impl Function {
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = func(&wasm_arguments)?;
+                let _results = func(&wasm_arguments)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
@@ -209,7 +209,6 @@ impl Function {
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),
-            _ => unimplemented!(),
         };
 
         let dyn_func =
@@ -322,7 +321,6 @@ impl Function {
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),
-            _ => unimplemented!(),
         };
 
         let dyn_func =

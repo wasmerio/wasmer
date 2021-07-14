@@ -69,7 +69,6 @@ fn test_exported_function() {
 }
 
 #[wasm_bindgen_test]
-#[ignore] // We ignore because in old versions of Node, only single return values are supported
 fn test_imported_function_dynamic() {
     let store = Store::default();
     let mut module = Module::new(
@@ -77,32 +76,22 @@ fn test_imported_function_dynamic() {
         br#"
     (module
         (func $imported (import "env" "imported") (param i32) (result i32))
-        (func $imported_multivalue (import "env" "imported_multivalue") (param i32 i32) (result i32 i32))
         (func (export "exported") (param i32) (result i32)
             (call $imported (local.get 0))
-        )
-        (func (export "exported_multivalue") (param i32 i32) (result i32 i32)
-            (call $imported_multivalue (local.get 0) (local.get 1))
         )
     )
     "#,
     )
     .unwrap();
     module.set_type_hints(ModuleTypeHints {
-        imports: vec![
-            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
-            ExternType::Function(FunctionType::new(
-                vec![Type::I32, Type::I32],
-                vec![Type::I32, Type::I32],
-            )),
-        ],
-        exports: vec![
-            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
-            ExternType::Function(FunctionType::new(
-                vec![Type::I32, Type::I32],
-                vec![Type::I32, Type::I32],
-            )),
-        ],
+        imports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+        exports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
     });
 
     let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
@@ -125,7 +114,6 @@ fn test_imported_function_dynamic() {
     let import_object = imports! {
         "env" => {
             "imported" => imported,
-            "imported_multivalue" => imported_multivalue,
         }
     };
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -134,18 +122,67 @@ fn test_imported_function_dynamic() {
 
     let expected = vec![Val::I32(6)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(3)]), Ok(expected));
-
-    let exported_multivalue = instance
-        .exports
-        .get_function("exported_multivalue")
-        .unwrap();
-
-    let expected = vec![Val::I32(2), Val::I32(3)].into_boxed_slice();
-    assert_eq!(
-        exported_multivalue.call(&[Val::I32(3), Val::I32(2)]),
-        Ok(expected)
-    );
 }
+
+// We comment it for now because in old versions of Node, only single return values are supported
+
+// #[wasm_bindgen_test]
+// fn test_imported_function_dynamic_multivalue() {
+//     let store = Store::default();
+//     let mut module = Module::new(
+//         &store,
+//         br#"
+//     (module
+//         (func $multivalue (import "env" "multivalue") (param i32 i32) (result i32 i32))
+//         (func (export "multivalue") (param i32 i32) (result i32 i32)
+//             (call $multivalue (local.get 0) (local.get 1))
+//         )
+//     )
+//     "#,
+//     )
+//     .unwrap();
+//     module.set_type_hints(ModuleTypeHints {
+//         imports: vec![
+//             ExternType::Function(FunctionType::new(
+//                 vec![Type::I32, Type::I32],
+//                 vec![Type::I32, Type::I32],
+//             )),
+//         ],
+//         exports: vec![
+//             ExternType::Function(FunctionType::new(
+//                 vec![Type::I32, Type::I32],
+//                 vec![Type::I32, Type::I32],
+//             )),
+//         ],
+//     });
+
+//     let multivalue_signature =
+//         FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32]);
+//     let multivalue = Function::new(&store, &multivalue_signature, |args| {
+//         println!("Calling `imported`...");
+//         // let result = args[0].unwrap_i32() * ;
+//         // println!("Result of `imported`: {:?}", result);
+//         Ok(vec![args[1].clone(), args[0].clone()])
+//     });
+
+//     let import_object = imports! {
+//         "env" => {
+//             "multivalue" => multivalue,
+//         }
+//     };
+//     let instance = Instance::new(&module, &import_object).unwrap();
+
+//     let exported_multivalue = instance
+//         .exports
+//         .get_function("multivalue")
+//         .unwrap();
+
+//     let expected = vec![Val::I32(2), Val::I32(3)].into_boxed_slice();
+//     assert_eq!(
+//         exported_multivalue.call(&[Val::I32(3), Val::I32(2)]),
+//         Ok(expected)
+//     );
+// }
 
 #[wasm_bindgen_test]
 fn test_imported_function_dynamic_with_env() {
