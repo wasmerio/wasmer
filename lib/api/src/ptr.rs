@@ -149,22 +149,19 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         {
             return None;
         }
+        let cell_ptrs = unsafe {
+            let cell_ptr = align_pointer(
+                memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
+                mem::align_of::<T>(),
+            ) as *const Cell<T>;
+            &std::slice::from_raw_parts(cell_ptr, slice_full_len)[index as usize..slice_full_len]
+        };
 
-        Some(
-            (0..(length as usize))
-                .map(|i| unsafe {
-                    let cell_ptr = align_pointer(
-                        memory
-                            .view::<u8>()
-                            .as_ptr()
-                            .add((self.offset as usize + i * item_size))
-                            as usize,
-                        mem::align_of::<T>(),
-                    ) as *const Cell<T>;
-                    WasmCell::new(&*cell_ptr)
-                })
-                .collect::<Vec<_>>(),
-        )
+        let wasm_cells = cell_ptrs
+            .iter()
+            .map(|ptr| WasmCell::new(ptr))
+            .collect::<Vec<_>>();
+        Some(wasm_cells)
     }
 
     /// Get a UTF-8 string from the `WasmPtr` with the given length.

@@ -129,9 +129,9 @@ clang -O2 -c test.c -o test.o
 Now we just need to link everything together:
 
 ```sh
-clang -O2 test.o my_wasm.o libwasmer_c_api.a
+clang -O2 test.o my_wasm.o libwasmer.a
 ```
 
 We link the static object file we created with our C code, the object
-file we generated with Wasmer, and `libwasmer_c_api` together and
-produce an executable that can call into our compiled WebAssembly!
+file we generated with Wasmer, and `libwasmer` together and produce an
+executable that can call into our compiled WebAssembly!

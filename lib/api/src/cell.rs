@@ -5,37 +5,6 @@ use core::fmt::{self, Debug};
 use std::fmt::Pointer;
 
 /// A mutable Wasm-memory location.
-///
-/// # Examples
-///
-/// In this example, you can see that `WasmCell<T>` enables mutation inside an
-/// immutable struct. In other words, it enables "interior mutability".
-///
-/// ```
-/// use wasmer::WasmCell;
-///
-/// struct SomeStruct {
-///     regular_field: u8,
-///     special_field: WasmCell<u8>,
-/// }
-///
-/// let my_struct = SomeStruct {
-///     regular_field: 0,
-///     special_field: WasmCell::new(1),
-/// };
-///
-/// let new_value = 100;
-///
-/// // ERROR: `my_struct` is immutable
-/// // my_struct.regular_field = new_value;
-///
-/// // WORKS: although `my_struct` is immutable, `special_field` is a `WasmCell`,
-/// // which can always be mutated
-/// my_struct.special_field.set(new_value);
-/// assert_eq!(my_struct.special_field.get(), new_value);
-/// ```
-///
-/// See the [module-level documentation](self) for more.
 #[repr(transparent)]
 pub struct WasmCell<'a, T: ?Sized> {
     inner: &'a Cell<T>,
@@ -101,9 +70,11 @@ impl<'a, T> WasmCell<'a, T> {
     /// # Examples
     ///
     /// ```
+    /// use std::cell::Cell;
     /// use wasmer::WasmCell;
     ///
-    /// let c = WasmCell::new(5);
+    /// let cell = Cell::new(5);
+    /// let wasm_cell = WasmCell::new(&cell);
     /// ```
     #[inline]
     pub const fn new(cell: &'a Cell<T>) -> WasmCell<'a, T> {
@@ -117,11 +88,12 @@ impl<'a, T: Copy> WasmCell<'a, T> {
     /// # Examples
     ///
     /// ```
+    /// use std::cell::Cell;
     /// use wasmer::WasmCell;
     ///
-    /// let c = WasmCell::new(5);
-    ///
-    /// let five = c.get();
+    /// let cell = Cell::new(5);
+    /// let wasm_cell = WasmCell::new(&cell);
+    /// let five = wasm_cell.get();
     /// ```
     #[inline]
     pub fn get(&self) -> T {
@@ -162,11 +134,13 @@ impl<T: Sized> WasmCell<'_, T> {
     /// # Examples
     ///
     /// ```
+    /// use std::cell::Cell;
     /// use wasmer::WasmCell;
     ///
-    /// let c = WasmCell::new(5);
-    ///
-    /// c.set(10);
+    /// let cell = Cell::new(5);
+    /// let wasm_cell = WasmCell::new(&cell);
+    /// wasm_cell.set(10);
+    /// assert_eq!(cell.get(), 10);
     /// ```
     #[inline]
     pub fn set(&self, val: T) {

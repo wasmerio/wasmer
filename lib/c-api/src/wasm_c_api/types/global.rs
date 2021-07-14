@@ -3,7 +3,7 @@ use super::{
     wasm_valtype_t, WasmExternType,
 };
 use std::convert::TryInto;
-use wasmer::{ExternType, GlobalType};
+use wasmer_api::{ExternType, GlobalType};
 
 #[derive(Debug, Clone)]
 pub(crate) struct WasmGlobalType {

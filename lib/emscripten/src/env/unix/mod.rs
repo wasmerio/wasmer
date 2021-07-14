@@ -173,7 +173,7 @@ pub fn _getaddrinfo(
         node_ptr
             .deref(&memory)
             .map(|_np| {
-                // unimplemented!();
+                unimplemented!();
                 // std::ffi::CStr::from_ptr(np as *const Cell<c_char> as *const c_char)
                 //     .to_string_lossy()
             })

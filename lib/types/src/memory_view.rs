@@ -1,6 +1,7 @@
 use crate::lib::std::cell::Cell;
 use crate::lib::std::marker::PhantomData;
 use crate::lib::std::ops::Deref;
+use crate::lib::std::ops::{Bound, RangeBounds};
 use crate::lib::std::slice;
 use crate::lib::std::sync::atomic::{
     AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
@@ -48,6 +49,8 @@ impl Atomicity for NonAtomically {}
 /// A view into a memory.
 pub struct MemoryView<'a, T: 'a, A = NonAtomically> {
     ptr: *mut T,
+    // Note: the length is in the terms of `size::<T>()`.
+    // The total length in memory is `size::<T>() * length`.
     length: usize,
     _phantom: PhantomData<(&'a [Cell<T>], A)>,
 }
@@ -66,12 +69,28 @@ where
     }
 
     /// Creates a subarray view from this MemoryView.
-    pub fn subarray(&self, start: u32, end: u32) -> Self {
-        assert!(start <= end);
-        assert!((end as usize) < self.length);
+    pub fn subarray(&self, range: impl RangeBounds<usize>) -> Self {
+        let start: usize = match range.start_bound() {
+            Bound::Unbounded => 0,
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start + 1,
+        };
+        let end: usize = match range.end_bound() {
+            Bound::Unbounded => self.length,
+            Bound::Included(end) => *end,
+            Bound::Excluded(end) => *end - 1,
+        };
+        assert!(
+            start < self.length,
+            "The range start is bigger than current length"
+        );
+        assert!(
+            end < self.length,
+            "The range end is bigger than current length"
+        );
         Self {
-            ptr: unsafe { self.ptr.add(start as usize) },
-            length: (end - start) as usize,
+            ptr: unsafe { self.ptr.add(start) },
+            length: (end - start),
             _phantom: PhantomData,
         }
     }
@@ -80,15 +99,16 @@ where
     ///
     /// This function will efficiently copy the memory from within the wasm
     /// module’s own linear memory to this typed array.
-    pub fn copy_from(&self, src: &[T]) {
-        assert!(
-            src.len() == self.length,
-            "The source length must match the MemoryView length"
-        );
-        unsafe {
-            for (i, byte) in src.iter().enumerate() {
-                *self.ptr.offset(i as isize) = *byte;
-            }
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because the caller will need to make sure
+    /// there are no data races when copying memory into the view.
+    pub unsafe fn copy_from(&self, src: &[T]) {
+        // We cap at a max length
+        let sliced_src = &src[..self.length];
+        for (i, byte) in sliced_src.iter().enumerate() {
+            *self.ptr.offset(i as isize) = *byte;
         }
     }
 }
