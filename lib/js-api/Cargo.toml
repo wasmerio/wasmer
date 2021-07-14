@@ -1,9 +1,9 @@
 [package]
 name = "wasmer-js"
 version = "2.0.0"
-description = "High-performant WebAssembly runtime (JS Bindings)"
+description = "Compile Wasmer to WebAssembly and use it in JavaScript"
 categories = ["wasm"]
-keywords = ["wasm", "webassembly", "runtime", "vm"]
+keywords = ["wasm", "webassembly", "runtime", "vm", "javascript']
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"

@@ -1,8 +1,7 @@
 # `wasmer-js` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-js.svg)](https://crates.io/crates/wasmer-js)
 
 [`Wasmer`](https://wasmer.io/) is the most popular
-[WebAssembly](https://webassembly.org/) runtime for Rust (...and also
-the fastest). This runtime is an adapted version of the Wasmer API that compiles to
+[WebAssembly](https://webassembly.org/) runtime for Rust. This runtime is an adapted version of the Wasmer API that compiles to
 WebAssembly via `wasm-bindgen`.
 
 `wasmer-js` uses the same WebAssembly runtime of your environment (browser or Node.js).
@@ -36,7 +35,7 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
-## Config flags
+## Feature flags
 
 Wasmer has the following configuration flags:
 * `wasm-types-polyfill` (enabled by default): it parses the Wasm file to introspect the inner types. __It adds 100Kb to the Wasm bundle__ (28Kb gzipped). You can disable it and use `Module::set_type_hints` manually instead if you want a lightweight alternative.
@@ -47,7 +46,7 @@ Wasmer has the following configuration flags:
 
 # Build
 
-You can use `wasm-pack` to build wasmer-js:
+You can use [`wasm-pack`](https://github.com/rustwasm/wasm-pack/) to build `wasmer-js-api`:
 
 ```
 wasm-pack build --release

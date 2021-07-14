@@ -45,7 +45,6 @@ impl From<ExportError> for HostEnvInitError {
 ///     #[wasmer(export(optional = true, alias = "memory2", alias = "_memory2"))]
 ///     optional_memory: LazyInit<Memory>,
 /// }
-///
 /// ```
 ///
 /// When deriving `WasmerEnv`, you must wrap your types to be initialized in
@@ -82,7 +81,6 @@ impl From<ExportError> for HostEnvInitError {
 /// When implementing the trait manually, it's important to get a "weak" export to
 /// prevent a cyclic reference leaking memory. You can access a "weak" export with
 /// a method like `get_with_generics_weak`.
-
 pub trait WasmerEnv {
     // TODO: Had to not use Clone here
     // pub trait WasmerEnv: Clone + Send + Sync {
