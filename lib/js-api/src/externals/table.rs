@@ -109,11 +109,6 @@ impl Table {
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, _delta: u32, _init: Val) -> Result<u32, RuntimeError> {
         unimplemented!();
-        // let item = init.into_table_reference(&self.store)?;
-        // self.vm_table
-        //     .from
-        //     .grow(delta, item)
-        //     .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
 
     /// Copies the `len` elements of `src_table` starting at `src_index`
@@ -131,20 +126,6 @@ impl Table {
         _len: u32,
     ) -> Result<(), RuntimeError> {
         unimplemented!();
-        // if !Store::same(&dst_table.store, &src_table.store) {
-        //     return Err(RuntimeError::new(
-        //         "cross-`Store` table copies are not supported",
-        //     ));
-        // }
-        // RuntimeTable::copy(
-        //     dst_table.vm_table.from.as_ref(),
-        //     src_table.vm_table.from.as_ref(),
-        //     dst_index,
-        //     src_index,
-        //     len,
-        // )
-        // .map_err(RuntimeError::from_trap)?;
-        // Ok(())
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
@@ -174,8 +155,7 @@ impl Table {
 
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
-        // self.vm_table.clone().into()
-        unimplemented!();
+        Export::Table(self.vm_table.clone())
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

@@ -55,7 +55,7 @@ impl ImportObject {
     ///
     /// # Usage
     /// ```ignore
-    /// # use wasmer_vm::{ImportObject, Instance, Namespace};
+    /// # use wasmer::{ImportObject, Instance, Namespace};
     /// let mut import_object = ImportObject::new();
     /// import_object.get_export("module", "name");
     /// ```
@@ -78,7 +78,7 @@ impl ImportObject {
     ///
     /// # Usage:
     /// ```ignore
-    /// # use wasmer_vm::{ImportObject, Instance, Namespace};
+    /// # use wasmer::{ImportObject, Instance, Namespace};
     /// let mut import_object = ImportObject::new();
     ///
     /// import_object.register("namespace0", instance);
@@ -245,167 +245,167 @@ macro_rules! import_namespace {
     };
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use crate::{Global, Store, Val};
-//     use wasmer_engine::ChainableNamedResolver;
-//     use wasmer_types::Type;
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::ChainableNamedResolver;
+    use crate::Type;
+    use crate::{Global, Store, Val};
 
-//     #[test]
-//     fn chaining_works() {
-//         let store = Store::default();
-//         let g = Global::new(&store, Val::I32(0));
+    #[wasm_bindgen_test]
+    fn chaining_works() {
+        let store = Store::default();
+        let g = Global::new(&store, Val::I32(0));
 
-//         let imports1 = imports! {
-//             "dog" => {
-//                 "happy" => g.clone()
-//             }
-//         };
+        let imports1 = imports! {
+            "dog" => {
+                "happy" => g.clone()
+            }
+        };
 
-//         let imports2 = imports! {
-//             "dog" => {
-//                 "small" => g.clone()
-//             },
-//             "cat" => {
-//                 "small" => g.clone()
-//             }
-//         };
+        let imports2 = imports! {
+            "dog" => {
+                "small" => g.clone()
+            },
+            "cat" => {
+                "small" => g.clone()
+            }
+        };
 
-//         let resolver = imports1.chain_front(imports2);
+        let resolver = imports1.chain_front(imports2);
 
-//         let small_cat_export = resolver.resolve_by_name("cat", "small");
-//         assert!(small_cat_export.is_some());
+        let small_cat_export = resolver.resolve_by_name("cat", "small");
+        assert!(small_cat_export.is_some());
 
-//         let happy = resolver.resolve_by_name("dog", "happy");
-//         let small = resolver.resolve_by_name("dog", "small");
-//         assert!(happy.is_some());
-//         assert!(small.is_some());
-//     }
+        let happy = resolver.resolve_by_name("dog", "happy");
+        let small = resolver.resolve_by_name("dog", "small");
+        assert!(happy.is_some());
+        assert!(small.is_some());
+    }
 
-//     #[test]
-//     fn extending_conflict_overwrites() {
-//         let store = Store::default();
-//         let g1 = Global::new(&store, Val::I32(0));
-//         let g2 = Global::new(&store, Val::I64(0));
+    #[wasm_bindgen_test]
+    fn extending_conflict_overwrites() {
+        let store = Store::default();
+        let g1 = Global::new(&store, Val::I32(0));
+        let g2 = Global::new(&store, Val::I64(0));
 
-//         let imports1 = imports! {
-//             "dog" => {
-//                 "happy" => g1,
-//             },
-//         };
+        let imports1 = imports! {
+            "dog" => {
+                "happy" => g1,
+            },
+        };
 
-//         let imports2 = imports! {
-//             "dog" => {
-//                 "happy" => g2,
-//             },
-//         };
+        let imports2 = imports! {
+            "dog" => {
+                "happy" => g2,
+            },
+        };
 
-//         let resolver = imports1.chain_front(imports2);
-//         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
+        let resolver = imports1.chain_front(imports2);
+        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
-//         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-//             happy_dog_global.from.ty().ty == Type::I64
-//         } else {
-//             false
-//         });
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.from.ty().ty == Type::I64
+        } else {
+            false
+        });
 
-//         // now test it in reverse
-//         let store = Store::default();
-//         let g1 = Global::new(&store, Val::I32(0));
-//         let g2 = Global::new(&store, Val::I64(0));
+        // now test it in reverse
+        let store = Store::default();
+        let g1 = Global::new(&store, Val::I32(0));
+        let g2 = Global::new(&store, Val::I64(0));
 
-//         let imports1 = imports! {
-//             "dog" => {
-//                 "happy" => g1,
-//             },
-//         };
+        let imports1 = imports! {
+            "dog" => {
+                "happy" => g1,
+            },
+        };
 
-//         let imports2 = imports! {
-//             "dog" => {
-//                 "happy" => g2,
-//             },
-//         };
+        let imports2 = imports! {
+            "dog" => {
+                "happy" => g2,
+            },
+        };
 
-//         let resolver = imports1.chain_back(imports2);
-//         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
+        let resolver = imports1.chain_back(imports2);
+        let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
-//         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-//             happy_dog_global.from.ty().ty == Type::I32
-//         } else {
-//             false
-//         });
-//     }
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.from.ty().ty == Type::I32
+        } else {
+            false
+        });
+    }
 
-//     #[test]
-//     fn namespace() {
-//         let store = Store::default();
-//         let g1 = Global::new(&store, Val::I32(0));
-//         let namespace = namespace! {
-//             "happy" => g1
-//         };
-//         let imports1 = imports! {
-//             "dog" => namespace
-//         };
+    #[wasm_bindgen_test]
+    fn namespace() {
+        let store = Store::default();
+        let g1 = Global::new(&store, Val::I32(0));
+        let namespace = namespace! {
+            "happy" => g1
+        };
+        let imports1 = imports! {
+            "dog" => namespace
+        };
 
-//         let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
+        let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
-//         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-//             happy_dog_global.from.ty().ty == Type::I32
-//         } else {
-//             false
-//         });
-//     }
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.from.ty().ty == Type::I32
+        } else {
+            false
+        });
+    }
 
-//     #[test]
-//     fn imports_macro_allows_trailing_comma_and_none() {
-//         use crate::Function;
+    #[wasm_bindgen_test]
+    fn imports_macro_allows_trailing_comma_and_none() {
+        use crate::Function;
 
-//         let store = Default::default();
+        let store = Default::default();
 
-//         fn func(arg: i32) -> i32 {
-//             arg + 1
-//         }
+        fn func(arg: i32) -> i32 {
+            arg + 1
+        }
 
-//         let _ = imports! {
-//             "env" => {
-//                 "func" => Function::new_native(&store, func),
-//             },
-//         };
-//         let _ = imports! {
-//             "env" => {
-//                 "func" => Function::new_native(&store, func),
-//             }
-//         };
-//         let _ = imports! {
-//             "env" => {
-//                 "func" => Function::new_native(&store, func),
-//             },
-//             "abc" => {
-//                 "def" => Function::new_native(&store, func),
-//             }
-//         };
-//         let _ = imports! {
-//             "env" => {
-//                 "func" => Function::new_native(&store, func)
-//             },
-//         };
-//         let _ = imports! {
-//             "env" => {
-//                 "func" => Function::new_native(&store, func)
-//             }
-//         };
-//         let _ = imports! {
-//             "env" => {
-//                 "func1" => Function::new_native(&store, func),
-//                 "func2" => Function::new_native(&store, func)
-//             }
-//         };
-//         let _ = imports! {
-//             "env" => {
-//                 "func1" => Function::new_native(&store, func),
-//                 "func2" => Function::new_native(&store, func),
-//             }
-//         };
-//     }
-// }
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_native(&store, func),
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_native(&store, func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_native(&store, func),
+            },
+            "abc" => {
+                "def" => Function::new_native(&store, func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_native(&store, func)
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_native(&store, func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => Function::new_native(&store, func),
+                "func2" => Function::new_native(&store, func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => Function::new_native(&store, func),
+                "func2" => Function::new_native(&store, func),
+            }
+        };
+    }
+}

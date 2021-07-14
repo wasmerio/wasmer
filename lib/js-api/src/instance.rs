@@ -25,20 +25,6 @@ pub struct Instance {
     pub exports: Exports,
 }
 
-// #[cfg(test)]
-// mod send_test {
-//     use super::*;
-
-//     fn is_send<T: Send>() -> bool {
-//         true
-//     }
-
-//     #[test]
-//     fn instance_is_send() {
-//         assert!(is_send::<Instance>());
-//     }
-// }
-
 /// An error while instantiating a module.
 ///
 /// This is not a common WebAssembly error, however

@@ -57,78 +57,7 @@ pub struct Function {
     pub(crate) exported: VMFunction,
 }
 
-impl wasmer_types::WasmValueType for Function {
-    /// Write the value.
-    unsafe fn write_value_to(&self, _p: *mut i128) {
-        // let func_ref =
-        //     Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
-        // std::ptr::write(p as *mut VMFuncRef, func_ref);
-        unimplemented!();
-    }
-
-    /// Read the value.
-    // TODO(reftypes): this entire function should be cleaned up, `dyn Any` should
-    // ideally be removed
-    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
-        unimplemented!();
-        // let func_ref = std::ptr::read(p as *const VMFuncRef);
-        // let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
-        // match Val::from_vm_funcref(func_ref, store) {
-        //     Val::FuncRef(Some(fr)) => fr,
-        //     // these bottom two cases indicate bugs in `wasmer-types` or elsewhere.
-        //     // They should never be triggered, so we just panic.
-        //     Val::FuncRef(None) => panic!("Null funcref found in `Function::read_value_from`!"),
-        //     other => panic!("Invalid value in `Function::read_value_from`: {:?}", other),
-        // }
-    }
-}
-
-// fn build_export_function_metadata<Env>(
-//     env: Env,
-//     import_init_function_ptr: for<'a> fn(
-//         &'a mut Env,
-//         &'a crate::Instance,
-//     ) -> Result<(), crate::HostEnvInitError>,
-// ) -> (*mut c_void, ExportFunctionMetadata)
-// where
-//     Env: Clone + Sized + 'static + Send + Sync,
-// {
-//     let import_init_function_ptr = Some(unsafe {
-//         std::mem::transmute::<_, ImportInitializerFuncPtr>(import_init_function_ptr)
-//     });
-//     let host_env_clone_fn = |ptr: *mut c_void| -> *mut c_void {
-//         let env_ref: &Env = unsafe {
-//             ptr.cast::<Env>()
-//                 .as_ref()
-//                 .expect("`ptr` to the environment is null when cloning it")
-//         };
-//         Box::into_raw(Box::new(env_ref.clone())) as _
-//     };
-//     let host_env_drop_fn = |ptr: *mut c_void| {
-//         unsafe { Box::from_raw(ptr.cast::<Env>()) };
-//     };
-//     let env = Box::into_raw(Box::new(env)) as _;
-
-//     // # Safety
-//     // - All these functions work on all threads
-//     // - The host env is `Send`.
-//     let metadata = unsafe {
-//         ExportFunctionMetadata::new(
-//             env,
-//             import_init_function_ptr,
-//             host_env_clone_fn,
-//             host_env_drop_fn,
-//         )
-//     };
-
-//     (env, metadata)
-// }
-
 impl WasmerEnv for WithoutEnv {}
-
-pub extern "C" fn call_func_dynamic(arg: u32) -> u32 {
-    return arg + 1;
-}
 
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -197,7 +126,7 @@ impl Function {
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
-            n => Closure::wrap(Box::new(move |args: &Array| {
+            _n => Closure::wrap(Box::new(move |args: &Array| {
                 let wasm_arguments = new_ty
                     .params()
                     .iter()
@@ -288,7 +217,7 @@ impl Function {
                     .collect::<Vec<_>>();
                 let env_ptr = args.get(0).as_f64().unwrap() as usize;
                 let env: &Env = unsafe { &*(env_ptr as *const u8 as *const Env) };
-                let results = func(env, &wasm_arguments)?;
+                let _results = func(env, &wasm_arguments)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
@@ -307,7 +236,7 @@ impl Function {
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
-            n => Closure::wrap(Box::new(move |args: &Array| {
+            _n => Closure::wrap(Box::new(move |args: &Array| {
                 let wasm_arguments = new_ty
                     .params()
                     .iter()
@@ -457,76 +386,6 @@ impl Function {
         &self.store
     }
 
-    // fn call_wasm(
-    //     &self,
-    //     trampoline: VMTrampoline,
-    //     params: &[Val],
-    //     results: &mut [Val],
-    // ) -> Result<(), RuntimeError> {
-    //     let format_types_for_error_message = |items: &[Val]| {
-    //         items
-    //             .iter()
-    //             .map(|param| param.ty().to_string())
-    //             .collect::<Vec<String>>()
-    //             .join(", ")
-    //     };
-    //     let signature = self.ty();
-    //     if signature.params().len() != params.len() {
-    //         return Err(RuntimeError::new(format!(
-    //             "Parameters of type [{}] did not match signature {}",
-    //             format_types_for_error_message(params),
-    //             &signature
-    //         )));
-    //     }
-    //     if signature.results().len() != results.len() {
-    //         return Err(RuntimeError::new(format!(
-    //             "Results of type [{}] did not match signature {}",
-    //             format_types_for_error_message(results),
-    //             &signature,
-    //         )));
-    //     }
-
-    //     let mut values_vec = vec![0; max(params.len(), results.len())];
-
-    //     // Store the argument values into `values_vec`.
-    //     let param_tys = signature.params().iter();
-    //     for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
-    //         if arg.ty() != *ty {
-    //             let param_types = format_types_for_error_message(params);
-    //             return Err(RuntimeError::new(format!(
-    //                 "Parameters of type [{}] did not match signature {}",
-    //                 param_types, &signature,
-    //             )));
-    //         }
-    //         unsafe {
-    //             arg.write_value_to(slot);
-    //         }
-    //     }
-
-    //     // Call the trampoline.
-    //     if let Err(error) = unsafe {
-    //         wasmer_call_trampoline(
-    //             &self.store,
-    //             self.exported.vm_function.vmctx,
-    //             trampoline,
-    //             self.exported.vm_function.address,
-    //             values_vec.as_mut_ptr() as *mut u8,
-    //         )
-    //     } {
-    //         return Err(RuntimeError::from_trap(error));
-    //     }
-
-    //     // Load the return values out of `values_vec`.
-    //     for (index, &value_type) in signature.results().iter().enumerate() {
-    //         unsafe {
-    //             let ptr = values_vec.as_ptr().add(index);
-    //             results[index] = Val::read_value_from(&self.store, ptr, value_type);
-    //         }
-    //     }
-
-    //     Ok(())
-    // }
-
     /// Returns the number of parameters that this function takes.
     ///
     /// # Example
@@ -631,17 +490,6 @@ impl Function {
             exported: wasmer_export,
         }
     }
-
-    // pub(crate) fn vm_funcref(&self) -> VMFuncRef {
-    //     unimplemented!();
-    //     // let engine = self.store.engine();
-    //     // let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
-    //     // engine.register_function_metadata(VMCallerCheckedAnyfunc {
-    //     //     func_ptr: self.exported.vm_function.address,
-    //     //     type_index: vmsignature,
-    //     //     vmctx: self.exported.vm_function.vmctx,
-    //     // })
-    // }
 
     /// Transform this WebAssembly function into a function with the
     /// native ABI. See [`NativeFunc`] to learn more.
@@ -782,112 +630,6 @@ impl fmt::Debug for Function {
     }
 }
 
-// /// This trait is one that all dynamic functions must fulfill.
-// pub(crate) trait VMDynamicFunction: Send + Sync {
-//     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
-//     fn function_type(&self) -> &FunctionType;
-//     fn store(&self) -> &Store;
-// }
-
-// pub(crate) struct DynamicFunction<Env>
-// where
-//     Env: Sized + 'static + Send + Sync,
-// {
-//     function_type: FunctionType,
-//     #[allow(clippy::type_complexity)]
-//     func: Arc<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync>,
-//     store: Store,
-//     env: Box<Env>,
-// }
-
-// impl<Env: Sized + Clone + 'static + Send + Sync> Clone for DynamicFunction<Env> {
-//     fn clone(&self) -> Self {
-//         Self {
-//             env: self.env.clone(),
-//             function_type: self.function_type.clone(),
-//             store: self.store.clone(),
-//             func: self.func.clone(),
-//         }
-//     }
-// }
-
-// impl<Env> VMDynamicFunction for DynamicFunction<Env>
-// where
-//     Env: Sized + 'static + Send + Sync,
-// {
-//     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-//         (*self.func)(&*self.env, &args)
-//     }
-//     fn function_type(&self) -> &FunctionType {
-//         &self.function_type
-//     }
-//     fn store(&self) -> &Store {
-//         &self.store
-//     }
-// }
-
-// trait VMDynamicFunctionCall<T: VMDynamicFunction> {
-//     fn from_context(ctx: T) -> Self;
-//     fn address_ptr() -> *const VMFunctionBody;
-//     unsafe fn func_wrapper(&self, values_vec: *mut i128);
-// }
-
-// impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext<T> {
-//     fn from_context(ctx: T) -> Self {
-//         Self {
-//             address: Self::address_ptr(),
-//             ctx,
-//         }
-//     }
-
-//     fn address_ptr() -> *const VMFunctionBody {
-//         Self::func_wrapper as *const () as *const VMFunctionBody
-//     }
-
-//     // This function wraps our func, to make it compatible with the
-//     // reverse trampoline signature
-//     unsafe fn func_wrapper(
-//         // Note: we use the trick that the first param to this function is the `VMDynamicFunctionContext`
-//         // itself, so rather than doing `dynamic_ctx: &VMDynamicFunctionContext<T>`, we simplify it a bit
-//         &self,
-//         values_vec: *mut i128,
-//     ) {
-//         use std::panic::{self, AssertUnwindSafe};
-//         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-//             let func_ty = self.ctx.function_type();
-//             let mut args = Vec::with_capacity(func_ty.params().len());
-//             let store = self.ctx.store();
-//             for (i, ty) in func_ty.params().iter().enumerate() {
-//                 args.push(Val::read_value_from(store, values_vec.add(i), *ty));
-//             }
-//             let returns = self.ctx.call(&args)?;
-
-//             // We need to dynamically check that the returns
-//             // match the expected types, as well as expected length.
-//             let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
-//             if return_types != func_ty.results() {
-//                 return Err(RuntimeError::new(format!(
-//                     "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
-//                     func_ty.results(),
-//                     return_types
-//                 )));
-//             }
-//             for (i, ret) in returns.iter().enumerate() {
-//                 ret.write_value_to(values_vec.add(i));
-//             }
-//             Ok(())
-//         })); // We get extern ref drops at the end of this block that we don't need.
-//              // By preventing extern ref incs in the code above we can save the work of
-//              // incrementing and decrementing. However the logic as-is is correct.
-
-//         match result {
-//             Ok(Ok(())) => {}
-//             Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
-//             Err(panic) => resume_panic(panic),
-//         }
-//     }
-// }
-
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {
@@ -901,7 +643,7 @@ mod inner {
     #[cfg(feature = "experimental-reference-types-extern-ref")]
     pub use wasmer_types::{ExternRef, VMExternRef};
     use wasmer_types::{FunctionType, NativeWasmType, Type};
-    // use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
+    // use wasmer::{raise_user_trap, resume_panic};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
@@ -1370,7 +1112,6 @@ mod inner {
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
                             func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
-                        // unimplemented!();
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(),
                             _ => unimplemented!(),
