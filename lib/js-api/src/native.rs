@@ -80,7 +80,7 @@ macro_rules! impl_native_traits {
                 let results = self.exported.function.apply(
                     &JsValue::UNDEFINED,
                     &Array::from_iter(params_list.iter())
-                ).unwrap();
+                )?;
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;
                 match Rets::size() {

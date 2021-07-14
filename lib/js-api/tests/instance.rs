@@ -585,3 +585,69 @@ fn test_native_function() {
     let add_one: NativeFunc<i32, i32> = instance.exports.get_native_function("add_one").unwrap();
     assert_eq!(add_one.call(1), Ok(2));
 }
+
+#[wasm_bindgen_test]
+fn test_custom_error() {
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"
+(module
+  (type $run_t (func (param i32 i32) (result i32)))
+  (type $early_exit_t (func (param) (result)))
+  (import "env" "early_exit" (func $early_exit (type $early_exit_t)))
+  (func $run (type $run_t) (param $x i32) (param $y i32) (result i32)
+    (call $early_exit)
+    (i32.add
+        local.get $x
+        local.get $y))
+  (export "run" (func $run)))
+"#,
+    ).unwrap();
+
+    use std::fmt;
+
+    #[derive(Debug, Clone, Copy)]
+    struct ExitCode(u32);
+    
+    impl fmt::Display for ExitCode {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.0)
+        }
+    }
+    
+    impl std::error::Error for ExitCode {}
+
+    fn early_exit() {
+        RuntimeError::raise(Box::new(ExitCode(1)));
+    }
+
+    let import_object = imports! {
+        "env" => {
+            "early_exit" => Function::new_native(&store, early_exit),
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    let run_func: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("run").unwrap();
+
+    match run_func.call(1, 7) {
+        Ok(result) => {
+            assert!(false,
+                "Expected early termination with `ExitCode`, found: {}",
+                result
+            );
+        }
+        Err(e) => {
+            assert!(false, "Unknown error `{:?}`", e);
+            match e.downcast::<ExitCode>() {
+            // We found the exit code used to terminate execution.
+            Ok(exit_code) => {
+                assert_eq!(exit_code.0, 1);
+            }
+            Err(e) => {
+                assert!(false, "Unknown error `{:?}` found. expected `ErrorCode`", e);
+            }
+        }},
+    }
+}

@@ -2,8 +2,10 @@
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
+use std::convert::TryInto;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+use wasm_bindgen::JsCast;
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
@@ -57,8 +59,13 @@ impl RuntimeError {
 
     /// Raises a custom user Error
     pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
-        let error = RuntimeError {
-            inner: Arc::new(RuntimeErrorSource::User(error)),
+        let error = if error.is::<RuntimeError>() {
+            *error.downcast::<RuntimeError>().unwrap()
+        }
+        else {
+            RuntimeError {
+                inner: Arc::new(RuntimeErrorSource::User(error)),
+            }
         };
         let js_error: JsValue = error.into();
         wasm_bindgen::throw_val(js_error)
@@ -119,11 +126,18 @@ impl From<JsValue> for RuntimeError {
         RuntimeError {
             inner: Arc::new(RuntimeErrorSource::Js(original)),
         }
+        // let into_runtime: Result<RuntimeError, _> = original.clone().try_into();
+        // match into_runtime {
+        //     Ok(rt) => rt,
+        //     Err(_) =>         RuntimeError {
+        //         inner: Arc::new(RuntimeErrorSource::Js(original)),
+        //     }    
+        // }
+        // match original.dyn_into::<RuntimeError>() {
+        //     Ok(rt) => rt,
+        //     Err(original) =>         RuntimeError {
+        //         inner: Arc::new(RuntimeErrorSource::Js(original)),
+        //     }    
+        // }
     }
 }
-
-// impl Into<JsValue> for RuntimeError {
-//     fn into(self) -> JsValue {
-
-//     }
-// }
