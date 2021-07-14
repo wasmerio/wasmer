@@ -22,6 +22,17 @@ pub trait AsJs {
     fn as_jsvalue(&self) -> JsValue;
 }
 
+#[inline]
+pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Val {
+    match ty {
+        ValType::I32 => Val::I32(js_val.as_f64().unwrap() as _),
+        ValType::I64 => Val::I64(js_val.as_f64().unwrap() as _),
+        ValType::F32 => Val::F32(js_val.as_f64().unwrap() as _),
+        ValType::F64 => Val::F64(js_val.as_f64().unwrap()),
+        _ => unimplemented!("The type is not yet supported in the JS Function API"),
+    }
+}
+
 impl AsJs for Val {
     fn as_jsvalue(&self) -> JsValue {
         match self {

@@ -1,7 +1,7 @@
 use crate::export::Export;
-use crate::externals::{Extern, Function /* , Global, Table */, Memory};
+use crate::externals::{Extern, Function, Global, Memory, Table};
 use crate::import_object::LikeNamespace;
-// use crate::native::NativeFunc;
+use crate::native::NativeFunc;
 use crate::WasmTypeList;
 use indexmap::IndexMap;
 use std::fmt;
@@ -118,39 +118,39 @@ impl Exports {
         }
     }
 
-    // /// Get an export as a `Global`.
-    // pub fn get_global(&self, name: &str) -> Result<&Global, ExportError> {
-    //     self.get(name)
-    // }
+    /// Get an export as a `Global`.
+    pub fn get_global(&self, name: &str) -> Result<&Global, ExportError> {
+        self.get(name)
+    }
 
     /// Get an export as a `Memory`.
     pub fn get_memory(&self, name: &str) -> Result<&Memory, ExportError> {
         self.get(name)
     }
 
-    // /// Get an export as a `Table`.
-    // pub fn get_table(&self, name: &str) -> Result<&Table, ExportError> {
-    //     self.get(name)
-    // }
+    /// Get an export as a `Table`.
+    pub fn get_table(&self, name: &str) -> Result<&Table, ExportError> {
+        self.get(name)
+    }
 
     /// Get an export as a `Func`.
     pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
         self.get(name)
     }
 
-    // /// Get an export as a `NativeFunc`.
-    // pub fn get_native_function<Args, Rets>(
-    //     &self,
-    //     name: &str,
-    // ) -> Result<NativeFunc<Args, Rets>, ExportError>
-    // where
-    //     Args: WasmTypeList,
-    //     Rets: WasmTypeList,
-    // {
-    //     self.get_function(name)?
-    //         .native()
-    //         .map_err(|_| ExportError::IncompatibleType)
-    // }
+    /// Get an export as a `NativeFunc`.
+    pub fn get_native_function<Args, Rets>(
+        &self,
+        name: &str,
+    ) -> Result<NativeFunc<Args, Rets>, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        self.get_function(name)?
+            .native()
+            .map_err(|_| ExportError::IncompatibleType)
+    }
 
     /// Hack to get this working with nativefunc too
     pub fn get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>

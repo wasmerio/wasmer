@@ -1,33 +1,22 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
-use crate::types::{AsJs /* ValFuncRef */, Val};
-use crate::{FunctionType, ValType};
-use js_sys::{Array, Function as JSFunction};
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-// use crate::NativeFunc;
+use crate::types::{param_from_js, AsJs /* ValFuncRef */, Val};
+use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
+use crate::{FunctionType, ValType};
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
+use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 
 use crate::export::{Export, VMFunction};
 use std::fmt;
 
 #[repr(C)]
 pub struct VMFunctionBody(u8);
-
-#[inline]
-fn param_from_js(ty: &ValType, js_val: &JsValue) -> Val {
-    match ty {
-        ValType::I32 => Val::I32(js_val.as_f64().unwrap() as _),
-        ValType::I64 => Val::I64(js_val.as_f64().unwrap() as _),
-        ValType::F32 => Val::F32(js_val.as_f64().unwrap() as _),
-        ValType::F64 => Val::F64(js_val.as_f64().unwrap()),
-        _ => unimplemented!("The type is not yet supported in the JS Function API"),
-    }
-}
 
 #[inline]
 fn result_to_js(val: &Val) -> JsValue {
@@ -731,42 +720,41 @@ impl Function {
     /// // This results in an error: `RuntimeError`
     /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
     /// ```
-    // pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
-    // where
-    //     Args: WasmTypeList,
-    //     Rets: WasmTypeList,
-    // {
-    //     unimplemented!();
-    //     // // type check
-    //     // {
-    //     //     let expected = self.exported.vm_function.signature.params();
-    //     //     let given = Args::wasm_types();
+    pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        // type check
+        {
+            let expected = self.exported.ty.params();
+            let given = Args::wasm_types();
 
-    //     //     if expected != given {
-    //     //         return Err(RuntimeError::new(format!(
-    //     //             "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
-    //     //             given,
-    //     //             expected,
-    //     //         )));
-    //     //     }
-    //     // }
+            if expected != given {
+                return Err(RuntimeError::from_str(&format!(
+                    "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
+                    given,
+                    expected,
+                )));
+            }
+        }
 
-    //     // {
-    //     //     let expected = self.exported.vm_function.signature.results();
-    //     //     let given = Rets::wasm_types();
+        {
+            let expected = self.exported.ty.results();
+            let given = Rets::wasm_types();
 
-    //     //     if expected != given {
-    //     //         // todo: error result types don't match
-    //     //         return Err(RuntimeError::new(format!(
-    //     //             "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
-    //     //             given,
-    //     //             expected,
-    //     //         )));
-    //     //     }
-    //     // }
+            if expected != given {
+                // todo: error result types don't match
+                return Err(RuntimeError::from_str(&format!(
+                    "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
+                    given,
+                    expected,
+                )));
+            }
+        }
 
-    //     // Ok(NativeFunc::new(self.store.clone(), self.exported.clone()))
-    // }
+        Ok(NativeFunc::new(self.store.clone(), self.exported.clone()))
+    }
 
     #[track_caller]
     fn closures_unsupported_panic() -> ! {
@@ -1058,6 +1046,9 @@ mod inner {
         /// Note that all values are stored in their binary form.
         type Array: AsMut<[i128]>;
 
+        /// The size of the array
+        fn size() -> u32;
+
         /// Constructs `Self` based on an array of values.
         fn from_array(array: Self::Array) -> Self;
 
@@ -1279,6 +1270,10 @@ mod inner {
 
                 type Array = [i128; count_idents!( $( $x ),* )];
 
+                fn size() -> u32 {
+                    count_idents!( $( $x ),* ) as _
+                }
+
                 fn from_array(array: Self::Array) -> Self {
                     // Unpack items of the array.
                     #[allow(non_snake_case)]
@@ -1486,6 +1481,10 @@ mod inner {
     impl WasmTypeList for Infallible {
         type CStruct = Self;
         type Array = [i128; 0];
+
+        fn size() -> u32 {
+            0
+        }
 
         fn from_array(_: Self::Array) -> Self {
             unreachable!()

@@ -278,9 +278,6 @@ mod lib {
     }
 }
 
-// #[cfg(test)]
-// wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
-
 mod cell;
 mod env;
 mod error;
@@ -293,13 +290,13 @@ mod iterators;
 mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
-mod resolver;
-mod wasm_bindgen_polyfill;
-// mod native;
+mod native;
 mod ptr;
+mod resolver;
 mod store;
 mod types;
 mod utils;
+mod wasm_bindgen_polyfill;
 
 /// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.
 ///
@@ -316,10 +313,10 @@ pub use crate::externals::{
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::{Instance, InstantiationError};
 pub use crate::module::{Module, ModuleTypeHints};
-pub use wasm_bindgen::JsValue as RuntimeError;
-// pub use crate::native::NativeFunc;
+pub use crate::native::NativeFunc;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::resolver::{ChainableNamedResolver, NamedResolver, NamedResolverChain, Resolver};
+pub use wasm_bindgen::JsValue as RuntimeError;
 
 pub use crate::store::{Store, StoreObject};
 pub use crate::types::{
@@ -341,6 +338,9 @@ pub use wat::parse_bytes as wat2wasm;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// #[cfg(test)]
+// wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 // use wasm_bindgen::prelude::*;
 
