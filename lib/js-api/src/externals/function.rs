@@ -3,18 +3,47 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::{AsJs /* ValFuncRef */, Val};
 use crate::{FunctionType, ValType};
+use js_sys::{Array, Function as JSFunction};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 // use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
+use std::iter::FromIterator;
 
 use crate::export::{Export, VMFunction};
 use std::fmt;
 
 #[repr(C)]
 pub struct VMFunctionBody(u8);
+
+#[inline]
+fn param_from_js(ty: &ValType, js_val: &JsValue) -> Val {
+    match ty {
+        ValType::I32 => Val::I32(js_val.as_f64().unwrap() as _),
+        ValType::I64 => Val::I64(js_val.as_f64().unwrap() as _),
+        ValType::F32 => Val::F32(js_val.as_f64().unwrap() as _),
+        ValType::F64 => Val::F64(js_val.as_f64().unwrap()),
+        _ => unimplemented!("The type is not yet supported in the JS Function API"),
+    }
+}
+
+#[inline]
+fn result_to_js(val: &Val) -> JsValue {
+    match val {
+        Val::I32(i) => JsValue::from_f64(*i as _),
+        Val::I64(i) => JsValue::from_f64(*i as _),
+        Val::F32(f) => JsValue::from_f64(*f as _),
+        Val::F64(f) => JsValue::from_f64(*f),
+        _ => unimplemented!("The type is not yet supported in the JS Function API"),
+    }
+}
+
+#[inline]
+fn results_to_js_array(values: &[Val]) -> Array {
+    Array::from_iter(values.iter().map(result_to_js))
+}
 
 /// A WebAssembly `function` instance.
 ///
@@ -146,20 +175,71 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F>(store: &Store, ty: FT, _func: F) -> Self
+    pub fn new<FT, F>(store: &Store, ty: FT, host_func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
     {
-        // Use closures? https://github.com/rustwasm/wasm-bindgen/blob/44d577f6b89dc7cc572ea0747833d38ba680e93b/src/closure.rs
-        // unimplemented!();
-        let ft = wasm_bindgen::function_table();
-        let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
-        let func = as_table.get(call_func_dynamic as usize as u32).unwrap();
+        let ty = ty.into();
+        let new_ty = ty.clone();
+
+        let func: JsValue = match ty.results().len() {
+            0 => Closure::wrap(Box::new(move |args: &Array| {
+                let wasm_arguments = new_ty
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                    .collect::<Vec<_>>();
+                let results = host_func(&wasm_arguments)?;
+                Ok(())
+            })
+                as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
+            .into_js_value(),
+            1 => Closure::wrap(Box::new(move |args: &Array| {
+                let wasm_arguments = new_ty
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                    .collect::<Vec<_>>();
+                let results = host_func(&wasm_arguments)?;
+                return Ok(result_to_js(&results[0]));
+            })
+                as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
+            .into_js_value(),
+            n => Closure::wrap(Box::new(move |args: &Array| {
+                let wasm_arguments = new_ty
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
+                    .collect::<Vec<_>>();
+                let results = host_func(&wasm_arguments)?;
+                return Ok(results_to_js_array(&results));
+            })
+                as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
+            .into_js_value(),
+            _ => unimplemented!(),
+        };
+
+        // let ft = wasm_bindgen::function_table();
+        // let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
+        // let func = as_table.get(wrapped_func as usize as u32).unwrap();
+        // let func = JSFunction::new_with_args("args", "return args.length");
+        let dyn_func =
+            JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
+        let binded_func = dyn_func.bind1(
+            &JsValue::UNDEFINED,
+            &func,
+            // &JsValue::from_f64(wrapped_func as usize as f64),
+        );
+        // func.forget();
+        // std::mem::forget(func);
         // let environment: Option<Arc>
         Self {
             store: store.clone(),
-            exported: VMFunction::new(func, ty.into(), None),
+            exported: VMFunction::new(binded_func, ty, None),
         }
         // Function::new
         // let wrapped_func =
@@ -578,33 +658,26 @@ impl Function {
             arr.set(i as u32, js_value);
         }
         let result =
-            js_sys::Reflect::apply(&self.exported.function, &wasm_bindgen::JsValue::NULL, &arr);
+            js_sys::Reflect::apply(&self.exported.function, &wasm_bindgen::JsValue::NULL, &arr)
+                .unwrap();
 
         let result_types = self.exported.ty.results();
         match result_types.len() {
             0 => Ok(Box::new([])),
             1 => {
-                let num_value = result.unwrap().as_f64().unwrap();
-                let value = match result_types[0] {
-                    ValType::I32 => Val::I32(num_value as _),
-                    ValType::I64 => Val::I64(num_value as _),
-                    ValType::F32 => Val::F32(num_value as _),
-                    ValType::F64 => Val::F64(num_value),
-                    _ => unimplemented!(),
-                };
+                let value = param_from_js(&result_types[0], &result);
                 Ok(vec![value].into_boxed_slice())
             }
-            _ => unimplemented!(),
+            n => {
+                let result_array: Array = result.into();
+                Ok(result_array
+                    .iter()
+                    .enumerate()
+                    .map(|(i, js_val)| param_from_js(&result_types[i], &js_val))
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice())
+            }
         }
-        //
-
-        // if let Some(trampoline) = self.exported.vm_function.call_trampoline {
-        //     let mut results = vec![Val::null(); self.result_arity()];
-        //     self.call_wasm(trampoline, params, &mut results)?;
-        //     return Ok(results.into_boxed_slice());
-        // }
-
-        // unimplemented!("The function definition isn't supported for the moment");
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: VMFunction) -> Self {
