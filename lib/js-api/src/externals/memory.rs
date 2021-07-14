@@ -82,13 +82,14 @@ impl Memory {
     /// ```
     pub fn new(store: &Store, ty: MemoryType) -> Result<Self, MemoryError> {
         let descriptor = js_sys::Object::new();
-        js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into());
+        js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
         if let Some(max) = ty.maximum {
-            js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.0.into());
+            js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.0.into()).unwrap();
         }
-        js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into());
+        js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
 
-        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor).unwrap();
+        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
+            .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
         let memory = VMMemory::new(js_memory, ty);
         Ok(Self {

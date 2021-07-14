@@ -1,5 +1,6 @@
 use crate::instance::Instance;
 use crate::wasm_bindgen_polyfill::Global;
+use crate::HostEnvInitError;
 use crate::WasmerEnv;
 use js_sys::Function;
 use js_sys::WebAssembly::{Memory, Table};
@@ -65,11 +66,12 @@ impl VMFunction {
             environment: environment.map(|env| Arc::new(RefCell::new(env))),
         }
     }
-    pub(crate) fn init_envs(&self, instance: &Instance) {
+    pub(crate) fn init_envs(&self, instance: &Instance) -> Result<(), HostEnvInitError> {
         if let Some(env) = &self.environment {
             let mut borrowed_env = env.borrow_mut();
-            borrowed_env.init_with_instance(instance);
+            borrowed_env.init_with_instance(instance)?;
         }
+        Ok(())
     }
 }
 

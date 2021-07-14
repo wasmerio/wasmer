@@ -14,10 +14,12 @@ fn test_exported_memory() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![],
-        exports: vec![ExternType::Memory(MemoryType::new(Pages(1), None, false))],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![],
+            exports: vec![ExternType::Memory(MemoryType::new(Pages(1), None, false))],
+        })
+        .unwrap();
 
     let import_object = imports! {};
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -47,13 +49,15 @@ fn test_exported_function() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![],
-        exports: vec![ExternType::Function(FunctionType::new(
-            vec![],
-            vec![Type::I32],
-        ))],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![],
+            exports: vec![ExternType::Function(FunctionType::new(
+                vec![],
+                vec![Type::I32],
+            ))],
+        })
+        .unwrap();
 
     let import_object = imports! {};
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -83,16 +87,18 @@ fn test_imported_function_dynamic() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-        exports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+            exports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+        })
+        .unwrap();
 
     let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
     let imported = Function::new(&store, &imported_signature, |args| {
@@ -100,15 +106,6 @@ fn test_imported_function_dynamic() {
         let result = args[0].unwrap_i32() * 2;
         println!("Result of `imported`: {:?}", result);
         Ok(vec![Value::I32(result)])
-    });
-
-    let imported_multivalue_signature =
-        FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32]);
-    let imported_multivalue = Function::new(&store, &imported_multivalue_signature, |args| {
-        println!("Calling `imported`...");
-        // let result = args[0].unwrap_i32() * ;
-        // println!("Result of `imported`: {:?}", result);
-        Ok(vec![args[1].clone(), args[0].clone()])
     });
 
     let import_object = imports! {
@@ -199,22 +196,18 @@ fn test_imported_function_dynamic_with_env() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![
-            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
-            ExternType::Function(FunctionType::new(
-                vec![Type::I32, Type::I32],
-                vec![Type::I32, Type::I32],
-            )),
-        ],
-        exports: vec![
-            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
-            ExternType::Function(FunctionType::new(
-                vec![Type::I32, Type::I32],
-                vec![Type::I32, Type::I32],
-            )),
-        ],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+            exports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+        })
+        .unwrap();
 
     #[derive(WasmerEnv, Clone)]
     struct Env {
@@ -262,16 +255,18 @@ fn test_imported_function_native() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-        exports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+            exports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+        })
+        .unwrap();
 
     fn imported_fn(arg: u32) -> u32 {
         return arg + 1;
@@ -307,16 +302,18 @@ fn test_imported_function_native_with_env() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-        exports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+            exports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+        })
+        .unwrap();
 
     #[derive(WasmerEnv, Clone)]
     struct Env {
@@ -358,16 +355,18 @@ fn test_imported_function_native_with_wasmer_env() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-        exports: vec![
-            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
-            ExternType::Memory(MemoryType::new(Pages(1), None, false)),
-        ],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+            exports: vec![
+                ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
+                ExternType::Memory(MemoryType::new(Pages(1), None, false)),
+            ],
+        })
+        .unwrap();
 
     #[derive(WasmerEnv, Clone)]
     struct Env {
@@ -409,11 +408,11 @@ fn test_imported_function_native_with_wasmer_env() {
 
     let exported = instance.exports.get_function("exported").unwrap();
 
-    /// It with the provided memory
+    // It works with the provided memory
     let expected = vec![Val::I32(24)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 
-    /// It works if we update the memory
+    // It works if we update the memory
     memory.uint8view().set_index(0, 3);
     let expected = vec![Val::I32(36)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
@@ -435,16 +434,18 @@ fn test_imported_function_with_wasmer_env() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![ExternType::Function(FunctionType::new(
-            vec![Type::I32],
-            vec![Type::I32],
-        ))],
-        exports: vec![
-            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
-            ExternType::Memory(MemoryType::new(Pages(1), None, false)),
-        ],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![ExternType::Function(FunctionType::new(
+                vec![Type::I32],
+                vec![Type::I32],
+            ))],
+            exports: vec![
+                ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
+                ExternType::Memory(MemoryType::new(Pages(1), None, false)),
+            ],
+        })
+        .unwrap();
 
     #[derive(WasmerEnv, Clone)]
     struct Env {
@@ -489,11 +490,11 @@ fn test_imported_function_with_wasmer_env() {
 
     let exported = instance.exports.get_function("exported").unwrap();
 
-    /// It with the provided memory
+    // It works with the provided memory
     let expected = vec![Val::I32(24)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
 
-    /// It works if we update the memory
+    // It works if we update the memory
     memory.uint8view().set_index(0, 3);
     let expected = vec![Val::I32(36)].into_boxed_slice();
     assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
@@ -515,17 +516,19 @@ fn test_imported_exported_global() {
     "#,
     )
     .unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        imports: vec![ExternType::Global(GlobalType::new(
-            ValType::I32,
-            Mutability::Var,
-        ))],
-        exports: vec![
-            ExternType::Function(FunctionType::new(vec![], vec![Type::I32])),
-            ExternType::Function(FunctionType::new(vec![], vec![])),
-        ],
-    });
-    let mut global = Global::new_mut(&store, Value::I32(0));
+    module
+        .set_type_hints(ModuleTypeHints {
+            imports: vec![ExternType::Global(GlobalType::new(
+                ValType::I32,
+                Mutability::Var,
+            ))],
+            exports: vec![
+                ExternType::Function(FunctionType::new(vec![], vec![Type::I32])),
+                ExternType::Function(FunctionType::new(vec![], vec![])),
+            ],
+        })
+        .unwrap();
+    let global = Global::new_mut(&store, Value::I32(0));
     let import_object = imports! {
         "" => {
             "global" => global.clone()
@@ -539,14 +542,14 @@ fn test_imported_exported_global() {
         Ok(vec![Val::I32(0)].into_boxed_slice())
     );
 
-    global.set(Value::I32(42));
+    global.set(Value::I32(42)).unwrap();
     assert_eq!(
         get_global.call(&[]),
         Ok(vec![Val::I32(42)].into_boxed_slice())
     );
 
     let inc_global = instance.exports.get_function("incGlobal").unwrap();
-    inc_global.call(&[]);
+    inc_global.call(&[]).unwrap();
     assert_eq!(
         get_global.call(&[]),
         Ok(vec![Val::I32(43)].into_boxed_slice())

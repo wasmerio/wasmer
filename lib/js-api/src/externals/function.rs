@@ -577,7 +577,7 @@ impl Function {
             let given = Args::wasm_types();
 
             if expected != given {
-                return Err(RuntimeError::from_str(&format!(
+                return Err(RuntimeError::new(format!(
                     "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
                     given,
                     expected,
@@ -591,7 +591,7 @@ impl Function {
 
             if expected != given {
                 // todo: error result types don't match
-                return Err(RuntimeError::from_str(&format!(
+                return Err(RuntimeError::new(format!(
                     "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
                     given,
                     expected,

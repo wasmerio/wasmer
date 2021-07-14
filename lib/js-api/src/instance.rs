@@ -118,7 +118,7 @@ impl Instance {
             exports,
         };
         for func in functions {
-            func.init_envs(&self_instance);
+            func.init_envs(&self_instance).unwrap();
         }
         Ok(self_instance)
     }

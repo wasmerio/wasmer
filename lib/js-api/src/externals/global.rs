@@ -73,12 +73,12 @@ impl Global {
         };
         // This is the value type as string, even though is incorrectly called "value"
         // in the JS API.
-        js_sys::Reflect::set(&descriptor, &"value".into(), &type_str.into());
+        js_sys::Reflect::set(&descriptor, &"value".into(), &type_str.into())?;
         js_sys::Reflect::set(
             &descriptor,
             &"mutable".into(),
             &mutability.is_mutable().into(),
-        );
+        )?;
 
         let js_global = JSGlobal::new(&descriptor, &value).unwrap();
         let global = VMGlobal::new(js_global, global_ty);
@@ -188,10 +188,10 @@ impl Global {
     /// ```
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
         if self.vm_global.ty.mutability == Mutability::Const {
-            return Err(RuntimeError::from_str("The global is immutable"));
+            return Err(RuntimeError::new("The global is immutable".to_owned()));
         }
         if val.ty() != self.vm_global.ty.ty {
-            return Err(RuntimeError::from_str("The types don't match"));
+            return Err(RuntimeError::new("The types don't match".to_owned()));
         }
         let new_value = match val {
             Val::I32(i) => JsValue::from_f64(i as _),

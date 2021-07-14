@@ -45,13 +45,13 @@ impl Table {
     /// [`BaseTunables`][crate::tunables::BaseTunables].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
         let descriptor = js_sys::Object::new();
-        js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into());
+        js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into())?;
         if let Some(max) = ty.maximum {
-            js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.into());
+            js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.into())?;
         }
-        js_sys::Reflect::set(&descriptor, &"element".into(), &"anyfunc".into());
+        js_sys::Reflect::set(&descriptor, &"element".into(), &"anyfunc".into())?;
 
-        let js_table = js_sys::WebAssembly::Table::new(&descriptor).unwrap();
+        let js_table = js_sys::WebAssembly::Table::new(&descriptor)?;
         let table = VMTable::new(js_table, ty);
 
         let num_elements = table.table.length();

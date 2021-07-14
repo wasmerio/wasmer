@@ -102,6 +102,7 @@ mod native;
 mod ptr;
 mod resolver;
 mod store;
+mod trap;
 mod types;
 mod utils;
 mod wasm_bindgen_polyfill;
@@ -124,7 +125,7 @@ pub use crate::module::{Module, ModuleTypeHints};
 pub use crate::native::NativeFunc;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::resolver::{ChainableNamedResolver, NamedResolver, NamedResolverChain, Resolver};
-pub use wasm_bindgen::JsValue as RuntimeError;
+pub use crate::trap::RuntimeError;
 
 pub use crate::store::{Store, StoreObject};
 pub use crate::types::{

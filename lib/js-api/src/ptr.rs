@@ -252,7 +252,7 @@ mod test {
         let memory = Memory::new(&store, memory_descriptor).unwrap();
 
         let start_wasm_ptr: WasmPtr<u64> = WasmPtr::new(2);
-        let mut val = start_wasm_ptr.deref(&memory).unwrap();
+        let val = start_wasm_ptr.deref(&memory).unwrap();
         assert_eq!(val.memory.to_vec(), vec![0; 8]);
 
         val.set(1200);

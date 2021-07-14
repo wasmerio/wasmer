@@ -1,4 +1,3 @@
-use anyhow::Result;
 use wasm_bindgen_test::*;
 use wasmer_js::*;
 
@@ -105,15 +104,17 @@ fn exports() {
     (global (export "global") i32 (i32.const 0))
 )"#;
     let mut module = Module::new(&store, wat).unwrap();
-    module.set_type_hints(ModuleTypeHints {
-        exports: vec![
-            ExternType::Function(FunctionType::new(vec![], vec![])),
-            ExternType::Memory(MemoryType::new(Pages(2), None, false)),
-            ExternType::Table(TableType::new(Type::FuncRef, 2, None)),
-            ExternType::Global(GlobalType::new(Type::I32, Mutability::Const)),
-        ],
-        imports: vec![],
-    });
+    module
+        .set_type_hints(ModuleTypeHints {
+            exports: vec![
+                ExternType::Function(FunctionType::new(vec![], vec![])),
+                ExternType::Memory(MemoryType::new(Pages(2), None, false)),
+                ExternType::Table(TableType::new(Type::FuncRef, 2, None)),
+                ExternType::Global(GlobalType::new(Type::I32, Mutability::Const)),
+            ],
+            imports: vec![],
+        })
+        .unwrap();
     assert_eq!(
         module.exports().collect::<Vec<_>>(),
         vec![

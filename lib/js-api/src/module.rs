@@ -7,6 +7,7 @@ use crate::types::{ExportType, ImportType};
 use crate::error::CompileError;
 #[cfg(feature = "wat")]
 use crate::error::WasmError;
+use crate::RuntimeError;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
 use std::io;
@@ -208,39 +209,31 @@ impl Module {
     pub(crate) fn instantiate(
         &self,
         resolver: &dyn Resolver,
-    ) -> Result<(WebAssembly::Instance, Vec<VMFunction>), ()> {
+    ) -> Result<(WebAssembly::Instance, Vec<VMFunction>), RuntimeError> {
         let imports = js_sys::Object::new();
         let mut functions: Vec<VMFunction> = vec![];
         for (i, import_type) in self.imports().enumerate() {
             let resolved_import =
                 resolver.resolve(i as u32, import_type.module(), import_type.name());
             if let Some(import) = resolved_import {
-                match js_sys::Reflect::get(&imports, &import_type.module().into()) {
-                    Ok(val) => {
-                        if !val.is_undefined() {
-                            // If the namespace is already set
-                            js_sys::Reflect::set(
-                                &val,
-                                &import_type.name().into(),
-                                import.as_jsvalue(),
-                            );
-                        } else {
-                            // If the namespace doesn't exist
-                            let import_namespace = js_sys::Object::new();
-                            js_sys::Reflect::set(
-                                &import_namespace,
-                                &import_type.name().into(),
-                                import.as_jsvalue(),
-                            );
-                            js_sys::Reflect::set(
-                                &imports,
-                                &import_type.module().into(),
-                                &import_namespace.into(),
-                            );
-                        }
-                    }
-                    Err(_) => return Err(()),
-                };
+                let val = js_sys::Reflect::get(&imports, &import_type.module().into())?;
+                if !val.is_undefined() {
+                    // If the namespace is already set
+                    js_sys::Reflect::set(&val, &import_type.name().into(), import.as_jsvalue())?;
+                } else {
+                    // If the namespace doesn't exist
+                    let import_namespace = js_sys::Object::new();
+                    js_sys::Reflect::set(
+                        &import_namespace,
+                        &import_type.name().into(),
+                        import.as_jsvalue(),
+                    )?;
+                    js_sys::Reflect::set(
+                        &imports,
+                        &import_type.module().into(),
+                        &import_namespace.into(),
+                    )?;
+                }
                 if let Export::Function(func) = import {
                     functions.push(func);
                 }
