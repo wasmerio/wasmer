@@ -77,14 +77,7 @@ impl From<ExportError> for HostEnvInitError {
 ///     }
 /// }
 /// ```
-///
-/// When implementing the trait manually, it's important to get a "weak" export to
-/// prevent a cyclic reference leaking memory. You can access a "weak" export with
-/// a method like `get_with_generics_weak`.
-pub trait WasmerEnv {
-    // TODO: Had to not use Clone here
-    // pub trait WasmerEnv: Clone + Send + Sync {
-
+pub trait WasmerEnv: {
     /// The function that Wasmer will call on your type to let it finish
     /// setting up the environment with data from the `Instance`.
     ///
