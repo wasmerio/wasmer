@@ -147,6 +147,69 @@ fn test_imported_function_dynamic() {
 }
 
 #[wasm_bindgen_test]
+fn test_imported_function_dynamic_with_env() {
+    let store = Store::default();
+    let mut module = Module::new(
+        &store,
+        br#"
+    (module
+        (func $imported (import "env" "imported") (param i32) (result i32))
+        (func (export "exported") (param i32) (result i32)
+            (call $imported (local.get 0))
+        )
+    )
+    "#,
+    )
+    .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![
+            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
+            ExternType::Function(FunctionType::new(
+                vec![Type::I32, Type::I32],
+                vec![Type::I32, Type::I32],
+            )),
+        ],
+        exports: vec![
+            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
+            ExternType::Function(FunctionType::new(
+                vec![Type::I32, Type::I32],
+                vec![Type::I32, Type::I32],
+            )),
+        ],
+    });
+
+    #[derive(WasmerEnv, Clone)]
+    struct Env {
+        multiplier: i32,
+    }
+
+    let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
+    let imported = Function::new_with_env(
+        &store,
+        &imported_signature,
+        Env { multiplier: 3 },
+        |env, args| {
+            println!("Calling `imported`...");
+            let result = args[0].unwrap_i32() * env.multiplier;
+            println!("Result of `imported`: {:?}", result);
+            Ok(vec![Value::I32(result)])
+        },
+    );
+
+    let import_object = imports! {
+        "env" => {
+            "imported" => imported,
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    let exported = instance.exports.get_function("exported").unwrap();
+
+    let expected = vec![Val::I32(9)].into_boxed_slice();
+    assert_eq!(exported.call(&[Val::I32(3)]), Ok(expected));
+}
+
+#[wasm_bindgen_test]
 fn test_imported_function_native() {
     let store = Store::default();
     let mut module = Module::new(
@@ -283,6 +346,86 @@ fn test_imported_function_native_with_wasmer_env() {
 
     let imported = Function::new_native_with_env(
         &store,
+        Env {
+            multiplier: 3,
+            memory: LazyInit::new(),
+        },
+        imported_fn,
+    );
+
+    let import_object = imports! {
+        "env" => {
+            "imported" => imported,
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    let memory = instance.exports.get_memory("memory").unwrap();
+    assert_eq!(memory.data_size(), 65536);
+    let memory_val = memory.uint8view().get_index(0);
+    assert_eq!(memory_val, 0);
+
+    memory.uint8view().set_index(0, 2);
+    let memory_val = memory.uint8view().get_index(0);
+    assert_eq!(memory_val, 2);
+
+    let exported = instance.exports.get_function("exported").unwrap();
+
+    /// It with the provided memory
+    let expected = vec![Val::I32(24)].into_boxed_slice();
+    assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
+
+    /// It works if we update the memory
+    memory.uint8view().set_index(0, 3);
+    let expected = vec![Val::I32(36)].into_boxed_slice();
+    assert_eq!(exported.call(&[Val::I32(4)]), Ok(expected));
+}
+
+#[wasm_bindgen_test]
+fn test_imported_function_with_wasmer_env() {
+    let store = Store::default();
+    let mut module = Module::new(
+        &store,
+        br#"
+    (module
+        (func $imported (import "env" "imported") (param i32) (result i32))
+        (func (export "exported") (param i32) (result i32)
+            (call $imported (local.get 0))
+        )
+        (memory (export "memory") 1)
+    )
+    "#,
+    )
+    .unwrap();
+    module.set_type_hints(ModuleTypeHints {
+        imports: vec![ExternType::Function(FunctionType::new(
+            vec![Type::I32],
+            vec![Type::I32],
+        ))],
+        exports: vec![
+            ExternType::Function(FunctionType::new(vec![Type::I32], vec![Type::I32])),
+            ExternType::Memory(MemoryType::new(Pages(1), None, false)),
+        ],
+    });
+
+    #[derive(WasmerEnv, Clone)]
+    struct Env {
+        multiplier: u32,
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    fn imported_fn(env: &Env, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+        let memory = env.memory_ref().unwrap();
+        let memory_val = memory.uint8view().get_index(0);
+        let value = (memory_val as u32) * env.multiplier * args[0].unwrap_i32() as u32;
+        return Ok(vec![Val::I32(value as _)]);
+    }
+
+    let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
+    let imported = Function::new_with_env(
+        &store,
+        imported_signature,
         Env {
             multiplier: 3,
             memory: LazyInit::new(),

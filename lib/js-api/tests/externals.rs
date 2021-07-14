@@ -238,98 +238,94 @@ fn function_new_env() {
     );
 }
 
-// #[test]
-// fn function_new_dynamic() -> Result<()> {
-//     let store = Store::default();
+#[wasm_bindgen_test]
+fn function_new_dynamic() {
+    let store = Store::default();
 
-//     // Using &FunctionType signature
-//     let function_type = FunctionType::new(vec![], vec![]);
-//     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![Type::I32], vec![]);
-//     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
-//     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![], vec![Type::I32]);
-//     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
-//     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
-//     assert_eq!(function.ty().clone(), function_type);
+    // Using &FunctionType signature
+    let function_type = FunctionType::new(vec![], vec![]);
+    let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![Type::I32], vec![]);
+    let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
+    let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![], vec![Type::I32]);
+    let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
+    let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().clone(), function_type);
 
-//     // Using array signature
-//     let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
-//     let function = Function::new(&store, function_type, |_values: &[Value]| unimplemented!());
-//     assert_eq!(function.ty().params(), [Type::V128]);
-//     assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
+    // Using array signature
+    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+    let function = Function::new(&store, function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().params(), [Type::V128]);
+    assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
+}
 
-//     Ok(())
-// }
+#[wasm_bindgen_test]
+fn function_new_dynamic_env() {
+    let store = Store::default();
+    #[derive(Clone, WasmerEnv)]
+    struct MyEnv {}
+    let my_env = MyEnv {};
 
-// #[test]
-// fn function_new_dynamic_env() -> Result<()> {
-//     let store = Store::default();
-//     #[derive(Clone, WasmerEnv)]
-//     struct MyEnv {}
-//     let my_env = MyEnv {};
+    // Using &FunctionType signature
+    let function_type = FunctionType::new(vec![], vec![]);
+    let function = Function::new_with_env(
+        &store,
+        &function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![Type::I32], vec![]);
+    let function = Function::new_with_env(
+        &store,
+        &function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
+    let function = Function::new_with_env(
+        &store,
+        &function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![], vec![Type::I32]);
+    let function = Function::new_with_env(
+        &store,
+        &function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().clone(), function_type);
+    let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
+    let function = Function::new_with_env(
+        &store,
+        &function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().clone(), function_type);
 
-//     // Using &FunctionType signature
-//     let function_type = FunctionType::new(vec![], vec![]);
-//     let function = Function::new_with_env(
-//         &store,
-//         &function_type,
-//         my_env.clone(),
-//         |_env: &MyEnv, _values: &[Value]| unimplemented!(),
-//     );
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![Type::I32], vec![]);
-//     let function = Function::new_with_env(
-//         &store,
-//         &function_type,
-//         my_env.clone(),
-//         |_env: &MyEnv, _values: &[Value]| unimplemented!(),
-//     );
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
-//     let function = Function::new_with_env(
-//         &store,
-//         &function_type,
-//         my_env.clone(),
-//         |_env: &MyEnv, _values: &[Value]| unimplemented!(),
-//     );
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![], vec![Type::I32]);
-//     let function = Function::new_with_env(
-//         &store,
-//         &function_type,
-//         my_env.clone(),
-//         |_env: &MyEnv, _values: &[Value]| unimplemented!(),
-//     );
-//     assert_eq!(function.ty().clone(), function_type);
-//     let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
-//     let function = Function::new_with_env(
-//         &store,
-//         &function_type,
-//         my_env.clone(),
-//         |_env: &MyEnv, _values: &[Value]| unimplemented!(),
-//     );
-//     assert_eq!(function.ty().clone(), function_type);
-
-//     // Using array signature
-//     let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
-//     let function = Function::new_with_env(
-//         &store,
-//         function_type,
-//         my_env.clone(),
-//         |_env: &MyEnv, _values: &[Value]| unimplemented!(),
-//     );
-//     assert_eq!(function.ty().params(), [Type::V128]);
-//     assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
-
-//     Ok(())
-// }
+    // Using array signature
+    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+    let function = Function::new_with_env(
+        &store,
+        function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().params(), [Type::V128]);
+    assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
+}
 
 // #[test]
 // fn native_function_works() -> Result<()> {
@@ -394,33 +390,6 @@ fn function_outlives_instance() {
         vec![Val::I32(9)].into_boxed_slice()
     );
 }
-
-// #[test]
-// fn weak_instance_ref_externs_after_instance() -> Result<()> {
-//     let store = Store::default();
-//     let wat = r#"(module
-//   (memory (export "mem") 1)
-//   (type $sum_t (func (param i32 i32) (result i32)))
-//   (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
-//     local.get $x
-//     local.get $y
-//     i32.add)
-//   (export "sum" (func $sum_f)))
-// "#;
-
-//     let f = {
-//         let module = Module::new(&store, wat)?;
-//         let instance = Instance::new(&module, &imports! {})?;
-//         let f: NativeFunc<(i32, i32), i32> = instance.exports.get_with_generics_weak("sum")?;
-
-//         assert_eq!(f.call(4, 5)?, 9);
-//         f
-//     };
-
-//     assert_eq!(f.call(4, 5)?, 9);
-
-//     Ok(())
-// }
 
 #[wasm_bindgen_test]
 fn manually_generate_wasmer_env() {

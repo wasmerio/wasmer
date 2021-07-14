@@ -175,7 +175,7 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<FT, F>(store: &Store, ty: FT, host_func: F) -> Self
+    pub fn new<FT, F>(store: &Store, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
@@ -183,7 +183,7 @@ impl Function {
         let ty = ty.into();
         let new_ty = ty.clone();
 
-        let func: JsValue = match ty.results().len() {
+        let wrapped_func: JsValue = match ty.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
                 let wasm_arguments = new_ty
                     .params()
@@ -191,7 +191,7 @@ impl Function {
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = host_func(&wasm_arguments)?;
+                let results = func(&wasm_arguments)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
@@ -203,7 +203,7 @@ impl Function {
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = host_func(&wasm_arguments)?;
+                let results = func(&wasm_arguments)?;
                 return Ok(result_to_js(&results[0]));
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
@@ -215,7 +215,7 @@ impl Function {
                     .enumerate()
                     .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
-                let results = host_func(&wasm_arguments)?;
+                let results = func(&wasm_arguments)?;
                 return Ok(results_to_js_array(&results));
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
@@ -223,28 +223,17 @@ impl Function {
             _ => unimplemented!(),
         };
 
-        // let ft = wasm_bindgen::function_table();
-        // let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
-        // let func = as_table.get(wrapped_func as usize as u32).unwrap();
-        // let func = JSFunction::new_with_args("args", "return args.length");
         let dyn_func =
             JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
         let binded_func = dyn_func.bind1(
             &JsValue::UNDEFINED,
-            &func,
+            &wrapped_func,
             // &JsValue::from_f64(wrapped_func as usize as f64),
         );
-        // func.forget();
-        // std::mem::forget(func);
-        // let environment: Option<Arc>
         Self {
             store: store.clone(),
             exported: VMFunction::new(binded_func, ty, None),
         }
-        // Function::new
-        // let wrapped_func =
-        //     move |_env: &WithoutEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> { func(args) };
-        // Self::new_with_env(store, ty, WithoutEnv, wrapped_func)
     }
 
     /// Creates a new host `Function` (dynamic) with the provided signature and environment.
@@ -292,52 +281,74 @@ impl Function {
     /// });
     /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_with_env<FT, F, Env>(_store: &Store, _ty: FT, _env: Env, _func: F) -> Self
+    pub fn new_with_env<FT, F, Env>(store: &Store, ty: FT, env: Env, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
         Env: Sized + WasmerEnv + 'static,
     {
-        unimplemented!();
-        // let ty: FunctionType = ty.into();
-        // let dynamic_ctx: VMDynamicFunctionContext<DynamicFunction<Env>> =
-        //     VMDynamicFunctionContext::from_context(DynamicFunction {
-        //         env: Box::new(env),
-        //         func: Arc::new(func),
-        //         store: store.clone(),
-        //         function_type: ty.clone(),
-        //     });
+        let ty = ty.into();
+        let new_ty = ty.clone();
 
-        // let import_init_function_ptr: for<'a> fn(&'a mut _, &'a _) -> Result<(), _> =
-        //     |env: &mut VMDynamicFunctionContext<DynamicFunction<Env>>,
-        //      instance: &crate::Instance| {
-        //         Env::init_with_instance(&mut *env.ctx.env, instance)
-        //     };
+        let wrapped_func: JsValue = match ty.results().len() {
+            0 => Closure::wrap(Box::new(move |args: &Array| {
+                let wasm_arguments = new_ty
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32 + 1)))
+                    .collect::<Vec<_>>();
+                let env_ptr = args.get(0).as_f64().unwrap() as usize;
+                let env: &Env = unsafe { &*(env_ptr as *const u8 as *const Env) };
+                let results = func(env, &wasm_arguments)?;
+                Ok(())
+            })
+                as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
+            .into_js_value(),
+            1 => Closure::wrap(Box::new(move |args: &Array| {
+                let wasm_arguments = new_ty
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32 + 1)))
+                    .collect::<Vec<_>>();
+                let env_ptr = args.get(0).as_f64().unwrap() as usize;
+                let env: &Env = unsafe { &*(env_ptr as *const u8 as *const Env) };
+                let results = func(env, &wasm_arguments)?;
+                return Ok(result_to_js(&results[0]));
+            })
+                as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
+            .into_js_value(),
+            n => Closure::wrap(Box::new(move |args: &Array| {
+                let wasm_arguments = new_ty
+                    .params()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, param)| param_from_js(param, &args.get(i as u32 + 1)))
+                    .collect::<Vec<_>>();
+                let env_ptr = args.get(0).as_f64().unwrap() as usize;
+                let env: &Env = unsafe { &*(env_ptr as *const u8 as *const Env) };
+                let results = func(env, &wasm_arguments)?;
+                return Ok(results_to_js_array(&results));
+            })
+                as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
+            .into_js_value(),
+            _ => unimplemented!(),
+        };
 
-        // let (host_env, metadata) = build_export_function_metadata::<
-        //     VMDynamicFunctionContext<DynamicFunction<Env>>,
-        // >(dynamic_ctx, import_init_function_ptr);
+        let dyn_func =
+            JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
 
-        // // We don't yet have the address with the Wasm ABI signature.
-        // // The engine linker will replace the address with one pointing to a
-        // // generated dynamic trampoline.
-        // let address = std::ptr::null() as *const VMFunctionBody;
-        // let vmctx = VMFunctionEnvironment { host_env };
-
-        // Self {
-        //     store: store.clone(),
-        //     exported: ExportFunction {
-        //         metadata: Some(Arc::new(metadata)),
-        //         vm_function: VMFunction {
-        //             address,
-        //             kind: VMFunctionKind::Dynamic,
-        //             vmctx,
-        //             signature: ty,
-        //             call_trampoline: None,
-        //             instance_ref: None,
-        //         },
-        //     },
-        // }
+        let environment = Box::new(env);
+        let binded_func = dyn_func.bind2(
+            &JsValue::UNDEFINED,
+            &wrapped_func,
+            &JsValue::from_f64(&*environment as *const Env as *const u8 as usize as f64),
+        );
+        Self {
+            store: store.clone(),
+            exported: VMFunction::new(binded_func, ty, Some(environment)),
+        }
     }
 
     /// Creates a new host `Function` from a native function.
@@ -379,34 +390,7 @@ impl Function {
             store: store.clone(),
             exported: VMFunction::new(binded_func, ty, None),
         }
-
-        // let vmctx = VMFunctionEnvironment {
-        //     host_env: std::ptr::null_mut() as *mut _,
-        // };
-        // let signature = function.ty();
-
-        // Self {
-        //     store: store.clone(),
-        //     exported: ExportFunction {
-        //         // TODO: figure out what's going on in this function: it takes an `Env`
-        //         // param but also marks itself as not having an env
-        //         metadata: None,
-        //         vm_function: VMFunction {
-        //             address,
-        //             vmctx,
-        //             signature,
-        //             kind: VMFunctionKind::Static,
-        //             call_trampoline: None,
-        //             instance_ref: None,
-        //         },
-        //     },
-        // }
     }
-
-    // /// Get a reference to the Function environment, if any
-    // pub fn get_host_env(&self) -> Option<&Any> {
-    //     self.environment.as_ref().map(|e|&**e)
-    // }
 
     /// Creates a new host `Function` from a native function and a provided environment.
     ///
@@ -448,8 +432,6 @@ impl Function {
         let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
         let func = as_table.get(address).unwrap();
         let ty = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
-        // let b: Box<Any> = Box::new(env);
-        // let environment = Some(WasmRefCell::new(b));
         let environment = Box::new(env);
         let binded_func = func.bind1(
             &JsValue::UNDEFINED,
@@ -460,30 +442,6 @@ impl Function {
             store: store.clone(),
             exported: VMFunction::new(binded_func, ty, Some(environment)),
         }
-
-        // let function = inner::Function::<Args, Rets>::new(func);
-        // let address = function.address();
-
-        // let (host_env, metadata) =
-        //     build_export_function_metadata::<Env>(env, Env::init_with_instance);
-
-        // let vmctx = VMFunctionEnvironment { host_env };
-        // let signature = function.ty();
-
-        // Self {
-        //     store: store.clone(),
-        //     exported: ExportFunction {
-        //         metadata: Some(Arc::new(metadata)),
-        //         vm_function: VMFunction {
-        //             address,
-        //             kind: VMFunctionKind::Static,
-        //             vmctx,
-        //             signature,
-        //             call_trampoline: None,
-        //             instance_ref: None,
-        //         },
-        //     },
-        // }
     }
 
     /// Returns the [`FunctionType`] of the `Function`.
