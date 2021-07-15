@@ -63,7 +63,7 @@ impl RuntimeError {
     }
 
     /// Creates a new user `RuntimeError` with the given `error`.
-    pub fn user(error: impl Error + 'static) -> Self {
+    pub fn user(error: impl Error + Send + Sync + 'static) -> Self {
         RuntimeError {
             inner: Arc::new(RuntimeErrorSource::User(Box::new(error))),
         }
@@ -160,7 +160,7 @@ impl From<JsValue> for RuntimeError {
         // We try to downcast the error and see if it's
         // an instance of RuntimeError instead, so we don't need
         // to re-wrap it.
-        generic_of_jsval(original, "RuntimeError").unwrap_or_else(|js| RuntimeError {
+        generic_of_jsval(original, "WasmerRuntimeError").unwrap_or_else(|js| RuntimeError {
             inner: Arc::new(RuntimeErrorSource::Js(js)),
         })
     }

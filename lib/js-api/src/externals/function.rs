@@ -462,8 +462,7 @@ impl Function {
             arr.set(i as u32, js_value);
         }
         let result =
-            js_sys::Reflect::apply(&self.exported.function, &wasm_bindgen::JsValue::NULL, &arr)
-                .unwrap();
+            js_sys::Reflect::apply(&self.exported.function, &wasm_bindgen::JsValue::NULL, &arr)?;
 
         let result_types = self.exported.ty.results();
         match result_types.len() {
