@@ -115,18 +115,18 @@ impl BorshSerialize for MachineValue {
             MachineValue::Undefined => writer.write_all(&[0u8])?,
             MachineValue::Vmctx => writer.write_all(&[1u8])?,
             MachineValue::VmctxDeref(v) => {
-                writer.write(&[2u8])?;
+                writer.write_all(&[2u8])?;
                 BorshSerialize::serialize(&v, writer)?;
             }
             MachineValue::PreserveRegister(r) => {
-                writer.write(&[3u8])?;
+                writer.write_all(&[3u8])?;
                 BorshSerialize::serialize(&r, writer)?;
             }
             MachineValue::CopyStackBPRelative(i) => {
-                writer.write(&[4u8])?;
+                writer.write_all(&[4u8])?;
                 BorshSerialize::serialize(&i, writer)?;
             }
-            MachineValue::ExplicitShadow => writer.write_all(&(5 as u8).to_le_bytes())?,
+            MachineValue::ExplicitShadow => writer.write_all(&[5u8])?,
             MachineValue::WasmStack(u) => {
                 writer.write_all(&[6u8])?;
                 BorshSerialize::serialize(&(*u as u64), writer)?;
