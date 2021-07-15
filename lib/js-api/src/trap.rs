@@ -10,9 +10,15 @@ use wasm_bindgen::JsValue;
 /// indicating the cause.
 #[wasm_bindgen]
 #[derive(Clone)]
-pub struct RuntimeError {
+pub struct WasmerRuntimeError {
     inner: Arc<RuntimeErrorSource>,
 }
+
+/// This type is the same as `WasmerRuntimeError`.
+///
+/// We use the `WasmerRuntimeError` name to not collide with the
+/// `RuntimeError` in JS.
+pub type RuntimeError = WasmerRuntimeError;
 
 impl PartialEq for RuntimeError {
     fn eq(&self, other: &Self) -> bool {
@@ -53,6 +59,13 @@ impl RuntimeError {
     pub fn new<I: Into<String>>(message: I) -> Self {
         RuntimeError {
             inner: Arc::new(RuntimeErrorSource::Generic(message.into())),
+        }
+    }
+
+    /// Creates a new user `RuntimeError` with the given `error`.
+    pub fn user(error: impl Error + 'static) -> Self {
+        RuntimeError {
+            inner: Arc::new(RuntimeErrorSource::User(Box::new(error))),
         }
     }
 
@@ -127,9 +140,16 @@ pub fn generic_of_jsval<T: FromWasmAbi<Abi = u32>>(
     let ctor_name = Object::get_prototype_of(&js).constructor().name();
     if ctor_name == classname {
         let ptr = Reflect::get(&js, &JsValue::from_str("ptr"))?;
-        let ptr_u32: u32 = ptr.as_f64().ok_or(JsValue::NULL)? as u32;
-        let foo = unsafe { T::from_abi(ptr_u32) };
-        Ok(foo)
+        match ptr.as_f64() {
+            Some(ptr_f64) => {
+                let foo = unsafe { T::from_abi(ptr_f64 as u32) };
+                Ok(foo)
+            }
+            None => {
+                // We simply relay the js value
+                Err(js)
+            }
+        }
     } else {
         Err(js)
     }

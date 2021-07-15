@@ -587,6 +587,49 @@ fn test_native_function() {
 }
 
 #[wasm_bindgen_test]
+fn test_panic() {
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"
+(module
+  (type $run_t (func (param i32 i32) (result i32)))
+  (type $early_exit_t (func (param) (result)))
+  (import "env" "early_exit" (func $early_exit (type $early_exit_t)))
+  (func $run (type $run_t) (param $x i32) (param $y i32) (result i32)
+    (call $early_exit)
+    (i32.add
+        local.get $x
+        local.get $y))
+  (export "run" (func $run)))
+"#,
+    )
+    .unwrap();
+
+    fn early_exit() {
+        panic!("Do panic")
+    }
+
+    let import_object = imports! {
+        "env" => {
+            "early_exit" => Function::new_native(&store, early_exit),
+        }
+    };
+    let instance = Instance::new(&module, &import_object).unwrap();
+
+    let run_func: NativeFunc<(i32, i32), i32> =
+        instance.exports.get_native_function("run").unwrap();
+
+    assert!(run_func.call(1, 7).is_err(), "Expected early termination",);
+    let run_func = instance.exports.get_function("run").unwrap();
+
+    assert!(
+        run_func.call(&[Val::I32(1), Val::I32(7)]).is_err(),
+        "Expected early termination",
+    );
+}
+
+#[wasm_bindgen_test]
 fn test_custom_error() {
     let store = Store::default();
     let module = Module::new(
@@ -630,27 +673,33 @@ fn test_custom_error() {
     };
     let instance = Instance::new(&module, &import_object).unwrap();
 
-    let run_func: NativeFunc<(i32, i32), i32> =
-        instance.exports.get_native_function("run").unwrap();
-
-    match run_func.call(1, 7) {
-        Ok(result) => {
-            assert!(
-                false,
-                "Expected early termination with `ExitCode`, found: {}",
-                result
-            );
-        }
-        Err(e) => {
-            match e.downcast::<ExitCode>() {
-                // We found the exit code used to terminate execution.
-                Ok(exit_code) => {
-                    assert_eq!(exit_code.0, 1);
-                }
-                Err(e) => {
-                    assert!(false, "Unknown error `{:?}` found. expected `ErrorCode`", e);
+    fn test_result<T: core::fmt::Debug>(result: Result<T, RuntimeError>) {
+        match result {
+            Ok(result) => {
+                assert!(
+                    false,
+                    "Expected early termination with `ExitCode`, found: {:?}",
+                    result
+                );
+            }
+            Err(e) => {
+                match e.downcast::<ExitCode>() {
+                    // We found the exit code used to terminate execution.
+                    Ok(exit_code) => {
+                        assert_eq!(exit_code.0, 1);
+                    }
+                    Err(e) => {
+                        assert!(false, "Unknown error `{:?}` found. expected `ErrorCode`", e);
+                    }
                 }
             }
         }
     }
+
+    let run_func: NativeFunc<(i32, i32), i32> =
+        instance.exports.get_native_function("run").unwrap();
+    test_result(run_func.call(1, 7));
+
+    let run_func = instance.exports.get_function("run").unwrap();
+    test_result(run_func.call(&[Val::I32(1), Val::I32(7)]));
 }
