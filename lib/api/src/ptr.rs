@@ -281,7 +281,13 @@ impl<T: Copy, Ty> Eq for WasmPtr<T, Ty> {}
 
 impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "WasmPtr({:#x})", self.offset)
+        write!(
+            f,
+            "WasmPtr(offset: {}, pointer: {:#x}, align: {})",
+            self.offset,
+            self.offset,
+            mem::align_of::<T>()
+        )
     }
 }
 

@@ -86,6 +86,13 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
     }
 }
 
+#[inline(always)]
+fn align_pointer(ptr: usize, align: usize) -> usize {
+    // clears bits below aligment amount (assumes power of 2) to align pointer
+    debug_assert!(align.count_ones() == 1);
+    ptr & !(align - 1)
+}
+
 /// Methods for `WasmPtr`s to data that can be dereferenced, namely to types
 /// that implement [`ValueType`], meaning that they're valid for all possible
 /// bit patterns.
@@ -102,7 +109,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
         if total_len > memory.size().bytes().0 || mem::size_of::<T>() == 0 {
             return None;
         }
-        let subarray = memory.uint8view().subarray(self.offset, total_len as u32);
+        let offset = align_pointer(self.offset as usize, mem::align_of::<T>()) as u32;
+        let subarray = memory.uint8view().subarray(offset, total_len as u32);
         Some(WasmCell::new(subarray))
     }
 }
@@ -132,13 +140,14 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
             return None;
         }
 
+        let offset = align_pointer(self.offset as usize, mem::align_of::<T>()) as u32;
+
         Some(
             (0..length)
                 .map(|i| {
-                    let subarray = memory.uint8view().subarray(
-                        self.offset + i * item_size,
-                        self.offset + (i + 1) * item_size,
-                    );
+                    let subarray = memory
+                        .uint8view()
+                        .subarray(offset + i * item_size, offset + (i + 1) * item_size);
                     WasmCell::new(subarray)
                 })
                 .collect::<Vec<_>>(),
@@ -167,16 +176,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         memory: &'a Memory,
         str_len: u32,
     ) -> Option<std::borrow::Cow<'a, str>> {
-        let memory_size = memory.size().bytes().0;
-
-        if self.offset as usize + str_len as usize > memory.size().bytes().0
-            || self.offset as usize >= memory_size
-        {
-            return None;
-        }
-        let subarray_as_vec = memory.uint8view().subarray(self.offset, str_len).to_vec();
-        String::from_utf8(subarray_as_vec)
-            .ok()
+        self.get_utf8_string(memory, str_len)
             .map(std::borrow::Cow::from)
     }
 
@@ -191,7 +191,16 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
             return None;
         }
 
-        let subarray_as_vec = memory.uint8view().subarray(self.offset, str_len).to_vec();
+        let view = memory.uint8view();
+        // let subarray_as_vec = view.subarray(self.offset, str_len + 1).to_vec();
+
+        let mut subarray_as_vec: Vec<u8> = Vec::with_capacity(str_len as usize);
+        let base = self.offset;
+        for i in 0..(str_len) {
+            let byte = view.get_index(base + i);
+            subarray_as_vec.push(byte);
+        }
+
         String::from_utf8(subarray_as_vec).ok()
     }
 }
@@ -233,7 +242,13 @@ impl<T: Copy, Ty> Eq for WasmPtr<T, Ty> {}
 
 impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "WasmPtr({:#x})", self.offset)
+        write!(
+            f,
+            "WasmPtr(offset: {}, pointer: {:#x}, align: {})",
+            self.offset,
+            self.offset,
+            mem::align_of::<T>()
+        )
     }
 }
 

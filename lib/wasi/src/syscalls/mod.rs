@@ -116,10 +116,11 @@ fn write_buffer_array(
 
     let mut current_buffer_offset = 0;
     for ((i, sub_buffer), ptr) in from.iter().enumerate().zip(ptrs.iter()) {
-        ptr.set(WasmPtr::new(buffer.offset() + current_buffer_offset));
+        debug!("ptr: {:?}, subbuffer: {:?}", ptr, sub_buffer);
+        let new_ptr = WasmPtr::new(buffer.offset() + current_buffer_offset);
+        ptr.set(new_ptr);
 
-        let cells =
-            wasi_try!(buffer.deref(memory, current_buffer_offset, sub_buffer.len() as u32 + 1));
+        let cells = wasi_try!(new_ptr.deref(memory, 0, sub_buffer.len() as u32 + 1));
 
         for (cell, &byte) in cells.iter().zip(sub_buffer.iter().chain([0].iter())) {
             cell.set(byte);
@@ -268,8 +269,12 @@ pub fn environ_get(
     environ: WasmPtr<WasmPtr<u8, Array>, Array>,
     environ_buf: WasmPtr<u8, Array>,
 ) -> __wasi_errno_t {
-    debug!("wasi::environ_get");
+    debug!(
+        "wasi::environ_get. Environ: {:?}, environ_buf: {:?}",
+        environ, environ_buf
+    );
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    debug!(" -> State envs: {:?}", state.envs);
 
     write_buffer_array(memory, &*state.envs, environ, environ_buf)
 }
@@ -757,6 +762,7 @@ pub fn fd_prestat_dir_name(
 
     // check inode-val.is_preopened?
 
+    debug!("=> inode: {:?}", inode_val);
     match inode_val.kind {
         Kind::Dir { .. } | Kind::Root { .. } => {
             // TODO: verify this: null termination, etc
@@ -769,11 +775,10 @@ pub fn fd_prestat_dir_name(
                 path_chars[i].set(0);
 
                 debug!(
-                    "=> result: \"{}\"",
-                    ::std::str::from_utf8(unsafe {
-                        &*(&path_chars[..] as *const [_] as *const [u8])
-                    })
-                    .unwrap()
+                    "=> result: \"{}\" (written: {}, {})",
+                    unsafe { path.get_utf8_str(memory, path_len).unwrap() },
+                    i,
+                    path_chars[0].get(),
                 );
 
                 __WASI_ESUCCESS

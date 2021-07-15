@@ -112,7 +112,7 @@ impl<'a, T: Copy> WasmCell<'a, T> {
 impl<T: Debug + Copy> Debug for WasmCell<'_, T> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.get().fmt(f)
+        write!(f, "WasmCell({:?})", self.get())
     }
 }
 
