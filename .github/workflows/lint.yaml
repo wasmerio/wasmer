@@ -23,9 +23,9 @@ jobs:
           components: rustfmt, clippy
       - name: Install LLVM (Linux)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz -L -o /opt/llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz -L -o /opt/llvm.tar.gz
           mkdir -p /opt/llvm-11
-          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-11
+          tar xf /opt/llvm.tar.gz --strip-components=1 -C /opt/llvm-11
           echo '/opt/llvm-11/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_110_PREFIX=/opt/llvm-11' >> $GITHUB_ENV
       - run: make lint

@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use wasmer::Mutability;
+use wasmer_api::Mutability;
 
 #[allow(non_camel_case_types)]
 pub type wasm_mutability_t = u8;

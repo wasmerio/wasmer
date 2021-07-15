@@ -1,7 +1,7 @@
 use super::{
     wasm_externtype_t, wasm_limits_t, wasm_valtype_delete, wasm_valtype_t, WasmExternType,
 };
-use wasmer::{ExternType, TableType};
+use wasmer_api::{ExternType, TableType};
 
 #[allow(non_camel_case_types)]
 pub type wasm_table_size_t = u32;

@@ -8,6 +8,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+### Changed
+- [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
+
 ### Fixed
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
 

@@ -14,7 +14,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y libxkbcommon-dev doxygen
+          sudo apt-get install -y libxkbcommon-dev
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -26,9 +26,9 @@ jobs:
           mkdir ${{ env.LLVM_DIR }}
           tar xf llvm.tar.gz --strip-components=1 -C ${{ env.LLVM_DIR }}
           echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_100_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
+          echo "LLVM_SYS_110_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
-          LLVM_DIR: ${{ github.workspace }}/llvm-10
+          LLVM_DIR: ${{ github.workspace }}/llvm-11
           LLVM_URL: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
       - name: Build & package documentation
         run: make package-docs

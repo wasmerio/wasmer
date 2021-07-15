@@ -384,7 +384,7 @@ else
 endif
 
 build-docs:
-	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
+	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
 capi-setup:
 ifeq ($(IS_WINDOWS), 1)
@@ -392,7 +392,12 @@ ifeq ($(IS_WINDOWS), 1)
 endif
 
 build-docs-capi: capi-setup
+	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
+	# when generating the documentation, we rename it to its
+	# crate's name. Then we restore the lib's name.
+	sed -i '' -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
 	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
+	sed -i '' -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -584,33 +589,29 @@ package-capi:
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
 
-	# Windows
-	if [ -f $(TARGET_DIR)/wasmer_c_api.dll ]; then \
-		cp $(TARGET_DIR)/wasmer_c_api.dll package/lib/wasmer.dll ;\
+	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
+		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
 	fi
-	if [ -f $(TARGET_DIR)/wasmer_c_api.lib ]; then \
-		cp $(TARGET_DIR)/wasmer_c_api.lib package/lib/wasmer.lib ;\
-	fi
-
-	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
-	rm -f package/lib/libwasmer.dylib
-	if [ -f $(TARGET_DIR)/libwasmer_c_api.dylib ]; then \
-		cp $(TARGET_DIR)/libwasmer_c_api.dylib package/lib/libwasmer.dylib ;\
-		install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib ;\
+	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer.lib ;\
 	fi
 
-	if [ -f $(TARGET_DIR)/libwasmer_c_api.so ]; then \
-		cp $(TARGET_DIR)/libwasmer_c_api.so package/lib/libwasmer.so ;\
+	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
+		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer.dylib ;\
 	fi
-	if [ -f $(TARGET_DIR)/libwasmer_c_api.a ]; then \
-		cp $(TARGET_DIR)/libwasmer_c_api.a package/lib/libwasmer.a ;\
+
+	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
+		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer.so ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
+		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
 	fi
 
 package-docs: build-docs build-docs-capi
-	mkdir -p "package/docs/c"
-	cp -R target/doc package/docs/crates
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
+	mkdir -p "package/docs/crates"
+	cp -R target/doc/ package/docs/crates
+	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
+	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
 
@@ -645,20 +646,25 @@ install-capi-lib:
 	pkgver=$$(target/release/wasmer --version | cut -d\  -f2) && \
 	shortver="$${pkgver%.*}" && \
 	majorver="$${shortver%.*}" && \
-	install -Dm755 target/release/libwasmer_c_api.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
+	install -Dm755 target/release/libwasmer.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$shortver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$majorver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so"
 
 install-capi-staticlib:
-	install -Dm644 target/release/libwasmer_c_api.a "$(DESTDIR)/lib/libwasmer.a"
+	install -Dm644 target/release/libwasmer.a "$(DESTDIR)/lib/libwasmer.a"
 
 install-misc:
 	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE
 
 install-pkgconfig:
-	unset WASMER_DIR # Make sure WASMER_INSTALL_PREFIX is set during build
-	target/release/wasmer config --pkg-config | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc
+	# Make sure WASMER_INSTALL_PREFIX is set during build
+	unset WASMER_DIR; \
+	if pc="$$(target/release/wasmer config --pkg-config 1>/dev/null 2>/dev/null)"; then \
+		echo "$$pc" | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc; \
+	else \
+		echo 1>&2 "WASMER_INSTALL_PREFIX was not set during build, not installing wasmer.pc"; \
+	fi
 
 install-wasmer-headless-minimal:
 	install -Dm755 target/release/wasmer-headless $(DESTDIR)/bin/wasmer-headless

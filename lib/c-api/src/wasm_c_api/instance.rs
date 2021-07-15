@@ -5,7 +5,7 @@ use super::trap::wasm_trap_t;
 use crate::ordered_resolver::OrderedResolver;
 use std::mem;
 use std::sync::Arc;
-use wasmer::{Extern, Instance, InstantiationError};
+use wasmer_api::{Extern, Instance, InstantiationError};
 
 /// Opaque type representing a WebAssembly instance.
 #[allow(non_camel_case_types)]
