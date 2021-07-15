@@ -20,7 +20,7 @@ getrandom = "0.1"
 time = "0.1"
 typetag = "0.1"
 serde = { version = "1", features = ["derive"] }
-wasmer-runtime-core = { path = "../runtime-core", version = "0.18.0-pre.1", package = "wasmer-runtime-core-near" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.18.0", package = "wasmer-runtime-core-near" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"

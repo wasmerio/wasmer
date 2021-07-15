@@ -10,4 +10,4 @@ categories = ["wasm"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.18.0-pre.1", package = "wasmer-runtime-core-near" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.18.0", package = "wasmer-runtime-core-near" }
