@@ -8,8 +8,17 @@ WebAssembly via `wasm-bindgen`.
 
 ## Usage
 
+We recommend aliasing `wasmer_js` to `wasmer`.
+
 ```rust
-use wasmer_js::{Store, Module, Instance, Value, imports};
+#[cfg(feature = "js")]
+extern crate wasmer_js as wasmer;
+```
+
+And then:
+
+```rust
+use wasmer::{Store, Module, Instance, Value, imports};
 
 fn main() -> anyhow::Result<()> {
     let module_wat = r#"
