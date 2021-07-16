@@ -56,7 +56,7 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone, Default, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
@@ -282,29 +282,7 @@ impl Eq for ModuleInfo {}
 impl ModuleInfo {
     /// Allocates the module data structures.
     pub fn new() -> Self {
-        Self {
-            id: ModuleId::default(),
-            name: None,
-            imports: IndexMap::new(),
-            exports: IndexMap::new(),
-            start_function: None,
-            table_initializers: Vec::new(),
-            passive_elements: HashMap::new(),
-            passive_data: HashMap::new(),
-            global_initializers: PrimaryMap::new(),
-            function_names: HashMap::new(),
-            signatures: PrimaryMap::new(),
-            functions: PrimaryMap::new(),
-            tables: PrimaryMap::new(),
-            memories: PrimaryMap::new(),
-            globals: PrimaryMap::new(),
-            num_imported_functions: 0,
-            num_imported_tables: 0,
-            num_imported_memories: 0,
-            num_imported_globals: 0,
-            custom_sections: IndexMap::new(),
-            custom_sections_data: PrimaryMap::new(),
-        }
+        Default::default()
     }
 
     /// Get the given passive element, if it exists.

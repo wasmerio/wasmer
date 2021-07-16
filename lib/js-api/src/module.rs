@@ -178,7 +178,7 @@ impl Module {
                         .map(|export| export.ty().clone())
                         .collect::<Vec<_>>(),
                 }),
-                info.name,
+                info.info.name,
             )
         };
         #[cfg(not(feature = "wasm-types-polyfill"))]
@@ -300,7 +300,7 @@ impl Module {
         // Arc::get_mut(&mut self.artifact)
         //     .and_then(|artifact| artifact.module_mut())
         //     .map(|mut module_info| {
-        //         module_info.name = Some(name.to_string());
+        //         module_info.info.name = Some(name.to_string());
         //         true
         //     })
         //     .unwrap_or(false)

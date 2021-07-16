@@ -11,8 +11,8 @@ use std::vec::Vec;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType, GlobalIndex, GlobalType,
-    ImportIndex, ImportType, MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType,
-    Type,
+    ImportIndex, ImportType, MemoryIndex, MemoryType, ModuleInfo, Pages, SignatureIndex,
+    TableIndex, TableType, Type,
 };
 
 use indexmap::IndexMap;
@@ -27,53 +27,15 @@ pub type WasmResult<T> = Result<T, String>;
 
 #[derive(Default)]
 pub struct ModuleInfoPolyfill {
-    /// The name of this wasm module, often found in the wasm file.
-    pub name: Option<String>,
-
-    /// Imported entities with the (module, field, index_of_the_import)
-    ///
-    /// Keeping the `index_of_the_import` is important, as there can be
-    /// two same references to the same import, and we don't want to confuse
-    /// them.
-    pub imports: IndexMap<(String, String, u32), ImportIndex>,
-
-    /// Exported entities.
-    pub exports: IndexMap<String, ExportIndex>,
-
-    /// WebAssembly function signatures.
-    pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
-
-    /// WebAssembly functions (imported and local).
-    pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
-
-    /// WebAssembly tables (imported and local).
-    pub tables: PrimaryMap<TableIndex, TableType>,
-
-    /// WebAssembly linear memories (imported and local).
-    pub memories: PrimaryMap<MemoryIndex, MemoryType>,
-
-    /// WebAssembly global variables (imported and local).
-    pub globals: PrimaryMap<GlobalIndex, GlobalType>,
+    pub(crate) info: ModuleInfo,
 
     /// Number of total imports
-    pub total_imports: u32,
-
-    /// Number of imported functions in the module.
-    pub num_imported_functions: usize,
-
-    /// Number of imported tables in the module.
-    pub num_imported_tables: usize,
-
-    /// Number of imported memories in the module.
-    pub num_imported_memories: usize,
-
-    /// Number of imported globals in the module.
-    pub num_imported_globals: usize,
+    total_imports: u32,
 }
 
 impl ModuleInfoPolyfill {
     pub(crate) fn declare_export(&mut self, export: ExportIndex, name: &str) -> WasmResult<()> {
-        self.exports.insert(String::from(name), export);
+        self.info.exports.insert(String::from(name), export);
         Ok(())
     }
 
@@ -83,7 +45,7 @@ impl ModuleInfoPolyfill {
         module: &str,
         field: &str,
     ) -> WasmResult<()> {
-        self.imports.insert(
+        self.info.imports.insert(
             (
                 String::from(module),
                 String::from(field),
@@ -95,12 +57,14 @@ impl ModuleInfoPolyfill {
     }
 
     pub(crate) fn reserve_signatures(&mut self, num: u32) -> WasmResult<()> {
-        self.signatures.reserve_exact(usize::try_from(num).unwrap());
+        self.info
+            .signatures
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
-        self.signatures.push(sig);
+        self.info.signatures.push(sig);
         Ok(())
     }
 
@@ -111,17 +75,19 @@ impl ModuleInfoPolyfill {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.functions.len(),
-            self.num_imported_functions,
+            self.info.functions.len(),
+            self.info.num_imported_functions,
             "Imported functions must be declared first"
         );
         self.declare_import(
-            ImportIndex::Function(FunctionIndex::from_u32(self.num_imported_functions as _)),
+            ImportIndex::Function(FunctionIndex::from_u32(
+                self.info.num_imported_functions as _,
+            )),
             module,
             field,
         )?;
-        self.functions.push(sig_index);
-        self.num_imported_functions += 1;
+        self.info.functions.push(sig_index);
+        self.info.num_imported_functions += 1;
         self.total_imports += 1;
         Ok(())
     }
@@ -133,17 +99,17 @@ impl ModuleInfoPolyfill {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.tables.len(),
-            self.num_imported_tables,
+            self.info.tables.len(),
+            self.info.num_imported_tables,
             "Imported tables must be declared first"
         );
         self.declare_import(
-            ImportIndex::Table(TableIndex::from_u32(self.num_imported_tables as _)),
+            ImportIndex::Table(TableIndex::from_u32(self.info.num_imported_tables as _)),
             module,
             field,
         )?;
-        self.tables.push(table);
-        self.num_imported_tables += 1;
+        self.info.tables.push(table);
+        self.info.num_imported_tables += 1;
         self.total_imports += 1;
         Ok(())
     }
@@ -155,17 +121,17 @@ impl ModuleInfoPolyfill {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.memories.len(),
-            self.num_imported_memories,
+            self.info.memories.len(),
+            self.info.num_imported_memories,
             "Imported memories must be declared first"
         );
         self.declare_import(
-            ImportIndex::Memory(MemoryIndex::from_u32(self.num_imported_memories as _)),
+            ImportIndex::Memory(MemoryIndex::from_u32(self.info.num_imported_memories as _)),
             module,
             field,
         )?;
-        self.memories.push(memory);
-        self.num_imported_memories += 1;
+        self.info.memories.push(memory);
+        self.info.num_imported_memories += 1;
         self.total_imports += 1;
         Ok(())
     }
@@ -177,68 +143,76 @@ impl ModuleInfoPolyfill {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.globals.len(),
-            self.num_imported_globals,
+            self.info.globals.len(),
+            self.info.num_imported_globals,
             "Imported globals must be declared first"
         );
         self.declare_import(
-            ImportIndex::Global(GlobalIndex::from_u32(self.num_imported_globals as _)),
+            ImportIndex::Global(GlobalIndex::from_u32(self.info.num_imported_globals as _)),
             module,
             field,
         )?;
-        self.globals.push(global);
-        self.num_imported_globals += 1;
+        self.info.globals.push(global);
+        self.info.num_imported_globals += 1;
         self.total_imports += 1;
         Ok(())
     }
 
     pub(crate) fn reserve_func_types(&mut self, num: u32) -> WasmResult<()> {
-        self.functions.reserve_exact(usize::try_from(num).unwrap());
+        self.info
+            .functions
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_func_type(&mut self, sig_index: SignatureIndex) -> WasmResult<()> {
-        self.functions.push(sig_index);
+        self.info.functions.push(sig_index);
         Ok(())
     }
 
     pub(crate) fn reserve_tables(&mut self, num: u32) -> WasmResult<()> {
-        self.tables.reserve_exact(usize::try_from(num).unwrap());
+        self.info
+            .tables
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_table(&mut self, table: TableType) -> WasmResult<()> {
-        self.tables.push(table);
+        self.info.tables.push(table);
         Ok(())
     }
 
     pub(crate) fn reserve_memories(&mut self, num: u32) -> WasmResult<()> {
-        self.memories.reserve_exact(usize::try_from(num).unwrap());
+        self.info
+            .memories
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_memory(&mut self, memory: MemoryType) -> WasmResult<()> {
-        self.memories.push(memory);
+        self.info.memories.push(memory);
         Ok(())
     }
 
     pub(crate) fn reserve_globals(&mut self, num: u32) -> WasmResult<()> {
-        self.globals.reserve_exact(usize::try_from(num).unwrap());
+        self.info
+            .globals
+            .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_global(&mut self, global: GlobalType) -> WasmResult<()> {
-        self.globals.push(global);
+        self.info.globals.push(global);
         Ok(())
     }
 
     pub(crate) fn reserve_exports(&mut self, num: u32) -> WasmResult<()> {
-        self.exports.reserve(usize::try_from(num).unwrap());
+        self.info.exports.reserve(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn reserve_imports(&mut self, num: u32) -> WasmResult<()> {
-        self.imports.reserve(usize::try_from(num).unwrap());
+        self.info.imports.reserve(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -275,29 +249,29 @@ impl ModuleInfoPolyfill {
     }
 
     pub(crate) fn declare_module_name(&mut self, name: &str) -> WasmResult<()> {
-        self.name = Some(name.to_string());
+        self.info.name = Some(name.to_string());
         Ok(())
     }
 
     /// Get the export types of the module
     pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
-        let iter = self.exports.iter().map(move |(name, export_index)| {
+        let iter = self.info.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
-                    let signature = self.functions.get(*i).unwrap();
-                    let func_type = self.signatures.get(*signature).unwrap();
+                    let signature = self.info.functions.get(*i).unwrap();
+                    let func_type = self.info.signatures.get(*signature).unwrap();
                     ExternType::Function(func_type.clone())
                 }
                 ExportIndex::Table(i) => {
-                    let table_type = self.tables.get(*i).unwrap();
+                    let table_type = self.info.tables.get(*i).unwrap();
                     ExternType::Table(*table_type)
                 }
                 ExportIndex::Memory(i) => {
-                    let memory_type = self.memories.get(*i).unwrap();
+                    let memory_type = self.info.memories.get(*i).unwrap();
                     ExternType::Memory(*memory_type)
                 }
                 ExportIndex::Global(i) => {
-                    let global_type = self.globals.get(*i).unwrap();
+                    let global_type = self.info.globals.get(*i).unwrap();
                     ExternType::Global(*global_type)
                 }
             };
@@ -305,32 +279,33 @@ impl ModuleInfoPolyfill {
         });
         ExportsIterator {
             iter,
-            size: self.exports.len(),
+            size: self.info.exports.len(),
         }
     }
 
     /// Get the import types of the module
     pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
         let iter = self
+            .info
             .imports
             .iter()
             .map(move |((module, field, _), import_index)| {
                 let extern_type = match import_index {
                     ImportIndex::Function(i) => {
-                        let signature = self.functions.get(*i).unwrap();
-                        let func_type = self.signatures.get(*signature).unwrap();
+                        let signature = self.info.functions.get(*i).unwrap();
+                        let func_type = self.info.signatures.get(*signature).unwrap();
                         ExternType::Function(func_type.clone())
                     }
                     ImportIndex::Table(i) => {
-                        let table_type = self.tables.get(*i).unwrap();
+                        let table_type = self.info.tables.get(*i).unwrap();
                         ExternType::Table(*table_type)
                     }
                     ImportIndex::Memory(i) => {
-                        let memory_type = self.memories.get(*i).unwrap();
+                        let memory_type = self.info.memories.get(*i).unwrap();
                         ExternType::Memory(*memory_type)
                     }
                     ImportIndex::Global(i) => {
-                        let global_type = self.globals.get(*i).unwrap();
+                        let global_type = self.info.globals.get(*i).unwrap();
                         ExternType::Global(*global_type)
                     }
                 };
@@ -338,7 +313,7 @@ impl ModuleInfoPolyfill {
             });
         ImportsIterator {
             iter,
-            size: self.imports.len(),
+            size: self.info.imports.len(),
         }
     }
 }
