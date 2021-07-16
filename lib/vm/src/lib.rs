@@ -28,7 +28,6 @@ mod imports;
 mod instance;
 mod memory;
 mod mmap;
-mod module;
 mod probestack;
 mod sig_registry;
 mod table;
@@ -48,7 +47,6 @@ pub use crate::instance::{
 };
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;
-pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{LinearTable, Table, TableElement, TableStyle};

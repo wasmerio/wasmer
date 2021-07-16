@@ -7,8 +7,7 @@ use wasmer_compiler::{
 };
 use wasmer_engine::FunctionExtent;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::LocalFunctionIndex;
-use wasmer_vm::ModuleInfo;
+use wasmer_types::{LocalFunctionIndex, ModuleInfo};
 use wasmer_vm::SectionBodyPtr;
 
 fn apply_relocation(

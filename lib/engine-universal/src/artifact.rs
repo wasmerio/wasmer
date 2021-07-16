@@ -19,11 +19,11 @@ use wasmer_engine::{
 use wasmer_engine::{Engine, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
+    SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
+    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex,
     VMTrampoline,
 };
 

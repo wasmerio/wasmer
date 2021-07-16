@@ -10,11 +10,12 @@ use wasmer_compiler::{
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::Features;
-use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::{
+    Features, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo, SignatureIndex,
+};
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, ModuleInfo, SectionBodyPtr, SignatureRegistry,
-    VMCallerCheckedAnyfunc, VMFuncRef, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMCallerCheckedAnyfunc,
+    VMFuncRef, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `Universal` Engine.

@@ -11,16 +11,17 @@ use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
-use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
-    Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, Target,
+    Architecture, Compilation, CompileError, CompileModuleInfo, CompiledFunction, Compiler,
+    CompilerConfig, FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, SectionIndex,
+    Target, TrapInformation,
 };
-use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
-use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
-use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
+use wasmer_types::{
+    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex,
+};
+use wasmer_vm::{TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass

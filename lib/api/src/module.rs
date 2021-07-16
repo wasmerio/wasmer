@@ -11,7 +11,8 @@ use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
 use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
-use wasmer_vm::{ExportsIterator, ImportsIterator, InstanceHandle, ModuleInfo};
+use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
+use wasmer_vm::InstanceHandle;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {

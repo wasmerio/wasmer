@@ -6,8 +6,7 @@ use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
-use wasmer_types::LocalFunctionIndex;
-use wasmer_vm::ModuleInfo;
+use wasmer_types::{LocalFunctionIndex, ModuleInfo};
 use wasmparser::{BinaryReader, Operator, Range, Type};
 
 use crate::error::{MiddlewareError, WasmResult};

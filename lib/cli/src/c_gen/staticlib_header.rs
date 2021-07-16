@@ -2,7 +2,7 @@
 
 use super::{generate_c, CStatement, CType};
 use wasmer_compiler::{Symbol, SymbolRegistry};
-use wasmer_vm::ModuleInfo;
+use wasmer_types::ModuleInfo;
 
 /// Helper functions to simplify the usage of the Staticlib engine.
 const HELPER_FUNCTIONS: &str = r#"

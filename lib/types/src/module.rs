@@ -4,6 +4,15 @@
 //! Data structure for representing WebAssembly modules in a
 //! `wasmer::Module`.
 
+use crate::entity::{EntityRef, PrimaryMap};
+#[cfg(feature = "enable-rkyv")]
+use crate::ArchivableIndexMap;
+use crate::{
+    CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
+    FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
+    TableIndex, TableInitializer, TableType,
+};
 use indexmap::IndexMap;
 use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
@@ -11,6 +20,7 @@ use rkyv::{
     de::SharedDeserializer, ser::Serializer, ser::SharedSerializer, Archive, Archived,
     Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
 };
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -19,15 +29,6 @@ use std::iter::ExactSizeIterator;
 use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use wasmer_types::entity::{EntityRef, PrimaryMap};
-#[cfg(feature = "enable-rkyv")]
-use wasmer_types::ArchivableIndexMap;
-use wasmer_types::{
-    CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
-    FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableInitializer, TableType,
-};
 
 #[derive(Debug, Clone, MemoryUsage)]
 #[cfg_attr(
@@ -55,7 +56,8 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, Serialize, Deserialize, MemoryUsage)]
+#[derive(Debug, Clone, MemoryUsage)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
@@ -63,7 +65,7 @@ pub struct ModuleInfo {
     /// should be computed by the process.
     /// It's not skipped in rkyv, but that is okay, because even though it's skipped in bincode/serde
     /// it's still deserialized back as a garbage number, and later override from computed by the process
-    #[serde(skip_serializing, skip_deserializing)]
+    #[cfg_attr(feature = "enable-serde", serde(skip_serializing, skip_deserializing))]
     pub id: ModuleId,
 
     /// The name of this wasm module, often found in the wasm file.

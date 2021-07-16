@@ -5,10 +5,10 @@ use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    TableIndex, TableType,
+    ModuleInfo, TableIndex, TableType,
 };
 use wasmer_vm::MemoryError;
-use wasmer_vm::{Global, Memory, ModuleInfo, Table};
+use wasmer_vm::{Global, Memory, Table};
 use wasmer_vm::{MemoryStyle, TableStyle};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 

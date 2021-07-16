@@ -12,12 +12,12 @@ use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
+    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
+    SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext,
-    VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMContext, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// Serializable struct for the artifact
