@@ -7,14 +7,12 @@
 //! https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
 use core::convert::TryFrom;
 use std::vec::Vec;
-use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::entity::EntityRef;
 use wasmer_types::{
-    ExportIndex, ExportType, ExternType, FunctionIndex, FunctionType, GlobalIndex, GlobalType,
-    ImportIndex, ImportType, MemoryIndex, MemoryType, ModuleInfo, Pages, SignatureIndex,
-    TableIndex, TableType, Type,
+    ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, MemoryIndex,
+    MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, Type,
 };
 
-use indexmap::IndexMap;
 use wasmparser::{
     self, BinaryReaderError, Export, ExportSectionReader, ExternalKind, FuncType as WPFunctionType,
     FunctionSectionReader, GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionEntryType,
@@ -27,9 +25,6 @@ pub type WasmResult<T> = Result<T, String>;
 #[derive(Default)]
 pub struct ModuleInfoPolyfill {
     pub(crate) info: ModuleInfo,
-
-    /// Number of total imports
-    total_imports: u32,
 }
 
 impl ModuleInfoPolyfill {
@@ -48,7 +43,7 @@ impl ModuleInfoPolyfill {
             (
                 String::from(module),
                 String::from(field),
-                self.total_imports,
+                self.info.imports.len() as u32,
             ),
             import,
         );
@@ -87,7 +82,6 @@ impl ModuleInfoPolyfill {
         )?;
         self.info.functions.push(sig_index);
         self.info.num_imported_functions += 1;
-        self.total_imports += 1;
         Ok(())
     }
 
@@ -109,7 +103,6 @@ impl ModuleInfoPolyfill {
         )?;
         self.info.tables.push(table);
         self.info.num_imported_tables += 1;
-        self.total_imports += 1;
         Ok(())
     }
 
@@ -131,7 +124,6 @@ impl ModuleInfoPolyfill {
         )?;
         self.info.memories.push(memory);
         self.info.num_imported_memories += 1;
-        self.total_imports += 1;
         Ok(())
     }
 
@@ -153,7 +145,6 @@ impl ModuleInfoPolyfill {
         )?;
         self.info.globals.push(global);
         self.info.num_imported_globals += 1;
-        self.total_imports += 1;
         Ok(())
     }
 
