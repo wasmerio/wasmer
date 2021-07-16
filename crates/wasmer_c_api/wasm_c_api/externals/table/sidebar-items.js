@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["wasm_table_copy",""],["wasm_table_delete",""],["wasm_table_grow",""],["wasm_table_new",""],["wasm_table_same",""],["wasm_table_size",""]],"struct":[["wasm_table_t",""]]});
