@@ -17,8 +17,6 @@ DisableWelcomePage=no
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_DIR"; \
     ValueData: "{app}"; Flags: preservestringtype
-Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_CACHE_DIR"; \
-    ValueData: "{app}\cache"; Flags: preservestringtype
 
 [Files]
 Source: "..\..\package\bin\*"; DestDir: "{app}\bin"
@@ -27,9 +25,6 @@ Source: "..\..\package\lib\*"; DestDir: "{app}\lib"
 Source: "..\..\package\LICENSE"; DestDir: "{app}"
 Source: "..\..\package\ATTRIBUTIONS"; DestDir: "{app}"
 Source: "wax.cmd"; DestDir: "{app}\bin"
-
-[Dirs]
-Name: "{app}\cache"
 
 [Code]
 const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
