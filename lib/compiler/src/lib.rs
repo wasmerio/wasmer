@@ -88,8 +88,8 @@ pub use crate::target::{
 #[cfg(feature = "translator")]
 pub use crate::translator::{
     translate_module, wptype_to_type, FunctionBinaryReader, FunctionBodyData, FunctionMiddleware,
-    MiddlewareBinaryReader, MiddlewareReaderState, ModuleEnvironment, ModuleInfoTranslation,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    MiddlewareBinaryReader, MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware,
+    ModuleMiddlewareChain, ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::CompiledFunctionUnwindInfo;
