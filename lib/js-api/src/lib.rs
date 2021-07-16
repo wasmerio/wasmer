@@ -93,7 +93,6 @@ mod exports;
 mod externals;
 mod import_object;
 mod instance;
-mod iterators;
 mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;

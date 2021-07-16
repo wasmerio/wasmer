@@ -5,7 +5,6 @@
 //! for the Wasm imports and exports.
 //!  
 //! https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
-use crate::iterators::{ExportsIterator, ImportsIterator};
 use core::convert::TryFrom;
 use std::vec::Vec;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -251,70 +250,6 @@ impl ModuleInfoPolyfill {
     pub(crate) fn declare_module_name(&mut self, name: &str) -> WasmResult<()> {
         self.info.name = Some(name.to_string());
         Ok(())
-    }
-
-    /// Get the export types of the module
-    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
-        let iter = self.info.exports.iter().map(move |(name, export_index)| {
-            let extern_type = match export_index {
-                ExportIndex::Function(i) => {
-                    let signature = self.info.functions.get(*i).unwrap();
-                    let func_type = self.info.signatures.get(*signature).unwrap();
-                    ExternType::Function(func_type.clone())
-                }
-                ExportIndex::Table(i) => {
-                    let table_type = self.info.tables.get(*i).unwrap();
-                    ExternType::Table(*table_type)
-                }
-                ExportIndex::Memory(i) => {
-                    let memory_type = self.info.memories.get(*i).unwrap();
-                    ExternType::Memory(*memory_type)
-                }
-                ExportIndex::Global(i) => {
-                    let global_type = self.info.globals.get(*i).unwrap();
-                    ExternType::Global(*global_type)
-                }
-            };
-            ExportType::new(name, extern_type)
-        });
-        ExportsIterator {
-            iter,
-            size: self.info.exports.len(),
-        }
-    }
-
-    /// Get the import types of the module
-    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
-        let iter = self
-            .info
-            .imports
-            .iter()
-            .map(move |((module, field, _), import_index)| {
-                let extern_type = match import_index {
-                    ImportIndex::Function(i) => {
-                        let signature = self.info.functions.get(*i).unwrap();
-                        let func_type = self.info.signatures.get(*signature).unwrap();
-                        ExternType::Function(func_type.clone())
-                    }
-                    ImportIndex::Table(i) => {
-                        let table_type = self.info.tables.get(*i).unwrap();
-                        ExternType::Table(*table_type)
-                    }
-                    ImportIndex::Memory(i) => {
-                        let memory_type = self.info.memories.get(*i).unwrap();
-                        ExternType::Memory(*memory_type)
-                    }
-                    ImportIndex::Global(i) => {
-                        let global_type = self.info.globals.get(*i).unwrap();
-                        ExternType::Global(*global_type)
-                    }
-                };
-                ImportType::new(module, field, extern_type)
-            });
-        ImportsIterator {
-            iter,
-            size: self.info.imports.len(),
-        }
     }
 }
 

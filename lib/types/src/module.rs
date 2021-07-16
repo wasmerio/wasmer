@@ -329,10 +329,7 @@ impl ModuleInfo {
             };
             ExportType::new(name, extern_type)
         });
-        ExportsIterator {
-            iter,
-            size: self.exports.len(),
-        }
+        ExportsIterator::new(iter, self.exports.len())
     }
 
     /// Get the import types of the module
@@ -362,10 +359,7 @@ impl ModuleInfo {
                 };
                 ImportType::new(module, field, extern_type)
             });
-        ImportsIterator {
-            iter,
-            size: self.imports.len(),
-        }
+        ImportsIterator::new(iter, self.imports.len())
     }
 
     /// Get the custom sections of the module given a `name`.
@@ -488,6 +482,13 @@ pub struct ExportsIterator<I: Iterator<Item = ExportType> + Sized> {
     size: usize,
 }
 
+impl<I: Iterator<Item = ExportType> + Sized> ExportsIterator<I> {
+    /// Create a new `ExportsIterator` for a given iterator and size
+    pub fn new(iter: I, size: usize) -> Self {
+        Self { iter, size }
+    }
+}
+
 impl<I: Iterator<Item = ExportType> + Sized> ExactSizeIterator for ExportsIterator<I> {
     // We can easily calculate the remaining number of iterations.
     fn len(&self) -> usize {
@@ -538,6 +539,13 @@ impl<I: Iterator<Item = ExportType> + Sized> Iterator for ExportsIterator<I> {
 pub struct ImportsIterator<I: Iterator<Item = ImportType> + Sized> {
     iter: I,
     size: usize,
+}
+
+impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
+    /// Create a new `ImportsIterator` for a given iterator and size
+    pub fn new(iter: I, size: usize) -> Self {
+        Self { iter, size }
+    }
 }
 
 impl<I: Iterator<Item = ImportType> + Sized> ExactSizeIterator for ImportsIterator<I> {

@@ -1,5 +1,4 @@
 use crate::export::{Export, VMFunction};
-use crate::iterators::{ExportsIterator, ImportsIterator};
 use crate::resolver::Resolver;
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
@@ -14,7 +13,8 @@ use std::io;
 use std::path::Path;
 use thiserror::Error;
 use wasmer_types::{
-    ExternType, FunctionType, GlobalType, MemoryType, Mutability, Pages, TableType, Type,
+    ExportsIterator, ExternType, FunctionType, GlobalType, ImportsIterator, MemoryType, Mutability,
+    Pages, TableType, Type,
 };
 
 #[derive(Error, Debug)]
@@ -170,10 +170,12 @@ impl Module {
             (
                 Some(ModuleTypeHints {
                     imports: info
+                        .info
                         .imports()
                         .map(|import| import.ty().clone())
                         .collect::<Vec<_>>(),
                     exports: info
+                        .info
                         .exports()
                         .map(|export| export.ty().clone())
                         .collect::<Vec<_>>(),
@@ -370,10 +372,7 @@ impl Module {
             })
             .collect::<Vec<_>>()
             .into_iter();
-        ImportsIterator {
-            iter,
-            size: imports.length() as usize,
-        }
+        ImportsIterator::new(iter, imports.length() as usize)
     }
 
     /// Set the type hints for this module.
@@ -476,10 +475,7 @@ impl Module {
             })
             .collect::<Vec<_>>()
             .into_iter();
-        ExportsIterator {
-            iter,
-            size: exports.length() as usize,
-        }
+        ExportsIterator::new(iter, exports.length() as usize)
     }
 
     // /// Get the custom sections of the module given a `name`.
