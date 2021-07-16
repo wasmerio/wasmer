@@ -13,9 +13,7 @@ mod state;
 mod error;
 mod sections;
 
-pub use self::environ::{
-    FunctionBinaryReader, FunctionBodyData, ModuleEnvironment, ModuleInfoTranslation,
-};
+pub use self::environ::{FunctionBinaryReader, FunctionBodyData, ModuleEnvironment};
 pub use self::middleware::{
     FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState, ModuleMiddleware,
     ModuleMiddlewareChain,
