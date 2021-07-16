@@ -506,3 +506,14 @@ impl fmt::Debug for Module {
             .finish()
     }
 }
+
+impl From<WebAssembly::Module> for Module {
+    fn from(module: WebAssembly::Module) -> Module {
+        Module {
+            store: Store::default(),
+            module,
+            name: None,
+            type_hints: None,
+        }
+    }
+}

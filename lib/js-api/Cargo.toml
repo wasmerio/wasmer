@@ -40,7 +40,7 @@ wasm-bindgen-test = "0.3.0"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "wasm-types-polyfill"]
+default = ["std", "wasm-types-polyfill", "wat"]
 wasm-types-polyfill = ["wasmparser"]
 std = []
 core = []

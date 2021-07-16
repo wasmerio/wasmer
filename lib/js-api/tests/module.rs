@@ -1,3 +1,4 @@
+use js_sys::{Uint8Array, WebAssembly};
 use wasm_bindgen_test::*;
 use wasmer_js::*;
 
@@ -20,6 +21,16 @@ fn module_set_name() {
 
     module.set_name("new_name");
     assert_eq!(module.name(), Some("new_name"));
+}
+
+#[wasm_bindgen_test]
+fn module_from_jsmodule() {
+    let wat = br#"(module $name)"#;
+    let binary = wat2wasm(wat).unwrap();
+    let js_bytes = unsafe { Uint8Array::view(&binary) };
+    let js_module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
+    let module: Module = js_module.into();
+    assert_eq!(module.store(), &Store::default());
 }
 
 #[wasm_bindgen_test]
