@@ -20,7 +20,8 @@ And then:
 ```rust
 use wasmer::{Store, Module, Instance, Value, imports};
 
-fn main() -> anyhow::Result<()> {
+#[wasm_bindgen]
+pub extern fn do_add_one_in_wasmer() -> i32 {
     let module_wat = r#"
     (module
     (type $t0 (func (param i32) (result i32)))
@@ -31,16 +32,15 @@ fn main() -> anyhow::Result<()> {
     "#;
 
     let store = Store::default();
-    let module = Module::new(&store, &module_wat)?;
+    let module = Module::new(&store, &module_wat).unwrap();
     // The module doesn't import anything, so we create an empty import object.
     let import_object = imports! {};
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = Instance::new(&module, &import_object).unwrap();
 
-    let add_one = instance.exports.get_function("add_one")?;
+    let add_one = instance.exports.get_function("add_one").unwrap();
     let result = add_one.call(&[Value::I32(42)])?;
     assert_eq!(result[0], Value::I32(43));
-
-    Ok(())
+    result[0].unwrap_i32()
 }
 ```
 
