@@ -86,7 +86,7 @@ impl Module {
     /// Reading from a WAT file.
     ///
     /// ```
-    /// use wasmer::*;
+    /// use wasmer_js::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = "(module)";
@@ -98,7 +98,7 @@ impl Module {
     /// Reading from bytes:
     ///
     /// ```
-    /// use wasmer::*;
+    /// use wasmer_js::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// // The following is the same as:
@@ -257,7 +257,7 @@ impl Module {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::*;
+    /// # use wasmer_js::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = "(module $moduleName)";
@@ -281,7 +281,7 @@ impl Module {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::*;
+    /// # use wasmer_js::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = "(module)";
@@ -316,7 +316,7 @@ impl Module {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::*;
+    /// # use wasmer_js::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = r#"(module
@@ -414,7 +414,7 @@ impl Module {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::*;
+    /// # use wasmer_js::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let store = Store::default();
     /// let wat = r#"(module

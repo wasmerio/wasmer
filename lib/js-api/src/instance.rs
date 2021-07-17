@@ -75,7 +75,7 @@ impl Instance {
     /// [`ImportObject`]: crate::ImportObject
     ///
     /// ```
-    /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
+    /// # use wasmer_js::{imports, Store, Module, Global, Value, Instance};
     /// # fn main() -> anyhow::Result<()> {
     /// let store = Store::default();
     /// let module = Module::new(&store, "(module)")?;

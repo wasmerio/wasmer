@@ -75,7 +75,7 @@ impl Memory {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # use wasmer_js::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
@@ -103,7 +103,7 @@ impl Memory {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # use wasmer_js::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let store = Store::default();
     /// #
     /// let mt = MemoryType::new(1, None, false);
@@ -122,7 +122,7 @@ impl Memory {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # use wasmer_js::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
@@ -177,7 +177,7 @@ impl Memory {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # use wasmer_js::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
@@ -198,7 +198,7 @@ impl Memory {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
+    /// # use wasmer_js::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # let store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, Some(3), false)).unwrap();
@@ -214,7 +214,7 @@ impl Memory {
     /// of pages.
     ///
     /// ```should_panic
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
+    /// # use wasmer_js::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # let store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, Some(1), false)).unwrap();
@@ -256,7 +256,7 @@ impl Memory {
     /// # Usage:
     ///
     /// ```
-    /// # use wasmer::{Memory, MemoryView};
+    /// # use wasmer_js::{Memory, MemoryView};
     /// # use std::{cell::Cell, sync::atomic::Ordering};
     /// # fn view_memory(memory: Memory) {
     /// // Without synchronization.
@@ -293,7 +293,7 @@ impl Memory {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Memory, MemoryType, Store, Value};
+    /// # use wasmer_js::{Memory, MemoryType, Store, Value};
     /// # let store = Store::default();
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();

@@ -28,7 +28,7 @@ pub trait LikeNamespace {
 ///
 /// # Usage:
 /// ```ignore
-/// use wasmer::{Exports, ImportObject, Function};
+/// use wasmer_js::{Exports, ImportObject, Function};
 ///
 /// let mut import_object = ImportObject::new();
 /// let mut env = Exports::new();
@@ -55,7 +55,7 @@ impl ImportObject {
     ///
     /// # Usage
     /// ```ignore
-    /// # use wasmer::{ImportObject, Instance, Namespace};
+    /// # use wasmer_js::{ImportObject, Instance, Namespace};
     /// let mut import_object = ImportObject::new();
     /// import_object.get_export("module", "name");
     /// ```
@@ -78,7 +78,7 @@ impl ImportObject {
     ///
     /// # Usage:
     /// ```ignore
-    /// # use wasmer::{ImportObject, Instance, Namespace};
+    /// # use wasmer_js::{ImportObject, Instance, Namespace};
     /// let mut import_object = ImportObject::new();
     ///
     /// import_object.register("namespace0", instance);
@@ -188,9 +188,9 @@ impl fmt::Debug for ImportObject {
 /// # Usage
 ///
 /// ```
-/// # use wasmer::{Function, Store};
+/// # use wasmer_js::{Function, Store};
 /// # let store = Store::default();
-/// use wasmer::imports;
+/// use wasmer_js::imports;
 ///
 /// let import_object = imports! {
 ///     "env" => {

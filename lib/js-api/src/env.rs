@@ -28,7 +28,7 @@ impl From<ExportError> for HostEnvInitError {
 /// This trait can be derived like so:
 ///
 /// ```
-/// use wasmer::{WasmerEnv, LazyInit, Memory, NativeFunc};
+/// use wasmer_js::{WasmerEnv, LazyInit, Memory, NativeFunc};
 ///
 /// #[derive(WasmerEnv, Clone)]
 /// pub struct MyEnvWithNoInstanceData {
@@ -63,7 +63,7 @@ impl From<ExportError> for HostEnvInitError {
 ///
 /// This trait may also be implemented manually:
 /// ```
-/// # use wasmer::{WasmerEnv, LazyInit, Memory, Instance, HostEnvInitError};
+/// # use wasmer_js::{WasmerEnv, LazyInit, Memory, Instance, HostEnvInitError};
 /// #[derive(Clone)]
 /// pub struct MyEnv {
 ///    memory: LazyInit<Memory>,

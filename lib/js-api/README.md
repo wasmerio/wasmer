@@ -8,7 +8,7 @@ WebAssembly via `wasm-bindgen`.
 
 ## Usage
 
-We recommend aliasing `wasmer_js` to `wasmer`.
+We recommend aliasing `wasmer_js` to `wasmer` at the top of your crate.
 
 ```rust
 #[cfg(feature = "js")]
@@ -47,7 +47,8 @@ pub extern fn do_add_one_in_wasmer() -> i32 {
 ## Feature flags
 
 `wasmer-js` has the following feature flags:
-* `wasm-types-polyfill` (enabled by default): it parses the Wasm file to introspect the inner types. __It adds 100Kb to the Wasm bundle__ (28Kb gzipped). You can disable it and use `Module::set_type_hints` manually instead if you want a lightweight alternative.
+* `wasm-types-polyfill` (enabled by default): it parses the Wasm file, allowing to do type reflection of the inner WebAssembly types.
+  __It adds 100Kb to the Wasm bundle__ (28Kb gzipped). You can disable it and use `Module::set_type_hints` manually instead if you want a lightweight alternative.
   This is needed until the [Wasm JS introspection API proposal](https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md) is adopted by browsers
 
 * `wat`: It allows to read WebAssembly files in their text format.

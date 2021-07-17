@@ -804,8 +804,8 @@ pub struct VMSharedSignatureIndex(u32);
 #[cfg(test)]
 mod test_vmshared_signature_index {
     use super::VMSharedSignatureIndex;
-    use crate::module::ModuleInfo;
     use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
+    use wasmer_types::ModuleInfo;
     use std::mem::size_of;
 
     #[test]

@@ -23,8 +23,8 @@ pub struct Item;
 ///
 /// This type can be used directly in the host function arguments:
 /// ```
-/// # use wasmer::Memory;
-/// # use wasmer::WasmPtr;
+/// # use wasmer_js::Memory;
+/// # use wasmer_js::WasmPtr;
 /// pub fn host_import(memory: Memory, ptr: WasmPtr<u32>) {
 ///     let derefed_ptr = ptr.deref(&memory).expect("pointer in bounds");
 ///     let inner_val: u32 = derefed_ptr.get();
@@ -37,9 +37,9 @@ pub struct Item;
 /// This type can also be used with primitive-filled structs, but be careful of
 /// guarantees required by `ValueType`.
 /// ```
-/// # use wasmer::Memory;
-/// # use wasmer::WasmPtr;
-/// # use wasmer::ValueType;
+/// # use wasmer_js::Memory;
+/// # use wasmer_js::WasmPtr;
+/// # use wasmer_js::ValueType;
 ///
 /// #[derive(Copy, Clone, Debug)]
 /// #[repr(C)]
