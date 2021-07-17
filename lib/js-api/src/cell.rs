@@ -75,7 +75,7 @@ impl<'a, T> WasmCell<'a, T> {
     ///
     /// ```
     /// use std::cell::Cell;
-    /// use wasmer::WasmCell;
+    /// use wasmer_js::WasmCell;
     ///
     /// let cell = Cell::new(5);
     /// let wasm_cell = WasmCell::new(&cell);
