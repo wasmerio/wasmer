@@ -244,14 +244,38 @@ fn calling_host_functions_with_negative_values_works() {
     };
     let instance = Instance::new(&module, &imports).unwrap();
 
-    let f1: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func1").unwrap();
-    let f2: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func2").unwrap();
-    let f3: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func3").unwrap();
-    let f4: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func4").unwrap();
-    let f5: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func5").unwrap();
-    let f6: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func6").unwrap();
-    let f7: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func7").unwrap();
-    let f8: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func8").unwrap();
+    let f1: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func1")
+        .unwrap();
+    let f2: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func2")
+        .unwrap();
+    let f3: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func3")
+        .unwrap();
+    let f4: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func4")
+        .unwrap();
+    let f5: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func5")
+        .unwrap();
+    let f6: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func6")
+        .unwrap();
+    let f7: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func7")
+        .unwrap();
+    let f8: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("call_host_func8")
+        .unwrap();
 
     f1.call().unwrap();
     f2.call().unwrap();
