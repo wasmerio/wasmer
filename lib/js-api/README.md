@@ -46,7 +46,7 @@ pub extern fn do_add_one_in_wasmer() -> i32 {
 
 ## Feature flags
 
-Wasmer has the following configuration flags:
+`wasmer-js` has the following feature flags:
 * `wasm-types-polyfill` (enabled by default): it parses the Wasm file to introspect the inner types. __It adds 100Kb to the Wasm bundle__ (28Kb gzipped). You can disable it and use `Module::set_type_hints` manually instead if you want a lightweight alternative.
   This is needed until the [Wasm JS introspection API proposal](https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md) is adopted by browsers
 
