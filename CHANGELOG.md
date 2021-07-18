@@ -9,6 +9,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **[Unreleased]**
 
 ### Changed
+- [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `traps` input to `wasm_instance_new()` to `trap`.
+
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
 
 ### Fixed
