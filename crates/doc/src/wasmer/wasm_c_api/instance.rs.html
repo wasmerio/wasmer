@@ -324,7 +324,7 @@
 <span class="doccomment">/// 2. Runtime errors that happen when running the module `start`</span>
 <span class="doccomment">///    function.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Failures are stored in the `traps` argument; the program doesn&#39;t</span>
+<span class="doccomment">/// The failure is stored in the `trap` argument; the program doesn&#39;t</span>
 <span class="doccomment">/// panic.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Notes</span>
@@ -340,7 +340,7 @@
     <span class="ident">_store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
     <span class="ident">module</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_module_t</span><span class="op">&gt;</span>,
     <span class="ident">imports</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_vec_t</span><span class="op">&gt;</span>,
-    <span class="ident">traps</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasm_trap_t</span>,
+    <span class="ident">trap</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">wasm_trap_t</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_instance_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module</span><span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">imports</span><span class="question-mark">?</span>;
@@ -366,8 +366,8 @@
         }
 
         <span class="prelude-val">Err</span>(<span class="ident">InstantiationError</span>::<span class="ident">Start</span>(<span class="ident">runtime_error</span>)) <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">trap</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_trap_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">runtime_error</span>.<span class="ident">into</span>());
-            <span class="kw-2">*</span><span class="ident">traps</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">trap</span>);
+            <span class="kw">let</span> <span class="ident">this_trap</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_trap_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">runtime_error</span>.<span class="ident">into</span>());
+            <span class="kw-2">*</span><span class="ident">trap</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">this_trap</span>);
 
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
@@ -423,9 +423,9 @@
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Instantiate the module.</span>
 <span class="doccomment">///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;</span>
-<span class="doccomment">///     wasm_trap_t* traps = NULL;</span>
+<span class="doccomment">///     wasm_trap_t* trap = NULL;</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;traps);</span>
+<span class="doccomment">///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);</span>
 <span class="doccomment">///     assert(instance);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Read the exports.</span>
@@ -551,8 +551,8 @@
                 <span class="ident">wasm_extern_vec_t</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">WASM_ARRAY_VEC</span>(<span class="ident">externs</span>);
 
                 <span class="comment">// Instantiate the module.</span>
-                <span class="ident">wasm_trap_t</span><span class="op">*</span> <span class="ident">traps</span> <span class="op">=</span> <span class="ident">NULL</span>;
-                <span class="ident">wasm_instance_t</span><span class="op">*</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">wasm_instance_new</span>(<span class="ident">store</span>, <span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>, <span class="kw-2">&amp;</span><span class="ident">traps</span>);
+                <span class="ident">wasm_trap_t</span><span class="op">*</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">NULL</span>;
+                <span class="ident">wasm_instance_t</span><span class="op">*</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">wasm_instance_new</span>(<span class="ident">store</span>, <span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>, <span class="kw-2">&amp;</span><span class="ident">trap</span>);
 
                 <span class="ident">assert</span>(<span class="ident">instance</span>);
 
@@ -572,7 +572,7 @@
                 <span class="ident">wasm_val_vec_t</span> <span class="ident">arguments_as_array</span> <span class="op">=</span> <span class="ident">WASM_ARRAY_VEC</span>(<span class="ident">arguments</span>);
                 <span class="ident">wasm_val_vec_t</span> <span class="ident">results_as_array</span> <span class="op">=</span> <span class="ident">WASM_ARRAY_VEC</span>(<span class="ident">results</span>);
 
-                <span class="ident">wasm_trap_t</span><span class="op">*</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">wasm_func_call</span>(<span class="ident">run_function</span>, <span class="kw-2">&amp;</span><span class="ident">arguments_as_array</span>, <span class="kw-2">&amp;</span><span class="ident">results_as_array</span>);
+                <span class="ident">trap</span> <span class="op">=</span> <span class="ident">wasm_func_call</span>(<span class="ident">run_function</span>, <span class="kw-2">&amp;</span><span class="ident">arguments_as_array</span>, <span class="kw-2">&amp;</span><span class="ident">results_as_array</span>);
 
                 <span class="ident">assert</span>(<span class="ident">trap</span> <span class="op">=</span><span class="op">=</span> <span class="ident">NULL</span>);
                 <span class="ident">assert</span>(<span class="ident">results</span>[<span class="number">0</span>].<span class="ident">of</span>.<span class="ident">i32</span> <span class="op">=</span><span class="op">=</span> <span class="number">2</span>);

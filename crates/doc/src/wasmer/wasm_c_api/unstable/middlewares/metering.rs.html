@@ -387,8 +387,8 @@
 <span class="doccomment">//!     </span>
 <span class="doccomment">//!     // Instantiate the module.</span>
 <span class="doccomment">//!     wasm_extern_vec_t imports = WASM_EMPTY_VEC;</span>
-<span class="doccomment">//!     wasm_trap_t* traps = NULL;</span>
-<span class="doccomment">//!     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;traps);</span>
+<span class="doccomment">//!     wasm_trap_t* trap = NULL;</span>
+<span class="doccomment">//!     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);</span>
 <span class="doccomment">//!     assert(instance);</span>
 <span class="doccomment">//!     </span>
 <span class="doccomment">//!     // Here we go. At this step, we will get the `add_two` exported function, and</span>
@@ -409,7 +409,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     // Let&#39;s call `add_two` for the first time!</span>
 <span class="doccomment">//!     {</span>
-<span class="doccomment">//!         wasm_trap_t* trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
+<span class="doccomment">//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
 <span class="doccomment">//!         assert(trap == NULL);</span>
 <span class="doccomment">//!         assert(results[0].of.i32 == 42);</span>
 <span class="doccomment">//!</span>
@@ -420,7 +420,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     // Let&#39;s call `add_two` for the second time!</span>
 <span class="doccomment">//!     {</span>
-<span class="doccomment">//!         wasm_trap_t* trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
+<span class="doccomment">//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
 <span class="doccomment">//!         assert(trap == NULL);</span>
 <span class="doccomment">//!         assert(results[0].of.i32 == 42);</span>
 <span class="doccomment">//!</span>
@@ -431,7 +431,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     // Let&#39;s call `add_two` for the third time!</span>
 <span class="doccomment">//!     {</span>
-<span class="doccomment">//!         wasm_trap_t* trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
+<span class="doccomment">//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
 <span class="doccomment">//!         // Oh, it failed!</span>
 <span class="doccomment">//!         assert(trap != NULL);</span>
 <span class="doccomment">//!</span>
@@ -590,8 +590,8 @@
 <span class="doccomment">///     assert(module);</span>
 <span class="doccomment">///     </span>
 <span class="doccomment">///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;</span>
-<span class="doccomment">///     wasm_trap_t* traps = NULL;</span>
-<span class="doccomment">///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;traps);</span>
+<span class="doccomment">///     wasm_trap_t* trap = NULL;</span>
+<span class="doccomment">///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);</span>
 <span class="doccomment">///     assert(instance);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Read the number of points.</span>
