@@ -30,9 +30,12 @@
 <span id="29">29</span>
 <span id="30">30</span>
 <span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">store</span>::<span class="ident">StoreOptions</span>;
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">bail</span>, <span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
 <span class="kw">use</span> <span class="ident">structopt</span>::<span class="ident">StructOpt</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
@@ -57,6 +60,9 @@
     <span class="kw">fn</span> <span class="ident">inner_execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_engine_type</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">module_contents</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">is_wasm</span>(<span class="kw-2">&amp;</span><span class="ident">module_contents</span>) {
+            <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;`wasmer validate` only validates WebAssembly files&quot;</span>);
+        }
         <span class="ident">Module</span>::<span class="ident">validate</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module_contents</span>)<span class="question-mark">?</span>;
         <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;Validation passed for `{}`.&quot;</span>, <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>());
         <span class="prelude-val">Ok</span>(())
