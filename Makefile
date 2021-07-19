@@ -395,9 +395,9 @@ build-docs-capi: capi-setup
 	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
 	# when generating the documentation, we rename it to its
 	# crate's name. Then we restore the lib's name.
-	sed -i '' -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
+	sed -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
 	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
-	sed -i '' -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
+	sed -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \

@@ -275,9 +275,9 @@ mod tests {
                 assert(module);
 
                 wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-                wasm_trap_t* traps = NULL;
+                wasm_trap_t* trap = NULL;
 
-                wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+                wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &trap);
                 assert(instance);
 
                 wasm_extern_vec_t exports;
