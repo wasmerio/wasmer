@@ -329,9 +329,25 @@ $(info --------------)
 $(info )
 $(info )
 
-############
-# Building #
-############
+#####
+#
+# Configure `sed -i` for a cross-platform usage.
+#
+#####
+
+SEDI ?=
+
+ifeq ($(IS_DARWIN), 1)
+	SEDI := "-i ''"
+else ifeq ($(IS_LINUX), 1)
+	SEDI := "-i"
+endif
+
+#####
+#
+# Building.
+#
+#####
 
 # Not really "all", just the default target that builds enough so make
 # install will go through.
@@ -363,12 +379,10 @@ build-wasmer-headless-minimal:
 	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
-else
-ifeq ($(IS_WINDOWS), 1)
+else ifeq ($(IS_WINDOWS), 1)
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
 else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
-endif
 endif
 
 WAPM_VERSION = v0.5.1
@@ -395,9 +409,9 @@ build-docs-capi: capi-setup
 	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
 	# when generating the documentation, we rename it to its
 	# crate's name. Then we restore the lib's name.
-	sed -i '' -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
+	sed "$(SEDI)"  -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
 	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
-	sed -i '' -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
+	sed "$(SEDI)"  -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -469,10 +483,11 @@ build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
-
-###########
-# Testing #
-###########
+#####
+#
+# Testing.
+#
+#####
 
 test: test-compilers test-packages test-examples
 
@@ -488,9 +503,12 @@ test-packages:
 test-js:
 	cd lib/js-api && wasm-pack test --node -- --features=wat
 
-########################
-# Testing (Compatible) #
-########################
+
+#####
+#
+# Testing compilers.
+#
+#####
 
 test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
@@ -541,9 +559,11 @@ test-examples:
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
 
-#############
-# Packaging #
-#############
+#####
+#
+# Packaging.
+#
+#####
 
 package-wapm:
 	mkdir -p "package/bin"
@@ -629,9 +649,11 @@ endif
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
-########################
-# (Distro-) Installing #
-########################
+#####
+#
+# Installating (for Distros).
+#
+#####
 
 DESTDIR ?= /usr/local
 
@@ -672,9 +694,11 @@ install-pkgconfig:
 install-wasmer-headless-minimal:
 	install -Dm755 target/release/wasmer-headless $(DESTDIR)/bin/wasmer-headless
 
-#################
-# Miscellaneous #
-#################
+#####
+#
+# Miscellaneous.
+#
+#####
 
 # Updates the spectests from the repo
 update-testsuite:
