@@ -92,9 +92,21 @@ impl Run {
     fn inner_execute(&self) -> Result<()> {
         let module = self.get_module()?;
         // Do we want to invoke a function?
+
         if let Some(ref invoke) = self.invoke {
-            let imports = imports! {};
-            let instance = Instance::new(&module, &imports)?;
+            let program_name = self
+                .command_name
+                .clone()
+                .or_else(|| {
+                    self.path
+                        .file_name()
+                        .map(|f| f.to_string_lossy().to_string())
+                })
+                .unwrap_or_default();
+            let instance = self
+                .wasi
+                .wasi_instance(module, program_name, self.args.clone())
+                .with_context(|| "WASI execution failed")?;
             let result = self.invoke_function(&instance, &invoke, &self.args)?;
             println!(
                 "{}",
@@ -156,6 +168,7 @@ impl Run {
             use wasmer_wasi::WasiVersion;
 
             let wasi_versions = Wasi::get_versions(&module);
+            println!("debug top wasi_versions; {:?}", wasi_versions);
             match wasi_versions {
                 Some(wasi_versions) if !wasi_versions.is_empty() => {
                     if wasi_versions.len() >= 2 {
