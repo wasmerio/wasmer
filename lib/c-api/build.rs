@@ -1,5 +1,6 @@
 //! This build script aims at:
 //!
+//! * pass `--export-dynamic` to the linker,
 //! * generating the C header files for the C API,
 //! * setting `inline-c` up.
 
@@ -69,6 +70,9 @@ macro_rules! map_feature_as_c_define {
 }
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    println!("cargo:rustc-cdylib-link-arg=--export-dynamic");
+
     if !running_self() {
         return;
     }
