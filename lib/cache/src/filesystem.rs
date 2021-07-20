@@ -63,8 +63,15 @@ impl FileSystemCache {
             }
         } else {
             // Create the directory and any parent directories if they don't yet exist.
-            create_dir_all(&path)?;
-            Ok(Self { path, ext: None })
+            let res = create_dir_all(&path);
+            if res.is_err() {
+                Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("failed to create cache directory: {}", path.display()),
+                ))
+            } else {
+                Ok(Self { path, ext: None })
+            }
         }
     }
 
