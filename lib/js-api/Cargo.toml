@@ -1,7 +1,7 @@
 [package]
 name = "wasmer-js"
 version = "2.0.0"
-description = "Compile Wasmer to WebAssembly and use it in JavaScript"
+description = "A crate to compile Wasmer to WebAssembly and make it run in a JavaScript host"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm", "javascript"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]

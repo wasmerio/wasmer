@@ -1,10 +1,10 @@
 # `wasmer-js` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-js.svg)](https://crates.io/crates/wasmer-js)
 
 [`Wasmer`](https://wasmer.io/) is the most popular
-[WebAssembly](https://webassembly.org/) runtime for Rust. This runtime is an adapted version of the Wasmer API that compiles to
-WebAssembly via `wasm-bindgen`.
-
-`wasmer-js` uses the same WebAssembly runtime of your environment (browser or Node.js).
+[WebAssembly](https://webassembly.org/) runtime for Rust. This crate mimics the same Rust
+API than the `wasmer` crate, but when compiled to WebAssembly, it only targets
+a JavaScript host. It means that it is possible to write a Rust program that uses Wasmer,
+and compiles everything to WebAssembly to run in a browser, Node.js, Deno and so on.
 
 ## Usage
 
@@ -38,7 +38,7 @@ pub extern fn do_add_one_in_wasmer() -> i32 {
     let instance = Instance::new(&module, &import_object).unwrap();
 
     let add_one = instance.exports.get_function("add_one").unwrap();
-    let result = add_one.call(&[Value::I32(42)])?;
+    let result = add_one.call(&[Value::I32(42)]).unwrap();
     assert_eq!(result[0], Value::I32(43));
     result[0].unwrap_i32()
 }

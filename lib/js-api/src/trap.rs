@@ -44,10 +44,6 @@ impl fmt::Display for RuntimeErrorSource {
     }
 }
 
-// fn _assert_trap_is_sync_and_send(t: &Trap) -> (&dyn Sync, &dyn Send) {
-//     (t, t)
-// }
-
 impl RuntimeError {
     /// Creates a new generic `RuntimeError` with the given `message`.
     ///

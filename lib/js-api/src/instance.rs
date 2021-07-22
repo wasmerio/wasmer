@@ -3,7 +3,6 @@ use crate::exports::Exports;
 use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
-// use crate::{HostEnvInitError, LinkError, RuntimeError};
 use crate::resolver::Resolver;
 use js_sys::WebAssembly;
 use std::fmt;
@@ -42,25 +41,8 @@ pub enum InstantiationError {
     /// A runtime error occured while invoking the start function
     #[cfg_attr(feature = "std", error("Start error: {0}"))]
     Start(String),
-    // /// Error occurred when initializing the host environment.
-    // #[error(transparent)]
-    // HostEnvInitialization(HostEnvInitError),
 }
 
-// impl From<wasmer_engine::InstantiationError> for InstantiationError {
-//     fn from(other: wasmer_engine::InstantiationError) -> Self {
-//         match other {
-//             wasmer_engine::InstantiationError::Link(e) => Self::Link(e),
-//             wasmer_engine::InstantiationError::Start(e) => Self::Start(e),
-//         }
-//     }
-// }
-
-// impl From<HostEnvInitError> for InstantiationError {
-//     fn from(other: HostEnvInitError) -> Self {
-//         Self::HostEnvInitialization(other)
-//     }
-// }
 
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a

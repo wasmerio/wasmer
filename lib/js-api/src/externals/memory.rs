@@ -41,6 +41,19 @@ extern "C" {
     /// Takes the number of pages to grow (64KiB in size) and returns the
     /// previous size of memory, in pages.
     ///
+    /// # Reimplementation
+    ///
+    /// We re-implement `WebAssembly.Memory.grow` because it is
+    /// different from what `wasm-bindgen` declares. It marks the function
+    /// as `catch`, which means it can throw an exception.
+    ///
+    /// See [the opened patch](https://github.com/rustwasm/wasm-bindgen/pull/2599).
+    ///
+    /// # Exceptions
+    ///
+    /// A `RangeError` is thrown if adding pages would exceed the maximum
+    /// memory.
+    ///
     /// [MDN documentation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/Memory/grow)
     #[wasm_bindgen(catch, method, js_namespace = WebAssembly)]
     pub fn grow(this: &JSMemory, pages: u32) -> Result<u32, JsValue>;
@@ -141,7 +154,7 @@ impl Memory {
     /// modify the memory contents in any way including by calling a wasm
     /// function that writes to the memory or by resizing the memory.
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        unimplemented!("direct data pointer access is not possible in js");
+        unimplemented!("direct data pointer access is not possible in JavaScript");
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -155,21 +168,20 @@ impl Memory {
     /// by resizing this Memory.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        unimplemented!("direct data pointer access is not possible in js");
+        unimplemented!("direct data pointer access is not possible in JavaScript");
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
     pub fn data_ptr(&self) -> *mut u8 {
-        unimplemented!("direct data pointer access is not possible in js");
+        unimplemented!("direct data pointer access is not possible in JavaScript");
     }
 
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> u64 {
-        let bytes = js_sys::Reflect::get(&self.vm_memory.memory.buffer(), &"byteLength".into())
+        js_sys::Reflect::get(&self.vm_memory.memory.buffer(), &"byteLength".into())
             .unwrap()
             .as_f64()
-            .unwrap() as u64;
-        return bytes;
+            .unwrap() as _
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.

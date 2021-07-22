@@ -133,8 +133,6 @@ pub use crate::types::{
 pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
 
-// #[cfg(feature = "experimental-reference-types-extern-ref")]
-// pub use wasmer_types::ExternRef;
 pub use wasmer_types::{
     Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
     WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
