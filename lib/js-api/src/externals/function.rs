@@ -25,7 +25,7 @@ fn result_to_js(val: &Val) -> JsValue {
         Val::I64(i) => JsValue::from_f64(*i as _),
         Val::F32(f) => JsValue::from_f64(*f as _),
         Val::F64(f) => JsValue::from_f64(*f),
-        _ => unimplemented!("The type is not yet supported in the JS Function API"),
+        val => unimplemented!("The value `{:?}` is not yet supported in the JS Function API", val),
     }
 }
 
