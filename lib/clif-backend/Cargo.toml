@@ -11,7 +11,7 @@ edition = "2018"
 readme = "README.md"
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core", version = "0.18.0", package = "wasmer-runtime-core-near" }
+wasmer-runtime-core = { path = "../runtime-core", version = "0.18.1", package = "wasmer-runtime-core-near" }
 cranelift-native = "0.59.0"
 cranelift-codegen = "0.59.0"
 cranelift-entity = "0.59.0"
