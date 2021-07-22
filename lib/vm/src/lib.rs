@@ -47,6 +47,8 @@ pub use crate::instance::{
 };
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;
+#[deprecated(since = "2.1.0", note = "ModuleInfo, ExportsIterator, ImportsIterator should be imported from wasmer_types.")]
+pub use wasmer_types::{ModuleInfo, ExportsIterator, ImportsIterator};
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{LinearTable, Table, TableElement, TableStyle};
