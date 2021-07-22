@@ -145,7 +145,6 @@ impl Function {
         let binded_func = dyn_func.bind1(
             &JsValue::UNDEFINED,
             &wrapped_func,
-            // &JsValue::from_f64(wrapped_func as usize as f64),
         );
         Self {
             store: store.clone(),
