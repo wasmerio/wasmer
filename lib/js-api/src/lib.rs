@@ -26,14 +26,16 @@
     )
 )]
 
-//! This crate contains the `wasmer` API. The `wasmer` API facilitates the efficient,
-//! sandboxed execution of [WebAssembly (Wasm)][wasm] modules.
+//! This crate contains the `wasmer-js` API. The `wasmer-js` API facilitates the efficient,
+//! sandboxed execution of [WebAssembly (Wasm)][wasm] modules, leveraging on the same
+//! API as the `wasmer` crate, but targeting Javascript.
+//! 
+//! This crate uses the same WebAssembly engine as the Javascript VM where it's used.
 //!
-//! Here's an example of the `wasmer` API in action:
+//! Here's an example of the `wasmer-js` API in action:
 //! ```
-//! use wasmer_js::{Store, Module, Instance, Value, imports};
-//!
-//! fn main() -> anyhow::Result<()> {
+//! #[wasm_bindgen]
+//! pub extern fn do_add_one_in_wasmer() -> i32 {
 //!     let module_wat = r#"
 //!     (module
 //!     (type $t0 (func (param i32) (result i32)))
@@ -42,18 +44,15 @@
 //!         i32.const 1
 //!         i32.add))
 //!     "#;
-//!
 //!     let store = Store::default();
-//!     let module = Module::new(&store, &module_wat)?;
+//!     let module = Module::new(&store, &module_wat).unwrap();
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
-//!     let instance = Instance::new(&module, &import_object)?;
-//!
-//!     let add_one = instance.exports.get_function("add_one")?;
-//!     let result = add_one.call(&[Value::I32(42)])?;
+//!     let instance = Instance::new(&module, &import_object).unwrap();
+//!     let add_one = instance.exports.get_function("add_one").unwrap();
+//!     let result = add_one.call(&[Value::I32(42)]).unwrap();
 //!     assert_eq!(result[0], Value::I32(43));
-//!
-//!     Ok(())
+//!     result[0].unwrap_i32()
 //! }
 //! ```
 //!

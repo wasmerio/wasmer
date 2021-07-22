@@ -6,6 +6,9 @@ API than the `wasmer` crate, but when compiled to WebAssembly, it only targets
 a JavaScript host. It means that it is possible to write a Rust program that uses Wasmer,
 and compiles everything to WebAssembly to run in a browser, Node.js, Deno and so on.
 
+This crate doesn't ship with any compilers or engines, as it leverages the Javascript VM to
+compile and run WebAssembly.
+
 ## Usage
 
 We recommend aliasing `wasmer_js` to `wasmer` at the top of your crate.

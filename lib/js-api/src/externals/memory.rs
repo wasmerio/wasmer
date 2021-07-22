@@ -285,7 +285,7 @@ impl Memory {
     /// # }
     /// ```
     pub fn view<T: ValueType>(&self) -> MemoryView<T> {
-        unimplemented!();
+        unimplemented!("The view function is not yet implemented in Wasmer Javascript");
     }
 
     /// example view

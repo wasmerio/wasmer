@@ -125,7 +125,7 @@ impl Table {
         _src_index: u32,
         _len: u32,
     ) -> Result<(), RuntimeError> {
-        unimplemented!();
+        unimplemented!("Table.copy is not natively supported in Javascript");
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
