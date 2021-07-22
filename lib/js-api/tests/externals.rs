@@ -29,6 +29,9 @@ fn global_get() {
     let store = Store::default();
     let global_i32 = Global::new(&store, Value::I32(10));
     assert_eq!(global_i32.get(), Value::I32(10));
+    // 64-bit values are not yet fully supported in some versions of Node
+    // Commenting this tests for now:
+
     // let global_i64 = Global::new(&store, Value::I64(20));
     // assert_eq!(global_i64.get(), Value::I64(20));
     let global_f32 = Global::new(&store, Value::F32(10.0));
@@ -75,6 +78,9 @@ fn table_new() {
     // let table = Table::new(&store, table_type, Value::ExternRef(ExternRef::Null))?;
     // assert_eq!(*table.ty(), table_type);
 }
+
+// Tables are not yet fully supported in Wasm
+// Commenting this tests for now
 
 // #[test]
 // #[ignore]

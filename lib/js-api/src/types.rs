@@ -28,7 +28,10 @@ pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Val {
         ValType::I64 => Val::I64(js_val.as_f64().unwrap() as _),
         ValType::F32 => Val::F32(js_val.as_f64().unwrap() as _),
         ValType::F64 => Val::F64(js_val.as_f64().unwrap()),
-        t => unimplemented!("The type `{:?}` is not yet supported in the JS Function API", t),
+        t => unimplemented!(
+            "The type `{:?}` is not yet supported in the JS Function API",
+            t
+        ),
     }
 }
 
@@ -40,7 +43,10 @@ impl AsJs for Val {
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
             Self::FuncRef(func) => func.as_ref().unwrap().exported.function.clone().into(),
-            v => unimplemented!("The value `{:?}` is not yet supported in the JS Function API", v),
+            v => unimplemented!(
+                "The value `{:?}` is not yet supported in the JS Function API",
+                v
+            ),
         }
     }
 }

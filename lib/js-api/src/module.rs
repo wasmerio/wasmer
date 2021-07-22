@@ -12,6 +12,7 @@ use std::fmt;
 use std::io;
 use std::path::Path;
 use thiserror::Error;
+use wasm_bindgen::JsValue;
 use wasmer_types::{
     ExportsIterator, ExternType, FunctionType, GlobalType, ImportsIterator, MemoryType, Mutability,
     Pages, TableType, Type,
@@ -244,7 +245,8 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         Ok((
-            WebAssembly::Instance::new(&self.module, &imports).unwrap(),
+            WebAssembly::Instance::new(&self.module, &imports)
+                .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
             functions,
         ))
     }

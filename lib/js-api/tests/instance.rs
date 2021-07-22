@@ -703,3 +703,29 @@ fn test_custom_error() {
     let run_func = instance.exports.get_function("run").unwrap();
     test_result(run_func.call(&[Val::I32(1), Val::I32(7)]));
 }
+
+#[wasm_bindgen_test]
+fn test_start_function_fails() {
+    let store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"
+    (module
+        (func $start_function
+            (i32.div_u
+                (i32.const 1)
+                (i32.const 0)
+            )
+            drop
+        )
+        (start $start_function)
+    )
+    "#,
+    )
+    .unwrap();
+
+    let import_object = imports! {};
+    let result = Instance::new(&module, &import_object);
+    let err = result.unwrap_err();
+    assert!(format!("{:?}", err).contains("zero"))
+}

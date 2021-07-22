@@ -1,9 +1,11 @@
+use crate::env::HostEnvInitError;
 use crate::export::Export;
 use crate::exports::Exports;
 use crate::externals::Extern;
 use crate::module::Module;
-use crate::store::Store;
 use crate::resolver::Resolver;
+use crate::store::Store;
+use crate::trap::RuntimeError;
 use js_sys::WebAssembly;
 use std::fmt;
 use thiserror::Error;
@@ -39,10 +41,13 @@ pub enum InstantiationError {
     Link(String),
 
     /// A runtime error occured while invoking the start function
-    #[cfg_attr(feature = "std", error("Start error: {0}"))]
-    Start(String),
-}
+    #[error(transparent)]
+    Start(RuntimeError),
 
+    /// Error occurred when initializing the host environment.
+    #[error(transparent)]
+    HostEnvInitialization(HostEnvInitError),
+}
 
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
@@ -80,7 +85,9 @@ impl Instance {
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
         let store = module.store();
-        let (instance, functions) = module.instantiate(resolver).unwrap();
+        let (instance, functions) = module
+            .instantiate(resolver)
+            .map_err(|e| InstantiationError::Start(e))?;
         let instance_exports = instance.exports();
         let exports = module
             .exports()
@@ -100,7 +107,8 @@ impl Instance {
             exports,
         };
         for func in functions {
-            func.init_envs(&self_instance).unwrap();
+            func.init_envs(&self_instance)
+                .map_err(|e| InstantiationError::HostEnvInitialization(e))?;
         }
         Ok(self_instance)
     }
