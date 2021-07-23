@@ -29,7 +29,7 @@
 //! This crate contains the `wasmer-js` API. The `wasmer-js` API facilitates the efficient,
 //! sandboxed execution of [WebAssembly (Wasm)][wasm] modules, leveraging on the same
 //! API as the `wasmer` crate, but targeting Javascript.
-//! 
+//!
 //! This crate uses the same WebAssembly engine as the Javascript VM where it's used.
 //!
 //! Here's an example of the `wasmer-js` API in action:
