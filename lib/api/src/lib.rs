@@ -1,3 +1,6 @@
+#[cfg(all(not(feature = "sys"), not(feature = "js")))]
+compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
+
 #[cfg(all(feature = "sys", feature = "js"))]
 compile_error!(
     "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
