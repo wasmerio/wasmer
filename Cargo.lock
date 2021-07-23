@@ -2428,13 +2428,17 @@ version = "2.0.0"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
+ "hashbrown 0.11.2",
  "indexmap",
+ "js-sys",
  "libc",
  "loupe",
  "more-asserts",
  "target-lexicon 0.12.0",
  "tempfile",
  "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -2445,6 +2449,7 @@ dependencies = [
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
+ "wasmparser",
  "wat",
  "winapi",
 ]
@@ -2743,25 +2748,6 @@ version = "2.0.0"
 dependencies = [
  "anyhow",
  "tempfile",
-]
-
-[[package]]
-name = "wasmer-js"
-version = "2.0.0"
-dependencies = [
- "anyhow",
- "cfg-if 1.0.0",
- "hashbrown 0.11.2",
- "indexmap",
- "js-sys",
- "more-asserts",
- "thiserror",
- "wasm-bindgen",
- "wasm-bindgen-test",
- "wasmer-derive",
- "wasmer-types",
- "wasmparser",
- "wat",
 ]
 
 [[package]]

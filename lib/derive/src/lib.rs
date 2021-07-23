@@ -13,26 +13,21 @@ use crate::parse::WasmerAttr;
 #[proc_macro_derive(WasmerEnv, attributes(wasmer))]
 pub fn derive_wasmer_env(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: DeriveInput = syn::parse(input).unwrap();
-    #[cfg(feature = "js")]
-    let root = Ident::new("wasmer_js", proc_macro2::Span::call_site());
-    #[cfg(not(feature = "js"))]
-    let root = Ident::new("wasmer", proc_macro2::Span::call_site());
-    let gen = impl_wasmer_env(&root, &input);
+    let gen = impl_wasmer_env(&input);
     gen.into()
 }
 
 fn impl_wasmer_env_for_struct(
-    root: &Ident,
     name: &Ident,
     data: &DataStruct,
     generics: &Generics,
     _attrs: &[Attribute],
 ) -> TokenStream {
-    let (trait_methods, helper_methods) = derive_struct_fields(root, data);
+    let (trait_methods, helper_methods) = derive_struct_fields(data);
     let lifetimes_and_generics = generics.params.clone();
     let where_clause = generics.where_clause.clone();
     quote! {
-        impl < #lifetimes_and_generics > ::#root::WasmerEnv for #name < #lifetimes_and_generics > #where_clause{
+        impl < #lifetimes_and_generics > ::wasmer::WasmerEnv for #name < #lifetimes_and_generics > #where_clause{
             #trait_methods
         }
 
@@ -43,12 +38,12 @@ fn impl_wasmer_env_for_struct(
     }
 }
 
-fn impl_wasmer_env(root: &Ident, input: &DeriveInput) -> TokenStream {
+fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
     let struct_name = &input.ident;
 
     set_dummy(quote! {
-        impl ::#root::WasmerEnv for #struct_name {
-            fn init_with_instance(&mut self, instance: &::#root::Instance) -> Result<(), ::#root::HostEnvInitError> {
+        impl ::wasmer::WasmerEnv for #struct_name {
+            fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
                 Ok(())
             }
         }
@@ -56,7 +51,7 @@ fn impl_wasmer_env(root: &Ident, input: &DeriveInput) -> TokenStream {
 
     match &input.data {
         Data::Struct(ds) => {
-            impl_wasmer_env_for_struct(root, struct_name, ds, &input.generics, &input.attrs)
+            impl_wasmer_env_for_struct(struct_name, ds, &input.generics, &input.attrs)
         }
         _ => todo!(),
     }
@@ -70,7 +65,7 @@ fn impl_wasmer_env(root: &Ident, input: &DeriveInput) -> TokenStream {
     }*/
 }
 
-fn derive_struct_fields(root: &Ident, data: &DataStruct) -> (TokenStream, TokenStream) {
+fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     let mut finish = vec![];
     let mut helpers = vec![];
     //let mut assign_tokens = vec![];
@@ -210,7 +205,7 @@ fn derive_struct_fields(root: &Ident, data: &DataStruct) -> (TokenStream, TokenS
     }
 
     let trait_methods = quote! {
-        fn init_with_instance(&mut self, instance: &::#root::Instance) -> Result<(), ::#root::HostEnvInitError> {
+        fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
             #(#finish)*
             Ok(())
         }
