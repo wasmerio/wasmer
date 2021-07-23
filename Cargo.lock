@@ -2411,7 +2411,6 @@ dependencies = [
  "hashbrown",
  "indexmap",
  "js-sys",
- "libc",
  "loupe",
  "more-asserts",
  "target-lexicon 0.12.0",
