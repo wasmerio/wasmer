@@ -168,12 +168,6 @@ fn memory_grow() {
             attempted_delta: 10.into()
         })
     );
-
-    // let bad_desc = MemoryType::new(Pages(15), Some(Pages(10)), false);
-    // let bad_result = Memory::new(&store, bad_desc);
-
-    // // assert!(matches!(bad_result, Err(MemoryError::InvalidMemory { .. })));
-    // assert!(bad_result.is_err());
 }
 
 #[wasm_bindgen_test]
