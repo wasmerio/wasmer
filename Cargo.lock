@@ -22,17 +22,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "739f4a8db6605981345c5654f3a85b056ce52f37a39d34da03f25bf2151ea16e"
 
 [[package]]
-name = "ahash"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43bb833f0bf979d8475d38fbf09ed3b8a55e1885fe93ad3f93239fc6a4f17b98"
-dependencies = [
- "getrandom",
- "once_cell",
- "version_check",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -396,7 +385,7 @@ dependencies = [
  "cranelift-codegen-shared",
  "cranelift-entity",
  "gimli",
- "hashbrown 0.9.1",
+ "hashbrown",
  "log",
  "regalloc",
  "smallvec",
@@ -432,7 +421,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c31b783b351f966fce33e3c03498cb116d16d97a8f9978164a60920bd0d3a99c"
 dependencies = [
  "cranelift-codegen",
- "hashbrown 0.9.1",
+ "hashbrown",
  "log",
  "smallvec",
  "target-lexicon 0.12.0",
@@ -904,16 +893,7 @@ version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
 dependencies = [
- "ahash 0.4.7",
-]
-
-[[package]]
-name = "hashbrown"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
-dependencies = [
- "ahash 0.7.4",
+ "ahash",
 ]
 
 [[package]]
@@ -959,7 +939,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
 dependencies = [
  "autocfg",
- "hashbrown 0.9.1",
+ "hashbrown",
  "serde",
 ]
 
@@ -2428,13 +2408,17 @@ version = "2.0.0"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
+ "hashbrown",
  "indexmap",
+ "js-sys",
  "libc",
  "loupe",
  "more-asserts",
  "target-lexicon 0.12.0",
  "tempfile",
  "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -2445,6 +2429,7 @@ dependencies = [
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
+ "wasmparser",
  "wat",
  "winapi",
 ]
@@ -2548,7 +2533,7 @@ name = "wasmer-compiler"
 version = "2.0.0"
 dependencies = [
  "enumset",
- "hashbrown 0.9.1",
+ "hashbrown",
  "loupe",
  "rkyv",
  "serde",
@@ -2569,7 +2554,7 @@ dependencies = [
  "cranelift-entity",
  "cranelift-frontend",
  "gimli",
- "hashbrown 0.9.1",
+ "hashbrown",
  "lazy_static",
  "loupe",
  "more-asserts",
@@ -2612,7 +2597,7 @@ dependencies = [
  "byteorder",
  "dynasm",
  "dynasmrt",
- "hashbrown 0.9.1",
+ "hashbrown",
  "lazy_static",
  "loupe",
  "more-asserts",
@@ -2743,25 +2728,6 @@ version = "2.0.0"
 dependencies = [
  "anyhow",
  "tempfile",
-]
-
-[[package]]
-name = "wasmer-js"
-version = "2.0.0"
-dependencies = [
- "anyhow",
- "cfg-if 1.0.0",
- "hashbrown 0.11.2",
- "indexmap",
- "js-sys",
- "more-asserts",
- "thiserror",
- "wasm-bindgen",
- "wasm-bindgen-test",
- "wasmer-derive",
- "wasmer-types",
- "wasmparser",
- "wat",
 ]
 
 [[package]]
