@@ -75,7 +75,7 @@ impl<'a, T> WasmCell<'a, T> {
     ///
     /// ```
     /// use std::cell::Cell;
-    /// use wasmer_js::WasmCell;
+    /// use wasmer::WasmCell;
     ///
     /// let cell = Cell::new(5);
     /// let wasm_cell = WasmCell::new(&cell);
@@ -96,7 +96,7 @@ impl<'a, T: Copy> WasmCell<'a, T> {
     ///
     /// ```
     /// use std::cell::Cell;
-    /// use wasmer_js::WasmCell;
+    /// use wasmer::WasmCell;
     ///
     /// let cell = Cell::new(5);
     /// let wasm_cell = WasmCell::new(&cell);
@@ -123,7 +123,7 @@ impl<T: Sized> WasmCell<'_, T> {
     ///
     /// ```
     /// use std::cell::Cell;
-    /// use wasmer_js::WasmCell;
+    /// use wasmer::WasmCell;
     ///
     /// let cell = Cell::new(5);
     /// let wasm_cell = WasmCell::new(&cell);

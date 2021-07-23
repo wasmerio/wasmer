@@ -148,7 +148,7 @@ ifneq ($(ENABLE_LLVM), 0)
 	endif
 endif
 
-exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-js
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 # Is failing to compile in Linux for some reason
 exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
@@ -501,7 +501,7 @@ test-packages:
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 test-js:
-	cd lib/js-api && wasm-pack test --node -- --features=wat
+	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
 
 #####
