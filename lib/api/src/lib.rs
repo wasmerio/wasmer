@@ -26,6 +26,8 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(feature = "js", crate_type = "cdylib")]
+#![cfg_attr(feature = "js", crate_type = "rlib")]
 
 //! This crate contains the `wasmer` API. The `wasmer` API facilitates the efficient,
 //! sandboxed execution of [WebAssembly (Wasm)][wasm] modules.

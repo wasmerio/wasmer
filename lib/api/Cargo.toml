@@ -10,9 +10,6 @@ license = "MIT"
 readme = "README.md"
 edition = "2018"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 #####
 #
 # This crate comes in 2 major flavors:
