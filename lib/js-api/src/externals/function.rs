@@ -25,7 +25,10 @@ fn result_to_js(val: &Val) -> JsValue {
         Val::I64(i) => JsValue::from_f64(*i as _),
         Val::F32(f) => JsValue::from_f64(*f as _),
         Val::F64(f) => JsValue::from_f64(*f),
-        val => unimplemented!("The value `{:?}` is not yet supported in the JS Function API", val),
+        val => unimplemented!(
+            "The value `{:?}` is not yet supported in the JS Function API",
+            val
+        ),
     }
 }
 
@@ -142,10 +145,7 @@ impl Function {
 
         let dyn_func =
             JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
-        let binded_func = dyn_func.bind1(
-            &JsValue::UNDEFINED,
-            &wrapped_func,
-        );
+        let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
         Self {
             store: store.clone(),
             exported: VMFunction::new(binded_func, ty, None),

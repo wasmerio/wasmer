@@ -11,6 +11,7 @@ use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
 use std::io;
 use std::path::Path;
+#[cfg(feature = "std")]
 use thiserror::Error;
 use wasm_bindgen::JsValue;
 use wasmer_types::{
@@ -18,14 +19,15 @@ use wasmer_types::{
     Pages, TableType, Type,
 };
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum IoCompileError {
     /// An IO error
-    #[error(transparent)]
-    Io(#[from] io::Error),
+    #[cfg_attr(feature = "std", error(transparent))]
+    Io(io::Error),
     /// A compilation error
-    #[error(transparent)]
-    Compile(#[from] CompileError),
+    #[cfg_attr(feature = "std", error(transparent))]
+    Compile(CompileError),
 }
 
 /// WebAssembly in the browser doesn't yet output the descriptor/types

@@ -29,6 +29,7 @@ thiserror = "1.0"
 more-asserts = "0.2"
 wasmer-derive = { path = "../derive", version = "2.0.0", features = ["js"] }
 wasmparser = { version = "0.78", optional = true, default-features = false }
+hashbrown = { version = "0.11", optional = true }
 
 [dev-dependencies]
 wat = "1.0"
@@ -43,4 +44,4 @@ maintenance = { status = "actively-developed" }
 default = ["std", "wasm-types-polyfill", "wat"]
 wasm-types-polyfill = ["wasmparser"]
 std = []
-core = []
+core = ["hashbrown"]

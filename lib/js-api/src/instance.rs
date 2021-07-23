@@ -4,10 +4,11 @@ use crate::exports::Exports;
 use crate::externals::Extern;
 use crate::module::Module;
 use crate::resolver::Resolver;
-use crate::trap::RuntimeError;
 use crate::store::Store;
+use crate::trap::RuntimeError;
 use js_sys::WebAssembly;
 use std::fmt;
+#[cfg(feature = "std")]
 use thiserror::Error;
 
 /// A WebAssembly Instance is a stateful, executable
@@ -34,19 +35,27 @@ pub struct Instance {
 /// Trap that occurs when calling the WebAssembly module
 /// start function, and an error when initializing the user's
 /// host environments.
-#[derive(Error, Debug)]
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum InstantiationError {
     /// A linking ocurred during instantiation.
     #[cfg_attr(feature = "std", error("Link error: {0}"))]
     Link(String),
 
     /// A runtime error occured while invoking the start function
-    #[error(transparent)]
+    #[cfg_attr(feature = "std", error(transparent))]
     Start(RuntimeError),
 
     /// Error occurred when initializing the host environment.
-    #[error(transparent)]
+    #[cfg_attr(feature = "std", error(transparent))]
     HostEnvInitialization(HostEnvInitError),
+}
+
+#[cfg(feature = "core")]
+impl std::fmt::Display for InstantiationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "InstantiationError")
+    }
 }
 
 impl Instance {
