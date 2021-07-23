@@ -99,7 +99,7 @@ wasmer-derive = { path = "../derive", version = "2.0.0" }
 # ## Optional dependencies for `js`.
 #
 wasmparser = { version = "0.78", default-features = false, optional = true }
-hashbrown = { version = "0.11", optional = true }
+hashbrown = { version = "0.9", optional = true }
 #
 # ## Development Dependencies for `js`.
 #
