@@ -29,19 +29,26 @@
 #![cfg_attr(feature = "js", crate_type = "cdylib")]
 #![cfg_attr(feature = "js", crate_type = "rlib")]
 
-//! This crate contains the `wasmer` API. The `wasmer` API facilitates the efficient,
-//! sandboxed execution of [WebAssembly (Wasm)][wasm] modules.
+//! [`Wasmer`](https://wasmer.io/) is the most popular
+//! [WebAssembly](https://webassembly.org/) runtime for Rust. It supports
+//! JIT (Just In Time) and AOT (Ahead Of Time) compilation as well as
+//! pluggable compilers suited to your needs.
 //!
-//! Here's an example of the `wasmer` API in action:
+//! It's designed to be safe and secure, and runnable in any kind of environment.
 //!
-//! ```
+//! # Usage
+//!
+//! Here is a small example of using Wasmer to run a WebAssembly module
+//! written with its WAT format (textual format):
+//!
+//! ```rust
 //! use wasmer::{Store, Module, Instance, Value, imports};
 //!
 //! fn main() -> anyhow::Result<()> {
 //!     let module_wat = r#"
 //!     (module
-//!     (type $t0 (func (param i32) (result i32)))
-//!     (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+//!       (type $t0 (func (param i32) (result i32)))
+//!       (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
 //!         get_local $p0
 //!         i32.const 1
 //!         i32.add))
@@ -61,14 +68,63 @@
 //! }
 //! ```
 //!
-//! For more examples of using the `wasmer` API, check out the
-//! [Wasmer examples][wasmer-examples].
+//! [Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/master/examples).
 //!
-//! ---------
+//! # Overview of the Features
+//!
+//! Wasmer is not only fast, but also designed to be *highly customizable*:
+//!
+//! * **Pluggable engines** — An engine is responsible to drive the
+//!   compilation process and to store the generated executable code
+//!   somewhere, either:
+//!   * in-memory (with [`wasmer-engine-universal`]),
+//!   * in a native shared object file (with [`wasmer-engine-dylib`],
+//!     `.dylib`, `.so`, `.dll`), then load it with `dlopen`,
+//!   * in a native static object file (with [`wasmer-engine-staticlib`]),
+//!     in addition to emitting a C header file, which both can be linked
+//!     against a sandboxed WebAssembly runtime environment for the
+//!     compiled module with no need for runtime compilation.
+//!
+//! * **Pluggable compilers** — A compiler is used by an engine to
+//!   transform WebAssembly into executable code:
+//!   * [`wasmer-compiler-singlepass`] provides a fast compilation-time
+//!     but an unoptimized runtime speed,
+//!   * [`wasmer-compiler-cranelift`] provides the right balance between
+//!     compilation-time and runtime performance, useful for development,
+//!   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
+//!     code with the fastest runtime speed, ideal for production.
+//!     
+//! * **Headless mode** — Once a WebAssembly module has been compiled, it
+//!   is possible to serialize it in a file for example, and later execute
+//!   it with Wasmer with headless mode turned on. Headless Wasmer has no
+//!   compiler, which makes it more portable and faster to load. It's
+//!   ideal for constrainted environments.
+//!   
+//! * **Cross-compilation** — Most compilers support cross-compilation. It
+//!   means it possible to pre-compile a WebAssembly module targetting a
+//!   different architecture or platform and serialize it, to then run it
+//!   on the targetted architecture and platform later.
+//!
+//! * **Run Wasmer in a JavaScript environment** — With the `js` Cargo
+//!   feature, it is possible to compile a Rust program using Wasmer to
+//!   WebAssembly. In this context, the resulting WebAssembly module will
+//!   expect to run in a JavaScript environment, like a browser, Node.js,
+//!   Deno and so on. In this specific scenario, there is no engines or
+//!   compilers available, it's the one available in the JavaScript
+//!   environment that will be used.
+//!
+//! Wasmer ships by default with the Cranelift compiler as its great for
+//! development purposes.  However, we strongly encourage to use the LLVM
+//! compiler in production as it performs about 50% faster, achieving
+//! near-native speeds.
+//!
+//! Note: if one wants to use multiple compilers at the same time, it's
+//! also possible! One will need to import them directly via each of the
+//! compiler crates.
 //!
 //! # Table of Contents
 //!
-//! - [Wasm Primitives](#wasm-primitives)
+//! - [WebAssembly Primitives](#webassembly-primitives)
 //!   - [Externs](#externs)
 //!     - [Functions](#functions)
 //!     - [Memories](#memories)
@@ -77,10 +133,12 @@
 //! - [Project Layout](#project-layout)
 //!   - [Engines](#engines)
 //!   - [Compilers](#compilers)
-//! - [Features](#features)
+//! - [Cargo Features](#cargo-features)
+//! - [Using Wasmer in a JavaScript environment](#using-wasmer-in-a-javascript-environment)
 //!
 //!
-//! # Wasm Primitives
+//! # WebAssembly Primitives
+//!
 //! In order to make use of the power of the `wasmer` API, it's important
 //! to understand the primitives around which the API is built.
 //!
@@ -91,6 +149,7 @@
 //! referred to as "externs".
 //!
 //! ## Externs
+//!
 //! An [`Extern`] is a type that can be imported or exported from a Wasm
 //! module.
 //!
@@ -128,6 +187,7 @@
 //! These are the primary types that the `wasmer` API uses.
 //!
 //! ### Functions
+//!
 //! There are 2 types of functions in `wasmer`:
 //! 1. Wasm functions,
 //! 2. Host functions.
@@ -151,7 +211,7 @@
 //! give them access to the outside world with [`imports`].
 //!
 //! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
-//! in, check out the [`wasmer-wasi`][wasmer-wasi] crate for our implementation of WASI,
+//! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,
 //! the WebAssembly System Interface.
 //!
 //! In the `wasmer` API we support functions which take their arguments and
@@ -159,6 +219,7 @@
 //! take their arguments and return their results statically, [`NativeFunc`].
 //!
 //! ### Memories
+//!
 //! Memories store data.
 //!
 //! In most Wasm programs, nearly all data will live in a [`Memory`].
@@ -167,14 +228,15 @@
 //! interesting programs.
 //!
 //! ### Globals
+//!
 //! A [`Global`] is a type that may be either mutable or immutable, and
 //! contains one of the core Wasm types defined in [`Value`].
 //!
 //! ### Tables
+//!
 //! A [`Table`] is an indexed list of items.
 //!
-//!
-//! ## Project Layout
+//! # Project Layout
 //!
 //! The Wasmer project is divided into a number of crates, below is a dependency
 //! graph with transitive dependencies removed.
@@ -186,10 +248,10 @@
 //! While this crate is the top level API, we also publish crates built
 //! on top of this API that you may be interested in using, including:
 //!
-//! - [wasmer-cache] for caching compiled Wasm modules,
-//! - [wasmer-emscripten] for running Wasm modules compiled to the
+//! - [`wasmer-cache`] for caching compiled Wasm modules,
+//! - [`wasmer-emscripten`] for running Wasm modules compiled to the
 //!   Emscripten ABI,
-//! - [wasmer-wasi] for running Wasm modules compiled to the WASI ABI.
+//! - [`wasmer-wasi`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
 //! 1. [Engines][wasmer-engine],
@@ -198,19 +260,18 @@
 //! These two abstractions have multiple options that can be enabled
 //! with features.
 //!
-//! ### Engines
+//! ## Engines
 //!
 //! An engine is a system that uses a compiler to make a WebAssembly
 //! module executable.
 //!
-//! ### Compilers
+//! ## Compilers
 //!
 //! A compiler is a system that handles the details of making a Wasm
 //! module executable. For example, by generating native machine code
 //! for each Wasm function.
 //!
-//!
-//! ## Features
+//! # Cargo Features
 //!
 //! This crate comes in 2 flavors:
 //!
@@ -223,18 +284,19 @@
 #![cfg_attr(feature = "js", doc = "(enabled),")]
 #![cfg_attr(not(feature = "js"), doc = "(disabled),")]
 //!    where `wasmer` will be compiled to WebAssembly to run in a
-//!    JavaScript host.
+//!    JavaScript host (see [Using Wasmer in a JavaScript
+//!    environment](#using-wasmer-in-a-javascript-environment)).
 //!
 //! Consequently, we can group the features by the `sys` or `js`
 //! features.
 //!
 #![cfg_attr(
     feature = "sys",
-    doc = "### Features for the `sys` feature group (enabled)"
+    doc = "## Features for the `sys` feature group (enabled)"
 )]
 #![cfg_attr(
     not(feature = "sys"),
-    doc = "### Features for the `sys` feature group (disabled)"
+    doc = "## Features for the `sys` feature group (disabled)"
 )]
 //!
 //! The default features can be enabled with the `sys-default` feature.
@@ -247,15 +309,15 @@
 //! - `cranelift`
 #![cfg_attr(feature = "cranelift", doc = "(enabled),")]
 #![cfg_attr(not(feature = "cranelift"), doc = "(disabled),")]
-//!   enables Wasmer's [Cranelift compiler][wasmer-cranelift],
+//!   enables Wasmer's [Cranelift compiler][wasmer-compiler-cranelift],
 //! - `llvm`
 #![cfg_attr(feature = "llvm", doc = "(enabled),")]
 #![cfg_attr(not(feature = "llvm"), doc = "(disabled),")]
-//!   enables Wasmer's [LLVM compiler][wasmer-llvm],
+//!   enables Wasmer's [LLVM compiler][wasmer-compiler-lvm],
 //! - `singlepass`
 #![cfg_attr(feature = "singlepass", doc = "(enabled),")]
 #![cfg_attr(not(feature = "singlepass"), doc = "(disabled),")]
-//!   enables Wasmer's [Singlepass compiler][wasmer-singlepass],
+//!   enables Wasmer's [Singlepass compiler][wasmer-compiler-singlepass],
 //! - `wat`
 #![cfg_attr(feature = "wat", doc = "(enabled),")]
 #![cfg_attr(not(feature = "wat"), doc = "(disabled),")]
@@ -263,11 +325,11 @@
 //! - `universal`
 #![cfg_attr(feature = "universal", doc = "(enabled),")]
 #![cfg_attr(not(feature = "universal"), doc = "(disabled),")]
-//!   enables [the Universal engine][wasmer-universal],
+//!   enables [the Universal engine][`wasmer-engine-universal`],
 //! - `dylib`
 #![cfg_attr(feature = "dylib", doc = "(enabled),")]
 #![cfg_attr(not(feature = "dylib"), doc = "(disabled),")]
-//!   enables [the Dylib engine][wasmer-dylib].
+//!   enables [the Dylib engine][`wasmer-engine-dylib`].
 //!
 //! The features that set defaults come in sets that are mutually exclusive.
 //!
@@ -297,11 +359,11 @@
 //!
 #![cfg_attr(
     feature = "js",
-    doc = "### Features for the `js` feature group (enabled)"
+    doc = "## Features for the `js` feature group (enabled)"
 )]
 #![cfg_attr(
     not(feature = "js"),
-    doc = "### Features for the `js` feature group (disabled)"
+    doc = "## Features for the `js` feature group (disabled)"
 )]
 //!
 //! The default features can be enabled with the `js-default` feature.
@@ -325,19 +387,62 @@
 //!  normally used only in development environments. It will add
 //!  around 650kb to the Wasm bundle (120Kb gzipped).
 //!
+//! # Using Wasmer in a JavaScript environment
+//!
+//! Imagine a Rust program that uses this `wasmer` crate to execute a
+//! WebAssembly module. It is possible to compile this Rust progam to
+//! WebAssembly by turning on the `js` Cargo feature of this `wasmer`
+//! crate.
+//!
+//! Here is a small example illustrating such a Rust program, and how
+//! to compile it with [`wasm-pack`] and [`wasm-bindgen`]:
+//!
+//! ```ignore
+//! #[wasm_bindgen]
+//! pub extern fn do_add_one_in_wasmer() -> i32 {
+//!     let module_wat = r#"
+//!     (module
+//!       (type $t0 (func (param i32) (result i32)))
+//!       (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+//!         get_local $p0
+//!         i32.const 1
+//!         i32.add))
+//!     "#;
+//!     let store = Store::default();
+//!     let module = Module::new(&store, &module_wat).unwrap();
+//!     // The module doesn't import anything, so we create an empty import object.
+//!     let import_object = imports! {};
+//!     let instance = Instance::new(&module, &import_object).unwrap();
+//!
+//!     let add_one = instance.exports.get_function("add_one").unwrap();
+//!     let result = add_one.call(&[Value::I32(42)]).unwrap();
+//!     assert_eq!(result[0], Value::I32(43));
+//!
+//!     result[0].unwrap_i32()
+//! }
+//! ```
+//!
+//! Note that it's the same code as above with the former example. The
+//! API is the same!
+//!
+//! Then, compile with `wasm-pack build`. Take care of using the `js`
+//! or `js-default` Cargo features.
 //!
 //! [wasm]: https://webassembly.org/
 //! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/examples
-//! [wasmer-cache]: https://docs.rs/wasmer-cache/*/wasmer_cache/
-//! [wasmer-compiler]: https://docs.rs/wasmer-compiler/*/wasmer_compiler/
-//! [wasmer-cranelift]: https://docs.rs/wasmer-compiler-cranelift/*/wasmer_compiler_cranelift/
-//! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/
-//! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/
-//! [wasmer-universal]: https://docs.rs/wasmer-engine-universal/*/wasmer_engine_universal/
-//! [wasmer-dylib]: https://docs.rs/wasmer-engine-dylib/*/wasmer_engine_dylib/
-//! [wasmer-singlepass]: https://docs.rs/wasmer-compiler-singlepass/*/wasmer_compiler_singlepass/
-//! [wasmer-llvm]: https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/
-//! [wasmer-wasi]: https://docs.rs/wasmer-wasi/*/wasmer_wasi/
+//! [`wasmer-cache`]: https://docs.rs/wasmer-cache/
+//! [wasmer-compiler]: https://docs.rs/wasmer-compiler/
+//! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/
+//! [wasmer-engine]: https://docs.rs/wasmer-engine/
+//! [`wasmer-engine-universal`]: https://docs.rs/wasmer-engine-universal/
+//! [`wasmer-engine-dylib`]: https://docs.rs/wasmer-engine-dylib/
+//! [`wasmer-engine-staticlib`]: https://docs.rs/wasmer-engine-staticlib/
+//! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
+//! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
+//! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/
+//! [`wasmer-wasi`]: https://docs.rs/wasmer-wasi/
+//! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
+//! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
 #[cfg(all(not(feature = "sys"), not(feature = "js")))]
 compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
