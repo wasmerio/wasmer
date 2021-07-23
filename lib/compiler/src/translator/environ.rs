@@ -14,10 +14,9 @@ use wasmer_types::FunctionType;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
-    LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableInitializer,
-    TableType,
+    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
+    TableInitializer, TableType,
 };
-use wasmer_vm::ModuleInfo;
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]

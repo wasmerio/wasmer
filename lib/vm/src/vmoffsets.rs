@@ -6,14 +6,13 @@
 
 #![deny(broken_intra_doc_links)]
 
-use crate::module::ModuleInfo;
 use crate::VMBuiltinFunctionIndex;
 use loupe::MemoryUsage;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasmer_types::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    SignatureIndex, TableIndex,
+    ModuleInfo, SignatureIndex, TableIndex,
 };
 
 #[cfg(target_pointer_width = "32")]
