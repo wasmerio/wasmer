@@ -23,7 +23,8 @@ edition = "2018"
 
 #####
 #
-# Shared dependencies.
+# # Shared dependencies.
+#
 [dependencies]
 #
 # ## Mandatory shared dependencies.
@@ -114,6 +115,7 @@ wasm-bindgen-test = "0.3.0"
 #
 # `wasm-opt` is on by default in for the release profile, but it can be
 # disabled by setting it to `false`
+#
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false
 #
