@@ -34,7 +34,7 @@ impl Memory {
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store
-    /// [`BaseTunables`][crate::tunables::BaseTunables].
+    /// [`BaseTunables`][crate::sys::BaseTunables].
     ///
     /// # Example
     ///

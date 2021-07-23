@@ -38,7 +38,7 @@ impl Table {
     /// All the elements in the table will be set to the `init` value.
     ///
     /// This function will construct the `Table` using the store
-    /// [`BaseTunables`][crate::tunables::BaseTunables].
+    /// [`BaseTunables`][crate::sys::BaseTunables].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
         let item = init.into_table_reference(store)?;
         let tunables = store.tunables();
