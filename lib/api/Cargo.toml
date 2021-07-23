@@ -150,6 +150,6 @@ native = ["dylib"]
 
 # Features for `js`.
 js = []
-js-default = ["js", "wasm-types-polyfill"]
+js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["js", "wasmparser"]
