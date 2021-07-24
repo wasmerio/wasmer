@@ -66,13 +66,11 @@ fn test_env() {
     let store = Store::default();
     let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
 
-    tracing_wasm::set_as_global_default_with_config(
-        {
-            let mut builder = tracing_wasm::WASMLayerConfigBuilder::new();
-            builder.set_console_config(tracing_wasm::ConsoleConfig::ReportWithoutConsoleColor);
-            builder.build()
-        }
-    );
+    tracing_wasm::set_as_global_default_with_config({
+        let mut builder = tracing_wasm::WASMLayerConfigBuilder::new();
+        builder.set_console_config(tracing_wasm::ConsoleConfig::ReportWithoutConsoleColor);
+        builder.build()
+    });
 
     // Create the `WasiEnv`.
     // let stdout = Stdout::default();
