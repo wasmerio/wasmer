@@ -295,6 +295,9 @@ impl VirtualFile for Pipe {
     fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(self.buffer.len())
     }
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
+        panic!("A Pipe can't be renamed");
+    }
 }
 
 /*

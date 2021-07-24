@@ -450,20 +450,20 @@ impl VirtualFile for Stdout {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
 
         host_file_bytes_available(host_fd)
     }
-
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
+        panic!("Stdout can't be renamed");
+    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
         Some(io::stdout().as_raw_fd())
     }
-
     #[cfg(not(unix))]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
@@ -544,20 +544,20 @@ impl VirtualFile for Stderr {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
 
         host_file_bytes_available(host_fd)
     }
-
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
+        panic!("Stderr can't be renamed");
+    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
         Some(io::stderr().as_raw_fd())
     }
-
     #[cfg(not(unix))]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
@@ -635,24 +635,23 @@ impl VirtualFile for Stdin {
         debug!("Calling VirtualFile::set_len on stdin; this is probably a bug");
         Err(FsError::PermissionDenied)
     }
-
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
 
         host_file_bytes_available(host_fd)
     }
-
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
+        panic!("Stdin can't be renamed");
+    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
         Some(io::stdin().as_raw_fd())
     }
-
     #[cfg(not(unix))]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(

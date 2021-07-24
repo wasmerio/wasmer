@@ -342,24 +342,19 @@ impl VirtualFile for MemFile {
     fn last_accessed(&self) -> u64 {
         self.last_accessed
     }
-
     fn last_modified(&self) -> u64 {
         self.last_modified
     }
-
     fn created_time(&self) -> u64 {
         self.created_time
     }
-
     fn size(&self) -> u64 {
         self.buffer.len() as u64
     }
-
     fn set_len(&mut self, new_size: u64) -> Result<(), FsError> {
         self.buffer.resize(new_size as usize, 0);
         Ok(())
     }
-
     fn unlink(&mut self) -> Result<(), FsError> {
         self.buffer.clear();
         self.cursor = 0;
@@ -368,15 +363,12 @@ impl VirtualFile for MemFile {
     fn sync_to_disk(&self) -> Result<(), FsError> {
         Ok(())
     }
-
     fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
         Ok(())
     }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(self.buffer.len() - self.cursor)
     }
-
     fn get_raw_fd(&self) -> Option<i32> {
         None
     }
@@ -554,6 +546,7 @@ impl VirtualFile for MemFileHandle {
 
         file.unlink()
     }
+
     fn sync_to_disk(&self) -> Result<(), FsError> {
         let inner = self.fs.inner.lock().unwrap();
         let file = inner
@@ -674,7 +667,9 @@ impl VirtualFile for Stdout {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
+        panic!("Stdout can't be renamed");
+    }
     fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         unimplemented!();
@@ -772,16 +767,16 @@ impl VirtualFile for Stderr {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         unimplemented!();
     }
-
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
+        panic!("Stderr can't be renamed");
+    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!();
     }
-
     #[cfg(not(unix))]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
@@ -870,22 +865,21 @@ impl VirtualFile for Stdin {
         debug!("Calling VirtualFile::set_len on stdin; this is probably a bug");
         Err(FsError::PermissionDenied)
     }
-
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         unimplemented!();
     }
-
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
+        panic!("Stdin can't be renamed");
+    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         // use std::os::unix::io::AsRawFd;
         // Some(io::stdin().as_raw_fd())
         unimplemented!();
     }
-
     #[cfg(not(unix))]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(

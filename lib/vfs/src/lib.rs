@@ -160,11 +160,7 @@ pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcas
     }
 
     /// Moves the file to a new location
-    /// NOTE: the signature of this function will change before stabilization
-    // TODO: stabilize this in 0.7.0 or 0.8.0 by removing default impl
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        panic!("Default implementation for now as this method is unstable; this default implementation or this entire method may be removed in a future release.");
-    }
+    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError>;
 
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize, FsError>;
