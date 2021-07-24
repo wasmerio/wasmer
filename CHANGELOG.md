@@ -8,10 +8,20 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+### Added
+- [#2427](https://github.com/wasmerio/wasmer/pull/2427) Wasmer can now compile to Javascript via `wasm-bindgen`. Use the `js-default` (and no default features) feature to try it!
+- [#2436](https://github.com/wasmerio/wasmer/pull/2436) Added the x86-32 bit variant support to LLVM compiler
+
 ### Changed
+- [#2460](https://github.com/wasmerio/wasmer/pull/2460) **breaking change** `wasmer` API usage with `no-default-features` requires now the `sys` feature to preserve old behavior
+- [#2476](https://github.com/wasmerio/wasmer/pull/2476) Removed unncessary abstraction `ModuleInfoTranslate` from `wasmer-compiler`
+- [#2442](https://github.com/wasmerio/wasmer/pull/2442) Improved `WasmPtr`, added `WasmCell` for host/guest interaction
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
+- [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `wasm_instance_new()`’s “traps” argument to “trap”.
 
 ### Fixed
+- [#2449](https://github.com/wasmerio/wasmer/pull/2449) Fixed `wasmer-c-api` used `soname`
+- [#2479](https://github.com/wasmerio/wasmer/pull/2479) Improved `wasmer validate` error message on non-wasm inputs
 - [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
 
