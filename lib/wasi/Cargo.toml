@@ -9,7 +9,6 @@ repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
 readme = "README.md"
 edition = "2018"
-# resolver = "2"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -17,7 +16,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 thiserror = "1"
 generational-arena = { version = "0.2", features = ["serde"] }
-# libc = { version = "^0.2", default-features = false, optional = true }
 tracing = { version = "0.1" }
 getrandom = { version = "0.2" }
 typetag = "0.1"
@@ -33,7 +31,6 @@ winapi = "0.3"
 libc = { version = "^0.2", default-features = false }
 
 [features]
-# default = ["logging", "host_fs", "wasmer"]
 default = ["logging"]
 logging = ["tracing/log"]
 disable-all-logging = [
