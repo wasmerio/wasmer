@@ -179,7 +179,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
-/// Trait needed to get downcasting from `WasiFile` to work.
+/// Trait needed to get downcasting of `Engine`s to work.
 pub trait Upcastable {
     fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
     fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;

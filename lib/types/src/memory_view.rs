@@ -69,28 +69,29 @@ where
     }
 
     /// Creates a subarray view from this MemoryView.
-    pub fn subarray(&self, range: impl RangeBounds<usize>) -> Self {
-        let start: usize = match range.start_bound() {
-            Bound::Unbounded => 0,
-            Bound::Included(start) => *start,
-            Bound::Excluded(start) => *start + 1,
-        };
-        let end: usize = match range.end_bound() {
-            Bound::Unbounded => self.length,
-            Bound::Included(end) => *end,
-            Bound::Excluded(end) => *end - 1,
-        };
+    // pub fn subarray(&self, range: impl RangeBounds<usize>) -> Self {
+    //     let start: usize = match range.start_bound() {
+    //         Bound::Unbounded => 0,
+    //         Bound::Included(start) => *start,
+    //         Bound::Excluded(start) => *start + 1,
+    //     };
+    //     let end: usize = match range.end_bound() {
+    //         Bound::Unbounded => self.length,
+    //         Bound::Included(end) => *end,
+    //         Bound::Excluded(end) => *end - 1,
+    //     };
+    pub fn subarray(&self, start: u32, end: u32) -> Self {
         assert!(
-            start < self.length,
+            (start as usize) < self.length,
             "The range start is bigger than current length"
         );
         assert!(
-            end < self.length,
+            (end as usize) < self.length,
             "The range end is bigger than current length"
         );
         Self {
-            ptr: unsafe { self.ptr.add(start) },
-            length: (end - start),
+            ptr: unsafe { self.ptr.add(start as usize) },
+            length: (end - start) as usize,
             _phantom: PhantomData,
         }
     }

@@ -44,6 +44,7 @@ members = [
     "lib/engine-dylib",
     "lib/engine-staticlib",
     "lib/object",
+    "lib/vfs",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-types",
@@ -54,6 +55,7 @@ members = [
     "tests/integration/cli",
     "fuzz",
 ]
+resolver = "2"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
