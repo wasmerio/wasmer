@@ -2,7 +2,7 @@
 
 use wasm_bindgen_test::*;
 use wasmer::{Instance, Module, Store};
-use wasmer_wasi::{Stderr, Stdin, Stdout, WasiError, WasiState};
+use wasmer_wasi::{Stdin, Stdout, WasiState};
 
 #[wasm_bindgen_test]
 fn test_stdout() {
@@ -94,7 +94,7 @@ fn test_env() {
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
-    start.call(&[]);
+    start.call(&[]).unwrap();
 
     let state = wasi_env.state();
     let stdout = state.fs.stdout().unwrap().as_ref().unwrap();
@@ -103,32 +103,33 @@ fn test_env() {
     assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
 }
 
-// #[wasm_bindgen_test]
-// fn test_stdin() {
-//     let store = Store::default();
-//     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
+#[wasm_bindgen_test]
+fn test_stdin() {
+    let store = Store::default();
+    let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
-//     // Create the `WasiEnv`.
-//     let mut stdin = Stdin::default();
-//     stdin.buf = "Hello, stdin!".as_bytes().to_owned();
-//     let mut wasi_env = WasiState::new("command-name")
-//         .stdin(Box::new(stdin))
-//         .finalize()
-//         .unwrap();
+    // Create the `WasiEnv`.
+    let mut stdin = Stdin::default();
+    stdin.buf = "Hello, stdin!".as_bytes().to_owned();
+    let mut wasi_env = WasiState::new("command-name")
+        .stdin(Box::new(stdin))
+        .finalize()
+        .unwrap();
 
-//     // Generate an `ImportObject`.
-//     let import_object = wasi_env.import_object(&module).unwrap();
+    // Generate an `ImportObject`.
+    let import_object = wasi_env.import_object(&module).unwrap();
 
-//     // Let's instantiate the module with the imports.
-//     let instance = Instance::new(&module, &import_object).unwrap();
+    // Let's instantiate the module with the imports.
+    let instance = Instance::new(&module, &import_object).unwrap();
 
-//     // Let's call the `_start` function, which is our `main` function in Rust.
-//     let start = instance.exports.get_function("_start").unwrap();
-//     let result = start.call(&[]);
-//     let status = result.unwrap_err().downcast::<WasiError>().unwrap();
-//     let state = wasi_env.state();
-//     let stdin = state.fs.stdin().unwrap().as_ref().unwrap();
-//     let stdin = stdin.downcast_ref::<Stdin>().unwrap();
-//     // We assure stdin is now empty
-//     assert_eq!(stdin.buf.len(), 0);
-// }
+    // Let's call the `_start` function, which is our `main` function in Rust.
+    let start = instance.exports.get_function("_start").unwrap();
+    let result = start.call(&[]);
+    assert!(result.is_err());
+    // let status = result.unwrap_err().downcast::<WasiError>().unwrap();
+    let state = wasi_env.state();
+    let stdin = state.fs.stdin().unwrap().as_ref().unwrap();
+    let stdin = stdin.downcast_ref::<Stdin>().unwrap();
+    // We assure stdin is now empty
+    assert_eq!(stdin.buf.len(), 0);
+}

@@ -44,6 +44,7 @@ pub struct MemFileSystemInner {
 }
 
 impl MemFileSystemInner {
+    #[allow(dead_code)]
     fn get_memkind_at(&self, path: &Path) -> Option<&MemKind> {
         let mut components = path.components();
         if path.is_absolute() {

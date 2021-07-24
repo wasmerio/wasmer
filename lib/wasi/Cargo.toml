@@ -14,6 +14,7 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+cfg-if = "1.0"
 thiserror = "1"
 generational-arena = { version = "0.2", features = ["serde"] }
 tracing = { version = "0.1" }

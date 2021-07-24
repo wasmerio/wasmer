@@ -173,14 +173,17 @@ pub struct WasiFs {
     fs_backing: Box<dyn FileSystem>,
 }
 
+/// Returns the default filesystem backing
 pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
-    #[cfg(feature = "host_fs")]
-    return Box::new(wasmer_vfs::host_fs::HostFileSystem);
-    #[cfg(feature = "mem_fs")]
-    return Box::new(wasmer_vfs::mem_fs::MemFileSystem::default());
-
-    #[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
-    return Box::new(FallbackFileSystem::default());
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "host_fs")] {
+            Box::new(wasmer_vfs::host_fs::HostFileSystem)
+        } else if #[cfg(feature = "mem_fs")] {
+            Box::new(wasmer_vfs::mem_fs::MemFileSystem::default())
+        } else {
+            Box::new(FallbackFileSystem::default())
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -193,25 +196,25 @@ impl FallbackFileSystem {
 }
 
 impl FileSystem for FallbackFileSystem {
-    fn read_dir(&self, path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
+    fn read_dir(&self, _path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
         Self::fail();
     }
-    fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
+    fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn metadata(&self, path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
+    fn metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
         Self::fail();
     }
-    fn symlink_metadata(&self, path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
+    fn symlink_metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
         Self::fail();
     }
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
     fn new_open_options(&self) -> wasmer_vfs::OpenOptions {
@@ -1584,7 +1587,7 @@ impl WasiState {
     }
 
     /// Get a WasiState from bytes
-    pub fn unfreeze(bytes: &[u8]) -> Option<Self> {
+    pub fn unfreeze(_bytes: &[u8]) -> Option<Self> {
         todo!("temporarily disabled")
         //bincode::deserialize(bytes).ok()
     }
