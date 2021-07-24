@@ -248,6 +248,7 @@
 <span id="245">245</span>
 <span id="246">246</span>
 <span id="247">247</span>
+<span id="248">248</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
@@ -262,16 +263,17 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rayon</span>::<span class="ident">prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">TrapInformation</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">Architecture</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompilerConfig</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">MiddlewareBinaryReader</span>,
-    <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>, <span class="ident">OperatingSystem</span>, <span class="ident">Target</span>,
+    <span class="ident">Architecture</span>, <span class="ident">Compilation</span>, <span class="ident">CompileError</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunction</span>, <span class="ident">Compiler</span>,
+    <span class="ident">CompilerConfig</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>,
+    <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>, <span class="ident">OperatingSystem</span>, <span class="ident">SectionIndex</span>,
+    <span class="ident">Target</span>, <span class="ident">TrapInformation</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compilation</span>, <span class="ident">CompileError</span>, <span class="ident">CompiledFunction</span>, <span class="ident">Compiler</span>, <span class="ident">SectionIndex</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">FunctionBody</span>, <span class="ident">FunctionBodyData</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">TableIndex</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">TrapCode</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableIndex</span>,
+};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">TrapCode</span>, <span class="ident">VMOffsets</span>};
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Singlepass.</span>
 <span class="doccomment">/// It does the compilation in one pass</span>

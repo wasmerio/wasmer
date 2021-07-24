@@ -328,6 +328,7 @@
 <span id="325">325</span>
 <span id="326">326</span>
 <span id="327">327</span>
+<span id="328">328</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
@@ -336,7 +337,8 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Example</span>
 <span class="doccomment">//! ```ignore</span>
-<span class="doccomment">//! use wasmer_vm::{ModuleInfo, FRAME_INFO};</span>
+<span class="doccomment">//! use wasmer_vm::{FRAME_INFO};</span>
+<span class="doccomment">//! use wasmer_types::ModuleInfo;</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! let module: ModuleInfo = ...;</span>
 <span class="doccomment">//! FRAME_INFO.register(module, compiled_functions);</span>
@@ -347,8 +349,8 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">LocalFunctionIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">ModuleInfo</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">FunctionBodyPtr</span>;
 
 <span class="ident">lazy_static</span>::<span class="macro">lazy_static</span><span class="macro">!</span> {
     <span class="doccomment">/// This is a global cache of backtrace frame information for all active</span>

@@ -1503,7 +1503,7 @@
     <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMMemoryImport</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTableDefinition</span>, <span class="ident">VMTableImport</span>,
     <span class="ident">VMTrampoline</span>,
 };
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">VMOffsets</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">VMFunction</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>};
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
@@ -1521,8 +1521,8 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">packed_option</span>::<span class="ident">ReservedValue</span>, <span class="ident">BoxedSlice</span>, <span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">DataIndex</span>, <span class="ident">DataInitializer</span>, <span class="ident">ElemIndex</span>, <span class="ident">ExportIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">GlobalInit</span>,
-    <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">Pages</span>,
-    <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableInitializer</span>,
+    <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>,
+    <span class="ident">ModuleInfo</span>, <span class="ident">Pages</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableInitializer</span>,
 };
 
 <span class="doccomment">/// The function pointer to call with data and an [`Instance`] pointer to</span>

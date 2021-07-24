@@ -1730,7 +1730,6 @@
 <span id="1729">1729</span>
 <span id="1730">1730</span>
 <span id="1731">1731</span>
-<span id="1732">1732</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.</span>
 <span class="doccomment">//!</span>
@@ -1760,9 +1759,8 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span> <span class="kw">as</span> <span class="ident">FuncType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">Mutability</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
+    <span class="ident">ModuleInfo</span> <span class="kw">as</span> <span class="ident">WasmerCompilerModule</span>, <span class="ident">Mutability</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">ModuleInfo</span> <span class="kw">as</span> <span class="ident">WasmerCompilerModule</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">type_to_llvm_ptr</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>(

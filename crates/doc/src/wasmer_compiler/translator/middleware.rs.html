@@ -193,7 +193,6 @@
 <span id="190">190</span>
 <span id="191">191</span>
 <span id="192">192</span>
-<span id="193">193</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The middleware parses the function binary bytecodes and transform them</span>
 <span class="doccomment">//! with the chosen functions.</span>
@@ -203,8 +202,7 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">VecDeque</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Deref</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">LocalFunctionIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">ModuleInfo</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
 <span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReader</span>, <span class="ident">Operator</span>, <span class="ident">Range</span>, <span class="ident">Type</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">MiddlewareError</span>, <span class="ident">WasmResult</span>};

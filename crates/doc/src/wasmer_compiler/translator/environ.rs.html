@@ -458,7 +458,6 @@
 <span id="455">455</span>
 <span id="456">456</span>
 <span id="457">457</span>
-<span id="458">458</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -476,10 +475,9 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CustomSectionIndex</span>, <span class="ident">DataIndex</span>, <span class="ident">DataInitializer</span>, <span class="ident">DataInitializerLocation</span>, <span class="ident">ElemIndex</span>,
     <span class="ident">ExportIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>, <span class="ident">ImportIndex</span>,
-    <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableInitializer</span>,
-    <span class="ident">TableType</span>,
+    <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
+    <span class="ident">TableInitializer</span>, <span class="ident">TableType</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">ModuleInfo</span>;
 
 <span class="doccomment">/// Contains function data: bytecode and its offset in the module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Hash</span>)]</span>

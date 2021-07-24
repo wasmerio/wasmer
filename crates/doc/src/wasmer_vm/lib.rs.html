@@ -103,6 +103,9 @@
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Runtime library support for Wasmer.</span>
 
@@ -134,7 +137,6 @@
 <span class="kw">mod</span> <span class="ident">instance</span>;
 <span class="kw">mod</span> <span class="ident">memory</span>;
 <span class="kw">mod</span> <span class="ident">mmap</span>;
-<span class="kw">mod</span> <span class="ident">module</span>;
 <span class="kw">mod</span> <span class="ident">probestack</span>;
 <span class="kw">mod</span> <span class="ident">sig_registry</span>;
 <span class="kw">mod</span> <span class="ident">table</span>;
@@ -154,7 +156,6 @@
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">memory</span>::{<span class="ident">LinearMemory</span>, <span class="ident">Memory</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">mmap</span>::<span class="ident">Mmap</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::{<span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">probestack</span>::<span class="ident">PROBESTACK</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">sig_registry</span>::<span class="ident">SignatureRegistry</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">table</span>::{<span class="ident">LinearTable</span>, <span class="ident">Table</span>, <span class="ident">TableElement</span>, <span class="ident">TableStyle</span>};
@@ -168,6 +169,11 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmoffsets</span>::{<span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMOffsets</span>};
 <span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">VMExternRef</span>;
+<span class="attribute">#[<span class="ident">deprecated</span>(
+    <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.0&quot;</span>,
+    <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;ModuleInfo, ExportsIterator, ImportsIterator should be imported from wasmer_types.&quot;</span>
+)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>};
 
 <span class="doccomment">/// Version number of this crate.</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);

@@ -97,6 +97,8 @@
 <span id="94">94</span>
 <span id="95">95</span>
 <span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This are the common types and utility tools for using WebAssembly</span>
 <span class="doccomment">//! in a Rust environment.</span>
@@ -161,6 +163,7 @@
 <span class="kw">mod</span> <span class="ident">indexes</span>;
 <span class="kw">mod</span> <span class="ident">initializers</span>;
 <span class="kw">mod</span> <span class="ident">memory_view</span>;
+<span class="kw">mod</span> <span class="ident">module</span>;
 <span class="kw">mod</span> <span class="ident">native</span>;
 <span class="kw">mod</span> <span class="ident">types</span>;
 <span class="kw">mod</span> <span class="ident">units</span>;
@@ -179,6 +182,7 @@
     <span class="ident">DataInitializer</span>, <span class="ident">DataInitializerLocation</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">TableInitializer</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">memory_view</span>::{<span class="ident">Atomically</span>, <span class="ident">MemoryView</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::{<span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">native</span>::{<span class="ident">NativeWasmType</span>, <span class="ident">ValueType</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">units</span>::{
     <span class="ident">Bytes</span>, <span class="ident">PageCountOutOfRange</span>, <span class="ident">Pages</span>, <span class="ident">WASM_MAX_PAGES</span>, <span class="ident">WASM_MIN_PAGES</span>, <span class="ident">WASM_PAGE_SIZE</span>,

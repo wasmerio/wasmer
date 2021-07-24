@@ -489,7 +489,6 @@
 <span id="486">486</span>
 <span id="487">487</span>
 <span id="488">488</span>
-<span id="489">489</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! `metering` is a middleware for tracking how many operators are</span>
 <span class="doccomment">//! executed in total and putting a limit on the total number of</span>
@@ -511,8 +510,7 @@
     <span class="ident">ExportIndex</span>, <span class="ident">FunctionMiddleware</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>, <span class="ident">Instance</span>, <span class="ident">LocalFunctionIndex</span>,
     <span class="ident">MiddlewareError</span>, <span class="ident">MiddlewareReaderState</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Mutability</span>, <span class="ident">Type</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">GlobalIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">ModuleInfo</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">GlobalIndex</span>, <span class="ident">ModuleInfo</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">struct</span> <span class="ident">MeteringGlobalIndexes</span>(<span class="ident">GlobalIndex</span>, <span class="ident">GlobalIndex</span>);

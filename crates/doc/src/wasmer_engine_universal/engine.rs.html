@@ -319,6 +319,7 @@
 <span id="316">316</span>
 <span id="317">317</span>
 <span id="318">318</span>
+<span id="319">319</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Universal compilation.</span>
 
@@ -332,11 +333,12 @@
 };
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">Engine</span>, <span class="ident">EngineId</span>, <span class="ident">FunctionExtent</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::<span class="ident">PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">Features</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">SignatureIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">Features</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>,
+};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SectionBodyPtr</span>, <span class="ident">SignatureRegistry</span>,
-    <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMFuncRef</span>, <span class="ident">VMFunctionBody</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
+    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">SectionBodyPtr</span>, <span class="ident">SignatureRegistry</span>, <span class="ident">VMCallerCheckedAnyfunc</span>,
+    <span class="ident">VMFuncRef</span>, <span class="ident">VMFunctionBody</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
 };
 
 <span class="doccomment">/// A WebAssembly `Universal` Engine.</span>

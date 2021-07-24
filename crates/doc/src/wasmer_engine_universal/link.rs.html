@@ -86,7 +86,6 @@
 <span id="83">83</span>
 <span id="84">84</span>
 <span id="85">85</span>
-<span id="86">86</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Linking for Universal-compiled code.</span>
 
@@ -97,8 +96,7 @@
 };
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::<span class="ident">FunctionExtent</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">LocalFunctionIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">ModuleInfo</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">SectionBodyPtr</span>;
 
 <span class="kw">fn</span> <span class="ident">apply_relocation</span>(

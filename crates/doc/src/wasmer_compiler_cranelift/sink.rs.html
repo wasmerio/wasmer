@@ -142,8 +142,8 @@
 <span class="kw">use</span> <span class="ident">cranelift_entity</span>::<span class="ident">EntityRef</span> <span class="kw">as</span> <span class="ident">CraneliftEntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">JumpTable</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">TrapInformation</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::<span class="ident">EntityRef</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">TrapCode</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">TrapCode</span>;
 
 <span class="doccomment">/// Implementation of a relocation sink that just saves all the information for later</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">RelocSink</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {

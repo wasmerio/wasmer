@@ -719,7 +719,6 @@
 <span id="716">716</span>
 <span id="717">717</span>
 <span id="718">718</span>
-<span id="719">719</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -729,14 +728,13 @@
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">broken_intra_doc_links</span>)]</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::<span class="ident">ModuleInfo</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMBuiltinFunctionIndex</span>;
 <span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">more_asserts</span>::<span class="ident">assert_lt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryFrom</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
+    <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
 };
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;32&quot;</span>)]</span>

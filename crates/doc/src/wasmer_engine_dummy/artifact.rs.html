@@ -279,12 +279,12 @@
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">Engine</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">SerializeError</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">Features</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SignatureIndex</span>,
-    <span class="ident">TableIndex</span>,
+    <span class="ident">Features</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>,
+    <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableStyle</span>, <span class="ident">VMContext</span>,
-    <span class="ident">VMFunctionBody</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
+    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMContext</span>, <span class="ident">VMFunctionBody</span>,
+    <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
 };
 
 <span class="doccomment">/// Serializable struct for the artifact</span>

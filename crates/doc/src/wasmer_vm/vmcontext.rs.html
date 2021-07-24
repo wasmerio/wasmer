@@ -1135,6 +1135,15 @@
 <span id="1132">1132</span>
 <span id="1133">1133</span>
 <span id="1134">1134</span>
+<span id="1135">1135</span>
+<span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
+<span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
+<span id="1143">1143</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1219,9 +1228,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmfunction_import</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMFunctionImport</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmfunction_import_offsets</span>() {
@@ -1281,9 +1291,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmdynamicfunction_import_context</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMDynamicFunctionContext</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmdynamicfunction_import_context_offsets</span>() {
@@ -1357,9 +1368,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmtable_import</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMTableImport</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmtable_import_offsets</span>() {
@@ -1395,9 +1407,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmmemory_import</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMMemoryImport</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmmemory_import_offsets</span>() {
@@ -1445,9 +1458,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmglobal_import</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMGlobalImport</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmglobal_import_offsets</span>() {
@@ -1570,9 +1584,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmmemory_definition</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMMemoryDefinition</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmmemory_definition_offsets</span>() {
@@ -1624,9 +1639,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmtable_definition</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMTableDefinition</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmtable_definition_offsets</span>() {
@@ -1697,9 +1713,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmglobal_definition</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMGlobalDefinition</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMFuncRef</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">VMFuncRef</span>, <span class="ident">VMOffsets</span>};
     <span class="kw">use</span> <span class="ident">more_asserts</span>::<span class="ident">assert_ge</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::{<span class="ident">align_of</span>, <span class="ident">size_of</span>};
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmglobal_definition_alignment</span>() {
@@ -1934,9 +1951,9 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmshared_signature_index</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMSharedSignatureIndex</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::<span class="ident">ModuleInfo</span>;
     <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmoffsets</span>::{<span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMOffsets</span>};
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmshared_signature_index</span>() {
@@ -1988,9 +2005,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_vmcaller_checked_anyfunc</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">VMCallerCheckedAnyfunc</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
     <span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">size_of</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_vmcaller_checked_anyfunc_offsets</span>() {

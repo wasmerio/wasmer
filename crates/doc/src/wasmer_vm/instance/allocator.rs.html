@@ -218,13 +218,13 @@
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Instance</span>, <span class="ident">InstanceRef</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::{<span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTableDefinition</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMOffsets</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">alloc</span>::{<span class="self">self</span>, <span class="ident">Layout</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::<span class="ident">EntityRef</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">ModuleInfo</span>};
 
 <span class="doccomment">/// This is an intermediate type that manages the raw allocation and</span>
 <span class="doccomment">/// metadata when creating an [`Instance`].</span>

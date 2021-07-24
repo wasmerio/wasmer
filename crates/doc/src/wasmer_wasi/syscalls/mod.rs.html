@@ -2580,6 +2580,11 @@
 <span id="2579">2579</span>
 <span id="2580">2580</span>
 <span id="2581">2581</span>
+<span id="2582">2582</span>
+<span id="2583">2583</span>
+<span id="2584">2584</span>
+<span id="2585">2585</span>
+<span id="2586">2586</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>, <span class="ident">clippy</span>::<span class="ident">cognitive_complexity</span>)]</span>
 
@@ -2699,10 +2704,11 @@
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_buffer_offset</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> ((<span class="ident">i</span>, <span class="ident">sub_buffer</span>), <span class="ident">ptr</span>) <span class="kw">in</span> <span class="ident">from</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">zip</span>(<span class="ident">ptrs</span>.<span class="ident">iter</span>()) {
-        <span class="ident">ptr</span>.<span class="ident">set</span>(<span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">buffer</span>.<span class="ident">offset</span>() <span class="op">+</span> <span class="ident">current_buffer_offset</span>));
+        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;ptr: {:?}, subbuffer: {:?}&quot;</span>, <span class="ident">ptr</span>, <span class="ident">sub_buffer</span>);
+        <span class="kw">let</span> <span class="ident">new_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">buffer</span>.<span class="ident">offset</span>() <span class="op">+</span> <span class="ident">current_buffer_offset</span>);
+        <span class="ident">ptr</span>.<span class="ident">set</span>(<span class="ident">new_ptr</span>);
 
-        <span class="kw">let</span> <span class="ident">cells</span> <span class="op">=</span>
-            <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">buffer</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="ident">current_buffer_offset</span>, <span class="ident">sub_buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>));
+        <span class="kw">let</span> <span class="ident">cells</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">new_ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">sub_buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>));
 
         <span class="kw">for</span> (<span class="ident">cell</span>, <span class="kw-2">&amp;</span><span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">cells</span>.<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">sub_buffer</span>.<span class="ident">iter</span>().<span class="ident">chain</span>([<span class="number">0</span>].<span class="ident">iter</span>())) {
             <span class="ident">cell</span>.<span class="ident">set</span>(<span class="ident">byte</span>);
@@ -2851,8 +2857,12 @@
     <span class="ident">environ</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">environ_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::environ_get&quot;</span>);
+    <span class="macro">debug</span><span class="macro">!</span>(
+        <span class="string">&quot;wasi::environ_get. Environ: {:?}, environ_buf: {:?}&quot;</span>,
+        <span class="ident">environ</span>, <span class="ident">environ_buf</span>
+    );
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
+    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot; -&gt; State envs: {:?}&quot;</span>, <span class="ident">state</span>.<span class="ident">envs</span>);
 
     <span class="ident">write_buffer_array</span>(<span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">state</span>.<span class="ident">envs</span>, <span class="ident">environ</span>, <span class="ident">environ_buf</span>)
 }
@@ -3340,6 +3350,7 @@
 
     <span class="comment">// check inode-val.is_preopened?</span>
 
+    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; inode: {:?}&quot;</span>, <span class="ident">inode_val</span>);
     <span class="kw">match</span> <span class="ident">inode_val</span>.<span class="ident">kind</span> {
         <span class="ident">Kind</span>::<span class="ident">Dir</span> { .. } <span class="op">|</span> <span class="ident">Kind</span>::<span class="ident">Root</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="comment">// TODO: verify this: null termination, etc</span>
@@ -3352,11 +3363,10 @@
                 <span class="ident">path_chars</span>[<span class="ident">i</span>].<span class="ident">set</span>(<span class="number">0</span>);
 
                 <span class="macro">debug</span><span class="macro">!</span>(
-                    <span class="string">&quot;=&gt; result: \&quot;{}\&quot;&quot;</span>,
-                    ::<span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="kw">unsafe</span> {
-                        <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="kw-2">&amp;</span><span class="ident">path_chars</span>[..] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> [<span class="kw">_</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> [<span class="ident">u8</span>])
-                    })
-                    .<span class="ident">unwrap</span>()
+                    <span class="string">&quot;=&gt; result: \&quot;{}\&quot; (written: {}, {})&quot;</span>,
+                    <span class="kw">unsafe</span> { <span class="ident">path</span>.<span class="ident">get_utf8_str</span>(<span class="ident">memory</span>, <span class="ident">path_len</span>).<span class="ident">unwrap</span>() },
+                    <span class="ident">i</span>,
+                    <span class="ident">path_chars</span>[<span class="number">0</span>].<span class="ident">get</span>(),
                 );
 
                 <span class="ident">__WASI_ESUCCESS</span>

@@ -9146,10 +9146,10 @@
     <span class="ident">FunctionType</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>,
-    <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
+    <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>,
+    <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
 
 <span class="doccomment">/// The singlepass per-function code generator.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FuncGen</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
