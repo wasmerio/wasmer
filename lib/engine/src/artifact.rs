@@ -99,22 +99,14 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
         self.preinstantiate()?;
 
         let module = self.module();
-        let (imports, import_function_envs) = {
-            let mut imports = resolve_imports(
-                &module,
-                resolver,
-                &self.finished_dynamic_function_trampolines(),
-                self.memory_styles(),
-                self.table_styles(),
-            )
-            .map_err(InstantiationError::Link)?;
-
-            // Get the `WasmerEnv::init_with_instance` function pointers and the pointers
-            // to the envs to call it on.
-            let import_function_envs = imports.get_imported_function_envs();
-
-            (imports, import_function_envs)
-        };
+        let imports = resolve_imports(
+            &module,
+            resolver,
+            &self.finished_dynamic_function_trampolines(),
+            self.memory_styles(),
+            self.table_styles(),
+        )
+        .map_err(InstantiationError::Link)?;
 
         // Get pointers to where metadata about local memories should live in VM memory.
         // Get pointers to where metadata about local tables should live in VM memory.
@@ -148,7 +140,6 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             self.signatures().clone(),
             self.func_data_registry(),
             host_state,
-            import_function_envs,
         )
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
         Ok(handle)

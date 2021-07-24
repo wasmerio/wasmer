@@ -901,11 +901,10 @@ impl InstanceHandle {
         finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
         finished_tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
-        imports: Imports,
+        mut imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         func_data_registry: &FuncDataRegistry,
         host_state: Box<dyn Any>,
-        imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
     ) -> Result<Self, Trap> {
         let vmctx_globals = finished_globals
             .values()
@@ -913,6 +912,8 @@ impl InstanceHandle {
             .collect::<PrimaryMap<LocalGlobalIndex, _>>()
             .into_boxed_slice();
         let passive_data = RefCell::new(module.passive_data.clone());
+
+        let imported_function_envs = imports.get_imported_function_envs();
 
         let handle = {
             let offsets = allocator.offsets().clone();
