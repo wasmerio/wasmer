@@ -133,7 +133,7 @@ impl FileOpener for HostFileOpener {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize))]
 pub struct HostFile {
-    #[serde(skip_serializing)]
+    #[cfg_attr(feature = "enable-serde", serde(skip_serializing))]
     pub inner: fs::File,
     pub host_path: PathBuf,
     flags: u16,

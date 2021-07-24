@@ -1,7 +1,7 @@
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{self, Read, Seek, Write};
+use std::path::Path;
 use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Module, Store};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
@@ -468,7 +468,7 @@ mod test {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 struct OutputCapturerer {
     output: Vec<u8>,
 }
@@ -530,7 +530,6 @@ impl Write for OutputCapturerer {
     }
 }
 
-#[typetag::serde]
 impl VirtualFile for OutputCapturerer {
     fn last_accessed(&self) -> __wasi_timestamp_t {
         0
@@ -552,5 +551,8 @@ impl VirtualFile for OutputCapturerer {
     }
     fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(1024)
+    }
+    fn rename_file(&self, _: &Path) -> Result<(), FsError> {
+        panic!("Output should not be renamed");
     }
 }

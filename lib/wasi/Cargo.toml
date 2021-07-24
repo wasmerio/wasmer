@@ -32,7 +32,7 @@ winapi = "0.3"
 libc = { version = "^0.2", default-features = false }
 
 [features]
-default = ["logging"]
+default = ["logging", "host_fs"]
 enable-serde = [
     "typetag",
     "serde",
