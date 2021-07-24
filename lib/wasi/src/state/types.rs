@@ -37,6 +37,7 @@ pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
         __WASI_EPROTO => FsError::UnexpectedEof,
         __WASI_EAGAIN => FsError::WouldBlock,
         __WASI_ENOSPC => FsError::WriteZero,
+        __WASI_ENOTEMPTY => FsError::DirectoryNotEmpty,
         _ => FsError::UnknownError,
     }
 }
@@ -65,6 +66,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
         FsError::UnexpectedEof => __WASI_EPROTO,
         FsError::WouldBlock => __WASI_EAGAIN,
         FsError::WriteZero => __WASI_ENOSPC,
+        FsError::DirectoryNotEmpty => __WASI_ENOTEMPTY,
         FsError::UnknownError => __WASI_EIO,
     }
 }

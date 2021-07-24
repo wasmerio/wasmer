@@ -223,7 +223,8 @@ impl WasiStateBuilder {
         Ok(self)
     }
 
-    /// TODO: document this
+    /// Preopen the given directories from the
+    /// Virtual FS.
     pub fn preopen_vfs_dirs<I>(&mut self, po_dirs: I) -> Result<&mut Self, WasiStateCreationError>
     where
         I: IntoIterator<Item = String>,
@@ -298,7 +299,7 @@ impl WasiStateBuilder {
         self
     }
 
-    /// Setup the WASI filesystem before running
+    /// Configure the WASI filesystem before running
     // TODO: improve ergonomics on this function
     pub fn setup_fs(
         &mut self,
@@ -309,7 +310,9 @@ impl WasiStateBuilder {
         self
     }
 
-    /// TODO: document this
+    /// Sets the FileSystem to be used with this WASI instance
+    ///
+    /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
     pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem>) -> &mut Self {
         self.fs_override = Some(fs);
 

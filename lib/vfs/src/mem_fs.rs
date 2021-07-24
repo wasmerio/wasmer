@@ -88,7 +88,6 @@ impl FileSystem for MemFileSystem {
         todo!()
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
-        // TODO: handle errors
         let parent = path.parent().unwrap();
         let file = path.file_name().unwrap();
         let mut inner = self.inner.lock().unwrap();
@@ -97,8 +96,7 @@ impl FileSystem for MemFileSystem {
             MemKind::Directory { contents, .. } => {
                 let name = file.to_str().unwrap().to_string();
                 if contents.contains_key(&name) {
-                    // TODO: handle error
-                    panic!("file exists at given path");
+                    return Err(FsError::AlreadyExists);
                 }
                 let mk = MemKind::Directory {
                     name: name.clone(),
@@ -106,7 +104,7 @@ impl FileSystem for MemFileSystem {
                 };
                 contents.insert(name.clone(), mk);
             }
-            _ => panic!("found file, expected directory"),
+            _ => return Err(FsError::BaseNotDirectory),
         }
         Ok(())
     }
@@ -121,15 +119,14 @@ impl FileSystem for MemFileSystem {
                 match contents.get(&name).unwrap() {
                     MemKind::Directory { contents, .. } => {
                         if !contents.is_empty() {
-                            // TODO: handle error
-                            panic!("Can't delete directory, directory is not empty");
+                            return Err(FsError::DirectoryNotEmpty);
                         }
                     }
-                    _ => panic!("expected directory, found file"),
+                    _ => return Err(FsError::BaseNotDirectory),
                 }
                 contents.remove(&name);
             }
-            _ => panic!("found file, expected directory"),
+            _ => return Err(FsError::BaseNotDirectory),
         }
         Ok(())
     }
@@ -222,8 +219,7 @@ impl FileOpener for MemFileOpener {
             }
             _ => {
                 // expected directory
-                // TODO: return a more proper error here
-                return Err(FsError::IOError);
+                return Err(FsError::BaseNotDirectory);
             }
         }
 
@@ -294,8 +290,8 @@ impl Read for MemFile {
         Ok(data_to_copy)
     }
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
-        // TODO: error handling
-        let s = std::str::from_utf8(&self.buffer[self.cursor..]).unwrap();
+        let s = std::str::from_utf8(&self.buffer[self.cursor..])
+            .map_err(|_e| io::ErrorKind::InvalidInput)?;
         buf.push_str(s);
         let amount_read = self.buffer.len() - self.cursor;
         self.cursor = self.buffer.len();

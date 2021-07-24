@@ -29,7 +29,6 @@ use std::collections::HashMap;
 use std::{
     borrow::Borrow,
     cell::Cell,
-    fs,
     io::Write,
     path::{Path, PathBuf},
 };
@@ -1415,18 +1414,9 @@ impl WasiFs {
         Some(__wasi_filestat_t {
             st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
             st_size: md.len(),
-            st_atim: md.accessed(), /*.ok()?
-                                    .duration_since(SystemTime::UNIX_EPOCH)
-                                    .ok()?
-                                    .as_nanos() as u64*/
-            st_mtim: md.modified(), /*.ok()?
-                                    .duration_since(SystemTime::UNIX_EPOCH)
-                                    .ok()?
-                                    .as_nanos() as u64*/
-            st_ctim: md.created(), /*.ok()
-                                   .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
-                                   .map(|ct| ct.as_nanos() as u64)
-                                   .unwrap_or(0)*/
+            st_atim: md.accessed(),
+            st_mtim: md.modified(),
+            st_ctim: md.created(),
             ..__wasi_filestat_t::default()
         })
     }
@@ -1593,20 +1583,6 @@ impl WasiState {
     }
 }
 
-// TODO: remove this
-#[allow(dead_code)]
-pub fn host_file_type_to_wasi_file_type(file_type: fs::FileType) -> __wasi_filetype_t {
-    // TODO: handle other file types
-    if file_type.is_dir() {
-        __WASI_FILETYPE_DIRECTORY
-    } else if file_type.is_file() {
-        __WASI_FILETYPE_REGULAR_FILE
-    } else if file_type.is_symlink() {
-        __WASI_FILETYPE_SYMBOLIC_LINK
-    } else {
-        __WASI_FILETYPE_UNKNOWN
-    }
-}
 pub fn virtual_file_type_to_wasi_file_type(file_type: wasmer_vfs::FileType) -> __wasi_filetype_t {
     // TODO: handle other file types
     if file_type.is_dir() {
