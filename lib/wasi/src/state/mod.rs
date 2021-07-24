@@ -168,41 +168,49 @@ pub struct WasiFs {
     fs_backing: Box<dyn FileSystem>,
 }
 
-#[derive(Debug, Default)]
-pub struct FakeFilesystem;
+pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
+    #[cfg(feature = "host_fs")]
+    return Box::new(wasmer_vfs::host_fs::HostFileSystem);
+    #[cfg(feature = "mem_fs")]
+    return Box::new(wasmer_vfs::mem_fs::MemFileSystem::default());
 
-fn default_fs_backing() -> Box<dyn FileSystem> {
-    Box::new(FakeFilesystem::default())
+    #[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
+    return Box::new(UnimplementedFileSystem::default());
 }
 
-impl FileSystem for FakeFilesystem {
+#[derive(Debug, Default)]
+pub struct UnimplementedFileSystem;
+
+impl UnimplementedFileSystem {
+    fn fail() -> ! {
+        panic!("No default enabled for filesystem, please enable either the `host_fs` or `mem_fs` feature in wasmer-wasi");
+    }
+}
+
+impl FileSystem for UnimplementedFileSystem {
     fn read_dir(&self, path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
-        panic!();
+        Self::fail();
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
-        panic!();
+        Self::fail();
     }
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
-        panic!();
+        Self::fail();
     }
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
-        panic!();
+        Self::fail();
     }
     fn metadata(&self, path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
-        panic!();
+        Self::fail();
     }
-    /// This method gets metadata without following symlinks in the path.
-    /// Currently identical to `metadata` because symlinks aren't implemented
-    /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
-        self.metadata(path)
+        Self::fail();
     }
-
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
-        panic!();
+        Self::fail();
     }
     fn new_open_options(&self) -> wasmer_vfs::OpenOptions {
-        panic!();
+        Self::fail();
     }
 }
 

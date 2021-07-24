@@ -1,6 +1,6 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
-use crate::state::{WasiFs, WasiState};
+use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::WasiEnv;
 use std::path::{Path, PathBuf};
@@ -386,7 +386,7 @@ impl WasiStateBuilder {
         let fs_backing = self
             .fs_override
             .take()
-            .unwrap_or_else(|| Self::default_fs_backing());
+            .unwrap_or_else(|| default_fs_backing());
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let mut wasi_fs = WasiFs::new_with_preopen(&self.preopens, &self.vfs_preopens, fs_backing)
@@ -435,16 +435,6 @@ impl WasiStateBuilder {
     pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
         let state = self.build()?;
         Ok(WasiEnv::new(state))
-    }
-
-    pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
-        #[cfg(feature = "host_fs")]
-        return Box::new(wasmer_vfs::host_fs::HostFileSystem);
-        #[cfg(feature = "mem_fs")]
-        return Box::new(wasmer_vfs::mem_fs::MemFileSystem::default());
-
-        #[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
-        panic!("No default enabled for filesystem, please enable either the `host_fs` or `mem_fs` feature in wasmer-wasi");
     }
 }
 

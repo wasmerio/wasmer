@@ -6,7 +6,7 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct HostFileSystem;
 
 impl FileSystem for HostFileSystem {
