@@ -12,7 +12,7 @@ pub mod host_fs;
 #[cfg(feature = "mem_fs")]
 pub mod mem_fs;
 
-pub trait FileSystem: Send + Sync + 'static {
+pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError>;
     fn create_dir(&self, path: &Path) -> Result<(), FsError>;
     fn remove_dir(&self, path: &Path) -> Result<(), FsError>;
@@ -131,7 +131,7 @@ impl OpenOptions {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
-// #[typetag::serde(tag = "type")]
+#[typetag::serde]
 pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;

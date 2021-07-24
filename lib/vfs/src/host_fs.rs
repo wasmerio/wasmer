@@ -6,7 +6,7 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct HostFileSystem;
 
 impl FileSystem for HostFileSystem {
@@ -286,6 +286,7 @@ impl Write for HostFile {
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for HostFile {
     fn last_accessed(&self) -> u64 {
         self.metadata()
@@ -423,6 +424,7 @@ impl Write for Stdout {
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for Stdout {
     fn last_accessed(&self) -> u64 {
         0
@@ -515,6 +517,7 @@ impl Write for Stderr {
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for Stderr {
     fn last_accessed(&self) -> u64 {
         0
@@ -607,6 +610,7 @@ impl Write for Stdin {
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for Stdin {
     fn last_accessed(&self) -> u64 {
         0

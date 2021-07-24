@@ -530,6 +530,7 @@ impl Write for OutputCapturerer {
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for OutputCapturerer {
     fn last_accessed(&self) -> __wasi_timestamp_t {
         0

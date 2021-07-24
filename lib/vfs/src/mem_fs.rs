@@ -1,13 +1,11 @@
 use crate::*;
-// use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-// pub use crate::host_fs::{Stderr, Stdin, Stdout};
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 enum MemKind {
     File {
         name: String,
@@ -28,12 +26,12 @@ impl Default for MemKind {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MemFileSystem {
     inner: Arc<Mutex<MemFileSystemInner>>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct MemFileSystemInner {
     // done for recursion purposes
     fs: MemKind,
@@ -81,7 +79,7 @@ impl MemFileSystemInner {
 }
 
 impl FileSystem for MemFileSystem {
-    fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
+    fn read_dir(&self, _path: &Path) -> Result<ReadDir, FsError> {
         todo!()
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
@@ -130,7 +128,7 @@ impl FileSystem for MemFileSystem {
         }
         Ok(())
     }
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
+    fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
         todo!("rename")
         //fs::rename(from, to).map_err(Into::into)
     }
@@ -159,7 +157,7 @@ impl FileSystem for MemFileSystem {
         OpenOptions::new(Box::new(MemFileOpener(self.clone())))
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+    fn metadata(&self, _path: &Path) -> Result<Metadata, FsError> {
         // let inner = self.inner.lock().unwrap();
         // let memkind = inner.get_memkind_at(path)
         Ok(Metadata {
@@ -234,7 +232,7 @@ impl FileOpener for MemFileOpener {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MemFile {
     buffer: Vec<u8>,
     cursor: usize,
@@ -337,7 +335,7 @@ impl Write for MemFile {
     }
 }
 
-// #[typetag::serde]
+#[typetag::serde]
 impl VirtualFile for MemFile {
     fn last_accessed(&self) -> u64 {
         self.last_accessed
@@ -382,7 +380,7 @@ impl VirtualFile for MemFile {
     }
 }
 
-// #[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct MemFileHandle {
     // hack, just skip it
     // #[serde(skip)]
@@ -493,8 +491,7 @@ impl Write for MemFileHandle {
     }
 }
 
-// #[typetag::serde]
-// #[typetag::serde(name = "type")]
+#[typetag::serde]
 impl VirtualFile for MemFileHandle {
     fn last_accessed(&self) -> u64 {
         let inner = self.fs.inner.lock().unwrap();
@@ -596,7 +593,7 @@ impl VirtualFile for MemFileHandle {
 // Stdin / Stdout / Stderr definitions
 
 /// A wrapper type around Stdout that implements `VirtualFile`
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Stdout {
     pub buf: Vec<u8>,
 }
@@ -633,7 +630,7 @@ impl Seek for Stdout {
     }
 }
 impl Write for Stdout {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
         // io::stdout().write(buf)
         unimplemented!();
     }
@@ -647,12 +644,13 @@ impl Write for Stdout {
         self.buf.extend_from_slice(&buf);
         Ok(())
     }
-    fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
+    fn write_fmt(&mut self, _fmt: ::std::fmt::Arguments) -> io::Result<()> {
         // io::stdout().write_fmt(fmt)
         unimplemented!();
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for Stdout {
     fn last_accessed(&self) -> u64 {
         0
@@ -692,7 +690,7 @@ impl VirtualFile for Stdout {
 
 /// A wrapper type around Stderr that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Stderr {
     pub buf: Vec<u8>,
 }
@@ -728,7 +726,7 @@ impl Seek for Stderr {
     }
 }
 impl Write for Stderr {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
         // io::stderr().write(buf)
         unimplemented!();
     }
@@ -743,12 +741,13 @@ impl Write for Stderr {
         // io::stderr().write_all(buf)
         // unimplemented!();
     }
-    fn write_fmt(&mut self, fmt: ::std::fmt::Arguments) -> io::Result<()> {
+    fn write_fmt(&mut self, _fmt: ::std::fmt::Arguments) -> io::Result<()> {
         // io::stderr().write_fmt(fmt)
         unimplemented!();
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for Stderr {
     fn last_accessed(&self) -> u64 {
         0
@@ -777,8 +776,6 @@ impl VirtualFile for Stderr {
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!();
-        // use std::os::unix::io::AsRawFd;
-        // Some(io::stderr().as_raw_fd())
     }
 
     #[cfg(not(unix))]
@@ -791,7 +788,7 @@ impl VirtualFile for Stderr {
 
 /// A wrapper type around Stdin that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Stdin {
     pub buf: Vec<u8>,
 }
@@ -805,15 +802,15 @@ impl Read for Stdin {
         Ok(len)
         // unimplemented!();
     }
-    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
         // io::stdin().read_to_end(buf)
         unimplemented!();
     }
-    fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
+    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
         // io::stdin().read_to_string(buf)
         unimplemented!();
     }
-    fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
+    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
         // io::stdin().read_exact(buf)
         unimplemented!();
     }
@@ -850,6 +847,7 @@ impl Write for Stdin {
     }
 }
 
+#[typetag::serde]
 impl VirtualFile for Stdin {
     fn last_accessed(&self) -> u64 {
         0

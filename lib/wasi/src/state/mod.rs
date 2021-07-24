@@ -59,7 +59,7 @@ const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
 pub const MAX_SYMLINKS: u32 = 128;
 
 /// A file that Wasi knows about that may or may not be open
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct InodeVal {
     pub stat: __wasi_filestat_t,
     pub is_preopened: bool,
@@ -69,7 +69,7 @@ pub struct InodeVal {
 
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Kind {
     File {
         /// The open file, if it's open
@@ -118,7 +118,7 @@ pub enum Kind {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Fd {
     pub rights: __wasi_rights_t,
     pub rights_inheriting: __wasi_rights_t,
@@ -151,10 +151,9 @@ impl Fd {
     pub const CREATE: u16 = 16;
 }
 
-// #[derive(Debug)]
-// TODO: Fix this and reenable the derives before merging
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: Vec<u32>,
@@ -165,7 +164,46 @@ pub struct WasiFs {
     inode_counter: Cell<u64>,
     /// for fds still open after the file has been deleted
     pub orphan_fds: HashMap<Inode, InodeVal>,
+    #[serde(skip, default = "default_fs_backing")]
     fs_backing: Box<dyn FileSystem>,
+}
+
+#[derive(Debug, Default)]
+pub struct FakeFilesystem;
+
+fn default_fs_backing() -> Box<dyn FileSystem> {
+    Box::new(FakeFilesystem::default())
+}
+
+impl FileSystem for FakeFilesystem {
+    fn read_dir(&self, path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
+        panic!();
+    }
+    fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+        panic!();
+    }
+    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+        panic!();
+    }
+    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
+        panic!();
+    }
+    fn metadata(&self, path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
+        panic!();
+    }
+    /// This method gets metadata without following symlinks in the path.
+    /// Currently identical to `metadata` because symlinks aren't implemented
+    /// yet.
+    fn symlink_metadata(&self, path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
+        self.metadata(path)
+    }
+
+    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+        panic!();
+    }
+    fn new_open_options(&self) -> wasmer_vfs::OpenOptions {
+        panic!();
+    }
 }
 
 impl WasiFs {
@@ -1510,18 +1548,11 @@ impl WasiState {
 /// # Ok(())
 /// # }
 /// ```
-//#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WasiState {
     pub fs: WasiFs,
     pub args: Vec<Vec<u8>>,
     pub envs: Vec<Vec<u8>>,
-}
-
-impl std::fmt::Debug for WasiState {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // TODO: reimpl Debug either here or on fs_backing to auto-derive it
-        f.write_str("struct WasiState")
-    }
 }
 
 impl WasiState {

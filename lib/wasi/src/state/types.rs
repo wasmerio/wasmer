@@ -267,7 +267,7 @@ impl Seek for Pipe {
     }
 }
 
-// #[typetag::serde]
+#[typetag::serde]
 impl VirtualFile for Pipe {
     fn last_accessed(&self) -> u64 {
         0
