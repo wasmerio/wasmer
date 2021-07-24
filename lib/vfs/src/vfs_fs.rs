@@ -1,5 +1,4 @@
 use crate::*;
-use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 use std::sync::Arc;
@@ -140,7 +139,7 @@ impl Write for VfsOpenFile {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for VfsOpenFile {
     fn last_accessed(&self) -> u64 {
         // this data does not exist in vfs

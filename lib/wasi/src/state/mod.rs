@@ -23,6 +23,7 @@ pub use self::types::*;
 use crate::syscalls::types::*;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{
@@ -59,7 +60,8 @@ const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
 pub const MAX_SYMLINKS: u32 = 128;
 
 /// A file that Wasi knows about that may or may not be open
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct InodeVal {
     pub stat: __wasi_filestat_t,
     pub is_preopened: bool,
@@ -69,7 +71,8 @@ pub struct InodeVal {
 
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Kind {
     File {
         /// The open file, if it's open
@@ -118,7 +121,8 @@ pub enum Kind {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Fd {
     pub rights: __wasi_rights_t,
     pub rights_inheriting: __wasi_rights_t,
@@ -153,7 +157,8 @@ impl Fd {
 
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: Vec<u32>,
@@ -164,7 +169,7 @@ pub struct WasiFs {
     inode_counter: Cell<u64>,
     /// for fds still open after the file has been deleted
     pub orphan_fds: HashMap<Inode, InodeVal>,
-    #[serde(skip, default = "default_fs_backing")]
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_fs_backing"))]
     fs_backing: Box<dyn FileSystem>,
 }
 
@@ -175,19 +180,19 @@ pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
     return Box::new(wasmer_vfs::mem_fs::MemFileSystem::default());
 
     #[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
-    return Box::new(UnimplementedFileSystem::default());
+    return Box::new(FallbackFileSystem::default());
 }
 
 #[derive(Debug, Default)]
-pub struct UnimplementedFileSystem;
+pub struct FallbackFileSystem;
 
-impl UnimplementedFileSystem {
+impl FallbackFileSystem {
     fn fail() -> ! {
-        panic!("No default enabled for filesystem, please enable either the `host_fs` or `mem_fs` feature in wasmer-wasi");
+        panic!("No filesystem set for wasmer-wasi, please enable either the `host_fs` or `mem_fs` feature or set your custom filesystem with `WasiStateBuilder::set_fs`");
     }
 }
 
-impl FileSystem for UnimplementedFileSystem {
+impl FileSystem for FallbackFileSystem {
     fn read_dir(&self, path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
         Self::fail();
     }
@@ -1556,7 +1561,8 @@ impl WasiState {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiState {
     pub fs: WasiFs,
     pub args: Vec<Vec<u8>>,

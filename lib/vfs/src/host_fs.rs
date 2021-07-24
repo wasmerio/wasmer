@@ -1,4 +1,5 @@
 use crate::*;
+#[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fs;
@@ -6,7 +7,8 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct HostFileSystem;
 
 impl FileSystem for HostFileSystem {
@@ -128,7 +130,8 @@ impl FileOpener for HostFileOpener {
 }
 
 /// A thin wrapper around `std::fs::File`
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize))]
 pub struct HostFile {
     #[serde(skip_serializing)]
     pub inner: fs::File,
@@ -136,6 +139,7 @@ pub struct HostFile {
     flags: u16,
 }
 
+#[cfg(feature = "enable-serde")]
 impl<'de> Deserialize<'de> for HostFile {
     fn deserialize<D>(deserializer: D) -> Result<HostFile, D::Error>
     where
@@ -286,7 +290,7 @@ impl Write for HostFile {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for HostFile {
     fn last_accessed(&self) -> u64 {
         self.metadata()
@@ -376,7 +380,8 @@ fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, FsError> {
 
 /// A wrapper type around Stdout that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdout;
 impl Read for Stdout {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
@@ -424,7 +429,7 @@ impl Write for Stdout {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stdout {
     fn last_accessed(&self) -> u64 {
         0
@@ -469,7 +474,8 @@ impl VirtualFile for Stdout {
 
 /// A wrapper type around Stderr that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stderr;
 impl Read for Stderr {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
@@ -517,7 +523,7 @@ impl Write for Stderr {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stderr {
     fn last_accessed(&self) -> u64 {
         0
@@ -562,7 +568,8 @@ impl VirtualFile for Stderr {
 
 /// A wrapper type around Stdin that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdin;
 impl Read for Stdin {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
@@ -610,7 +617,7 @@ impl Write for Stdin {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stdin {
     fn last_accessed(&self) -> u64 {
         0

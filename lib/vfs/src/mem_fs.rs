@@ -1,11 +1,13 @@
 use crate::*;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 enum MemKind {
     File {
         name: String,
@@ -26,12 +28,14 @@ impl Default for MemKind {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemFileSystem {
     inner: Arc<Mutex<MemFileSystemInner>>,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemFileSystemInner {
     // done for recursion purposes
     fs: MemKind,
@@ -232,7 +236,8 @@ impl FileOpener for MemFileOpener {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemFile {
     buffer: Vec<u8>,
     cursor: usize,
@@ -335,7 +340,7 @@ impl Write for MemFile {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for MemFile {
     fn last_accessed(&self) -> u64 {
         self.last_accessed
@@ -380,7 +385,7 @@ impl VirtualFile for MemFile {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemFileHandle {
     // hack, just skip it
     // #[serde(skip)]
@@ -491,7 +496,7 @@ impl Write for MemFileHandle {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for MemFileHandle {
     fn last_accessed(&self) -> u64 {
         let inner = self.fs.inner.lock().unwrap();
@@ -593,7 +598,8 @@ impl VirtualFile for MemFileHandle {
 // Stdin / Stdout / Stderr definitions
 
 /// A wrapper type around Stdout that implements `VirtualFile`
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdout {
     pub buf: Vec<u8>,
 }
@@ -650,7 +656,7 @@ impl Write for Stdout {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stdout {
     fn last_accessed(&self) -> u64 {
         0
@@ -690,7 +696,8 @@ impl VirtualFile for Stdout {
 
 /// A wrapper type around Stderr that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stderr {
     pub buf: Vec<u8>,
 }
@@ -747,7 +754,7 @@ impl Write for Stderr {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stderr {
     fn last_accessed(&self) -> u64 {
         0
@@ -788,7 +795,8 @@ impl VirtualFile for Stderr {
 
 /// A wrapper type around Stdin that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdin {
     pub buf: Vec<u8>,
 }
@@ -847,7 +855,7 @@ impl Write for Stdin {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Stdin {
     fn last_accessed(&self) -> u64 {
         0

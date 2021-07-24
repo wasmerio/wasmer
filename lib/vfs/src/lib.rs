@@ -131,7 +131,7 @@ impl OpenOptions {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;

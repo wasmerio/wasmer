@@ -1,5 +1,6 @@
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::convert::TryInto;
@@ -227,7 +228,8 @@ pub(crate) fn poll(
 pub trait WasiPath {}
 
 /// For piping stdio. Stores all output / input in a byte-vector.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Pipe {
     buffer: VecDeque<u8>,
 }
@@ -267,7 +269,7 @@ impl Seek for Pipe {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for Pipe {
     fn last_accessed(&self) -> u64 {
         0

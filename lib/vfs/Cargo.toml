@@ -10,9 +10,13 @@ edition = "2018"
 libc = { version = "^0.2", default-features = false, optional = true }
 thiserror = "1"
 tracing = { version = "0.1" }
-typetag = "0.1"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+typetag = { version = "0.1", optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [features]
 host_fs = ["libc"]
 mem_fs = []
+enable-serde = [
+    "serde",
+    "typetag"
+]
