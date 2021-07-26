@@ -1,12 +1,12 @@
 use crate::error::MemoryCreationError;
 use crate::error::MemoryProtectionError;
 use crate::sys::{round_down_to_page_size, round_up_to_page_size};
+use borsh::{BorshDeserialize, BorshSerialize};
 use errno;
 use nix::libc;
 use page_size;
 use std::ops::{Bound, RangeBounds};
 use std::{fs::File, os::unix::io::IntoRawFd, path::Path, ptr, slice, sync::Arc};
-use borsh::{BorshSerialize, BorshDeserialize};
 
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
@@ -252,7 +252,9 @@ impl Clone for Memory {
 }
 
 /// Kinds of memory protection.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, BorshSerialize, BorshDeserialize,
+)]
 #[allow(dead_code)]
 pub enum Protect {
     /// Read/write/exec allowed.

@@ -18,7 +18,7 @@ use std::{any::Any, ptr::NonNull};
 
 use std::collections::HashMap;
 
-use borsh::{BorshSerialize, BorshDeserialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 
 pub mod sys {
     pub use crate::sys::*;
@@ -204,7 +204,19 @@ impl ExceptionTable {
 }
 
 /// The code of an exception.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub enum ExceptionCode {
     /// An `unreachable` opcode was executed.
     Unreachable = 0,

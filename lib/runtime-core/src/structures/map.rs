@@ -1,4 +1,5 @@
 use super::{BoxedMap, SliceMap, TypedIndex};
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::{
     iter::{self, Extend, FromIterator},
     marker::PhantomData,
@@ -6,7 +7,6 @@ use std::{
     ops::{Deref, DerefMut},
     slice, vec,
 };
-use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Dense item map
 #[derive(Serialize, Deserialize, Debug, Clone, BorshSerialize, BorshDeserialize)]

@@ -3,8 +3,8 @@
 //! and loaded to allow skipping compilation and fast startup.
 
 use crate::{module::ModuleInfo, sys::Memory};
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::{io, mem, slice};
-use borsh::{BorshSerialize, BorshDeserialize};
 
 /// Indicates the invalid type of invalid cache file
 #[derive(Debug)]
@@ -212,7 +212,10 @@ impl Artifact {
 
         let mut buffer = cache_header.as_slice().to_vec();
 
-        let mut encoded = self.inner.try_to_vec().map_err(|e| Error::SerializeError(e.to_string()))?;
+        let mut encoded = self
+            .inner
+            .try_to_vec()
+            .map_err(|e| Error::SerializeError(e.to_string()))?;
         buffer.append(&mut encoded);
 
         let data_len = (buffer.len() - mem::size_of::<ArtifactHeader>()) as u64;

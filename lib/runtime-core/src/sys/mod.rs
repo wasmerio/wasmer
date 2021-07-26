@@ -10,12 +10,12 @@ pub use self::unix::*;
 #[cfg(windows)]
 pub use self::windows::*;
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{
     de::{self, SeqAccess, Visitor},
     ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use borsh::{BorshSerialize, BorshDeserialize};
 use std::io::Write;
 
 use serde_bytes::{ByteBuf, Bytes};

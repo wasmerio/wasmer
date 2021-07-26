@@ -2,11 +2,22 @@
 //! convert to other represenations.
 
 use crate::{memory::MemoryType, module::ModuleInfo, structures::TypedIndex, units::Pages};
-use std::{borrow::Cow, convert::TryFrom};
 use borsh::{BorshDeserialize, BorshSerialize};
+use std::{borrow::Cow, convert::TryFrom};
 
 /// Represents a WebAssembly type.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub enum Type {
     /// The `i32` type.
     I32,
@@ -247,7 +258,9 @@ macro_rules! convert_value_impl {
 convert_value_impl!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
 
 /// Kinds of element types.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize,
+)]
 pub enum ElementType {
     /// Any wasm function.
     Anyfunc,
@@ -255,7 +268,9 @@ pub enum ElementType {
 
 /// Describes the properties of a table including the element types, minimum and optional maximum,
 /// number of elements in the table.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize,
+)]
 pub struct TableDescriptor {
     /// Type of data stored in this table.
     pub element: ElementType,
@@ -288,7 +303,9 @@ pub enum Initializer {
 }
 
 /// Describes the mutability and type of a Global
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize,
+)]
 pub struct GlobalDescriptor {
     /// Mutable flag.
     pub mutable: bool,
@@ -306,7 +323,9 @@ pub struct GlobalInit {
 }
 
 /// A wasm memory descriptor.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize,
+)]
 pub struct MemoryDescriptor {
     /// The minimum number of allowed pages.
     pub minimum: Pages,
@@ -354,7 +373,9 @@ impl MemoryDescriptor {
 
 /// The signature of a function that is either implemented
 /// in a wasm module or exposed to wasm by the host.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize,
+)]
 pub struct FuncSig {
     params: Cow<'static, [Type]>,
     returns: Cow<'static, [Type]>,
@@ -507,7 +528,18 @@ define_local_or_import![
 ];
 
 /// Index for signature.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub struct SigIndex(u32);
 impl TypedIndex for SigIndex {
     #[doc(hidden)]

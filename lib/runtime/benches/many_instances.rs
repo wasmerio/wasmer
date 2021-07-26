@@ -2,11 +2,11 @@
 extern crate criterion;
 use criterion::Criterion;
 use tempfile::tempdir;
+use wasmer_runtime_core::vm::Ctx;
 use wasmer_runtime_near::{
     cache::{Cache, FileSystemCache, WasmHash},
     compile, func, imports, instantiate, validate, Func,
 };
-use wasmer_runtime_core::vm::Ctx;
 
 fn it_works(_ctx: &mut Ctx) -> i32 {
     5

@@ -20,13 +20,13 @@ use crate::{
 use crate::backend::CacheGen;
 #[cfg(feature = "generate-debug-information")]
 use crate::jit_debug;
+use borsh::{BorshDeserialize, BorshSerialize};
+use core::convert::TryFrom;
 use indexmap::IndexMap;
 use std::collections::HashMap;
-use std::sync::Arc;
-use borsh::{BorshSerialize, BorshDeserialize};
-use std::io::Write;
-use core::convert::TryFrom;
 use std::hash::Hash;
+use std::io::Write;
+use std::sync::Arc;
 
 /// This is used to instantiate a new WebAssembly module.
 #[doc(hidden)]
@@ -40,7 +40,7 @@ pub struct ModuleInner {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ExportsMap {
     /// Actual IndexMap
-    pub map: IndexMap<String, ExportIndex>
+    pub map: IndexMap<String, ExportIndex>,
 }
 
 /// Container for module data including memories, globals, tables, imports, and exports.
@@ -108,8 +108,7 @@ pub struct ModuleInfo {
     pub(crate) debug_info_manager: jit_debug::JitCodeDebugInfoManager,
 }
 
-impl BorshSerialize for ExportsMap
-{
+impl BorshSerialize for ExportsMap {
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         u32::try_from(self.map.len())
             .map_err(|_| std::io::ErrorKind::InvalidInput)?
@@ -122,9 +121,7 @@ impl BorshSerialize for ExportsMap
     }
 }
 
-
-impl BorshDeserialize for ExportsMap
-{
+impl BorshDeserialize for ExportsMap {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
         let len = u32::deserialize(buf)?;
         // TODO(16): return capacity allocation when we can safely do that.
@@ -135,7 +132,7 @@ impl BorshDeserialize for ExportsMap
             let value = ExportIndex::deserialize(buf)?;
             result.insert(key, value);
         }
-        Ok(ExportsMap{map: result})
+        Ok(ExportsMap { map: result })
     }
 }
 
@@ -368,7 +365,9 @@ pub struct ImportName {
 /// Used in [`ModuleInfo`] to access function signatures ([`SigIndex`]s,
 /// [`FuncSig`]), [`GlobalInit`]s, [`MemoryDescriptor`]s, and
 /// [`TableDescriptor`]s.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, BorshSerialize, BorshDeserialize,
+)]
 pub enum ExportIndex {
     /// Function export index. [`FuncIndex`] is a type-safe handle referring to
     /// a Wasm function.
@@ -489,7 +488,18 @@ impl<K: TypedIndex> StringTable<K> {
 }
 
 /// A type-safe handle referring to a module namespace.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub struct NamespaceIndex(u32);
 
 impl TypedIndex for NamespaceIndex {
@@ -505,7 +515,18 @@ impl TypedIndex for NamespaceIndex {
 }
 
 /// A type-safe handle referring to a name in a module namespace.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub struct NameIndex(u32);
 
 impl TypedIndex for NameIndex {
