@@ -354,10 +354,10 @@ endif
 all: build-wasmer build-capi
 
 build-wasmer:
-	cargo build --release --manifest-path lib/cli/Cargo.toml --features "debug" $(compiler_features) --bin wasmer
+	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
 
 bench:
 	cargo bench $(compiler_features)
