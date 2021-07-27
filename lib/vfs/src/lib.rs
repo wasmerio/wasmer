@@ -24,7 +24,6 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         self.metadata(path)
     }
-
     fn remove_file(&self, path: &Path) -> Result<(), FsError>;
     fn new_open_options(&self) -> OpenOptions;
 }
@@ -158,9 +157,6 @@ pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcas
     fn sync_to_disk(&self) -> Result<(), FsError> {
         Ok(())
     }
-
-    /// Moves the file to a new location
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError>;
 
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize, FsError>;
@@ -346,7 +342,10 @@ impl DirEntry {
     }
 
     pub fn file_name(&self) -> OsString {
-        self.path.as_os_str().to_owned()
+        self.path
+            .file_name()
+            .unwrap_or_else(|| self.path.as_os_str())
+            .to_owned()
     }
 }
 

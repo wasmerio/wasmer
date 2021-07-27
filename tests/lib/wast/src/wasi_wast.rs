@@ -552,7 +552,4 @@ impl VirtualFile for OutputCapturerer {
     fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(1024)
     }
-    fn rename_file(&self, _: &Path) -> Result<(), FsError> {
-        panic!("Output should not be renamed");
-    }
 }

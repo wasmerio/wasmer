@@ -334,10 +334,6 @@ impl VirtualFile for HostFile {
         self.inner.sync_all().map_err(Into::into)
     }
 
-    fn rename_file(&self, new_name: &std::path::Path) -> Result<(), FsError> {
-        std::fs::rename(&self.host_path, new_name).map_err(Into::into)
-    }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
         let host_fd = self.get_raw_fd().unwrap();
@@ -456,9 +452,6 @@ impl VirtualFile for Stdout {
 
         host_file_bytes_available(host_fd)
     }
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        panic!("Stdout can't be renamed");
-    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
@@ -550,9 +543,6 @@ impl VirtualFile for Stderr {
 
         host_file_bytes_available(host_fd)
     }
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        panic!("Stderr can't be renamed");
-    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         use std::os::unix::io::AsRawFd;
@@ -643,9 +633,6 @@ impl VirtualFile for Stdin {
         let host_fd = self.get_raw_fd().unwrap();
 
         host_file_bytes_available(host_fd)
-    }
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        panic!("Stdin can't be renamed");
     }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {

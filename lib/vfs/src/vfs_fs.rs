@@ -173,11 +173,6 @@ impl VirtualFile for VfsOpenFile {
         Ok(())
     }
 
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        // no-op, in vfs this isn't done  here
-        Ok(())
-    }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         todo!("unclear if vfs can do this")
     }

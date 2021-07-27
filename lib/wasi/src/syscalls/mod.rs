@@ -991,6 +991,7 @@ pub fn fd_readdir(
 
     let entries: Vec<(String, u8, u64)> = match &state.fs.inodes[working_dir.inode].kind {
         Kind::Dir { path, entries, .. } => {
+            debug!("Reading dir {:?}", path);
             // TODO: refactor this code
             // we need to support multiple calls,
             // simple and obviously correct implementation for now:
@@ -1000,11 +1001,16 @@ pub fn fd_readdir(
                 .map_err(|_| __WASI_EIO));
             let mut entry_vec = wasi_try!(fs_info
                 .into_iter()
-                .map(|entry| Ok((
-                    entry.file_name().to_string_lossy().to_string(),
-                    virtual_file_type_to_wasi_file_type(entry.file_type().map_err(|_| __WASI_EIO)?),
-                    0, // TODO: inode
-                )))
+                .map(|entry| {
+                    let filename = entry.file_name().to_string_lossy().to_string();
+                    debug!("Getting file: {:?}", filename);
+                    let filetype = virtual_file_type_to_wasi_file_type(
+                        entry.file_type().map_err(|_| __WASI_EIO)?,
+                    );
+                    Ok((
+                        filename, filetype, 0, // TODO: inode
+                    ))
+                })
                 .collect::<Result<Vec<(String, u8, u64)>, _>>());
             entry_vec.extend(
                 entries
@@ -1023,6 +1029,7 @@ pub fn fd_readdir(
             entry_vec
         }
         Kind::Root { entries } => {
+            debug!("Reading root");
             let sorted_entries = {
                 let mut entry_vec: Vec<(String, Inode)> =
                     entries.iter().map(|(a, b)| (a.clone(), *b)).collect();
@@ -2081,8 +2088,7 @@ pub fn path_rename(
             // could just be unified even if there's a `Box<dyn VirtualFile>` which just
             // implements the logic of "I'm not actually a file, I'll try to be as needed".
             let result = if let Some(h) = handle {
-                h.rename_file(&host_adjusted_target_path)
-                    .map_err(fs_error_into_wasi_err)
+                state.fs_rename(&source_path, &host_adjusted_target_path)
             } else {
                 let path_clone = path.clone();
                 let out = state.fs_rename(&path_clone, &host_adjusted_target_path);

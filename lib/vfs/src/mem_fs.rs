@@ -44,6 +44,26 @@ pub struct MemFileSystemInner {
 }
 
 impl MemFileSystemInner {
+    /// Removes a file, returning the `inode` number
+    fn remove_file_inner(&mut self, path: &Path) -> Result<u64, FsError> {
+        let parent = path.parent().unwrap();
+        let file = path.file_name().unwrap();
+        let memkind = self.get_memkind_at_mut(parent).unwrap();
+        let inode: u64 = match memkind {
+            MemKind::Directory { contents, .. } => {
+                let name = file.to_str().unwrap().to_string();
+                let inode: u64 = match contents.get(&name).unwrap() {
+                    MemKind::File { inode, .. } => *inode,
+                    _ => return Err(FsError::NotAFile),
+                };
+                contents.remove(&name);
+                inode
+            }
+            _ => return Err(FsError::NotAFile),
+        };
+        Ok(inode)
+    }
+
     #[allow(dead_code)]
     fn get_memkind_at(&self, path: &Path) -> Option<&MemKind> {
         let mut components = path.components();
@@ -130,29 +150,46 @@ impl FileSystem for MemFileSystem {
         }
         Ok(())
     }
-    fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
-        todo!("rename")
-        //fs::rename(from, to).map_err(Into::into)
+    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
+        let inner = self.inner.lock().unwrap();
+        // We assume that we move into a location that has a parent.
+        // Otherwise (the root) should not be replaceable, and we should trigger an
+        // error.
+        let parent_to = to.parent().unwrap();
+
+        // TODO: return a proper error (not generic unknown)
+        let memkind_from = inner.get_memkind_at(from).ok_or(FsError::UnknownError)?;
+        let mut inner = self.inner.lock().unwrap();
+        let memkind_to = inner
+            .get_memkind_at_mut(parent_to)
+            .ok_or(FsError::BaseNotDirectory)?;
+
+        // We update the to contents of the new dir, adding the old memkind
+        match memkind_to {
+            MemKind::Directory { contents, .. } => {
+                let name = to.file_name().unwrap().to_str().unwrap().to_string();
+                contents.insert(name, memkind_from.clone());
+            }
+            // If we are trying to move from the root `/dir1` to `/file/dir2`
+            _ => return Err(FsError::BaseNotDirectory),
+        }
+
+        // We remove the old memkind location
+        match memkind_from {
+            MemKind::Directory { .. } => {
+                self.remove_dir(from)?;
+            }
+            MemKind::File { .. } => {
+                inner.remove_file_inner(from)?;
+            }
+        }
+        Ok(())
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
-        let parent = path.parent().unwrap();
-        let file = path.file_name().unwrap();
         let mut inner = self.inner.lock().unwrap();
-        let memkind = inner.get_memkind_at_mut(parent).unwrap();
-        let inode: u64 = match memkind {
-            MemKind::Directory { contents, .. } => {
-                let name = file.to_str().unwrap().to_string();
-                let inode: u64 = match contents.get(&name).unwrap() {
-                    MemKind::File { inode, .. } => *inode,
-                    _ => panic!("expected file, found directory"),
-                };
-                contents.remove(&name);
-                inode
-            }
-            _ => panic!("found file, expected directory"),
-        };
-        inner.inodes.remove(&inode);
+        let inode = inner.remove_file_inner(path)?;
+        inner.inodes.remove(&inode).unwrap();
         Ok(())
     }
     fn new_open_options(&self) -> OpenOptions {
@@ -363,9 +400,6 @@ impl VirtualFile for MemFile {
     fn sync_to_disk(&self) -> Result<(), FsError> {
         Ok(())
     }
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        Ok(())
-    }
     fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(self.buffer.len() - self.cursor)
     }
@@ -557,16 +591,6 @@ impl VirtualFile for MemFileHandle {
         file.sync_to_disk()
     }
 
-    fn rename_file(&self, new_name: &std::path::Path) -> Result<(), FsError> {
-        let inner = self.fs.inner.lock().unwrap();
-        let file = inner
-            .inodes
-            .get(&self.inode)
-            .ok_or_else(Self::no_file_err)?;
-
-        file.rename_file(new_name)
-    }
-
     fn bytes_available(&self) -> Result<usize, FsError> {
         let inner = self.fs.inner.lock().unwrap();
         let file = inner
@@ -666,9 +690,6 @@ impl VirtualFile for Stdout {
     }
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
-    }
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        panic!("Stdout can't be renamed");
     }
     fn bytes_available(&self) -> Result<usize, FsError> {
         // unwrap is safe because of get_raw_fd implementation
@@ -770,9 +791,6 @@ impl VirtualFile for Stderr {
     fn bytes_available(&self) -> Result<usize, FsError> {
         unimplemented!();
     }
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        panic!("Stderr can't be renamed");
-    }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!();
@@ -870,9 +888,6 @@ impl VirtualFile for Stdin {
     }
     fn bytes_available(&self) -> Result<usize, FsError> {
         unimplemented!();
-    }
-    fn rename_file(&self, _new_name: &std::path::Path) -> Result<(), FsError> {
-        panic!("Stdin can't be renamed");
     }
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
