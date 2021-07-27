@@ -67,7 +67,7 @@ fn fs_metadata_to_metadata(metadata: fs::Metadata) -> Result<Metadata, std::io::
         }
         #[cfg(not(unix))]
         {
-            (false, false, false)
+            (false, false, false, false)
         }
     };
 
