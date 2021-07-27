@@ -1,7 +1,6 @@
 use anyhow::Context;
 use std::fs::File;
 use std::io::{self, Read, Seek, Write};
-use std::path::Path;
 use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Module, Store};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
