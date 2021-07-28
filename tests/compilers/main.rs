@@ -7,6 +7,7 @@ extern crate compiler_test_derive;
 
 mod config;
 mod imports;
+mod issues;
 mod metering;
 mod middlewares;
 // mod multi_value_imports;
