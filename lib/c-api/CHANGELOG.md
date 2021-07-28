@@ -8,6 +8,9 @@ Looking for changes to the Wasmer CLI and the Rust API? See our [Primary Changel
 
 ## **[Unreleased]**
 
+### Fixed
+- [#2485](https://github.com/wasmerio/wasmer/pull/2493) Document wasm_limits_t’s members publicly.
+
 ### Added
 - [#2449](https://github.com/wasmerio/wasmer/pull/2449) Configure `soname`, `install_name`, `out-implib`, etc.
 
