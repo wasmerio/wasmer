@@ -9126,6 +9126,16 @@
 <span id="9123">9123</span>
 <span id="9124">9124</span>
 <span id="9125">9125</span>
+<span id="9126">9126</span>
+<span id="9127">9127</span>
+<span id="9128">9128</span>
+<span id="9129">9129</span>
+<span id="9130">9130</span>
+<span id="9131">9131</span>
+<span id="9132">9132</span>
+<span id="9133">9133</span>
+<span id="9134">9134</span>
+<span id="9135">9135</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">address_map</span>::<span class="ident">get_function_address_map</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common_decl</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="ident">Singlepass</span>, <span class="ident">emitter_x64</span>::<span class="kw-2">*</span>, <span class="ident">machine</span>::<span class="ident">Machine</span>, <span class="ident">x64_decl</span>::<span class="kw-2">*</span>};
@@ -14517,6 +14527,8 @@
 
                 <span class="kw">let</span> <span class="ident">vmcaller_checked_anyfunc_func_ptr</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">vmoffsets</span>.<span class="ident">vmcaller_checked_anyfunc_func_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span>;
+                <span class="kw">let</span> <span class="ident">vmcaller_checked_anyfunc_vmctx</span> <span class="op">=</span>
+                    <span class="self">self</span>.<span class="ident">vmoffsets</span>.<span class="ident">vmcaller_checked_anyfunc_vmctx</span>() <span class="kw">as</span> <span class="ident">usize</span>;
 
                 <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
@@ -14532,6 +14544,14 @@
                             <span class="ident">this</span>.<span class="ident">trap_table</span>
                                 .<span class="ident">offset_to_code</span>
                                 .<span class="ident">insert</span>(<span class="ident">offset</span>, <span class="ident">TrapCode</span>::<span class="ident">StackOverflow</span>);
+
+                            <span class="comment">// We set the context pointer</span>
+                            <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(
+                                <span class="ident">Size</span>::<span class="ident">S64</span>,
+                                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>, <span class="ident">vmcaller_checked_anyfunc_vmctx</span> <span class="kw">as</span> <span class="ident">i32</span>),
+                                <span class="ident">Machine</span>::<span class="ident">get_param_location</span>(<span class="number">0</span>),
+                            );
+
                             <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_location</span>(<span class="ident">Location</span>::<span class="ident">Memory</span>(
                                 <span class="ident">GPR</span>::<span class="ident">RAX</span>,
                                 <span class="ident">vmcaller_checked_anyfunc_func_ptr</span> <span class="kw">as</span> <span class="ident">i32</span>,
