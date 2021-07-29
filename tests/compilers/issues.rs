@@ -36,15 +36,21 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     (module
         (type (;0;) (func (param i32) (result i32)))
         (type (;1;) (func))
+        (type (;2;) (func (param i32 i32) (result i32)))
         (import "env" "__read_memory" (func $__read_memory (type 0)))
         (func $read_memory (type 1)
           (drop
-            (call $__read_memory
+            (call $_ZN5other8dispatch17h053cb34ef5d0d7b0E
+              (i32.const 1)
               (i32.const 2)))
           (drop
             (call $__read_memory
               (i32.const 1))))
-        (table (;0;) 1 1 funcref)
+        (func $_ZN5other8dispatch17h053cb34ef5d0d7b0E (type 2) (param i32 i32) (result i32)
+          (call_indirect (type 0)
+            (local.get 1)
+            (local.get 0)))
+        (table (;0;) 2 2 funcref)
         (memory (;0;) 16)
         (global (;0;) (mut i32) (i32.const 1048576))
         (global (;1;) i32 (i32.const 1048576))
@@ -52,8 +58,9 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
         (export "memory" (memory 0))
         (export "read_memory" (func $read_memory))
         (export "__data_end" (global 1))
-        (export "__heap_base" (global 2)))
-      "#;
+        (export "__heap_base" (global 2))
+        (elem (;0;) (i32.const 1) func $__read_memory))
+    "#;
     let module = Module::new(&store, wat)?;
     let env = Env::new();
     let imports: ImportObject = imports! {
