@@ -5388,6 +5388,8 @@ impl<'a> FuncGen<'a> {
 
                 let vmcaller_checked_anyfunc_func_ptr =
                     self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
+                let vmcaller_checked_anyfunc_vmctx =
+                    self.vmoffsets.vmcaller_checked_anyfunc_vmctx() as usize;
 
                 self.emit_call_sysv(
                     |this| {
@@ -5403,6 +5405,14 @@ impl<'a> FuncGen<'a> {
                             this.trap_table
                                 .offset_to_code
                                 .insert(offset, TrapCode::StackOverflow);
+
+                            // We set the context pointer
+                            this.assembler.emit_mov(
+                                Size::S64,
+                                Location::Memory(GPR::RAX, vmcaller_checked_anyfunc_vmctx as i32),
+                                Machine::get_param_location(0),
+                            );
+
                             this.assembler.emit_call_location(Location::Memory(
                                 GPR::RAX,
                                 vmcaller_checked_anyfunc_func_ptr as i32,
