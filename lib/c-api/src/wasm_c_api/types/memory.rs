@@ -71,8 +71,8 @@ pub unsafe extern "C" fn wasm_memorytype_delete(_memory_type: Option<Box<wasm_me
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct wasm_limits_t {
-    pub(crate) min: u32,
-    pub(crate) max: u32,
+    pub min: u32,
+    pub max: u32,
 }
 
 const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
