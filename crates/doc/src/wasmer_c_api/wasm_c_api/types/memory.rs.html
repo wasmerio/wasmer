@@ -156,8 +156,8 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_limits_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">min</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">max</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">min</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">max</span>: <span class="ident">u32</span>,
 }
 
 <span class="kw">const</span> <span class="ident">LIMITS_MAX_SENTINEL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">u32</span>::<span class="ident">max_value</span>();
