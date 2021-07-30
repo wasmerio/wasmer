@@ -20,6 +20,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `wasm_instance_new()`’s “traps” argument to “trap”.
 
 ### Fixed
+- [#2494](https://github.com/wasmerio/wasmer/pull/2494) Fixed `WasmerEnv` access when using `call_indirect` with the Singlepass compiler
 - [#2449](https://github.com/wasmerio/wasmer/pull/2449) Fixed `wasmer-c-api` used `soname`
 - [#2479](https://github.com/wasmerio/wasmer/pull/2479) Improved `wasmer validate` error message on non-wasm inputs
 - [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
