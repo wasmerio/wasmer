@@ -6,6 +6,8 @@ use crate::commands::Compile;
 use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
+#[cfg(target_os = "linux")]
+use crate::commands::Binfmt;
 use crate::commands::{Cache, Config, Inspect, Run, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use anyhow::Result;
@@ -66,6 +68,11 @@ enum WasmerCLIOptions {
     #[cfg(feature = "wast")]
     #[structopt(name = "wast")]
     Wast(Wast),
+
+    /// Unregister and/or register wasmer as binfmt interpreter
+    #[cfg(target_os = "linux")]
+    #[structopt(name = "binfmt")]
+    Binfmt(Binfmt),
 }
 
 impl WasmerCLIOptions {
@@ -83,6 +90,8 @@ impl WasmerCLIOptions {
             Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),
+            #[cfg(target_os = "linux")]
+            Self::Binfmt(binfmt) => binfmt.execute(),
         }
     }
 }
@@ -109,7 +118,7 @@ pub fn wasmer_main() {
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
             "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
-            | "self-update" | "validate" | "wast" => WasmerCLIOptions::from_args(),
+            | "self-update" | "validate" | "wast" | "binfmt" => WasmerCLIOptions::from_args(),
             _ => {
                 WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
                     match e.kind {
