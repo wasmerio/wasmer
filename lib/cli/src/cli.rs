@@ -97,21 +97,30 @@ pub fn wasmer_main() {
     // Eg. `wasmer <SUBCOMMAND>`
     // In case that fails, we fallback trying the Run subcommand directly.
     // Eg. `wasmer myfile.wasm --dir=.`
+    //
+    // In case we've been run as wasmer-binfmt-interpreter myfile.wasm args,
+    // we assume that we're registered via binfmt_misc
     let args = std::env::args().collect::<Vec<_>>();
+    let binpath = args.get(0).map(|s| s.as_ref()).unwrap_or("");
     let command = args.get(1);
-    let options = match command.unwrap_or(&"".to_string()).as_ref() {
-        "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
-        | "self-update" | "validate" | "wast" => WasmerCLIOptions::from_args(),
-        _ => {
-            WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
-                match e.kind {
-                    // This fixes a issue that:
-                    // 1. Shows the version twice when doing `wasmer -V`
-                    // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
-                    ErrorKind::VersionDisplayed | ErrorKind::HelpDisplayed => e.exit(),
-                    _ => WasmerCLIOptions::Run(Run::from_args()),
-                }
-            })
+    let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter")
+    {
+        WasmerCLIOptions::Run(Run::from_binfmt_args())
+    } else {
+        match command.unwrap_or(&"".to_string()).as_ref() {
+            "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
+            | "self-update" | "validate" | "wast" => WasmerCLIOptions::from_args(),
+            _ => {
+                WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
+                    match e.kind {
+                        // This fixes a issue that:
+                        // 1. Shows the version twice when doing `wasmer -V`
+                        // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
+                        ErrorKind::VersionDisplayed | ErrorKind::HelpDisplayed => e.exit(),
+                        _ => WasmerCLIOptions::Run(Run::from_args()),
+                    }
+                })
+            }
         }
     };
 

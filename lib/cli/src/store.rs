@@ -12,7 +12,7 @@ use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, StructOpt, Default)]
 /// The compiler and engine options
 pub struct StoreOptions {
     #[structopt(flatten)]
@@ -43,7 +43,7 @@ pub struct StoreOptions {
     object_file: bool,
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, StructOpt, Default)]
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
