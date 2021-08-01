@@ -19,6 +19,9 @@ enum Action {
 }
 
 /// Unregister and/or register wasmer as binfmt interpreter
+///
+/// Check the wasmer repository for a systemd service definition example
+/// to automate the process at start-up.
 #[derive(StructOpt)]
 pub struct Binfmt {
     // Might be better to traverse the mount list
