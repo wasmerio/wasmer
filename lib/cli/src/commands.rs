@@ -11,7 +11,7 @@ mod self_update;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 mod binfmt;
 
 #[cfg(feature = "compiler")]
@@ -20,6 +20,6 @@ pub use compile::*;
 pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub use binfmt::*;
 pub use {cache::*, config::*, inspect::*, run::*, self_update::*, validate::*};
