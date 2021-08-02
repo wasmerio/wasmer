@@ -38,12 +38,12 @@ pub struct Binfmt {
 //
 // If somebody mounted /tmp wrong, this might result in a TOCTOU problem.
 fn seccheck(path: &Path) -> Result<()> {
-    let m = std::fs::metadata(path)
-        .with_context(|| format!("Can't check permissions of {}", path.to_string_lossy()))?;
-    anyhow::ensure!(m.mode() & 0o2 == 0 || m.mode() & 0o1000 != 0, "{} is world writeable and not sticky", path.to_string_lossy());
     if let Some(parent) = path.parent() {
         seccheck(parent)?;
     }
+    let m = std::fs::metadata(path)
+        .with_context(|| format!("Can't check permissions of {}", path.to_string_lossy()))?;
+    anyhow::ensure!(m.mode() & 0o2 == 0 || m.mode() & 0o1000 != 0, "{} is world writeable and not sticky", path.to_string_lossy());
     Ok(())
 }
 
