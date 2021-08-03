@@ -8,7 +8,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use Action::*;
 
-#[derive(StructOpt)]
+#[derive(StructOpt,Clone,Copy)]
 enum Action {
     /// Register wasmer as binfmt interpreter
     Register,
@@ -54,7 +54,7 @@ impl Binfmt {
             panic!("{} does not exist", self.binfmt_misc.to_string_lossy());
         }
         let temp_dir;
-        let spec = match self.action {
+        let specs = match self.action {
             Register | Reregister => {
                 temp_dir = tempfile::tempdir().context("Make temporary directory")?;
                 seccheck(temp_dir.path())?;
@@ -65,34 +65,49 @@ impl Binfmt {
                     .context("Copy wasmer binary to temp folder")?;
                 let bin_path = fs::canonicalize(&bin_path)
                     .with_context(|| format!("Couldn't get absolute path for {}", bin_path.to_string_lossy()))?;
-                Some([b":wasm32:M::\\x00asm\\x01\\x00\\x00::".as_ref(), bin_path.as_os_str().as_bytes(), b":PFC"].concat())
+                Some([
+                    [b":wasm32:M::\\x00asm\\x01\\x00\\x00::".as_ref(), bin_path.as_os_str().as_bytes(), b":PFC"].concat(),
+                    [b":wasm32-wat:E::wat::".as_ref(),                 bin_path.as_os_str().as_bytes(), b":PFC"].concat(),
+                ])
             },
             _ => None
         };
-        let registration = self.binfmt_misc.join("wasm32");
-        let registration_exists = registration.exists();
+        let wasm_registration = self.binfmt_misc.join("wasm32");
+        let wat_registration = self.binfmt_misc.join("wasm32-wat");
         match self.action {
-            Unregister if !registration_exists => {
-                bail!("Cannot unregister binfmt, not registered");
-            },
-            Reregister | Unregister if registration.exists() => {
-                let mut registration = fs::OpenOptions::new()
-                    .write(true)
-                    .open(registration).context("Open existing binfmt entry to remove")?;
-                registration.write_all(b"-1").context("Couldn't write binfmt unregister request")?;
+            Reregister | Unregister => {
+                let unregister = [wasm_registration, wat_registration].iter().map(|registration| {
+                    if registration.exists() {
+                        let mut registration = fs::OpenOptions::new()
+                            .write(true)
+                            .open(registration).context("Open existing binfmt entry to remove")?;
+                        registration.write_all(b"-1").context("Couldn't write binfmt unregister request")?;
+                        Ok(true)
+                    } else {
+                        eprintln!("Warning: {} does not exist, not unregistered.", registration.to_string_lossy());
+                        Ok(false)
+                    }
+                }).collect::<Vec<_>>().into_iter().collect::<Result<Vec<_>>>()?;
+                match (self.action, unregister.into_iter().any(|b| b)) {
+                    (Unregister, false) => bail!("Nothing unregistered"),
+                    _ => ()
+                }
             },
             _ => (),
         };
-        if cfg!(target_env = "gnu") {
-            // Approximate. ELF parsing for a proper check feels like overkill here.
-            eprintln!("Warning: wasmer has been compiled for glibc, and is thus likely dynamically linked. Invoking wasm binaries in chroots or mount namespaces (lxc, docker, ...) may not work.");
-        }
-        if let Some(spec) = spec {
-            let register = self.binfmt_misc.join("register");
-            let mut register = fs::OpenOptions::new()
-                .write(true)
-                .open(register).context("Open binfmt misc for registration")?;
-            register.write_all(&spec).context("Couldn't register binfmt")?;
+        if let Some(specs) = specs {
+            if cfg!(target_env = "gnu") {
+                // Approximate. ELF parsing for a proper check feels like overkill here.
+                eprintln!("Warning: wasmer has been compiled for glibc, and is thus likely dynamically linked. Invoking wasm binaries in chroots or mount namespaces (lxc, docker, ...) may not work.");
+            }
+            specs.iter().map(|spec| {
+                let register = self.binfmt_misc.join("register");
+                let mut register = fs::OpenOptions::new()
+                    .write(true)
+                    .open(register).context("Open binfmt misc for registration")?;
+                register.write_all(&spec).context("Couldn't register binfmt")?;
+                Ok(())
+            }).collect::<Vec<_>>().into_iter().collect::<Result<Vec<_>>>()?;
         }
         Ok(())
     }
