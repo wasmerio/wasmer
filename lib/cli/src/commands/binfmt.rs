@@ -26,7 +26,7 @@ enum Action {
 pub struct Binfmt {
     // Might be better to traverse the mount list
     /// Mount point of binfmt_misc fs
-    #[structopt(default_value = "/proc/sys/fs/binfmt_misc/")]
+    #[structopt(long, default_value = "/proc/sys/fs/binfmt_misc/")]
     binfmt_misc: PathBuf,
 
     #[structopt(subcommand)]
