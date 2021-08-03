@@ -104,7 +104,7 @@ impl Wasi {
             deny_multiple_wasi_versions: true,
             env_vars: env::vars().collect(),
             pre_opened_directories: vec![dir],
-            .. Self::default()
+            ..Self::default()
         })
     }
 }

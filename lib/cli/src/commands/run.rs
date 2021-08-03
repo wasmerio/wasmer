@@ -424,7 +424,8 @@ impl Run {
     pub fn from_binfmt_args() -> Run {
         Self::from_binfmt_args_fallible().unwrap_or_else(|e| {
             crate::error::PrettyError::report::<()>(
-                Err(e).context("Failed to set up wasmer binfmt invocation"))
+                Err(e).context("Failed to set up wasmer binfmt invocation"),
+            )
         })
     }
 
@@ -432,7 +433,7 @@ impl Run {
     fn from_binfmt_args_fallible() -> Result<Run> {
         let argv = std::env::args_os().collect::<Vec<_>>();
         let (_interpreter, executable, original_executable, args) = match &argv[..] {
-            [a, b, c, d@..] => (a,b,c,d),
+            [a, b, c, d @ ..] => (a, b, c, d),
             _ => {
                 bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
             }
@@ -440,10 +441,22 @@ impl Run {
         // TODO: Optimally, args and env would be passed as an UTF-8 Vec.
         // (Can be pulled out of std::os::unix::ffi::OsStrExt)
         // But I don't want to duplicate or rewrite run.rs today.
-        let args = args.iter().enumerate().map(|(i, s)| {
-            s.clone().into_string().map_err(|s| anyhow!("Cannot convert argument {} ({:?}) to UTF-8 string", i + 1, s))
-        }).collect::<Result<Vec<_>>>()?;
-        let original_executable = original_executable.clone().into_string()
+        let args = args
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                s.clone().into_string().map_err(|s| {
+                    anyhow!(
+                        "Cannot convert argument {} ({:?}) to UTF-8 string",
+                        i + 1,
+                        s
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let original_executable = original_executable
+            .clone()
+            .into_string()
             .map_err(|s| anyhow!("Cannot convert executable name {:?} to UTF-8 string", s))?;
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
@@ -453,7 +466,7 @@ impl Run {
             command_name: Some(original_executable),
             store: store,
             wasi: Wasi::for_binfmt_interpreter()?,
-            .. Self::default()
+            ..Self::default()
         })
     }
     #[cfg(not(target_os = "linux"))]

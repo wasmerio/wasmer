@@ -1,13 +1,13 @@
 //! The logic for the Wasmer CLI tool.
 
+#[cfg(target_os = "linux")]
+use crate::commands::Binfmt;
 #[cfg(feature = "compiler")]
 use crate::commands::Compile;
 #[cfg(all(feature = "staticlib", feature = "compiler"))]
 use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
-#[cfg(target_os = "linux")]
-use crate::commands::Binfmt;
 use crate::commands::{Cache, Config, Inspect, Run, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use anyhow::Result;
@@ -112,8 +112,7 @@ pub fn wasmer_main() {
     let args = std::env::args().collect::<Vec<_>>();
     let binpath = args.get(0).map(|s| s.as_ref()).unwrap_or("");
     let command = args.get(1);
-    let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter")
-    {
+    let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter") {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
