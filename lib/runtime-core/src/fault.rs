@@ -190,23 +190,31 @@ pub unsafe fn catch_unsafe_unwind<R, F: FnOnce() -> R>(
     f: F,
     breakpoints: Option<BreakpointMap>,
 ) -> Result<R, RuntimeError> {
-    let unwind = UNWIND.with(|x| x.get());
-    let old = (*unwind).take();
-    *unwind = Some(UnwindInfo {
-        jmpbuf: [0; SETJMP_BUFFER_LEN],
-        breakpoints: breakpoints,
-        payload: None,
+    let old = UNWIND.with(|x| -> Option<UnwindInfo> {
+        let val = x.get();
+        let old = val.as_mut().unwrap().take();
+        *val = Some(UnwindInfo {
+            jmpbuf: [0; SETJMP_BUFFER_LEN],
+            breakpoints: breakpoints,
+            payload: None,
+        });
+        old
     });
 
+    let unwind = UNWIND.with(|x| x.get());
     if raw::setjmp(&mut (*unwind).as_mut().unwrap().jmpbuf as *mut SetJmpBuffer as *mut _) != 0 {
         // error
-        let ret = (*unwind).as_mut().unwrap().payload.take().unwrap();
-        *unwind = old;
-        Err(*ret)
+        let ret = UNWIND.with(|x| -> RuntimeError {
+            let val = x.get();
+            let current = val.as_mut().unwrap().take().unwrap();
+            *val = old;
+            *current.payload.unwrap()
+        });
+        Err(ret)
     } else {
         let ret = f();
         // implicit control flow to the error case...
-        *unwind = old;
+        UNWIND.with(|x| *x.get() = old);
         Ok(ret)
     }
 }
