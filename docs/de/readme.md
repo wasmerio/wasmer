@@ -14,7 +14,7 @@
       <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Doku">
     </a>
     <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=mach%20mit!&color=brighgreen" alt="Slack Kanal">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=teilnehmen&color=brighgreen" alt="Slack Kanal">
     </a>
   </p>
 </div>
