@@ -25,11 +25,10 @@ Wasmer ist eine _schnelle_ und _sichere_ [**WebAssembly**](https://webassembly.o
 _schlanken Containern_ überall ermöglicht: auf dem *Desktop* in der *Cloud*, so wie auf *Edge* und *IoT* Geräten.
 
 > _Dieses Dokument ist auch verfügbar in:
-[🇨🇳 中 文 -Chinesisch](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
-[🇩🇪 Deutsch](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • 
+[🇨🇳 中文-Chinesisch](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
 [🇪🇸 Español-Spanisch](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
 [🇫🇷 Français-Französisch](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
-[🇯🇵 日本 語 -Japanisch](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
+[🇯🇵 日本語-Japanisch](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
 
 ### Leistungsmerkmale
 
