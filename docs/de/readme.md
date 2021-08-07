@@ -26,6 +26,7 @@ _schlanken Containern_ überall ermöglicht: auf dem *Desktop* in der *Cloud*, s
 
 > _Dieses Dokument ist auch verfügbar in:
 [🇨🇳 中文-Chinesisch](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
+[🇬🇧 English-Englisch](https://github.com/wasmerio/wasmer/blob/master/README.md) •
 [🇪🇸 Español-Spanisch](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
 [🇫🇷 Français-Französisch](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
 [🇯🇵 日本語-Japanisch](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
