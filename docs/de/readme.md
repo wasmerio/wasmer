@@ -26,7 +26,7 @@ _schlanken Containern_ überall ermöglicht: auf dem *Desktop* in der *Cloud*, s
 
 > _Dieses Dokument ist auch verfügbar in:
 [🇨🇳 中 文 -Chinesisch](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
-[🇩🇪 Deutsch-Deutsch](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • 
+[🇩🇪 Deutsch](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • 
 [🇪🇸 Español-Spanisch](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
 [🇫🇷 Français-Französisch](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
 [🇯🇵 日本 語 -Japanisch](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
@@ -70,7 +70,7 @@ curl https://get.wasmer.io -sSfL | sh
     scoop install wasmer
     ```
 
-  * <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (windows)
+  * <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (Windows)
 
     ```sh
     choco install wasmer
@@ -107,7 +107,7 @@ hello 3
 #### Folgendes können Sie als nächstes tun:
 
 - [Wasmer für eine Rust Anwendung nutzen](https://docs.wasmer.io/integrations/rust)
-- [Ein asm package auf WAPM veröffentlichen](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
+- [Ein asm Paket auf WAPM veröffentlichen](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
 - [Mehr zu Wasmer lesen](https://medium.com/wasmer/)
 
 ## 📦 Unterstützte Sprachen
@@ -119,20 +119,20 @@ Sprachen** verwendet werden, so dass Sie WebAssembly _überall_ einsetzen könne
 |-|-|-|-|
 | ![Rust logo] | [**Rust**][Rust Integration] | [`wasmer` Rust crate] | [Lernen][rust docs]
 | ![C logo] | [**C/C++**][C Integration] | [`wasmer.h` header] | [Lernen][c docs] |
-| ![C# logo] | [**C#**][C# Integration] | [`WasmerSharp` NuGet package] | [Lernen][c# docs] |
-| ![D logo] | [**D**][D Integration] | [`wasmer` Dub package] | [Lernen][d docs] |
-| ![Python logo] | [**Python**][Python Integration] | [`wasmer` PyPI package] | [Lernen][python docs] |
-| ![JS logo] | [**Javascript**][JS Integration] | [`@wasmerio` NPM packages] | [Lernen][js docs] |
-| ![Go logo] | [**Go**][Go Integration] | [`wasmer` Go package] | [Lernen][go docs] |
-| ![PHP logo] | [**PHP**][PHP Integration] | [`wasm` PECL package] | [Lernen][php docs] |
+| ![C# logo] | [**C#**][C# Integration] | [`WasmerSharp` NuGet Paket] | [Lernen][c# docs] |
+| ![D logo] | [**D**][D Integration] | [`wasmer` Dub Paket] | [Lernen][d docs] |
+| ![Python logo] | [**Python**][Python Integration] | [`wasmer` PyPI Paket] | [Lernen][python docs] |
+| ![JS logo] | [**Javascript**][JS Integration] | [`@wasmerio` NPM Paket] | [Lernen][js docs] |
+| ![Go logo] | [**Go**][Go Integration] | [`wasmer` Go Paket] | [Lernen][go docs] |
+| ![PHP logo] | [**PHP**][PHP Integration] | [`wasm` PECL Paket] | [Lernen][php docs] |
 | ![Ruby logo] | [**Ruby**][Ruby Integration] | [`wasmer` Ruby Gem] | [Lernen][ruby docs] |
-| ![Java logo] | [**Java**][Java Integration] | [`wasmer/wasmer-jni` Bintray package] | [Lernen][java docs] |
-| ![Elixir logo] | [**Elixir**][Elixir Integration] | [`wasmex` hex package] | [Lernen][elixir docs] |
+| ![Java logo] | [**Java**][Java Integration] | [`wasmer/wasmer-jni` Bintray Paket] | [Lernen][java docs] |
+| ![Elixir logo] | [**Elixir**][Elixir Integration] | [`wasmex` hex Paket] | [Lernen][elixir docs] |
 | ![R logo] | [**R**][R Integration] | *kein Paket veröffentlicht* | [Lernen][r docs] |
 | ![Postgres logo] | [**Postgres**][Postgres Integration] | *kein Paket veröffentlicht* | [Lernen][postgres docs] |
 |  | [**Swift**][Swift Integration] | *kein Paket veröffentlicht* | |
 | ![Zig logo] | [**Zig**][Zig Integration] | *kein Paket veröffentlicht* | |
-| ![Dart logo] | [**Dart**][Dart Integration] | [`wasm` pub package] | |
+| ![Dart logo] | [**Dart**][Dart Integration] | [`wasm` pub Paket] | |
 
 [👋&nbsp;&nbsp;Fehlt eine Sprache?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
