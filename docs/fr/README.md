@@ -29,7 +29,7 @@
 
 [Wasmer](https://wasmer.io/) permet l'utilisation de conteneurs super légers basés sur [WebAssembly](https://webassembly.org/) qui peuvent fonctionner n'importe où : du bureau au cloud en passant par les appareils IoT, et également intégrés dans [*une multitude de langages de programmation*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> This readme is also available in: [🇬🇧 English-Anglaise](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-Espagnol](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇨🇳 中文-Chinoise](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇯🇵 日本語-japonais](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)
+> This readme is also available in: [🇩🇪 Deutsch-Allemand](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • [🇬🇧 English-Anglaise](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-Espagnol](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇨🇳 中文-Chinoise](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇯🇵 日本語-japonais](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)
 
 ## Fonctionnalités
 
