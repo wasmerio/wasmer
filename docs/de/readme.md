@@ -24,7 +24,7 @@
 Wasmer ist eine _schnelle_ und _sichere_ [**WebAssembly**](https://webassembly.org) Runtime, die das Ausführen von
 _schlanken Containern_ überall ermöglicht: auf dem *Desktop* in der *Cloud*, so wie auf *Edge* und *IoT* Geräten.
 
-> _This README is also available in:
+> _Die README ist auch in folgenden Sprachen verfügbar:
 [🇨🇳 中文-Chinesisch](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
 [🇬🇧 English-Englisch](https://github.com/wasmerio/wasmer/blob/master/README.md) •
 [🇪🇸 Español-Spanisch](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
