@@ -26,6 +26,7 @@ _lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* 
 
 > _This document is also available in:
 [🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
+[🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • 
 [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
 [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
 [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
@@ -69,7 +70,7 @@ curl https://get.wasmer.io -sSfL | sh
     scoop install wasmer
     ```
 
-  * <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (windows)
+  * <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (Windows)
 
     ```sh
     choco install wasmer
