@@ -16,7 +16,7 @@ wasmer-compiler = { path = "../compiler", version = "2.0.0", features = ["transl
 wasmer-vm = { path = "../vm", version = "2.0.0" }
 wasmer-types = { path = "../types", version = "2.0.0", default-features = false, features = ["std"] }
 rayon = { version = "1.5", optional = true }
-hashbrown = { version = "0.9", optional = true }
+hashbrown = { version = "0.11", optional = true }
 more-asserts = "0.2"
 dynasm = "1.0"
 dynasmrt = "1.0"

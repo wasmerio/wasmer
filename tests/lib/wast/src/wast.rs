@@ -197,7 +197,7 @@ impl Wast {
             }
             AssertInvalid {
                 span: _,
-                mut module,
+                module,
                 message,
             } => {
                 let wasm = match module {

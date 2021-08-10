@@ -19,7 +19,7 @@ cranelift-entity = { version = "0.76", default-features = false }
 cranelift-codegen = { version = "0.76", default-features = false, features = ["x86", "arm64"] }
 cranelift-frontend = { version = "0.76", default-features = false }
 tracing = "0.1"
-hashbrown = { version = "0.9", optional = true }
+hashbrown = { version = "0.11", optional = true }
 rayon = "1.5"
 more-asserts = "0.2"
 gimli = { version = "0.25", optional = true }
