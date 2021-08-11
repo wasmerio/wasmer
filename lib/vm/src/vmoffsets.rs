@@ -89,7 +89,7 @@ impl VMOffsets {
             num_local_tables: 0,
             num_local_memories: 0,
             num_local_globals: 0,
-            num_trap_handlers: 1,
+            num_trap_handlers: 0,
         }
     }
 }
