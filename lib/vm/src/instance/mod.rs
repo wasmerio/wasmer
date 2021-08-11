@@ -19,6 +19,7 @@ use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::{Table, TableElement};
+use crate::trap::traphandlers::get_trap_handler;
 use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
@@ -390,6 +391,11 @@ impl Instance {
     #[inline]
     pub fn host_state(&self) -> &dyn Any {
         &*self.host_state
+    }
+
+    /// Return a pointer to the trap catcher.
+    fn trap_catcher_ptr(&self) -> *mut *const u8 {
+        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_trap_handler()) }
     }
 
     /// Invoke the WebAssembly start function of the instance, if one is present.
@@ -949,6 +955,7 @@ impl InstanceHandle {
                     &vmshared_signatures,
                     vmctx_ptr,
                 );
+                *(instance.trap_catcher_ptr()) = get_trap_handler();
             }
 
             Self {

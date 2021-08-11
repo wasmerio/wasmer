@@ -98,6 +98,11 @@ impl StaticlibEngine {
 }
 
 impl Engine for StaticlibEngine {
+    /// If signal usage required.
+    fn use_signals(&self) -> bool {
+        true
+    }
+
     /// The target
     fn target(&self) -> &Target {
         &self.target

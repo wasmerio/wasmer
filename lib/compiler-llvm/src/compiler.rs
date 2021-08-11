@@ -188,6 +188,10 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
+    fn use_signals(&self) -> bool {
+        true
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares

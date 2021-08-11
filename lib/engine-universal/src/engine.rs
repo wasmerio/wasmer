@@ -93,6 +93,11 @@ impl Engine for UniversalEngine {
         compiler.signatures().register(func_type)
     }
 
+    fn use_signals(&self) -> bool {
+        let compiler = self.inner();
+        compiler.use_signals()
+    }
+
     fn register_function_metadata(&self, func_data: VMCallerCheckedAnyfunc) -> VMFuncRef {
         let compiler = self.inner();
         compiler.func_data().register(func_data)
@@ -194,6 +199,14 @@ impl UniversalEngineInner {
     /// The Wasm features
     pub fn features(&self) -> &Features {
         &self.features
+    }
+
+    /// If need to install signal handlers.
+    pub fn use_signals(&self) -> bool {
+        match self.compiler() {
+            Ok(compiler) => compiler.use_signals(),
+            _ => true,
+        }
     }
 
     /// Allocate compiled functions into memory

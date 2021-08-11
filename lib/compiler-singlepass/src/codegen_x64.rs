@@ -2,7 +2,6 @@ use crate::address_map::get_function_address_map;
 use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
 use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
-use std::collections::BTreeMap;
 use std::iter;
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
@@ -10,7 +9,7 @@ use wasmer_compiler::wasmparser::{
 use wasmer_compiler::{
     CompiledFunction, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
     FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SectionIndex, SourceLoc, TrapInformation,
+    RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
@@ -73,9 +72,6 @@ pub struct FuncGen<'a> {
     /// Function state map. Not yet used in the reborn version but let's keep it.
     fsm: FunctionStateMap,
 
-    /// Trap table.
-    trap_table: TrapTable,
-
     /// Relocation information.
     relocations: Vec<Relocation>,
 
@@ -93,17 +89,12 @@ pub struct FuncGen<'a> {
 
 struct SpecialLabelSet {
     integer_division_by_zero: DynamicLabel,
+    integer_overflow: DynamicLabel,
+    bad_conversion_to_integer: DynamicLabel,
     heap_access_oob: DynamicLabel,
     table_access_oob: DynamicLabel,
     indirect_call_null: DynamicLabel,
     bad_signature: DynamicLabel,
-}
-
-/// A trap table for a `RunnableModuleInfo`.
-#[derive(Clone, Debug, Default)]
-pub struct TrapTable {
-    /// Mappings from offsets in generated machine code to the corresponding trap code.
-    pub offset_to_code: BTreeMap<usize, TrapCode>,
 }
 
 /// Metadata about a floating-point value.
@@ -302,27 +293,25 @@ impl<'a> FuncGen<'a> {
         );
     }
 
-    /// Marks each address in the code range emitted by `f` with the trap code `code`.
-    fn mark_range_with_trap_code<F: FnOnce(&mut Self) -> R, R>(
-        &mut self,
-        code: TrapCode,
-        f: F,
-    ) -> R {
-        let begin = self.assembler.get_offset().0;
-        let ret = f(self);
-        let end = self.assembler.get_offset().0;
-        for i in begin..end {
-            self.trap_table.offset_to_code.insert(i, code);
-        }
-        self.mark_instruction_address_end(begin);
-        ret
-    }
-
-    /// Marks one address as trappable with trap code `code`.
-    fn mark_address_with_trap_code(&mut self, code: TrapCode) {
-        let offset = self.assembler.get_offset().0;
-        self.trap_table.offset_to_code.insert(offset, code);
-        self.mark_instruction_address_end(offset);
+    fn emit_trap(&mut self, code: TrapCode) {
+        let label = self.assembler.get_label();
+        self.assembler.emit_label(label);
+        self.assembler
+            .emit_lea_label(label, Machine::get_param_location(0));
+        self.assembler.emit_mov(
+            Size::S32,
+            Location::Imm32(code as u32),
+            Machine::get_param_location(1),
+        );
+        // Align stack.
+        self.assembler.emit_and(
+            Size::S64,
+            Location::Imm32(0xfffffff0),
+            Location::GPR(GPR::RSP),
+        );
+        let offset = self.vmoffsets.vmctx_trap_handler();
+        self.assembler
+            .emit_call_location(Location::Memory(Machine::get_vmctx_reg(), offset as i32));
     }
 
     /// Canonicalizes the floating point value at `input` into `output`.
@@ -373,37 +362,65 @@ impl<'a> FuncGen<'a> {
     }
 
     /// Moves `loc` to a valid location for `div`/`idiv`.
-    fn emit_relaxed_xdiv(
-        &mut self,
-        op: fn(&mut Assembler, Size, Location),
-        sz: Size,
-        loc: Location,
-    ) {
+    fn emit_relaxed_xdiv(&mut self, signed: bool, sz: Size, loc: Location) {
         self.assembler.emit_cmp(sz, Location::Imm32(0), loc);
         self.assembler.emit_jmp(
             Condition::Equal,
             self.special_labels.integer_division_by_zero,
         );
 
+        // Boundary checks for integer overflow. It clearly doesn't make sense for
+        // unsigned division, as numerator is of same size as the actual result, and divisor is
+        // always >= 1.
+        // For signed division we can get out of bound only when divide MIN_INT / -1,
+        // as result will be MAX_INT+1 so test for that case explicitly.
+        if signed {
+            let end = self.assembler.get_label();
+            // Check if divisor is -1.
+            self.assembler
+                .emit_cmp(sz, Location::Imm32(0xffffffff), loc);
+            self.assembler.emit_jmp(Condition::NotEqual, end);
+            // Check if numerator is MIN_INT.
+            match sz {
+                Size::S32 => {
+                    self.assembler.emit_cmp(
+                        sz,
+                        Location::Imm32(0x80000000u32),
+                        Location::GPR(GPR::RAX),
+                    );
+                }
+                Size::S64 => {
+                    self.assembler.emit_mov(
+                        sz,
+                        Location::Imm64(0x8000000000000000u64),
+                        Location::GPR(GPR::RCX),
+                    );
+                    self.assembler
+                        .emit_cmp(sz, Location::GPR(GPR::RCX), Location::GPR(GPR::RAX));
+                }
+                _ => assert!(false),
+            }
+            self.assembler.emit_jmp(Condition::NotEqual, end);
+            self.assembler
+                .emit_jmp(Condition::None, self.special_labels.integer_overflow);
+            self.assembler.emit_label(end);
+        }
+
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.assembler.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
-                self.mark_trappable();
-                let offset = self.assembler.get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::IntegerOverflow);
-                op(&mut self.assembler, sz, Location::GPR(GPR::RCX));
-                self.mark_instruction_address_end(offset);
+                if signed {
+                    self.assembler.emit_idiv(sz, Location::GPR(GPR::RCX));
+                } else {
+                    self.assembler.emit_div(sz, Location::GPR(GPR::RCX));
+                }
             }
             _ => {
-                self.mark_trappable();
-                let offset = self.assembler.get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::IntegerOverflow);
-                op(&mut self.assembler, sz, loc);
-                self.mark_instruction_address_end(offset);
+                if signed {
+                    self.assembler.emit_idiv(sz, loc);
+                } else {
+                    self.assembler.emit_div(sz, loc);
+                }
             }
         }
     }
@@ -1238,10 +1255,7 @@ impl<'a> FuncGen<'a> {
         value_size: usize,
         cb: F,
     ) -> Result<(), CodegenError> {
-        let need_check = match self.memory_styles[MemoryIndex::new(0)] {
-            MemoryStyle::Static { .. } => false,
-            MemoryStyle::Dynamic { .. } => true,
-        };
+        let need_check = true;
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
@@ -1348,7 +1362,7 @@ impl<'a> FuncGen<'a> {
             self.machine.release_temp_gpr(tmp_aligncheck);
         }
 
-        self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| cb(this, tmp_addr))?;
+        cb(self, tmp_addr).unwrap();
 
         self.machine.release_temp_gpr(tmp_addr);
         Ok(())
@@ -1472,8 +1486,8 @@ impl<'a> FuncGen<'a> {
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
     fn emit_f32_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f32, upper_bound: f32) {
-        let trap_overflow = self.assembler.get_label();
-        let trap_badconv = self.assembler.get_label();
+        let trap_overflow = self.special_labels.integer_overflow;
+        let trap_badconv = self.special_labels.bad_conversion_to_integer;
         let end = self.assembler.get_label();
 
         self.emit_f32_int_conv_check(
@@ -1485,23 +1499,6 @@ impl<'a> FuncGen<'a> {
             trap_badconv,
             end,
         );
-
-        self.assembler.emit_label(trap_overflow);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
-
-        self.assembler.emit_label(trap_badconv);
-
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(end);
     }
@@ -1625,8 +1622,8 @@ impl<'a> FuncGen<'a> {
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.
     fn emit_f64_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f64, upper_bound: f64) {
-        let trap_overflow = self.assembler.get_label();
-        let trap_badconv = self.assembler.get_label();
+        let trap_overflow = self.special_labels.integer_overflow;
+        let trap_badconv = self.special_labels.bad_conversion_to_integer;
         let end = self.assembler.get_label();
 
         self.emit_f64_int_conv_check(
@@ -1638,22 +1635,6 @@ impl<'a> FuncGen<'a> {
             trap_badconv,
             end,
         );
-
-        self.assembler.emit_label(trap_overflow);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
-
-        self.assembler.emit_label(trap_badconv);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(end);
     }
@@ -1777,12 +1758,6 @@ impl<'a> FuncGen<'a> {
 
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
-        let offset = 0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::StackOverflow);
-        self.mark_instruction_address_end(offset);
-
         if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
                 message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
@@ -1833,6 +1808,8 @@ impl<'a> FuncGen<'a> {
         let mut assembler = Assembler::new().unwrap();
         let special_labels = SpecialLabelSet {
             integer_division_by_zero: assembler.get_label(),
+            integer_overflow: assembler.get_label(),
+            bad_conversion_to_integer: assembler.get_label(),
             heap_access_oob: assembler.get_label(),
             table_access_oob: assembler.get_label(),
             indirect_call_null: assembler.get_label(),
@@ -1855,7 +1832,6 @@ impl<'a> FuncGen<'a> {
             machine: Machine::new(),
             unreachable_depth: 0,
             fsm,
-            trap_table: TrapTable::default(),
             relocations: vec![],
             special_labels,
             src_loc: 0,
@@ -2115,7 +2091,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
             }
@@ -2125,7 +2101,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cdq();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
             }
@@ -2139,7 +2115,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
             }
@@ -2171,7 +2147,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cdq();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
 
@@ -2354,7 +2330,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
@@ -2364,7 +2340,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
@@ -2378,7 +2354,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
             }
@@ -2411,7 +2387,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
                 self.assembler.emit_label(end);
@@ -5206,12 +5182,7 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
-                        let offset = this.assembler.get_offset().0;
-                        this.trap_table
-                            .offset_to_code
-                            .insert(offset, TrapCode::StackOverflow);
                         this.assembler.emit_call_location(Location::GPR(GPR::RAX));
-                        this.mark_instruction_address_end(offset);
                     },
                     params.iter().copied(),
                 )?;
@@ -5401,11 +5372,6 @@ impl<'a> FuncGen<'a> {
                                 ),
                             );
                         } else {
-                            let offset = this.assembler.get_offset().0;
-                            this.trap_table
-                                .offset_to_code
-                                .insert(offset, TrapCode::StackOverflow);
-
                             // We set the context pointer
                             this.assembler.emit_mov(
                                 Size::S64,
@@ -5417,7 +5383,6 @@ impl<'a> FuncGen<'a> {
                                 GPR::RAX,
                                 vmcaller_checked_anyfunc_func_ptr as i32,
                             ));
-                            this.mark_instruction_address_end(offset);
                         }
                     },
                     params.iter().copied(),
@@ -6329,10 +6294,7 @@ impl<'a> FuncGen<'a> {
             Operator::Unreachable => {
                 self.mark_trappable();
                 let offset = self.assembler.get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::UnreachableCodeReached);
-                self.assembler.emit_ud2();
+                self.emit_trap(TrapCode::UnreachableCodeReached);
                 self.mark_instruction_address_end(offset);
                 self.unreachable_depth = 1;
             }
@@ -8675,27 +8637,30 @@ impl<'a> FuncGen<'a> {
         // Generate actual code for special labels.
         self.assembler
             .emit_label(self.special_labels.integer_division_by_zero);
-        self.mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::IntegerDivisionByZero);
+
+        self.assembler
+            .emit_label(self.special_labels.integer_overflow);
+        self.emit_trap(TrapCode::IntegerOverflow);
+
+        self.assembler
+            .emit_label(self.special_labels.bad_conversion_to_integer);
+        self.emit_trap(TrapCode::BadConversionToInteger);
 
         self.assembler
             .emit_label(self.special_labels.heap_access_oob);
-        self.mark_address_with_trap_code(TrapCode::HeapAccessOutOfBounds);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::HeapAccessOutOfBounds);
 
         self.assembler
             .emit_label(self.special_labels.table_access_oob);
-        self.mark_address_with_trap_code(TrapCode::TableAccessOutOfBounds);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::TableAccessOutOfBounds);
 
         self.assembler
             .emit_label(self.special_labels.indirect_call_null);
-        self.mark_address_with_trap_code(TrapCode::IndirectCallToNull);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::IndirectCallToNull);
 
         self.assembler.emit_label(self.special_labels.bad_signature);
-        self.mark_address_with_trap_code(TrapCode::BadSignature);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::BadSignature);
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.assembler.finalize_function();
@@ -8712,15 +8677,7 @@ impl<'a> FuncGen<'a> {
             relocations: self.relocations,
             jt_offsets: SecondaryMap::new(),
             frame_info: CompiledFunctionFrameInfo {
-                traps: self
-                    .trap_table
-                    .offset_to_code
-                    .into_iter()
-                    .map(|(offset, code)| TrapInformation {
-                        code_offset: offset as u32,
-                        trap_code: code,
-                    })
-                    .collect(),
+                traps: vec![],
                 address_map,
             },
         }

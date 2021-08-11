@@ -223,6 +223,9 @@ impl DylibArtifact {
 
         let (compile_info, symbol_registry) = metadata.split();
 
+        // Ensure that we pass information about signals in module metadata.
+        compile_info.features.signal_less(!compiler.use_signals());
+
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
             &compile_info,
