@@ -325,6 +325,22 @@ impl<'a> FuncGen<'a> {
         self.mark_instruction_address_end(offset);
     }
 
+    fn emit_trap(&mut self, code: TrapCode) {
+        self.mark_address_with_trap_code(code);
+        let label = self.assembler.get_label();
+        self.assembler.emit_label(label);
+        self.assembler
+            .emit_lea_label(label, Machine::get_param_location(0));
+        self.assembler.emit_mov(
+            Size::S32,
+            Location::Imm32(code as u32),
+            Machine::get_param_location(1),
+        );
+        let offset = self.vmoffsets.vmctx_trap_handler();
+        self.assembler
+            .emit_jmp_location(Location::Memory(Machine::get_vmctx_reg(), offset as i32));
+    }
+
     /// Canonicalizes the floating point value at `input` into `output`.
     fn canonicalize_nan(&mut self, sz: Size, input: Location, output: Location) {
         let tmp1 = self.machine.acquire_temp_xmm().unwrap();
@@ -8675,27 +8691,22 @@ impl<'a> FuncGen<'a> {
         // Generate actual code for special labels.
         self.assembler
             .emit_label(self.special_labels.integer_division_by_zero);
-        self.mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::IntegerDivisionByZero);
 
         self.assembler
             .emit_label(self.special_labels.heap_access_oob);
-        self.mark_address_with_trap_code(TrapCode::HeapAccessOutOfBounds);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::HeapAccessOutOfBounds);
 
         self.assembler
             .emit_label(self.special_labels.table_access_oob);
-        self.mark_address_with_trap_code(TrapCode::TableAccessOutOfBounds);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::TableAccessOutOfBounds);
 
         self.assembler
             .emit_label(self.special_labels.indirect_call_null);
-        self.mark_address_with_trap_code(TrapCode::IndirectCallToNull);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::IndirectCallToNull);
 
         self.assembler.emit_label(self.special_labels.bad_signature);
-        self.mark_address_with_trap_code(TrapCode::BadSignature);
-        self.assembler.emit_ud2();
+        self.emit_trap(TrapCode::BadSignature);
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.assembler.finalize_function();

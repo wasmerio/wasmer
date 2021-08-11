@@ -53,6 +53,8 @@ pub struct VMOffsets {
     pub num_local_memories: u32,
     /// The number of defined globals in the module.
     pub num_local_globals: u32,
+    /// Number of trap handlers in the module, 0 or 1 depending if signal-less mode is used.
+    pub num_trap_handlers: u32,
 }
 
 impl VMOffsets {
@@ -68,6 +70,7 @@ impl VMOffsets {
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
             num_local_globals: cast_to_u32(module.globals.len()),
+            num_trap_handlers: 1,
         }
     }
 
@@ -86,6 +89,7 @@ impl VMOffsets {
             num_local_tables: 0,
             num_local_memories: 0,
             num_local_globals: 0,
+            num_trap_handlers: 1,
         }
     }
 }
@@ -453,13 +457,24 @@ impl VMOffsets {
             .unwrap()
     }
 
+    /// The offset of the trap handler.
+    pub fn vmctx_trap_handler_begin(&self) -> u32 {
+        self.vmctx_builtin_functions_begin()
+            .checked_add(
+                VMBuiltinFunctionIndex::builtin_functions_total_number()
+                    .checked_mul(u32::from(self.pointer_size))
+                    .unwrap(),
+            )
+            .unwrap()
+    }
+
     /// Return the size of the [`VMContext`] allocation.
     ///
     /// [`VMContext`]: crate::vmcontext::VMContext
     pub fn size_of_vmctx(&self) -> u32 {
-        self.vmctx_builtin_functions_begin()
+        self.vmctx_trap_handler_begin()
             .checked_add(
-                VMBuiltinFunctionIndex::builtin_functions_total_number()
+                self.num_trap_handlers
                     .checked_mul(u32::from(self.pointer_size))
                     .unwrap(),
             )
@@ -682,6 +697,13 @@ impl VMOffsets {
                     .unwrap(),
             )
             .unwrap()
+    }
+
+    /// Return the offset to the trap handler.
+    pub fn vmctx_trap_handler(&self) -> u32 {
+        // Ensure that we never ask for trap handler offset if it's not enabled.
+        assert_eq!(self.num_trap_handlers, 1);
+        self.vmctx_trap_handler_begin()
     }
 }
 

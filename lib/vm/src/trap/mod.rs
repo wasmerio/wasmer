@@ -4,7 +4,7 @@
 //! This is the module that facilitates the usage of Traps
 //! in Wasmer Runtime
 mod trapcode;
-mod traphandlers;
+pub mod traphandlers;
 
 pub use trapcode::TrapCode;
 pub use traphandlers::{

@@ -1007,3 +1007,25 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
         }
     }
 }
+
+extern "C" fn signal_less_trap_handler(pc: *const u8, trap: TrapCode) {
+    println!("Trap at {:?}: {:?}", pc, trap);
+    tls::with(|info| {
+        let backtrace = Backtrace::new_unresolved();
+        let info = info.unwrap();
+        unsafe {
+            (*info.unwind.get())
+                .as_mut_ptr()
+                .write(UnwindReason::WasmTrap {
+                    backtrace,
+                    signal_trap: Some(trap),
+                    pc: pc as usize,
+                });
+        }
+    });
+}
+
+/// Returns pointer to the trap handler used in VMContext.
+pub fn get_trap_handler() -> *const u8 {
+    signal_less_trap_handler as *const u8
+}
