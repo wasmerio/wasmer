@@ -255,7 +255,7 @@ fn build_inline_c_env_vars() {
         shared_object_dir = shared_object_dir,
         lib = if cfg!(target_os = "windows") {
             "wasmer.dll".to_string()
-        } else if cfg!(target_os = "macos") {
+        } else if cfg!(target_vendor = "apple") {
             "libwasmer.dylib".to_string()
         } else {
             let path = format!(

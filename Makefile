@@ -483,6 +483,10 @@ build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
+build-capi-headless-ios: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features dylib,wasi
+
 #####
 #
 # Testing.

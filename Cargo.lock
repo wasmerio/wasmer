@@ -2492,6 +2492,7 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
+ "wasmparser 0.78.2",
 ]
 
 [[package]]

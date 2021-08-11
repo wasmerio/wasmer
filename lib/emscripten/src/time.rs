@@ -35,11 +35,11 @@ use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
 #[cfg(target_os = "freebsd")]
 const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 use libc::CLOCK_REALTIME;
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 const CLOCK_MONOTONIC: clockid_t = 1;
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
 // some assumptions about the constants when targeting windows

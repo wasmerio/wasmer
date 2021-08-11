@@ -45,19 +45,26 @@
 //!
 //! Ready?
 
+use std::fs::File;
+use std::path::Path;
+use std::str::FromStr;
 use tempfile::NamedTempFile;
 use wasmer::imports;
 use wasmer::wat2wasm;
 use wasmer::Instance;
 use wasmer::Module;
+use wasmer::RuntimeError;
 use wasmer::Store;
 use wasmer::Value;
+use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
+use wasmer_compiler_llvm::LLVM;
 use wasmer_engine_dylib::Dylib;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First step, let's compile the Wasm module and serialize it.
     // Note: we need a compiler here.
+    let mut dylib_file = Path::new("./sum.dylib");
     let serialized_module_file = {
         // Let's declare the Wasm module with the text representation.
         let wasm_bytes = wat2wasm(
@@ -73,23 +80,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_bytes(),
         )?;
 
-        // Define a compiler configuration.
-        //
-        // In this situation, the compiler is
-        // `wasmer_compiler_cranelift`. The compiler is responsible to
-        // compile the Wasm module into executable code.
-        let compiler_config = Cranelift::default();
+        let compiler_config = LLVM::default();
+        let triple = Triple::from_str("aarch64-apple-ios")
+            .map_err(|error| RuntimeError::new(error.to_string()))?;
+
+        // Let's define a CPU feature.
+        let mut cpu_feature = CpuFeature::set();
+        cpu_feature.insert(CpuFeature::from_str("sse2")?);
+
+        // Let's build the target.
+        let target = Target::new(triple, cpu_feature);
+        println!("Chosen target: {:?}", target);
 
         println!("Creating Dylib engine...");
-        // Define the engine that will drive everything.
-        //
-        // In this case, the engine is `wasmer_engine_dylib` which
-        // means that a shared object is going to be generated. So
-        // when we are going to serialize the compiled Wasm module, we
-        // are going to store it in a file with the `.so` extension
-        // for example (or `.dylib`, or `.dll` depending of the
-        // platform).
-        let engine = Dylib::new(compiler_config).engine();
+        let engine = Dylib::new(compiler_config).target(target).engine();
 
         // Create a store, that holds the engine.
         let store = Store::new(&engine);
@@ -101,10 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Serializing module...");
         // Here we go. Let's serialize the compiled Wasm module in a
         // file.
-        let serialized_module_file = NamedTempFile::new()?;
-        module.serialize_to_file(&serialized_module_file)?;
-
-        serialized_module_file
+        module.serialize_to_file(dylib_file)?;
     };
 
     // Second step, deserialize the compiled Wasm module, and execute
@@ -122,8 +123,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // because Wasmer can't assert the bytes are valid (see the
         // `wasmer::Module::deserialize`'s documentation to learn
         // more).
-        let module = unsafe { Module::deserialize_from_file(&store, serialized_module_file) }?;
-
+        let module = unsafe { Module::deserialize_from_file(&store, dylib_file) }?;
+        println!("Done...");
         // Congrats, the Wasm module has been deserialized! Now let's
         // execute it for the sake of having a complete example.
 
@@ -131,17 +132,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // any imports, it's an empty object.
         let import_object = imports! {};
 
-        println!("Instantiating module...");
+        // println!("Instantiating module...");
         // Let's instantiate the Wasm module.
-        let instance = Instance::new(&module, &import_object)?;
+        // let instance = Instance::new(&module, &import_object)?;
 
-        println!("Calling `sum` function...");
+        // println!("Calling `sum` function...");
         // The Wasm module exports a function called `sum`.
-        let sum = instance.exports.get_function("sum")?;
-        let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
+        // let sum = instance.exports.get_function("sum")?;
+        // let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
 
-        println!("Results: {:?}", results);
-        assert_eq!(results.to_vec(), vec![Value::I32(3)]);
+        // println!("Results: {:?}", results);
+        // assert_eq!(results.to_vec(), vec![Value::I32(3)]);
     }
 
     Ok(())
