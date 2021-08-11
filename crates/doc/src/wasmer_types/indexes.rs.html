@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/indexes.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>indexes.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/indexes.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>indexes.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -227,9 +227,9 @@
 <span id="224">224</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Helper functions and structures for the translation.</span>
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">entity</span>::<span class="ident">entity_impl</span>;
-<span class="kw">use</span> <span class="ident">core</span>::<span class="ident">u32</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::entity::entity_impl</span>;
+<span class="kw">use</span> <span class="ident">core::u32</span>;
+<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -247,21 +247,21 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalFunctionIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">LocalFunctionIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">LocalFunctionIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedLocalFunctionIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedLocalFunctionIndex</span>);
 
 <span class="doccomment">/// Index type of a table defined locally inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalTableIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">LocalTableIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">LocalTableIndex</span>);
 
 <span class="doccomment">/// Index type of a memory defined locally inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalMemoryIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">LocalMemoryIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">LocalMemoryIndex</span>);
 
 <span class="doccomment">/// Index type of a global defined locally inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -275,9 +275,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalGlobalIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">LocalGlobalIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">LocalGlobalIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedLocalGlobalIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedLocalGlobalIndex</span>);
 
 <span class="doccomment">/// Index type of a function (imported or local) inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -291,9 +291,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">FunctionIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">FunctionIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedFunctionIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedFunctionIndex</span>);
 
 <span class="doccomment">/// Index type of a table (imported or local) inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -307,9 +307,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TableIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">TableIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">TableIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedTableIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedTableIndex</span>);
 
 <span class="doccomment">/// Index type of a global variable (imported or local) inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -323,9 +323,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GlobalIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">GlobalIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">GlobalIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedGlobalIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedGlobalIndex</span>);
 
 <span class="doccomment">/// Index type of a linear memory (imported or local) inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -339,9 +339,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MemoryIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">MemoryIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">MemoryIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedMemoryIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedMemoryIndex</span>);
 
 <span class="doccomment">/// Index type of a signature (imported or local) inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -355,9 +355,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SignatureIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">SignatureIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">SignatureIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedSignatureIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedSignatureIndex</span>);
 
 <span class="doccomment">/// Index type of a passive data segment inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -371,9 +371,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DataIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">DataIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">DataIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedDataIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedDataIndex</span>);
 
 <span class="doccomment">/// Index type of a passive element segment inside the WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -387,9 +387,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ElemIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ElemIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ElemIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedElemIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedElemIndex</span>);
 
 <span class="doccomment">/// Index type of a custom section inside a WebAssembly module.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -403,9 +403,9 @@
     <span class="ident">archive</span>(<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>))
 )]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CustomSectionIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">CustomSectionIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">CustomSectionIndex</span>);
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">ArchivedCustomSectionIndex</span>);
+<span class="macro">entity_impl!</span>(<span class="ident">ArchivedCustomSectionIndex</span>);
 
 <span class="doccomment">/// An entity to export.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -451,5 +451,5 @@
     <span class="ident">Global</span>(<span class="ident">GlobalIndex</span>),
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

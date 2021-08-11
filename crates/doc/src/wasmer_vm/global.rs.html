@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/global.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>global.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/global.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>global.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -142,12 +142,12 @@
 <span id="139">139</span>
 <span id="140">140</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::<span class="ident">VMGlobalDefinition</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">UnsafeCell</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">NonNull</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Mutex</span>;
-<span class="kw">use</span> <span class="ident">thiserror</span>::<span class="ident">Error</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::vmcontext::VMGlobalDefinition</span>;
+<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+<span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
+<span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
+<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">GlobalType</span>, <span class="ident">Mutability</span>, <span class="ident">Type</span>, <span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -191,8 +191,8 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">global_type</span>: <span class="ident">GlobalType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">ty</span>: <span class="ident">global_type</span>,
-            <span class="ident">vm_global_definition</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">UnsafeCell</span>::<span class="ident">new</span>(<span class="ident">VMGlobalDefinition</span>::<span class="ident">new</span>())),
-            <span class="ident">lock</span>: <span class="ident">Mutex</span>::<span class="ident">new</span>(()),
+            <span class="ident">vm_global_definition</span>: <span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">VMGlobalDefinition::new</span>())),
+            <span class="ident">lock</span>: <span class="ident">Mutex::new</span>(()),
         }
     }
 
@@ -205,31 +205,31 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmglobal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_global_definition</span>.<span class="ident">as_ref</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">UnsafeCell</span><span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>
             <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMGlobalDefinition</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMGlobalDefinition</span>;
-        <span class="kw">unsafe</span> { <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">ptr</span>) }
+        <span class="kw">unsafe</span> { <span class="ident">NonNull::new_unchecked</span>(<span class="ident">ptr</span>) }
     }
 
     <span class="doccomment">/// Get a value from the global.</span>
     <span class="comment">// TODO(reftypes): the `&amp;dyn Any` here for `Store` is a work-around for the fact</span>
     <span class="comment">// that `Store` is defined in `API` when we need it earlier. Ideally this should</span>
     <span class="comment">// be removed.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::any::Any</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">_global_guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lock</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">definition</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">vm_global_definition</span>.<span class="ident">get</span>();
             <span class="kw">match</span> <span class="self">self</span>.<span class="ident">ty</span>().<span class="ident">ty</span> {
-                <span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="ident">definition</span>.<span class="ident">to_i32</span>()),
-                <span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="ident">definition</span>.<span class="ident">to_i64</span>()),
-                <span class="ident">Type</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">F32</span>(<span class="ident">definition</span>.<span class="ident">to_f32</span>()),
-                <span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">F64</span>(<span class="ident">definition</span>.<span class="ident">to_f64</span>()),
-                <span class="ident">Type</span>::<span class="ident">V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">V128</span>(<span class="ident">definition</span>.<span class="ident">to_u128</span>()),
-                <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">ExternRef</span>(<span class="ident">definition</span>.<span class="ident">to_externref</span>().<span class="ident">into</span>()),
-                <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">Type::I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::I32</span>(<span class="ident">definition</span>.<span class="ident">to_i32</span>()),
+                <span class="ident">Type::I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::I64</span>(<span class="ident">definition</span>.<span class="ident">to_i64</span>()),
+                <span class="ident">Type::F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::F32</span>(<span class="ident">definition</span>.<span class="ident">to_f32</span>()),
+                <span class="ident">Type::F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::F64</span>(<span class="ident">definition</span>.<span class="ident">to_f64</span>()),
+                <span class="ident">Type::V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::V128</span>(<span class="ident">definition</span>.<span class="ident">to_u128</span>()),
+                <span class="ident">Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::ExternRef</span>(<span class="ident">definition</span>.<span class="ident">to_externref</span>().<span class="ident">into</span>()),
+                <span class="ident">Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">definition</span>.<span class="ident">to_u128</span>() <span class="kw">as</span> <span class="ident">i128</span>;
                     <span class="kw">if</span> <span class="ident">p</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
-                        <span class="ident">Value</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">None</span>)
+                        <span class="ident">Value::FuncRef</span>(<span class="prelude-val">None</span>)
                     } <span class="kw">else</span> {
-                        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">T</span>::<span class="ident">read_value_from</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">p</span>);
-                        <span class="ident">Value</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">v</span>))
+                        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">T::read_value_from</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">p</span>);
+                        <span class="ident">Value::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">v</span>))
                     }
                 }
             }
@@ -242,11 +242,11 @@
     <span class="doccomment">/// The caller should check that the `val` comes from the same store as this global.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">set</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">val</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">GlobalError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">_global_guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lock</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">ty</span>().<span class="ident">mutability</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Mutability</span>::<span class="ident">Var</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">GlobalError</span>::<span class="ident">ImmutableGlobalCannotBeSet</span>);
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">ty</span>().<span class="ident">mutability</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Mutability::Var</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">GlobalError::ImmutableGlobalCannotBeSet</span>);
         }
         <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">ty</span>() <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>().<span class="ident">ty</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">GlobalError</span>::<span class="ident">IncorrectType</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">GlobalError::IncorrectType</span> {
                 <span class="ident">expected</span>: <span class="self">self</span>.<span class="ident">ty</span>.<span class="ident">ty</span>,
                 <span class="ident">found</span>: <span class="ident">val</span>.<span class="ident">ty</span>(),
             });
@@ -264,18 +264,18 @@
         <span class="comment">// ideally we&#39;d use atomics for the global value rather than needing to lock it</span>
         <span class="kw">let</span> <span class="ident">definition</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">vm_global_definition</span>.<span class="ident">get</span>();
         <span class="kw">match</span> <span class="ident">val</span> {
-            <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_i32_mut</span>() <span class="op">=</span> <span class="ident">i</span>,
-            <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_i64_mut</span>() <span class="op">=</span> <span class="ident">i</span>,
-            <span class="ident">Value</span>::<span class="ident">F32</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_f32_mut</span>() <span class="op">=</span> <span class="ident">f</span>,
-            <span class="ident">Value</span>::<span class="ident">F64</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_f64_mut</span>() <span class="op">=</span> <span class="ident">f</span>,
-            <span class="ident">Value</span>::<span class="ident">V128</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_bytes_mut</span>() <span class="op">=</span> <span class="ident">x</span>.<span class="ident">to_ne_bytes</span>(),
-            <span class="ident">Value</span>::<span class="ident">ExternRef</span>(<span class="ident">r</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Value::I32</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_i32_mut</span>() <span class="op">=</span> <span class="ident">i</span>,
+            <span class="ident">Value::I64</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_i64_mut</span>() <span class="op">=</span> <span class="ident">i</span>,
+            <span class="ident">Value::F32</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_f32_mut</span>() <span class="op">=</span> <span class="ident">f</span>,
+            <span class="ident">Value::F64</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_f64_mut</span>() <span class="op">=</span> <span class="ident">f</span>,
+            <span class="ident">Value::V128</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_bytes_mut</span>() <span class="op">=</span> <span class="ident">x</span>.<span class="ident">to_ne_bytes</span>(),
+            <span class="ident">Value::ExternRef</span>(<span class="ident">r</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">extern_ref</span> <span class="op">=</span> <span class="ident">definition</span>.<span class="ident">as_externref_mut</span>();
                 <span class="ident">extern_ref</span>.<span class="ident">ref_drop</span>();
                 <span class="kw-2">*</span><span class="ident">extern_ref</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">into</span>()
             }
-            <span class="ident">Value</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_u128_mut</span>() <span class="op">=</span> <span class="number">0</span>,
-            <span class="ident">Value</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">r</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Value::FuncRef</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">definition</span>.<span class="ident">as_u128_mut</span>() <span class="op">=</span> <span class="number">0</span>,
+            <span class="ident">Value::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">r</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">r</span>.<span class="ident">write_value_to</span>(<span class="ident">definition</span>.<span class="ident">as_u128_mut</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u128</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i128</span>)
             }
         }
@@ -283,5 +283,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

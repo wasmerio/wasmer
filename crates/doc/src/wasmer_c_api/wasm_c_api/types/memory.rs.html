@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/types/memory.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memory.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/types/memory.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memory.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
 <span id="2"> 2</span>
 <span id="3"> 3</span>
 <span id="4"> 4</span>
@@ -94,7 +94,7 @@
 
 <span class="kw">impl</span> <span class="ident">WasmMemoryType</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">memory_type</span>: <span class="ident">MemoryType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">limits</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_limits_t</span> {
+        <span class="kw">let</span> <span class="ident">limits</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">wasm_limits_t</span> {
             <span class="ident">min</span>: <span class="ident">memory_type</span>.<span class="ident">minimum</span>.<span class="number">0</span> <span class="kw">as</span> <span class="kw">_</span>,
             <span class="ident">max</span>: <span class="ident">memory_type</span>
                 .<span class="ident">maximum</span>
@@ -119,21 +119,21 @@
 <span class="kw">impl</span> <span class="ident">wasm_memorytype_t</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">memory_type</span>: <span class="ident">MemoryType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">extern_type</span>: <span class="ident">wasm_externtype_t</span>::<span class="ident">new</span>(<span class="ident">ExternType</span>::<span class="ident">Memory</span>(<span class="ident">memory_type</span>)),
+            <span class="ident">extern_type</span>: <span class="ident">wasm_externtype_t::new</span>(<span class="ident">ExternType::Memory</span>(<span class="ident">memory_type</span>)),
         }
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">inner</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">WasmMemoryType</span> {
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">extern_type</span>.<span class="ident">inner</span> {
-            <span class="ident">WasmExternType</span>::<span class="ident">Memory</span>(<span class="ident">wasm_memory_type</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">wasm_memory_type</span>,
+            <span class="ident">WasmExternType::Memory</span>(<span class="ident">wasm_memory_type</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">wasm_memory_type</span>,
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;Data corruption: `wasm_memorytype_t` does not contain a memory type&quot;</span>)
+                <span class="macro">unreachable!</span>(<span class="string">&quot;Data corruption: `wasm_memorytype_t` does not contain a memory type&quot;</span>)
             }
         }
     }
 }
 
-<span class="macro">wasm_declare_boxed_vec</span><span class="macro">!</span>(<span class="ident">memorytype</span>);
+<span class="macro">wasm_declare_boxed_vec!</span>(<span class="ident">memorytype</span>);
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_memorytype_new</span>(<span class="ident">limits</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_limits_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_memorytype_t</span><span class="op">&gt;</span> {
@@ -144,7 +144,7 @@
         <span class="prelude-val">Some</span>(<span class="ident">Pages</span>(<span class="ident">limits</span>.<span class="ident">max</span> <span class="kw">as</span> <span class="kw">_</span>))
     };
 
-    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_memorytype_t</span>::<span class="ident">new</span>(<span class="ident">MemoryType</span>::<span class="ident">new</span>(
+    <span class="ident">Box::new</span>(<span class="ident">wasm_memorytype_t::new</span>(<span class="ident">MemoryType::new</span>(
         <span class="ident">min_pages</span>, <span class="ident">max_pages</span>, <span class="bool-val">false</span>,
     )))
 }
@@ -160,12 +160,12 @@
     <span class="kw">pub</span> <span class="ident">max</span>: <span class="ident">u32</span>,
 }
 
-<span class="kw">const</span> <span class="ident">LIMITS_MAX_SENTINEL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">u32</span>::<span class="ident">max_value</span>();
+<span class="kw">const</span> <span class="ident">LIMITS_MAX_SENTINEL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">u32::max_value</span>();
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_memorytype_limits</span>(<span class="ident">memory_type</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_memorytype_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">wasm_limits_t</span> {
     <span class="ident">memory_type</span>.<span class="ident">inner</span>().<span class="ident">limits</span>.<span class="ident">as_ref</span>()
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api"></div>
-    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script><script defer src="../../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>
+    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script></body></html>

@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>machine.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>machine.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_compiler_singlepass/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_compiler_singlepass/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -558,14 +558,14 @@
 <span id="555">555</span>
 <span id="556">556</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">common_decl</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">emitter_x64</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">x64_decl</span>::{<span class="ident">new_machine_state</span>, <span class="ident">X64Register</span>};
-<span class="kw">use</span> <span class="ident">smallvec</span>::<span class="ident">smallvec</span>;
-<span class="kw">use</span> <span class="ident">smallvec</span>::<span class="ident">SmallVec</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cmp</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashSet</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">wasmparser</span>::<span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::common_decl</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::emitter_x64</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::x64_decl</span>::{<span class="ident">new_machine_state</span>, <span class="ident">X64Register</span>};
+<span class="kw">use</span> <span class="ident">smallvec::smallvec</span>;
+<span class="kw">use</span> <span class="ident">smallvec::SmallVec</span>;
+<span class="kw">use</span> <span class="ident">std::cmp</span>;
+<span class="kw">use</span> <span class="ident">std::collections::HashSet</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
 
 <span class="kw">const</span> <span class="ident">NATIVE_PAGE_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">4096</span>;
 
@@ -583,8 +583,8 @@
 <span class="kw">impl</span> <span class="ident">Machine</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">Machine</span> {
-            <span class="ident">used_gprs</span>: <span class="ident">HashSet</span>::<span class="ident">new</span>(),
-            <span class="ident">used_xmms</span>: <span class="ident">HashSet</span>::<span class="ident">new</span>(),
+            <span class="ident">used_gprs</span>: <span class="ident">HashSet::new</span>(),
+            <span class="ident">used_xmms</span>: <span class="ident">HashSet::new</span>(),
             <span class="ident">stack_offset</span>: <span class="ident">MachineStackOffset</span>(<span class="number">0</span>),
             <span class="ident">save_area_offset</span>: <span class="prelude-val">None</span>,
             <span class="ident">state</span>: <span class="ident">new_machine_state</span>(),
@@ -605,7 +605,7 @@
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_vmctx_reg</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">GPR</span> {
-        <span class="ident">GPR</span>::<span class="ident">R15</span>
+        <span class="ident">GPR::R15</span>
     }
 
     <span class="doccomment">/// Picks an unused general purpose register for local/stack/argument use.</span>
@@ -647,12 +647,12 @@
 
     <span class="doccomment">/// Releases a temporary GPR.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">release_temp_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident">GPR</span>) {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
+        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
     }
 
     <span class="doccomment">/// Specify that a given register is in use.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reserve_unused_temp_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident">GPR</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">GPR</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
+        <span class="macro">assert!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
         <span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">insert</span>(<span class="ident">gpr</span>);
         <span class="ident">gpr</span>
     }
@@ -696,7 +696,7 @@
 
     <span class="doccomment">/// Releases a temporary XMM register.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">release_temp_xmm</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">xmm</span>: <span class="ident">XMM</span>) {
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">used_xmms</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">xmm</span>), <span class="bool-val">true</span>);
+        <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">used_xmms</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">xmm</span>), <span class="bool-val">true</span>);
     }
 
     <span class="doccomment">/// Acquires locations from the machine state.</span>
@@ -709,15 +709,15 @@
         <span class="ident">tys</span>: <span class="kw-2">&amp;</span>[(<span class="ident">WpType</span>, <span class="ident">MachineValue</span>)],
         <span class="ident">zeroed</span>: <span class="ident">bool</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">Location</span>; <span class="number">1</span>]<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="macro">smallvec</span><span class="macro">!</span>[];
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="macro">smallvec!</span>[];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delta_stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="kw">for</span> (<span class="ident">ty</span>, <span class="ident">mv</span>) <span class="kw">in</span> <span class="ident">tys</span> {
             <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">ty</span> {
-                <span class="ident">WpType</span>::<span class="ident">F32</span> <span class="op">|</span> <span class="ident">WpType</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_xmm</span>().<span class="ident">map</span>(<span class="ident">Location</span>::<span class="ident">XMM</span>),
-                <span class="ident">WpType</span>::<span class="ident">I32</span> <span class="op">|</span> <span class="ident">WpType</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_gpr</span>().<span class="ident">map</span>(<span class="ident">Location</span>::<span class="ident">GPR</span>),
-                <span class="ident">WpType</span>::<span class="ident">FuncRef</span> <span class="op">|</span> <span class="ident">WpType</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_gpr</span>().<span class="ident">map</span>(<span class="ident">Location</span>::<span class="ident">GPR</span>),
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;can&#39;t acquire location for type {:?}&quot;</span>, <span class="ident">ty</span>),
+                <span class="ident">WpType::F32</span> <span class="op">|</span> <span class="ident">WpType::F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_xmm</span>().<span class="ident">map</span>(<span class="ident">Location::XMM</span>),
+                <span class="ident">WpType::I32</span> <span class="op">|</span> <span class="ident">WpType::I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_gpr</span>().<span class="ident">map</span>(<span class="ident">Location::GPR</span>),
+                <span class="ident">WpType::FuncRef</span> <span class="op">|</span> <span class="ident">WpType::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_gpr</span>().<span class="ident">map</span>(<span class="ident">Location::GPR</span>),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(<span class="string">&quot;can&#39;t acquire location for type {:?}&quot;</span>, <span class="ident">ty</span>),
             };
 
             <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">loc</span> {
@@ -725,31 +725,31 @@
             } <span class="kw">else</span> {
                 <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
                 <span class="ident">delta_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
-                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>))
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>))
             };
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">loc</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::GPR</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">loc</span> {
                 <span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">insert</span>(<span class="ident">x</span>);
-                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span> <span class="ident">mv</span>.<span class="ident">clone</span>();
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">loc</span> {
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::GPR</span>(<span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span> <span class="ident">mv</span>.<span class="ident">clone</span>();
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::XMM</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">loc</span> {
                 <span class="self">self</span>.<span class="ident">used_xmms</span>.<span class="ident">insert</span>(<span class="ident">x</span>);
-                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span> <span class="ident">mv</span>.<span class="ident">clone</span>();
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::XMM</span>(<span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span> <span class="ident">mv</span>.<span class="ident">clone</span>();
             } <span class="kw">else</span> {
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">mv</span>.<span class="ident">clone</span>());
             }
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">wasm_stack</span>.<span class="ident">push</span>(<span class="ident">WasmAbstractValue</span>::<span class="ident">Runtime</span>);
+            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">wasm_stack</span>.<span class="ident">push</span>(<span class="ident">WasmAbstractValue::Runtime</span>);
             <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">loc</span>);
         }
 
         <span class="kw">if</span> <span class="ident">delta_stack_offset</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="ident">assembler</span>.<span class="ident">emit_sub</span>(
-                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
             );
         }
         <span class="kw">if</span> <span class="ident">zeroed</span> {
             <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">tys</span>.<span class="ident">len</span>() {
-                <span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="number">0</span>), <span class="ident">ret</span>[<span class="ident">i</span>]);
+                <span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::Imm32</span>(<span class="number">0</span>), <span class="ident">ret</span>[<span class="ident">i</span>]);
             }
         }
         <span class="ident">ret</span>
@@ -761,23 +761,23 @@
 
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
             <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">loc</span> {
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
-                        <span class="ident">MachineValue</span>::<span class="ident">Undefined</span>;
+                <span class="ident">Location::GPR</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
+                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::GPR</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
+                        <span class="ident">MachineValue::Undefined</span>;
                 }
-                <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">used_xmms</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
-                        <span class="ident">MachineValue</span>::<span class="ident">Undefined</span>;
+                <span class="ident">Location::XMM</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">used_xmms</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
+                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::XMM</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
+                        <span class="ident">MachineValue::Undefined</span>;
                 }
-                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="ident">x</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">0</span> {
-                        <span class="macro">unreachable</span><span class="macro">!</span>();
+                        <span class="macro">unreachable!</span>();
                     }
                     <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> (<span class="op">-</span><span class="ident">x</span>) <span class="kw">as</span> <span class="ident">usize</span>;
                     <span class="kw">if</span> <span class="ident">offset</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> {
-                        <span class="macro">unreachable</span><span class="macro">!</span>();
+                        <span class="macro">unreachable!</span>();
                     }
                     <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">-</span><span class="op">=</span> <span class="number">8</span>;
                     <span class="ident">delta_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
@@ -790,9 +790,9 @@
 
         <span class="kw">if</span> <span class="ident">delta_stack_offset</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="ident">assembler</span>.<span class="ident">emit_add</span>(
-                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
             );
         }
     }
@@ -800,15 +800,15 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">release_locations_only_regs</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">locs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span>]) {
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
             <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">loc</span> {
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
-                        <span class="ident">MachineValue</span>::<span class="ident">Undefined</span>;
+                <span class="ident">Location::GPR</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
+                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::GPR</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
+                        <span class="ident">MachineValue::Undefined</span>;
                 }
-                <span class="ident">Location</span>::<span class="ident">XMM</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">used_xmms</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register</span>::<span class="ident">XMM</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
-                        <span class="ident">MachineValue</span>::<span class="ident">Undefined</span>;
+                <span class="ident">Location::XMM</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">used_xmms</span>.<span class="ident">remove</span>(<span class="ident">x</span>), <span class="bool-val">true</span>);
+                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::XMM</span>(<span class="kw-2">*</span><span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
+                        <span class="ident">MachineValue::Undefined</span>;
                 }
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
             }
@@ -824,13 +824,13 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delta_stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="ident">x</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="ident">x</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
                 <span class="kw">if</span> <span class="ident">x</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">0</span> {
-                    <span class="macro">unreachable</span><span class="macro">!</span>();
+                    <span class="macro">unreachable!</span>();
                 }
                 <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> (<span class="op">-</span><span class="ident">x</span>) <span class="kw">as</span> <span class="ident">usize</span>;
                 <span class="kw">if</span> <span class="ident">offset</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> {
-                    <span class="macro">unreachable</span><span class="macro">!</span>();
+                    <span class="macro">unreachable!</span>();
                 }
                 <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">-</span><span class="op">=</span> <span class="number">8</span>;
                 <span class="ident">delta_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
@@ -841,9 +841,9 @@
 
         <span class="kw">if</span> <span class="ident">delta_stack_offset</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="ident">assembler</span>.<span class="ident">emit_add</span>(
-                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
             );
         }
     }
@@ -863,13 +863,13 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span>;
 
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="ident">x</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="ident">x</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
                 <span class="kw">if</span> <span class="ident">x</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">0</span> {
-                    <span class="macro">unreachable</span><span class="macro">!</span>();
+                    <span class="macro">unreachable!</span>();
                 }
                 <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> (<span class="op">-</span><span class="ident">x</span>) <span class="kw">as</span> <span class="ident">usize</span>;
                 <span class="kw">if</span> <span class="ident">offset</span> <span class="op">!</span><span class="op">=</span> <span class="ident">stack_offset</span> {
-                    <span class="macro">unreachable</span><span class="macro">!</span>();
+                    <span class="macro">unreachable!</span>();
                 }
                 <span class="ident">stack_offset</span> <span class="op">-</span><span class="op">=</span> <span class="number">8</span>;
                 <span class="ident">delta_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
@@ -878,9 +878,9 @@
 
         <span class="kw">if</span> <span class="ident">delta_stack_offset</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="ident">assembler</span>.<span class="ident">emit_add</span>(
-                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Imm32</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
             );
         }
     }
@@ -900,11 +900,11 @@
         <span class="kw">fn</span> <span class="ident">get_local_location</span>(<span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">callee_saved_regs_size</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Location</span> {
             <span class="comment">// Use callee-saved registers for the first locals.</span>
             <span class="kw">match</span> <span class="ident">idx</span> {
-                <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R12</span>),
-                <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R13</span>),
-                <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R14</span>),
-                <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RBX</span>),
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="op">-</span>(((<span class="ident">idx</span> <span class="op">-</span> <span class="number">3</span>) <span class="op">*</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">callee_saved_regs_size</span>) <span class="kw">as</span> <span class="ident">i32</span>)),
+                <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R12</span>),
+                <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R13</span>),
+                <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R14</span>),
+                <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RBX</span>),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="op">-</span>(((<span class="ident">idx</span> <span class="op">-</span> <span class="number">3</span>) <span class="op">*</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">callee_saved_regs_size</span>) <span class="kw">as</span> <span class="ident">i32</span>)),
             }
         }
 
@@ -940,22 +940,22 @@
 
         <span class="comment">// Allocate save area, without actually writing to it.</span>
         <span class="ident">a</span>.<span class="ident">emit_sub</span>(
-            <span class="ident">Size</span>::<span class="ident">S64</span>,
-            <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="ident">static_area_size</span> <span class="kw">as</span> <span class="kw">_</span>),
-            <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
+            <span class="ident">Size::S64</span>,
+            <span class="ident">Location::Imm32</span>(<span class="ident">static_area_size</span> <span class="kw">as</span> <span class="kw">_</span>),
+            <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
         );
 
         <span class="comment">// Save callee-saved registers.</span>
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locations</span>.<span class="ident">iter</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::GPR</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
                 <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
                 <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                    <span class="ident">Size</span>::<span class="ident">S64</span>,
+                    <span class="ident">Size::S64</span>,
                     <span class="kw-2">*</span><span class="ident">loc</span>,
-                    <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>)),
+                    <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>)),
                 );
-                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue</span>::<span class="ident">PreserveRegister</span>(
-                    <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">x</span>).<span class="ident">to_index</span>(),
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue::PreserveRegister</span>(
+                    <span class="ident">X64Register::GPR</span>(<span class="ident">x</span>).<span class="ident">to_index</span>(),
                 ));
             }
         }
@@ -963,12 +963,12 @@
         <span class="comment">// Save R15 for vmctx use.</span>
         <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
         <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-            <span class="ident">Size</span>::<span class="ident">S64</span>,
-            <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>),
-            <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>)),
+            <span class="ident">Size::S64</span>,
+            <span class="ident">Location::GPR</span>(<span class="ident">GPR::R15</span>),
+            <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>)),
         );
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue</span>::<span class="ident">PreserveRegister</span>(
-            <span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>).<span class="ident">to_index</span>(),
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue::PreserveRegister</span>(
+            <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R15</span>).<span class="ident">to_index</span>(),
         ));
 
         <span class="comment">// Save the offset of register save area.</span>
@@ -977,14 +977,14 @@
         <span class="comment">// Save location information for locals.</span>
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">loc</span>) <span class="kw">in</span> <span class="ident">locations</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">loc</span> {
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register</span>::<span class="ident">GPR</span>(<span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
-                        <span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">i</span>);
+                <span class="ident">Location::GPR</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::GPR</span>(<span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>] <span class="op">=</span>
+                        <span class="ident">MachineValue::WasmLocal</span>(<span class="ident">i</span>);
                 }
-                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue</span>::<span class="ident">WasmLocal</span>(<span class="ident">i</span>));
+                <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue::WasmLocal</span>(<span class="ident">i</span>));
                 }
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(),
             }
         }
 
@@ -992,30 +992,30 @@
         <span class="comment">// Locals are allocated on the stack from higher address to lower address,</span>
         <span class="comment">// so we won&#39;t skip the stack guard page here.</span>
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">n_params</span> {
-            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">get_param_location</span>(<span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>);
+            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="self">Self</span><span class="ident">::get_param_location</span>(<span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>);
             <span class="kw">match</span> <span class="ident">loc</span> {
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
+                <span class="ident">Location::GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
                 }
-                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">locations</span>[<span class="ident">i</span>] {
-                    <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
+                <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">locations</span>[<span class="ident">i</span>] {
+                    <span class="ident">Location::GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
                     }
-                    <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">loc</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>));
-                        <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>), <span class="ident">locations</span>[<span class="ident">i</span>]);
+                    <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
+                        <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>), <span class="ident">locations</span>[<span class="ident">i</span>]);
                     }
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(),
                 },
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(),
             }
         }
 
         <span class="comment">// Load vmctx into R15.</span>
         <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-            <span class="ident">Size</span>::<span class="ident">S64</span>,
-            <span class="self">Self</span>::<span class="ident">get_param_location</span>(<span class="number">0</span>),
-            <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>),
+            <span class="ident">Size::S64</span>,
+            <span class="self">Self</span><span class="ident">::get_param_location</span>(<span class="number">0</span>),
+            <span class="ident">Location::GPR</span>(<span class="ident">GPR::R15</span>),
         );
 
         <span class="comment">// Stack probe.</span>
@@ -1023,33 +1023,33 @@
         <span class="comment">// `rep stosq` writes data from low address to high address and may skip the stack guard page.</span>
         <span class="comment">// so here we probe it explicitly when needed.</span>
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> (<span class="ident">n_params</span>..<span class="ident">n</span>).<span class="ident">step_by</span>(<span class="ident">NATIVE_PAGE_SIZE</span> <span class="op">/</span> <span class="number">8</span>).<span class="ident">skip</span>(<span class="number">1</span>) {
-            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="number">0</span>), <span class="ident">locations</span>[<span class="ident">i</span>]);
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::Imm32</span>(<span class="number">0</span>), <span class="ident">locations</span>[<span class="ident">i</span>]);
         }
 
         <span class="comment">// Initialize all normal locals to zero.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_stack_loc_cnt</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">last_stack_loc</span> <span class="op">=</span> <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, <span class="ident">i32</span>::<span class="ident">MAX</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">last_stack_loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="ident">i32::MAX</span>);
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="ident">n_params</span>..<span class="ident">n</span> {
             <span class="kw">match</span> <span class="ident">locations</span>[<span class="ident">i</span>] {
-                <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">init_stack_loc_cnt</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                    <span class="ident">last_stack_loc</span> <span class="op">=</span> <span class="ident">cmp</span>::<span class="ident">min</span>(<span class="ident">last_stack_loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
+                    <span class="ident">last_stack_loc</span> <span class="op">=</span> <span class="ident">cmp::min</span>(<span class="ident">last_stack_loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
                 }
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="number">0</span>), <span class="ident">locations</span>[<span class="ident">i</span>]);
+                <span class="ident">Location::GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::Imm32</span>(<span class="number">0</span>), <span class="ident">locations</span>[<span class="ident">i</span>]);
                 }
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable!</span>(),
             }
         }
         <span class="kw">if</span> <span class="ident">init_stack_loc_cnt</span> <span class="op">&gt;</span> <span class="number">0</span> {
             <span class="comment">// Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.</span>
             <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-                <span class="ident">Size</span>::<span class="ident">S64</span>,
-                <span class="ident">Location</span>::<span class="ident">Imm64</span>(<span class="ident">init_stack_loc_cnt</span> <span class="kw">as</span> <span class="ident">u64</span>),
-                <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>),
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Imm64</span>(<span class="ident">init_stack_loc_cnt</span> <span class="kw">as</span> <span class="ident">u64</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>),
             );
-            <span class="ident">a</span>.<span class="ident">emit_xor</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>), <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>));
-            <span class="ident">a</span>.<span class="ident">emit_lea</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">last_stack_loc</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDI</span>));
+            <span class="ident">a</span>.<span class="ident">emit_xor</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
+            <span class="ident">a</span>.<span class="ident">emit_lea</span>(<span class="ident">Size::S64</span>, <span class="ident">last_stack_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>));
             <span class="ident">a</span>.<span class="ident">emit_rep_stosq</span>();
         }
 
@@ -1062,34 +1062,34 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize_locals</span><span class="op">&lt;</span><span class="ident">E</span>: <span class="ident">Emitter</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">a</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">E</span>, <span class="ident">locations</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span>]) {
         <span class="comment">// Unwind stack to the &quot;save area&quot;.</span>
         <span class="ident">a</span>.<span class="ident">emit_lea</span>(
-            <span class="ident">Size</span>::<span class="ident">S64</span>,
-            <span class="ident">Location</span>::<span class="ident">Memory</span>(
-                <span class="ident">GPR</span>::<span class="ident">RBP</span>,
+            <span class="ident">Size::S64</span>,
+            <span class="ident">Location::Memory</span>(
+                <span class="ident">GPR::RBP</span>,
                 <span class="op">-</span>(<span class="self">self</span>.<span class="ident">save_area_offset</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>),
             ),
-            <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSP</span>),
+            <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
         );
 
         <span class="comment">// Restore R15 used by vmctx.</span>
-        <span class="ident">a</span>.<span class="ident">emit_pop</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R15</span>));
+        <span class="ident">a</span>.<span class="ident">emit_pop</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::R15</span>));
 
         <span class="comment">// Restore callee-saved registers.</span>
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locations</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
-                <span class="ident">a</span>.<span class="ident">emit_pop</span>(<span class="ident">Size</span>::<span class="ident">S64</span>, <span class="kw-2">*</span><span class="ident">loc</span>);
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::GPR</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">loc</span> {
+                <span class="ident">a</span>.<span class="ident">emit_pop</span>(<span class="ident">Size::S64</span>, <span class="kw-2">*</span><span class="ident">loc</span>);
             }
         }
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_param_location</span>(<span class="ident">idx</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Location</span> {
         <span class="kw">match</span> <span class="ident">idx</span> {
-            <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDI</span>),
-            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RSI</span>),
-            <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RDX</span>),
-            <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">RCX</span>),
-            <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R8</span>),
-            <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">GPR</span>::<span class="ident">R9</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">GPR</span>::<span class="ident">RBP</span>, (<span class="number">16</span> <span class="op">+</span> (<span class="ident">idx</span> <span class="op">-</span> <span class="number">6</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
+            <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>),
+            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSI</span>),
+            <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>),
+            <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>),
+            <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R8</span>),
+            <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, (<span class="number">16</span> <span class="op">+</span> (<span class="ident">idx</span> <span class="op">-</span> <span class="number">6</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
         }
     }
 }
@@ -1097,16 +1097,16 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">dynasmrt</span>::<span class="ident">x64</span>::<span class="ident">Assembler</span>;
+    <span class="kw">use</span> <span class="ident">dynasmrt::x64::Assembler</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_release_locations_keep_state_nopanic</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">Machine</span>::<span class="ident">new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">assembler</span> <span class="op">=</span> <span class="ident">Assembler</span>::<span class="ident">new</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">Machine::new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">assembler</span> <span class="op">=</span> <span class="ident">Assembler::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">locs</span> <span class="op">=</span> <span class="ident">machine</span>.<span class="ident">acquire_locations</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">assembler</span>,
             <span class="kw-2">&amp;</span>(<span class="number">0</span>..<span class="number">10</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> (<span class="ident">WpType</span>::<span class="ident">I32</span>, <span class="ident">MachineValue</span>::<span class="ident">Undefined</span>))
+                .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> (<span class="ident">WpType::I32</span>, <span class="ident">MachineValue::Undefined</span>))
                 .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
             <span class="bool-val">false</span>,
         );
@@ -1115,5 +1115,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

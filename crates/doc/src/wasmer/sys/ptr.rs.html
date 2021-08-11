@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/ptr.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>ptr.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/ptr.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>ptr.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -379,10 +379,10 @@
 <span class="doccomment">//! Therefore, you should use this abstraction whenever possible to avoid memory</span>
 <span class="doccomment">//! related bugs when implementing an ABI.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">sys</span>::<span class="ident">cell</span>::<span class="ident">WasmCell</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">sys</span>::{<span class="ident">externals</span>::<span class="ident">Memory</span>, <span class="ident">FromToNativeWasmType</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell</span>::<span class="ident">Cell</span>, <span class="ident">fmt</span>, <span class="ident">marker</span>::<span class="ident">PhantomData</span>, <span class="ident">mem</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ValueType</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys::cell::WasmCell</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys</span>::{<span class="ident">externals::Memory</span>, <span class="ident">FromToNativeWasmType</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell::Cell</span>, <span class="ident">fmt</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">mem</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
 
 <span class="doccomment">/// The `Array` marker type. This type can be used like `WasmPtr&lt;T, Array&gt;`</span>
 <span class="doccomment">/// to get access to methods</span>
@@ -462,7 +462,7 @@
 <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
 <span class="kw">fn</span> <span class="ident">align_pointer</span>(<span class="ident">ptr</span>: <span class="ident">usize</span>, <span class="ident">align</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
     <span class="comment">// clears bits below aligment amount (assumes power of 2) to align pointer</span>
-    <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">align</span>.<span class="ident">count_ones</span>() <span class="op">=</span><span class="op">=</span> <span class="number">1</span>);
+    <span class="macro">debug_assert!</span>(<span class="ident">align</span>.<span class="ident">count_ones</span>() <span class="op">=</span><span class="op">=</span> <span class="number">1</span>);
     <span class="ident">ptr</span> <span class="op">&amp;</span> <span class="op">!</span>(<span class="ident">align</span> <span class="op">-</span> <span class="number">1</span>)
 }
 
@@ -478,17 +478,17 @@
     <span class="doccomment">/// This invariant will be enforced in the future.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> (<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">+</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>
-            <span class="op">|</span><span class="op">|</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span>
+        <span class="kw">if</span> (<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">+</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>
+            <span class="op">|</span><span class="op">|</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span>
         {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">cell_ptr</span> <span class="op">=</span> <span class="ident">align_pointer</span>(
                 <span class="ident">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>().<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+                <span class="ident">mem::align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
             ) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>;
-            <span class="prelude-val">Some</span>(<span class="ident">WasmCell</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cell_ptr</span>))
+            <span class="prelude-val">Some</span>(<span class="ident">WasmCell::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">cell_ptr</span>))
         }
     }
 }
@@ -512,7 +512,7 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="comment">// gets the size of the item in the array with padding added such that</span>
         <span class="comment">// for any index, we will always result an aligned memory access</span>
-        <span class="kw">let</span> <span class="ident">item_size</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
+        <span class="kw">let</span> <span class="ident">item_size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
         <span class="kw">let</span> <span class="ident">slice_full_len</span> <span class="op">=</span> <span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">length</span> <span class="kw">as</span> <span class="ident">usize</span>;
         <span class="kw">let</span> <span class="ident">memory_size</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>;
 
@@ -525,14 +525,14 @@
         <span class="kw">let</span> <span class="ident">cell_ptrs</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">cell_ptr</span> <span class="op">=</span> <span class="ident">align_pointer</span>(
                 <span class="ident">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>().<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+                <span class="ident">mem::align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
             ) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">Cell</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>;
-            <span class="kw-2">&amp;</span><span class="ident">std</span>::<span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="ident">cell_ptr</span>, <span class="ident">slice_full_len</span>)[<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>..<span class="ident">slice_full_len</span>]
+            <span class="kw-2">&amp;</span><span class="ident">std::slice::from_raw_parts</span>(<span class="ident">cell_ptr</span>, <span class="ident">slice_full_len</span>)[<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>..<span class="ident">slice_full_len</span>]
         };
 
         <span class="kw">let</span> <span class="ident">wasm_cells</span> <span class="op">=</span> <span class="ident">cell_ptrs</span>
             .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ptr</span><span class="op">|</span> <span class="ident">WasmCell</span>::<span class="ident">new</span>(<span class="ident">ptr</span>))
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ptr</span><span class="op">|</span> <span class="ident">WasmCell::new</span>(<span class="ident">ptr</span>))
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="prelude-val">Some</span>(<span class="ident">wasm_cells</span>)
     }
@@ -563,8 +563,8 @@
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
         <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>().<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
-        <span class="kw">let</span> <span class="ident">slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">std</span>::<span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(<span class="ident">ptr</span>, <span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
-        <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="ident">slice</span>).<span class="ident">ok</span>()
+        <span class="kw">let</span> <span class="ident">slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">std::slice::from_raw_parts</span>(<span class="ident">ptr</span>, <span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
+        <span class="ident">std::str::from_utf8</span>(<span class="ident">slice</span>).<span class="ident">ok</span>()
     }
 
     <span class="doccomment">/// Get a UTF-8 `String` from the `WasmPtr` with the given length.</span>
@@ -582,14 +582,14 @@
         <span class="comment">// micro-optimization here and this may be a fairly common function in user code.</span>
         <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
         <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..(<span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span>) {
             <span class="kw">let</span> <span class="ident">byte</span> <span class="op">=</span> <span class="ident">view</span>[<span class="ident">base</span> <span class="op">+</span> <span class="ident">i</span>].<span class="ident">get</span>();
             <span class="ident">vec</span>.<span class="ident">push</span>(<span class="ident">byte</span>);
         }
 
-        <span class="ident">String</span>::<span class="ident">from_utf8</span>(<span class="ident">vec</span>).<span class="ident">ok</span>()
+        <span class="ident">String::from_utf8</span>(<span class="ident">vec</span>).<span class="ident">ok</span>()
     }
 
     <span class="doccomment">/// Get a UTF-8 string from the `WasmPtr`, where the string is nul-terminated.</span>
@@ -620,10 +620,10 @@
 <span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span>, <span class="ident">Ty</span><span class="op">&gt;</span> <span class="ident">FromToNativeWasmType</span> <span class="kw">for</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ty</span><span class="op">&gt;</span> {
     <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
 
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::Native</span> {
         <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i32</span>
     }
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="self">Self</span><span class="ident">::Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">offset</span>: <span class="ident">n</span> <span class="kw">as</span> <span class="ident">u32</span>,
             <span class="ident">_phantom</span>: <span class="ident">PhantomData</span>,
@@ -652,14 +652,14 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span>, <span class="ident">Ty</span><span class="op">&gt;</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ty</span><span class="op">&gt;</span> {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span>, <span class="ident">Ty</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ty</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span>, <span class="ident">Ty</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ty</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+        <span class="macro">write!</span>(
             <span class="ident">f</span>,
             <span class="string">&quot;WasmPtr(offset: {}, pointer: {:#x}, align: {})&quot;</span>,
             <span class="self">self</span>.<span class="ident">offset</span>,
             <span class="self">self</span>.<span class="ident">offset</span>,
-            <span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>()
+            <span class="ident">mem::align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>()
         )
     }
 }
@@ -667,81 +667,81 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">sys</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryType</span>, <span class="ident">Store</span>};
+    <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryType</span>, <span class="ident">Store</span>};
 
     <span class="doccomment">/// Ensure that memory accesses work on the edges of memory and that out of</span>
     <span class="doccomment">/// bounds errors are caught with `deref`</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">wasm_ptr_memory_bounds_checks_hold</span>() {
         <span class="comment">// create a memory</span>
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store</span>::<span class="ident">default</span>();
-        <span class="kw">let</span> <span class="ident">memory_descriptor</span> <span class="op">=</span> <span class="ident">MemoryType</span>::<span class="ident">new</span>(<span class="number">1</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>), <span class="bool-val">false</span>);
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">memory_descriptor</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::default</span>();
+        <span class="kw">let</span> <span class="ident">memory_descriptor</span> <span class="op">=</span> <span class="ident">MemoryType::new</span>(<span class="number">1</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>), <span class="bool-val">false</span>);
+        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Memory::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">memory_descriptor</span>).<span class="ident">unwrap</span>();
 
         <span class="comment">// test that basic access works and that len = 0 works, but oob does not</span>
-        <span class="kw">let</span> <span class="ident">start_wasm_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">start_wasm_ptr_array</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="number">0</span>);
+        <span class="kw">let</span> <span class="ident">start_wasm_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr::new</span>(<span class="number">0</span>);
+        <span class="kw">let</span> <span class="ident">start_wasm_ptr_array</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr::new</span>(<span class="number">0</span>);
 
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">start_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">start_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">0</span>).<span class="ident">is_some</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">unsafe</span> { <span class="ident">start_wasm_ptr_array</span>.<span class="ident">get_utf8_str</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>).<span class="ident">is_some</span>() });
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">start_wasm_ptr_array</span>.<span class="ident">get_utf8_string</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>).<span class="ident">is_some</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">start_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">start_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">start_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">0</span>).<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="kw">unsafe</span> { <span class="ident">start_wasm_ptr_array</span>.<span class="ident">get_utf8_str</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>).<span class="ident">is_some</span>() });
+        <span class="macro">assert!</span>(<span class="ident">start_wasm_ptr_array</span>.<span class="ident">get_utf8_string</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>).<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">start_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_some</span>());
 
         <span class="comment">// test that accessing the last valid memory address works correctly and OOB is caught</span>
         <span class="kw">let</span> <span class="ident">last_valid_address_for_u8</span> <span class="op">=</span> (<span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> <span class="op">-</span> <span class="number">1</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-        <span class="kw">let</span> <span class="ident">end_wasm_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u8</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
+        <span class="kw">let</span> <span class="ident">end_wasm_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u8</span>);
+        <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
 
-        <span class="kw">let</span> <span class="ident">end_wasm_ptr_array</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u8</span>);
+        <span class="kw">let</span> <span class="ident">end_wasm_ptr_array</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u8</span>);
 
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_some</span>());
         <span class="kw">let</span> <span class="ident">invalid_idx_len_combos</span>: [(<span class="ident">u32</span>, <span class="ident">u32</span>); <span class="number">3</span>] <span class="op">=</span>
             [(<span class="ident">last_valid_address_for_u8</span> <span class="op">+</span> <span class="number">1</span>, <span class="number">0</span>), (<span class="number">0</span>, <span class="number">2</span>), (<span class="number">1</span>, <span class="number">1</span>)];
         <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">idx</span>, <span class="ident">len</span>) <span class="kw">in</span> <span class="ident">invalid_idx_len_combos</span>.<span class="ident">iter</span>() {
-            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>());
+            <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>());
         }
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">unsafe</span> { <span class="ident">end_wasm_ptr_array</span>.<span class="ident">get_utf8_str</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">2</span>).<span class="ident">is_none</span>() });
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">get_utf8_string</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">2</span>).<span class="ident">is_none</span>());
+        <span class="macro">assert!</span>(<span class="kw">unsafe</span> { <span class="ident">end_wasm_ptr_array</span>.<span class="ident">get_utf8_str</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">2</span>).<span class="ident">is_none</span>() });
+        <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">get_utf8_string</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">2</span>).<span class="ident">is_none</span>());
 
         <span class="comment">// test that accesing the last valid memory address for a u32 is valid</span>
         <span class="comment">// (same as above test but with more edge cases to assert on)</span>
         <span class="kw">let</span> <span class="ident">last_valid_address_for_u32</span> <span class="op">=</span> (<span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> <span class="op">-</span> <span class="number">4</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-        <span class="kw">let</span> <span class="ident">end_wasm_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
+        <span class="kw">let</span> <span class="ident">end_wasm_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span>);
+        <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_some</span>());
 
         <span class="kw">let</span> <span class="ident">end_wasm_ptr_oob_array</span>: [<span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>; <span class="number">4</span>] <span class="op">=</span> [
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">1</span>),
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">2</span>),
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">3</span>),
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">4</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">1</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">2</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">3</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">4</span>),
         ];
         <span class="kw">for</span> <span class="ident">oob_end_ptr</span> <span class="kw">in</span> <span class="ident">end_wasm_ptr_oob_array</span>.<span class="ident">iter</span>() {
-            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">oob_end_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_none</span>());
+            <span class="macro">assert!</span>(<span class="ident">oob_end_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">is_none</span>());
         }
-        <span class="kw">let</span> <span class="ident">end_wasm_ptr_array</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span>);
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_some</span>());
+        <span class="kw">let</span> <span class="ident">end_wasm_ptr_array</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span>);
+        <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_some</span>());
 
         <span class="kw">let</span> <span class="ident">invalid_idx_len_combos</span>: [(<span class="ident">u32</span>, <span class="ident">u32</span>); <span class="number">3</span>] <span class="op">=</span>
             [(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">1</span>, <span class="number">0</span>), (<span class="number">0</span>, <span class="number">2</span>), (<span class="number">1</span>, <span class="number">1</span>)];
         <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">idx</span>, <span class="ident">len</span>) <span class="kw">in</span> <span class="ident">invalid_idx_len_combos</span>.<span class="ident">iter</span>() {
-            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>());
+            <span class="macro">assert!</span>(<span class="ident">end_wasm_ptr_array</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">idx</span>, <span class="ident">len</span>).<span class="ident">is_none</span>());
         }
 
         <span class="kw">let</span> <span class="ident">end_wasm_ptr_array_oob_array</span>: [<span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Array</span><span class="op">&gt;</span>; <span class="number">4</span>] <span class="op">=</span> [
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">1</span>),
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">2</span>),
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">3</span>),
-            <span class="ident">WasmPtr</span>::<span class="ident">new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">4</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">1</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">2</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">3</span>),
+            <span class="ident">WasmPtr::new</span>(<span class="ident">last_valid_address_for_u32</span> <span class="op">+</span> <span class="number">4</span>),
         ];
 
         <span class="kw">for</span> <span class="ident">oob_end_array_ptr</span> <span class="kw">in</span> <span class="ident">end_wasm_ptr_array_oob_array</span>.<span class="ident">iter</span>() {
-            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">oob_end_array_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_none</span>());
-            <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">oob_end_array_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">1</span>, <span class="number">0</span>).<span class="ident">is_none</span>());
+            <span class="macro">assert!</span>(<span class="ident">oob_end_array_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="number">1</span>).<span class="ident">is_none</span>());
+            <span class="macro">assert!</span>(<span class="ident">oob_end_array_ptr</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">1</span>, <span class="number">0</span>).<span class="ident">is_none</span>());
         }
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

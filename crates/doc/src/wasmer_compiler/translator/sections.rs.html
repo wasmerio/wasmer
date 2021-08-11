@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/sections.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>sections.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/sections.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>sections.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_compiler/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_compiler/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -490,16 +490,16 @@
 <span class="doccomment">//! The special case of the initialize expressions for table elements offsets or global variables</span>
 <span class="doccomment">//! is handled, according to the semantics of WebAssembly, to only specific expressions that are</span>
 <span class="doccomment">//! interpreted on the fly.</span>
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">environ</span>::<span class="ident">ModuleEnvironment</span>;
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">state</span>::<span class="ident">ModuleTranslationState</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">wasm_unsupported</span>;
+<span class="kw">use</span> <span class="kw">super</span><span class="ident">::environ::ModuleEnvironment</span>;
+<span class="kw">use</span> <span class="kw">super</span><span class="ident">::state::ModuleTranslationState</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::wasm_unsupported</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
-<span class="kw">use</span> <span class="ident">core</span>::<span class="ident">convert</span>::<span class="ident">TryFrom</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">boxed</span>::<span class="ident">Box</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">vec</span>::<span class="ident">Vec</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::<span class="ident">packed_option</span>::<span class="ident">ReservedValue</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::<span class="ident">EntityRef</span>;
+<span class="kw">use</span> <span class="ident">core::convert::TryFrom</span>;
+<span class="kw">use</span> <span class="ident">std::boxed::Box</span>;
+<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
+<span class="kw">use</span> <span class="ident">std::vec::Vec</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::entity::packed_option::ReservedValue</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">DataIndex</span>, <span class="ident">ElemIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>,
     <span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableType</span>, <span class="ident">Type</span>, <span class="ident">V128</span>,
@@ -513,16 +513,16 @@
 };
 
 <span class="doccomment">/// Helper function translating wasmparser types to Wasm Type.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wptype_to_type</span>(<span class="ident">ty</span>: <span class="ident">wasmparser</span>::<span class="ident">Type</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wptype_to_type</span>(<span class="ident">ty</span>: <span class="ident">wasmparser::Type</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> {
     <span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">I32</span>),
-        <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">I64</span>),
-        <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">F32</span>),
-        <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">F64</span>),
-        <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">V128</span>),
-        <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">ExternRef</span>),
-        <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type</span>::<span class="ident">FuncRef</span>),
-        <span class="ident">ty</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(
+        <span class="ident">wasmparser::Type::I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type::I32</span>),
+        <span class="ident">wasmparser::Type::I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type::I64</span>),
+        <span class="ident">wasmparser::Type::F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type::F32</span>),
+        <span class="ident">wasmparser::Type::F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type::F64</span>),
+        <span class="ident">wasmparser::Type::V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type::V128</span>),
+        <span class="ident">wasmparser::Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type::ExternRef</span>),
+        <span class="ident">wasmparser::Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Type::FuncRef</span>),
+        <span class="ident">ty</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
             <span class="string">&quot;wptype_to_type: wasmparser type {:?}&quot;</span>,
             <span class="ident">ty</span>
         )),
@@ -539,7 +539,7 @@
     <span class="ident">environ</span>.<span class="ident">reserve_signatures</span>(<span class="ident">count</span>)<span class="question-mark">?</span>;
 
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">types</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">TypeDef</span>::<span class="ident">Func</span>(<span class="ident">WPFunctionType</span> { <span class="ident">params</span>, <span class="ident">returns</span> })) <span class="op">=</span> <span class="ident">entry</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">TypeDef::Func</span>(<span class="ident">WPFunctionType</span> { <span class="ident">params</span>, <span class="ident">returns</span> })) <span class="op">=</span> <span class="ident">entry</span> {
             <span class="kw">let</span> <span class="ident">sig_params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">params</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ty</span><span class="op">|</span> {
@@ -554,11 +554,11 @@
                         .<span class="ident">expect</span>(<span class="string">&quot;only numeric types are supported in function signatures&quot;</span>)
                 })
                 .<span class="ident">collect</span>();
-            <span class="kw">let</span> <span class="ident">sig</span> <span class="op">=</span> <span class="ident">FunctionType</span>::<span class="ident">new</span>(<span class="ident">sig_params</span>, <span class="ident">sig_returns</span>);
+            <span class="kw">let</span> <span class="ident">sig</span> <span class="op">=</span> <span class="ident">FunctionType::new</span>(<span class="ident">sig_params</span>, <span class="ident">sig_returns</span>);
             <span class="ident">environ</span>.<span class="ident">declare_signature</span>(<span class="ident">sig</span>)<span class="question-mark">?</span>;
             <span class="ident">module_translation_state</span>.<span class="ident">wasm_types</span>.<span class="ident">push</span>((<span class="ident">params</span>, <span class="ident">returns</span>));
         } <span class="kw">else</span> {
-            <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
+            <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
         }
     }
 
@@ -578,19 +578,19 @@
         <span class="kw">let</span> <span class="ident">field_name</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">field</span>;
 
         <span class="kw">match</span> <span class="ident">import</span>.<span class="ident">ty</span> {
-            <span class="ident">ImportSectionEntryType</span>::<span class="ident">Function</span>(<span class="ident">sig</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">ImportSectionEntryType::Function</span>(<span class="ident">sig</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">environ</span>.<span class="ident">declare_func_import</span>(
-                    <span class="ident">SignatureIndex</span>::<span class="ident">from_u32</span>(<span class="ident">sig</span>),
+                    <span class="ident">SignatureIndex::from_u32</span>(<span class="ident">sig</span>),
                     <span class="ident">module_name</span>,
                     <span class="ident">field_name</span>.<span class="ident">unwrap_or_default</span>(),
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">ImportSectionEntryType</span>::<span class="ident">Module</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">ImportSectionEntryType</span>::<span class="ident">Instance</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">ImportSectionEntryType</span>::<span class="ident">Event</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
+            <span class="ident">ImportSectionEntryType::Module</span>(<span class="kw">_</span>)
+            <span class="op">|</span> <span class="ident">ImportSectionEntryType::Instance</span>(<span class="kw">_</span>)
+            <span class="op">|</span> <span class="ident">ImportSectionEntryType::Event</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
             }
-            <span class="ident">ImportSectionEntryType</span>::<span class="ident">Memory</span>(<span class="ident">WPMemoryType</span>::<span class="ident">M32</span> {
+            <span class="ident">ImportSectionEntryType::Memory</span>(<span class="ident">WPMemoryType::M32</span> {
                 <span class="ident">limits</span>: <span class="kw-2">ref</span> <span class="ident">memlimits</span>,
                 <span class="ident">shared</span>,
             }) <span class="op">=</span><span class="op">&gt;</span> {
@@ -604,10 +604,10 @@
                     <span class="ident">field_name</span>.<span class="ident">unwrap_or_default</span>(),
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">ImportSectionEntryType</span>::<span class="ident">Memory</span>(<span class="ident">WPMemoryType</span>::<span class="ident">M64</span> { .. }) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;64bit memory not implemented yet&quot;</span>)
+            <span class="ident">ImportSectionEntryType::Memory</span>(<span class="ident">WPMemoryType::M64</span> { .. }) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">unimplemented!</span>(<span class="string">&quot;64bit memory not implemented yet&quot;</span>)
             }
-            <span class="ident">ImportSectionEntryType</span>::<span class="ident">Global</span>(<span class="kw-2">ref</span> <span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">ImportSectionEntryType::Global</span>(<span class="kw-2">ref</span> <span class="ident">ty</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">environ</span>.<span class="ident">declare_global_import</span>(
                     <span class="ident">GlobalType</span> {
                         <span class="ident">ty</span>: <span class="ident">wptype_to_type</span>(<span class="ident">ty</span>.<span class="ident">content_type</span>).<span class="ident">unwrap</span>(),
@@ -617,7 +617,7 @@
                     <span class="ident">field_name</span>.<span class="ident">unwrap_or_default</span>(),
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">ImportSectionEntryType</span>::<span class="ident">Table</span>(<span class="kw-2">ref</span> <span class="ident">tab</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">ImportSectionEntryType::Table</span>(<span class="kw-2">ref</span> <span class="ident">tab</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">environ</span>.<span class="ident">declare_table_import</span>(
                     <span class="ident">TableType</span> {
                         <span class="ident">ty</span>: <span class="ident">wptype_to_type</span>(<span class="ident">tab</span>.<span class="ident">element_type</span>).<span class="ident">unwrap</span>(),
@@ -641,16 +641,16 @@
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ModuleEnvironment</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">num_functions</span> <span class="op">=</span> <span class="ident">functions</span>.<span class="ident">get_count</span>();
-    <span class="kw">if</span> <span class="ident">num_functions</span> <span class="op">=</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> {
+    <span class="kw">if</span> <span class="ident">num_functions</span> <span class="op">=</span><span class="op">=</span> <span class="ident">std::u32::MAX</span> {
         <span class="comment">// We reserve `u32::MAX` for our own use.</span>
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasmError</span>::<span class="ident">ImplLimitExceeded</span>);
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasmError::ImplLimitExceeded</span>);
     }
 
     <span class="ident">environ</span>.<span class="ident">reserve_func_types</span>(<span class="ident">num_functions</span>)<span class="question-mark">?</span>;
 
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">functions</span> {
         <span class="kw">let</span> <span class="ident">sigindex</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
-        <span class="ident">environ</span>.<span class="ident">declare_func_type</span>(<span class="ident">SignatureIndex</span>::<span class="ident">from_u32</span>(<span class="ident">sigindex</span>))<span class="question-mark">?</span>;
+        <span class="ident">environ</span>.<span class="ident">declare_func_type</span>(<span class="ident">SignatureIndex::from_u32</span>(<span class="ident">sigindex</span>))<span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>(())
@@ -685,14 +685,14 @@
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">memories</span> {
         <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="ident">memory</span> {
-            <span class="ident">WPMemoryType</span>::<span class="ident">M32</span> { <span class="ident">limits</span>, <span class="ident">shared</span> } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">WPMemoryType::M32</span> { <span class="ident">limits</span>, <span class="ident">shared</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">environ</span>.<span class="ident">declare_memory</span>(<span class="ident">MemoryType</span> {
                     <span class="ident">minimum</span>: <span class="ident">Pages</span>(<span class="ident">limits</span>.<span class="ident">initial</span>),
                     <span class="ident">maximum</span>: <span class="ident">limits</span>.<span class="ident">maximum</span>.<span class="ident">map</span>(<span class="ident">Pages</span>),
                     <span class="ident">shared</span>,
                 })<span class="question-mark">?</span>;
             }
-            <span class="ident">WPMemoryType</span>::<span class="ident">M64</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;64bit memory not implemented yet&quot;</span>),
+            <span class="ident">WPMemoryType::M64</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented!</span>(<span class="string">&quot;64bit memory not implemented yet&quot;</span>),
         }
     }
 
@@ -707,7 +707,7 @@
     <span class="ident">environ</span>.<span class="ident">reserve_globals</span>(<span class="ident">globals</span>.<span class="ident">get_count</span>())<span class="question-mark">?</span>;
 
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">globals</span> {
-        <span class="kw">let</span> <span class="ident">wasmparser</span>::<span class="ident">Global</span> {
+        <span class="kw">let</span> <span class="ident">wasmparser::Global</span> {
             <span class="ident">ty</span>: <span class="ident">WPGlobalType</span> {
                 <span class="ident">content_type</span>,
                 <span class="ident">mutable</span>,
@@ -716,20 +716,20 @@
         } <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_expr_reader</span> <span class="op">=</span> <span class="ident">init_expr</span>.<span class="ident">get_binary_reader</span>();
         <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">init_expr_reader</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span> {
-            <span class="ident">Operator</span>::<span class="ident">I32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit</span>::<span class="ident">I32Const</span>(<span class="ident">value</span>),
-            <span class="ident">Operator</span>::<span class="ident">I64Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit</span>::<span class="ident">I64Const</span>(<span class="ident">value</span>),
-            <span class="ident">Operator</span>::<span class="ident">F32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit</span>::<span class="ident">F32Const</span>(<span class="ident">f32</span>::<span class="ident">from_bits</span>(<span class="ident">value</span>.<span class="ident">bits</span>())),
-            <span class="ident">Operator</span>::<span class="ident">F64Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit</span>::<span class="ident">F64Const</span>(<span class="ident">f64</span>::<span class="ident">from_bits</span>(<span class="ident">value</span>.<span class="ident">bits</span>())),
-            <span class="ident">Operator</span>::<span class="ident">V128Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit</span>::<span class="ident">V128Const</span>(<span class="ident">V128</span>::<span class="ident">from</span>(<span class="kw-2">*</span><span class="ident">value</span>.<span class="ident">bytes</span>())),
-            <span class="ident">Operator</span>::<span class="ident">RefNull</span> { <span class="ident">ty</span>: <span class="kw">_</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit</span>::<span class="ident">RefNullConst</span>,
-            <span class="ident">Operator</span>::<span class="ident">RefFunc</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">GlobalInit</span>::<span class="ident">RefFunc</span>(<span class="ident">FunctionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">function_index</span>))
+            <span class="ident">Operator::I32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit::I32Const</span>(<span class="ident">value</span>),
+            <span class="ident">Operator::I64Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit::I64Const</span>(<span class="ident">value</span>),
+            <span class="ident">Operator::F32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit::F32Const</span>(<span class="ident">f32::from_bits</span>(<span class="ident">value</span>.<span class="ident">bits</span>())),
+            <span class="ident">Operator::F64Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit::F64Const</span>(<span class="ident">f64::from_bits</span>(<span class="ident">value</span>.<span class="ident">bits</span>())),
+            <span class="ident">Operator::V128Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit::V128Const</span>(<span class="ident">V128::from</span>(<span class="kw-2">*</span><span class="ident">value</span>.<span class="ident">bytes</span>())),
+            <span class="ident">Operator::RefNull</span> { <span class="ident">ty</span>: <span class="kw">_</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">GlobalInit::RefNullConst</span>,
+            <span class="ident">Operator::RefFunc</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">GlobalInit::RefFunc</span>(<span class="ident">FunctionIndex::from_u32</span>(<span class="ident">function_index</span>))
             }
-            <span class="ident">Operator</span>::<span class="ident">GlobalGet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">GlobalInit</span>::<span class="ident">GetGlobal</span>(<span class="ident">GlobalIndex</span>::<span class="ident">from_u32</span>(<span class="ident">global_index</span>))
+            <span class="ident">Operator::GlobalGet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">GlobalInit::GetGlobal</span>(<span class="ident">GlobalIndex::from_u32</span>(<span class="ident">global_index</span>))
             }
             <span class="kw-2">ref</span> <span class="ident">s</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
                     <span class="string">&quot;unsupported init expr in global section: {:?}&quot;</span>,
                     <span class="ident">s</span>
                 ));
@@ -764,21 +764,21 @@
         <span class="comment">// becomes a concern here.</span>
         <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>;
         <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">kind</span> {
-            <span class="ident">ExternalKind</span>::<span class="ident">Function</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">environ</span>.<span class="ident">declare_func_export</span>(<span class="ident">FunctionIndex</span>::<span class="ident">new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
+            <span class="ident">ExternalKind::Function</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">environ</span>.<span class="ident">declare_func_export</span>(<span class="ident">FunctionIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
             }
-            <span class="ident">ExternalKind</span>::<span class="ident">Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">environ</span>.<span class="ident">declare_table_export</span>(<span class="ident">TableIndex</span>::<span class="ident">new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>,
-            <span class="ident">ExternalKind</span>::<span class="ident">Memory</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">environ</span>.<span class="ident">declare_memory_export</span>(<span class="ident">MemoryIndex</span>::<span class="ident">new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
+            <span class="ident">ExternalKind::Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">environ</span>.<span class="ident">declare_table_export</span>(<span class="ident">TableIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>,
+            <span class="ident">ExternalKind::Memory</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">environ</span>.<span class="ident">declare_memory_export</span>(<span class="ident">MemoryIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
             }
-            <span class="ident">ExternalKind</span>::<span class="ident">Global</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">environ</span>.<span class="ident">declare_global_export</span>(<span class="ident">GlobalIndex</span>::<span class="ident">new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
+            <span class="ident">ExternalKind::Global</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">environ</span>.<span class="ident">declare_global_export</span>(<span class="ident">GlobalIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
             }
-            <span class="ident">ExternalKind</span>::<span class="ident">Type</span>
-            <span class="op">|</span> <span class="ident">ExternalKind</span>::<span class="ident">Module</span>
-            <span class="op">|</span> <span class="ident">ExternalKind</span>::<span class="ident">Instance</span>
-            <span class="op">|</span> <span class="ident">ExternalKind</span>::<span class="ident">Event</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
+            <span class="ident">ExternalKind::Type</span>
+            <span class="op">|</span> <span class="ident">ExternalKind::Module</span>
+            <span class="op">|</span> <span class="ident">ExternalKind::Instance</span>
+            <span class="op">|</span> <span class="ident">ExternalKind::Event</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
             }
         }
     }
@@ -789,17 +789,17 @@
 
 <span class="doccomment">/// Parses the Start section of the wasm module.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_start_section</span>(<span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ModuleEnvironment</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="ident">environ</span>.<span class="ident">declare_start_function</span>(<span class="ident">FunctionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">index</span>))<span class="question-mark">?</span>;
+    <span class="ident">environ</span>.<span class="ident">declare_start_function</span>(<span class="ident">FunctionIndex::from_u32</span>(<span class="ident">index</span>))<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="kw">fn</span> <span class="ident">read_elems</span>(<span class="ident">items</span>: <span class="kw-2">&amp;</span><span class="ident">ElementItems</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">items_reader</span> <span class="op">=</span> <span class="ident">items</span>.<span class="ident">get_items_reader</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">elems</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">items_reader</span>.<span class="ident">get_count</span>()).<span class="ident">unwrap</span>());
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">elems</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">usize::try_from</span>(<span class="ident">items_reader</span>.<span class="ident">get_count</span>()).<span class="ident">unwrap</span>());
     <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">items_reader</span> {
         <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">item</span><span class="question-mark">?</span> {
-            <span class="ident">ElementItem</span>::<span class="ident">Null</span>(<span class="ident">_ty</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FunctionIndex</span>::<span class="ident">reserved_value</span>(),
-            <span class="ident">ElementItem</span>::<span class="ident">Func</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FunctionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">index</span>),
+            <span class="ident">ElementItem::Null</span>(<span class="ident">_ty</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FunctionIndex::reserved_value</span>(),
+            <span class="ident">ElementItem::Func</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FunctionIndex::from_u32</span>(<span class="ident">index</span>),
         };
         <span class="ident">elems</span>.<span class="ident">push</span>(<span class="ident">elem</span>);
     }
@@ -815,43 +815,43 @@
 
     <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">entry</span>) <span class="kw">in</span> <span class="ident">elements</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
         <span class="kw">let</span> <span class="ident">Element</span> { <span class="ident">kind</span>, <span class="ident">items</span>, <span class="ident">ty</span> } <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmparser</span>::<span class="ident">Type</span>::<span class="ident">FuncRef</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(
+        <span class="kw">if</span> <span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmparser::Type::FuncRef</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
                 <span class="string">&quot;unsupported table element type: {:?}&quot;</span>,
                 <span class="ident">ty</span>
             ));
         }
         <span class="kw">let</span> <span class="ident">segments</span> <span class="op">=</span> <span class="ident">read_elems</span>(<span class="kw-2">&amp;</span><span class="ident">items</span>)<span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="ident">kind</span> {
-            <span class="ident">ElementKind</span>::<span class="ident">Active</span> {
+            <span class="ident">ElementKind::Active</span> {
                 <span class="ident">table_index</span>,
                 <span class="ident">init_expr</span>,
             } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_expr_reader</span> <span class="op">=</span> <span class="ident">init_expr</span>.<span class="ident">get_binary_reader</span>();
                 <span class="kw">let</span> (<span class="ident">base</span>, <span class="ident">offset</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">init_expr_reader</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span> {
-                    <span class="ident">Operator</span>::<span class="ident">I32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> (<span class="prelude-val">None</span>, <span class="ident">value</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="kw">as</span> <span class="ident">usize</span>),
-                    <span class="ident">Operator</span>::<span class="ident">GlobalGet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                        (<span class="prelude-val">Some</span>(<span class="ident">GlobalIndex</span>::<span class="ident">from_u32</span>(<span class="ident">global_index</span>)), <span class="number">0</span>)
+                    <span class="ident">Operator::I32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> (<span class="prelude-val">None</span>, <span class="ident">value</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="kw">as</span> <span class="ident">usize</span>),
+                    <span class="ident">Operator::GlobalGet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                        (<span class="prelude-val">Some</span>(<span class="ident">GlobalIndex::from_u32</span>(<span class="ident">global_index</span>)), <span class="number">0</span>)
                     }
                     <span class="kw-2">ref</span> <span class="ident">s</span> <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
                             <span class="string">&quot;unsupported init expr in element section: {:?}&quot;</span>,
                             <span class="ident">s</span>
                         ));
                     }
                 };
                 <span class="ident">environ</span>.<span class="ident">declare_table_initializers</span>(
-                    <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>),
+                    <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>),
                     <span class="ident">base</span>,
                     <span class="ident">offset</span>,
                     <span class="ident">segments</span>,
                 )<span class="question-mark">?</span>
             }
-            <span class="ident">ElementKind</span>::<span class="ident">Passive</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">ElemIndex</span>::<span class="ident">from_u32</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">u32</span>);
+            <span class="ident">ElementKind::Passive</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">ElemIndex::from_u32</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">u32</span>);
                 <span class="ident">environ</span>.<span class="ident">declare_passive_element</span>(<span class="ident">index</span>, <span class="ident">segments</span>)<span class="question-mark">?</span>;
             }
-            <span class="ident">ElementKind</span>::<span class="ident">Declared</span> <span class="op">=</span><span class="op">&gt;</span> (),
+            <span class="ident">ElementKind::Declared</span> <span class="op">=</span><span class="op">&gt;</span> (),
         }
     }
     <span class="prelude-val">Ok</span>(())
@@ -867,32 +867,32 @@
     <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">entry</span>) <span class="kw">in</span> <span class="ident">data</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
         <span class="kw">let</span> <span class="ident">Data</span> { <span class="ident">kind</span>, <span class="ident">data</span> } <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="ident">kind</span> {
-            <span class="ident">DataKind</span>::<span class="ident">Active</span> {
+            <span class="ident">DataKind::Active</span> {
                 <span class="ident">memory_index</span>,
                 <span class="ident">init_expr</span>,
             } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_expr_reader</span> <span class="op">=</span> <span class="ident">init_expr</span>.<span class="ident">get_binary_reader</span>();
                 <span class="kw">let</span> (<span class="ident">base</span>, <span class="ident">offset</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">init_expr_reader</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span> {
-                    <span class="ident">Operator</span>::<span class="ident">I32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> (<span class="prelude-val">None</span>, <span class="ident">value</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="kw">as</span> <span class="ident">usize</span>),
-                    <span class="ident">Operator</span>::<span class="ident">GlobalGet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-                        (<span class="prelude-val">Some</span>(<span class="ident">GlobalIndex</span>::<span class="ident">from_u32</span>(<span class="ident">global_index</span>)), <span class="number">0</span>)
+                    <span class="ident">Operator::I32Const</span> { <span class="ident">value</span> } <span class="op">=</span><span class="op">&gt;</span> (<span class="prelude-val">None</span>, <span class="ident">value</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="kw">as</span> <span class="ident">usize</span>),
+                    <span class="ident">Operator::GlobalGet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                        (<span class="prelude-val">Some</span>(<span class="ident">GlobalIndex::from_u32</span>(<span class="ident">global_index</span>)), <span class="number">0</span>)
                     }
                     <span class="kw-2">ref</span> <span class="ident">s</span> <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
                             <span class="string">&quot;unsupported init expr in data section: {:?}&quot;</span>,
                             <span class="ident">s</span>
                         ))
                     }
                 };
                 <span class="ident">environ</span>.<span class="ident">declare_data_initialization</span>(
-                    <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>),
+                    <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>),
                     <span class="ident">base</span>,
                     <span class="ident">offset</span>,
                     <span class="ident">data</span>,
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">DataKind</span>::<span class="ident">Passive</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">DataIndex</span>::<span class="ident">from_u32</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">u32</span>);
+            <span class="ident">DataKind::Passive</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">DataIndex::from_u32</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">u32</span>);
                 <span class="ident">environ</span>.<span class="ident">declare_passive_data</span>(<span class="ident">index</span>, <span class="ident">data</span>)<span class="question-mark">?</span>;
             }
         }
@@ -908,7 +908,7 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">subsection</span>) <span class="op">=</span> <span class="ident">names</span>.<span class="ident">read</span>() {
         <span class="kw">match</span> <span class="ident">subsection</span> {
-            <span class="ident">wasmparser</span>::<span class="ident">Name</span>::<span class="ident">Function</span>(<span class="ident">function_subsection</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">wasmparser::Name::Function</span>(<span class="ident">function_subsection</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">function_names</span>) <span class="op">=</span> <span class="ident">function_subsection</span>
                     .<span class="ident">get_map</span>()
                     .<span class="ident">ok</span>()
@@ -919,13 +919,13 @@
                     }
                 }
             }
-            <span class="ident">wasmparser</span>::<span class="ident">Name</span>::<span class="ident">Module</span>(<span class="ident">module</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">wasmparser::Name::Module</span>(<span class="ident">module</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">module</span>.<span class="ident">get_name</span>() {
                     <span class="ident">environ</span>.<span class="ident">declare_module_name</span>(<span class="ident">name</span>)<span class="question-mark">?</span>;
                 }
             }
-            <span class="ident">wasmparser</span>::<span class="ident">Name</span>::<span class="ident">Local</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
-            <span class="ident">wasmparser</span>::<span class="ident">Name</span>::<span class="ident">Unknown</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {}
+            <span class="ident">wasmparser::Name::Local</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {}
+            <span class="ident">wasmparser::Name::Unknown</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {}
         };
     }
     <span class="prelude-val">Ok</span>(())
@@ -934,16 +934,16 @@
 <span class="kw">fn</span> <span class="ident">parse_function_name_subsection</span>(
     <span class="kw-2">mut</span> <span class="ident">naming_reader</span>: <span class="ident">NamingReader</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_names</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_names</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
     <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">naming_reader</span>.<span class="ident">get_count</span>() {
         <span class="kw">let</span> <span class="ident">Naming</span> { <span class="ident">index</span>, <span class="ident">name</span> } <span class="op">=</span> <span class="ident">naming_reader</span>.<span class="ident">read</span>().<span class="ident">ok</span>()<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">std</span>::<span class="ident">u32</span>::<span class="ident">MAX</span> {
+        <span class="kw">if</span> <span class="ident">index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">std::u32::MAX</span> {
             <span class="comment">// We reserve `u32::MAX` for our own use.</span>
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
 
         <span class="kw">if</span> <span class="ident">function_names</span>
-            .<span class="ident">insert</span>(<span class="ident">FunctionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">index</span>), <span class="ident">name</span>)
+            .<span class="ident">insert</span>(<span class="ident">FunctionIndex::from_u32</span>(<span class="ident">index</span>), <span class="ident">name</span>)
             .<span class="ident">is_some</span>()
         {
             <span class="comment">// If the function index has been previously seen, then we</span>
@@ -955,5 +955,5 @@
     <span class="prelude-val">Some</span>(<span class="ident">function_names</span>)
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

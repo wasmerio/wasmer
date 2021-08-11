@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/libcalls.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>libcalls.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/libcalls.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>libcalls.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -914,17 +914,17 @@
 
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span> <span class="comment">// For some reason lint fails saying that `LibCall` is not documented, when it actually is</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">func_data_registry</span>::<span class="ident">VMFuncRef</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">probestack</span>::<span class="ident">PROBESTACK</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">table</span>::{<span class="ident">RawTableElement</span>, <span class="ident">TableElement</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trap</span>::{<span class="ident">raise_lib_trap</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::<span class="ident">VMContext</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMExternRef</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::func_data_registry::VMFuncRef</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::probestack::PROBESTACK</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::table</span>::{<span class="ident">RawTableElement</span>, <span class="ident">TableElement</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::trap</span>::{<span class="ident">raise_lib_trap</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::vmcontext::VMContext</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::VMExternRef</span>;
+<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
+<span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">DataIndex</span>, <span class="ident">ElemIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>,
     <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
@@ -949,7 +949,7 @@
 }
 
 <span class="doccomment">/// Implementation of f32.nearest</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">float_arithmetic</span>, <span class="ident">clippy</span>::<span class="ident">float_cmp</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::float_arithmetic</span>, <span class="ident">clippy::float_cmp</span>)]</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f32_nearest</span>(<span class="ident">x</span>: <span class="ident">f32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">f32</span> {
     <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.</span>
@@ -994,7 +994,7 @@
 }
 
 <span class="doccomment">/// Implementation of f64.nearest</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">float_arithmetic</span>, <span class="ident">clippy</span>::<span class="ident">float_cmp</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::float_arithmetic</span>, <span class="ident">clippy::float_cmp</span>)]</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f64_nearest</span>(<span class="ident">x</span>: <span class="ident">f64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">f64</span> {
     <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.</span>
@@ -1032,12 +1032,12 @@
     <span class="ident">memory_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
 
     <span class="ident">instance</span>
         .<span class="ident">memory_grow</span>(<span class="ident">memory_index</span>, <span class="ident">delta</span>)
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">pages</span><span class="op">|</span> <span class="ident">pages</span>.<span class="number">0</span>)
-        .<span class="ident">unwrap_or</span>(<span class="ident">u32</span>::<span class="ident">max_value</span>())
+        .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
 }
 
 <span class="doccomment">/// Implementation of memory.grow for imported 32-bit memories.</span>
@@ -1052,12 +1052,12 @@
     <span class="ident">memory_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
 
     <span class="ident">instance</span>
         .<span class="ident">imported_memory_grow</span>(<span class="ident">memory_index</span>, <span class="ident">delta</span>)
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">pages</span><span class="op">|</span> <span class="ident">pages</span>.<span class="number">0</span>)
-        .<span class="ident">unwrap_or</span>(<span class="ident">u32</span>::<span class="ident">max_value</span>())
+        .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
 }
 
 <span class="doccomment">/// Implementation of memory.size for locally-defined 32-bit memories.</span>
@@ -1068,7 +1068,7 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_size</span>(<span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMContext</span>, <span class="ident">memory_index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">memory_size</span>(<span class="ident">memory_index</span>).<span class="number">0</span>
 }
@@ -1084,7 +1084,7 @@
     <span class="ident">memory_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">imported_memory_size</span>(<span class="ident">memory_index</span>).<span class="number">0</span>
 }
@@ -1104,8 +1104,8 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">dst_table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">dst_table_index</span>);
-        <span class="kw">let</span> <span class="ident">src_table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">src_table_index</span>);
+        <span class="kw">let</span> <span class="ident">dst_table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">dst_table_index</span>);
+        <span class="kw">let</span> <span class="ident">src_table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">src_table_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="kw">let</span> <span class="ident">dst_table</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">dst_table_index</span>);
         <span class="kw">let</span> <span class="ident">src_table</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">src_table_index</span>);
@@ -1131,8 +1131,8 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
-        <span class="kw">let</span> <span class="ident">elem_index</span> <span class="op">=</span> <span class="ident">ElemIndex</span>::<span class="ident">from_u32</span>(<span class="ident">elem_index</span>);
+        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
+        <span class="kw">let</span> <span class="ident">elem_index</span> <span class="op">=</span> <span class="ident">ElemIndex::from_u32</span>(<span class="ident">elem_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">table_init</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
     };
@@ -1155,12 +1155,12 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-            <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">ExternRef</span>(<span class="ident">item</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
-            <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">FuncRef</span>(<span class="ident">item</span>.<span class="ident">func_ref</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+            <span class="ident">Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::ExternRef</span>(<span class="ident">item</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
+            <span class="ident">Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::FuncRef</span>(<span class="ident">item</span>.<span class="ident">func_ref</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
         };
 
         <span class="ident">instance</span>.<span class="ident">table_fill</span>(<span class="ident">table_index</span>, <span class="ident">start_idx</span>, <span class="ident">elem</span>, <span class="ident">len</span>)
@@ -1178,7 +1178,7 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_size</span>(<span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMContext</span>, <span class="ident">table_index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">table_size</span>(<span class="ident">table_index</span>)
 }
@@ -1194,7 +1194,7 @@
     <span class="ident">table_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">imported_table_size</span>(<span class="ident">table_index</span>)
 }
@@ -1211,12 +1211,12 @@
     <span class="ident">elem_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RawTableElement</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
     <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">table_get</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>) {
         <span class="prelude-val">Some</span>(<span class="ident">table_ref</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">table_ref</span>.<span class="ident">into</span>(),
-        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>)),
+        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>)),
     }
 }
 
@@ -1232,12 +1232,12 @@
     <span class="ident">elem_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RawTableElement</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
     <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">imported_table_get</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>) {
         <span class="prelude-val">Some</span>(<span class="ident">table_ref</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">table_ref</span>.<span class="ident">into</span>(),
-        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>)),
+        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">raise_lib_trap</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>)),
     }
 }
 
@@ -1257,16 +1257,16 @@
     <span class="ident">value</span>: <span class="ident">RawTableElement</span>,
 ) {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
     <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">instance</span>
         .<span class="ident">module_ref</span>()
         .<span class="ident">local_table_index</span>(<span class="ident">table_index</span>)
         .<span class="ident">unwrap</span>();
 
     <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_local_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-        <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">ExternRef</span>(<span class="ident">value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
-        <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">FuncRef</span>(<span class="ident">value</span>.<span class="ident">func_ref</span>),
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+        <span class="ident">Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::ExternRef</span>(<span class="ident">value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
+        <span class="ident">Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::FuncRef</span>(<span class="ident">value</span>.<span class="ident">func_ref</span>),
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
     };
 
     <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
@@ -1290,11 +1290,11 @@
     <span class="ident">value</span>: <span class="ident">RawTableElement</span>,
 ) {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
     <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-        <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">ExternRef</span>(<span class="ident">value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
-        <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">FuncRef</span>(<span class="ident">value</span>.<span class="ident">func_ref</span>),
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+        <span class="ident">Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::ExternRef</span>(<span class="ident">value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
+        <span class="ident">Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::FuncRef</span>(<span class="ident">value</span>.<span class="ident">func_ref</span>),
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
     };
 
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">imported_table_set</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>, <span class="ident">elem</span>);
@@ -1317,17 +1317,17 @@
     <span class="ident">table_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
 
     <span class="kw">let</span> <span class="ident">init_value</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_local_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-        <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">ExternRef</span>(<span class="ident">init_value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
-        <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">FuncRef</span>(<span class="ident">init_value</span>.<span class="ident">func_ref</span>),
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+        <span class="ident">Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::ExternRef</span>(<span class="ident">init_value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
+        <span class="ident">Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::FuncRef</span>(<span class="ident">init_value</span>.<span class="ident">func_ref</span>),
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
     };
 
     <span class="ident">instance</span>
         .<span class="ident">table_grow</span>(<span class="ident">table_index</span>, <span class="ident">delta</span>, <span class="ident">init_value</span>)
-        .<span class="ident">unwrap_or</span>(<span class="ident">u32</span>::<span class="ident">max_value</span>())
+        .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
 }
 
 <span class="doccomment">/// Implementation of `table.grow` for imported tables.</span>
@@ -1343,16 +1343,16 @@
     <span class="ident">table_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="ident">table_index</span>);
+    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
     <span class="kw">let</span> <span class="ident">init_value</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-        <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">ExternRef</span>(<span class="ident">init_value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
-        <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement</span>::<span class="ident">FuncRef</span>(<span class="ident">init_value</span>.<span class="ident">func_ref</span>),
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+        <span class="ident">Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::ExternRef</span>(<span class="ident">init_value</span>.<span class="ident">extern_ref</span>.<span class="ident">into</span>()),
+        <span class="ident">Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TableElement::FuncRef</span>(<span class="ident">init_value</span>.<span class="ident">func_ref</span>),
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
     };
 
     <span class="ident">instance</span>
         .<span class="ident">imported_table_grow</span>(<span class="ident">table_index</span>, <span class="ident">delta</span>, <span class="ident">init_value</span>)
-        .<span class="ident">unwrap_or</span>(<span class="ident">u32</span>::<span class="ident">max_value</span>())
+        .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
 }
 
 <span class="doccomment">/// Implementation of `func.ref`.</span>
@@ -1366,7 +1366,7 @@
     <span class="ident">function_index</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VMFuncRef</span> {
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">function_index</span> <span class="op">=</span> <span class="ident">FunctionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">function_index</span>);
+    <span class="kw">let</span> <span class="ident">function_index</span> <span class="op">=</span> <span class="ident">FunctionIndex::from_u32</span>(<span class="ident">function_index</span>);
 
     <span class="ident">instance</span>.<span class="ident">func_ref</span>(<span class="ident">function_index</span>).<span class="ident">unwrap</span>()
 }
@@ -1403,7 +1403,7 @@
 <span class="doccomment">/// `vmctx` must be dereferenceable.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_elem_drop</span>(<span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMContext</span>, <span class="ident">elem_index</span>: <span class="ident">u32</span>) {
-    <span class="kw">let</span> <span class="ident">elem_index</span> <span class="op">=</span> <span class="ident">ElemIndex</span>::<span class="ident">from_u32</span>(<span class="ident">elem_index</span>);
+    <span class="kw">let</span> <span class="ident">elem_index</span> <span class="op">=</span> <span class="ident">ElemIndex::from_u32</span>(<span class="ident">elem_index</span>);
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="ident">instance</span>.<span class="ident">elem_drop</span>(<span class="ident">elem_index</span>);
 }
@@ -1422,7 +1422,7 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">local_memory_copy</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
     };
@@ -1445,7 +1445,7 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">imported_memory_copy</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
     };
@@ -1468,7 +1468,7 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">local_memory_fill</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span>)
     };
@@ -1491,7 +1491,7 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
+        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">imported_memory_fill</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span>)
     };
@@ -1515,8 +1515,8 @@
     <span class="ident">len</span>: <span class="ident">u32</span>,
 ) {
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex</span>::<span class="ident">from_u32</span>(<span class="ident">data_index</span>);
+        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+        <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex::from_u32</span>(<span class="ident">data_index</span>);
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
         <span class="ident">instance</span>.<span class="ident">memory_init</span>(<span class="ident">memory_index</span>, <span class="ident">data_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
     };
@@ -1532,7 +1532,7 @@
 <span class="doccomment">/// `vmctx` must be dereferenceable.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_data_drop</span>(<span class="ident">vmctx</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMContext</span>, <span class="ident">data_index</span>: <span class="ident">u32</span>) {
-    <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex</span>::<span class="ident">from_u32</span>(<span class="ident">data_index</span>);
+    <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex::from_u32</span>(<span class="ident">data_index</span>);
     <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
     <span class="ident">instance</span>.<span class="ident">data_drop</span>(<span class="ident">data_index</span>)
 }
@@ -1545,7 +1545,7 @@
 <span class="doccomment">/// `wasmer_call_trampoline` must have been previously called.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_raise_trap</span>(<span class="ident">trap_code</span>: <span class="ident">TrapCode</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
-    <span class="kw">let</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">trap_code</span>);
+    <span class="kw">let</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">Trap::lib</span>(<span class="ident">trap_code</span>);
     <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>)
 }
 
@@ -1666,88 +1666,88 @@
     <span class="doccomment">/// The function pointer to a libcall</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function_pointer</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">CeilF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_ceil</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">CeilF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_ceil</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">FloorF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_floor</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">FloorF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_floor</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">NearestF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_nearest</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">NearestF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_nearest</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TruncF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_trunc</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TruncF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_trunc</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedMemory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TableCopy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TableInit</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_init</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TableFill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">TableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_func_ref</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ElemDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_elem_drop</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedMemory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedMemory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Init</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_init</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">DataDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_data_drop</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_probestack</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="self">Self</span>::<span class="ident">RaiseTrap</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_raise_trap</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::CeilF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_ceil</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::CeilF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_ceil</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::FloorF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_floor</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::FloorF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_floor</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::NearestF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_nearest</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::NearestF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_nearest</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TruncF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f32_trunc</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TruncF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_f64_trunc</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ImportedMemory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TableCopy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TableInit</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_init</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TableFill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::TableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_func_ref</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ElemDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_elem_drop</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ImportedMemory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_imported_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::ImportedMemory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Init</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_memory32_init</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::DataDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_data_drop</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_probestack</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="self">Self</span><span class="ident">::RaiseTrap</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasmer_vm_raise_trap</span> <span class="kw">as</span> <span class="ident">usize</span>,
         }
     }
 
     <span class="doccomment">/// Return the function name associated to the libcall.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_function_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">str</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">CeilF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">CeilF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">FloorF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_floor&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">FloorF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_floor&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">NearestF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">NearestF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TruncF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TruncF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_size&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedMemory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_memory32_size&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableCopy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_copy&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableInit</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_init&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableFill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_fill&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_size&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_get&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_set&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_grow&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedTableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_func_ref&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ElemDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_elem_drop&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedMemory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">ImportedMemory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Memory32Init</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_init&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">DataDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_data_drop&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">RaiseTrap</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_raise_trap&quot;</span>,
+            <span class="self">Self</span><span class="ident">::CeilF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>,
+            <span class="self">Self</span><span class="ident">::CeilF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>,
+            <span class="self">Self</span><span class="ident">::FloorF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_floor&quot;</span>,
+            <span class="self">Self</span><span class="ident">::FloorF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_floor&quot;</span>,
+            <span class="self">Self</span><span class="ident">::NearestF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>,
+            <span class="self">Self</span><span class="ident">::NearestF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TruncF32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TruncF64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_size&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ImportedMemory32Size</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_memory32_size&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TableCopy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_copy&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TableInit</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_init&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TableFill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_fill&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_size&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_get&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableGet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_set&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableSet</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>,
+            <span class="self">Self</span><span class="ident">::TableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_table_grow&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ImportedTableGrow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>,
+            <span class="self">Self</span><span class="ident">::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_func_ref&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ElemDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_elem_drop&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ImportedMemory32Copy</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>,
+            <span class="self">Self</span><span class="ident">::ImportedMemory32Fill</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Memory32Init</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_memory32_init&quot;</span>,
+            <span class="self">Self</span><span class="ident">::DataDrop</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_data_drop&quot;</span>,
+            <span class="self">Self</span><span class="ident">::RaiseTrap</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_raise_trap&quot;</span>,
             <span class="comment">// We have to do this because macOS requires a leading `_` and it&#39;s not</span>
             <span class="comment">// a normal function, it&#39;s a static variable, so we have to do it manually.</span>
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
-            <span class="self">Self</span>::<span class="ident">Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;_wasmer_vm_probestack&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;_wasmer_vm_probestack&quot;</span>,
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
-            <span class="self">Self</span>::<span class="ident">Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_probestack&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_probestack&quot;</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">LibCall</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="ident">fmt</span>::<span class="ident">Debug</span>::<span class="ident">fmt</span>(<span class="self">self</span>, <span class="ident">f</span>)
+<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">LibCall</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+        <span class="ident">fmt::Debug::fmt</span>(<span class="self">self</span>, <span class="ident">f</span>)
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

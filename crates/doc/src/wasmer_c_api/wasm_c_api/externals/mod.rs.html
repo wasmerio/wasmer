@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/externals/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/externals/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -316,7 +316,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">function</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">global</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">memory</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">table</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Extern</span>, <span class="ident">ExternType</span>};
 
@@ -330,10 +330,10 @@
 <span class="doccomment">/// `CApiExternTag` as their first element.</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">union</span> <span class="ident">wasm_extern_inner</span> {
-    <span class="ident">function</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>,
-    <span class="ident">memory</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>,
-    <span class="ident">global</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>,
-    <span class="ident">table</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>,
+    <span class="ident">function</span>: <span class="ident">mem::ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>,
+    <span class="ident">memory</span>: <span class="ident">mem::ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>,
+    <span class="ident">global</span>: <span class="ident">mem::ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>,
+    <span class="ident">table</span>: <span class="ident">mem::ManuallyDrop</span><span class="op">&lt;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>,
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
@@ -342,30 +342,30 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">externs_are_the_same_size</span>() {
-        <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::{<span class="ident">align_of</span>, <span class="ident">size_of</span>};
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>());
+        <span class="kw">use</span> <span class="ident">std::mem</span>::{<span class="ident">align_of</span>, <span class="ident">size_of</span>};
+        <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>());
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>());
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">tags_are_the_same_offset_away</span>() {
-        <span class="kw">use</span> <span class="ident">field_offset</span>::<span class="ident">offset_of</span>;
+        <span class="kw">use</span> <span class="ident">field_offset::offset_of</span>;
 
-        <span class="kw">let</span> <span class="ident">func_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of</span><span class="macro">!</span>(<span class="ident">wasm_func_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
-        <span class="kw">let</span> <span class="ident">memory_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of</span><span class="macro">!</span>(<span class="ident">wasm_memory_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
-        <span class="kw">let</span> <span class="ident">global_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of</span><span class="macro">!</span>(<span class="ident">wasm_global_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
-        <span class="kw">let</span> <span class="ident">table_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of</span><span class="macro">!</span>(<span class="ident">wasm_table_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
+        <span class="kw">let</span> <span class="ident">func_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of!</span>(<span class="ident">wasm_func_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
+        <span class="kw">let</span> <span class="ident">memory_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of!</span>(<span class="ident">wasm_memory_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
+        <span class="kw">let</span> <span class="ident">global_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of!</span>(<span class="ident">wasm_global_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
+        <span class="kw">let</span> <span class="ident">table_tag_offset</span> <span class="op">=</span> <span class="macro">offset_of!</span>(<span class="ident">wasm_table_t</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">tag</span>).<span class="ident">get_byte_offset</span>();
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">func_tag_offset</span>, <span class="ident">memory_tag_offset</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">global_tag_offset</span>, <span class="ident">table_tag_offset</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">func_tag_offset</span>, <span class="ident">global_tag_offset</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">func_tag_offset</span>, <span class="ident">memory_tag_offset</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">global_tag_offset</span>, <span class="ident">table_tag_offset</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">func_tag_offset</span>, <span class="ident">global_tag_offset</span>);
     }
 }
 
@@ -373,10 +373,10 @@
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
         <span class="kw">unsafe</span> {
             <span class="kw">match</span> <span class="self">self</span>.<span class="ident">function</span>.<span class="ident">tag</span> {
-                <span class="ident">CApiExternTag</span>::<span class="ident">Function</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">function</span>),
-                <span class="ident">CApiExternTag</span>::<span class="ident">Global</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">global</span>),
-                <span class="ident">CApiExternTag</span>::<span class="ident">Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">table</span>),
-                <span class="ident">CApiExternTag</span>::<span class="ident">Memory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">memory</span>),
+                <span class="ident">CApiExternTag::Function</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem::ManuallyDrop::drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">function</span>),
+                <span class="ident">CApiExternTag::Global</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem::ManuallyDrop::drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">global</span>),
+                <span class="ident">CApiExternTag::Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem::ManuallyDrop::drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">table</span>),
+                <span class="ident">CApiExternTag::Memory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">mem::ManuallyDrop::drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">memory</span>),
             }
         }
     }
@@ -389,17 +389,17 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ExternType</span> {
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">get_tag</span>() {
-            <span class="ident">CApiExternTag</span>::<span class="ident">Function</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">ExternType</span>::<span class="ident">Function</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">function</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
+            <span class="ident">CApiExternTag::Function</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ExternType::Function</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">function</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
             }
-            <span class="ident">CApiExternTag</span>::<span class="ident">Memory</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">ExternType</span>::<span class="ident">Memory</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">memory</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
+            <span class="ident">CApiExternTag::Memory</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ExternType::Memory</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">memory</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
             }
-            <span class="ident">CApiExternTag</span>::<span class="ident">Global</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">ExternType</span>::<span class="ident">Global</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">global</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
+            <span class="ident">CApiExternTag::Global</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ExternType::Global</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">global</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
             }
-            <span class="ident">CApiExternTag</span>::<span class="ident">Table</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">ExternType</span>::<span class="ident">Table</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">table</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
+            <span class="ident">CApiExternTag::Table</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ExternType::Table</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">table</span>.<span class="ident">inner</span>.<span class="ident">ty</span>().<span class="ident">clone</span>() })
             }
         }
     }
@@ -408,22 +408,22 @@
 <span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">wasm_extern_t</span> {
     <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">get_tag</span>() {
-            <span class="ident">CApiExternTag</span>::<span class="ident">Function</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">CApiExternTag::Function</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
                     <span class="ident">function</span>: <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">function</span>.<span class="ident">clone</span>() },
                 },
             },
-            <span class="ident">CApiExternTag</span>::<span class="ident">Memory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">CApiExternTag::Memory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
                     <span class="ident">memory</span>: <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">memory</span>.<span class="ident">clone</span>() },
                 },
             },
-            <span class="ident">CApiExternTag</span>::<span class="ident">Global</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">CApiExternTag::Global</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
                     <span class="ident">global</span>: <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">global</span>.<span class="ident">clone</span>() },
                 },
             },
-            <span class="ident">CApiExternTag</span>::<span class="ident">Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">CApiExternTag::Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
                     <span class="ident">table</span>: <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">table</span>.<span class="ident">clone</span>() },
                 },
@@ -435,24 +435,24 @@
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_extern_t</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">Extern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">Extern</span>::<span class="ident">Function</span>(<span class="ident">function</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">Extern::Function</span>(<span class="ident">function</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
-                    <span class="ident">function</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">new</span>(<span class="ident">wasm_func_t</span>::<span class="ident">new</span>(<span class="ident">function</span>)),
+                    <span class="ident">function</span>: <span class="ident">mem::ManuallyDrop::new</span>(<span class="ident">wasm_func_t::new</span>(<span class="ident">function</span>)),
                 },
             },
-            <span class="ident">Extern</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">Extern::Memory</span>(<span class="ident">memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
-                    <span class="ident">memory</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">new</span>(<span class="ident">wasm_memory_t</span>::<span class="ident">new</span>(<span class="ident">memory</span>)),
+                    <span class="ident">memory</span>: <span class="ident">mem::ManuallyDrop::new</span>(<span class="ident">wasm_memory_t::new</span>(<span class="ident">memory</span>)),
                 },
             },
-            <span class="ident">Extern</span>::<span class="ident">Table</span>(<span class="ident">table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">Extern::Table</span>(<span class="ident">table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
-                    <span class="ident">table</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">new</span>(<span class="ident">wasm_table_t</span>::<span class="ident">new</span>(<span class="ident">table</span>)),
+                    <span class="ident">table</span>: <span class="ident">mem::ManuallyDrop::new</span>(<span class="ident">wasm_table_t::new</span>(<span class="ident">table</span>)),
                 },
             },
-            <span class="ident">Extern</span>::<span class="ident">Global</span>(<span class="ident">global</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">Extern::Global</span>(<span class="ident">global</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span> {
                 <span class="ident">inner</span>: <span class="ident">wasm_extern_inner</span> {
-                    <span class="ident">global</span>: <span class="ident">mem</span>::<span class="ident">ManuallyDrop</span>::<span class="ident">new</span>(<span class="ident">wasm_global_t</span>::<span class="ident">new</span>(<span class="ident">global</span>)),
+                    <span class="ident">global</span>: <span class="ident">mem::ManuallyDrop::new</span>(<span class="ident">wasm_global_t::new</span>(<span class="ident">global</span>)),
                 },
             },
         }
@@ -462,10 +462,10 @@
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Extern</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">wasm_extern_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span>.<span class="ident">get_tag</span>() {
-            <span class="ident">CApiExternTag</span>::<span class="ident">Function</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">function</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
-            <span class="ident">CApiExternTag</span>::<span class="ident">Memory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">memory</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
-            <span class="ident">CApiExternTag</span>::<span class="ident">Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">table</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
-            <span class="ident">CApiExternTag</span>::<span class="ident">Global</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">global</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
+            <span class="ident">CApiExternTag::Function</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">function</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
+            <span class="ident">CApiExternTag::Memory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">memory</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
+            <span class="ident">CApiExternTag::Table</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">table</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
+            <span class="ident">CApiExternTag::Global</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">other</span>.<span class="ident">inner</span>.<span class="ident">global</span>.<span class="ident">inner</span>).<span class="ident">clone</span>().<span class="ident">into</span>() },
         }
     }
 }
@@ -479,12 +479,12 @@
     <span class="ident">Memory</span>,
 }
 
-<span class="macro">wasm_declare_boxed_vec</span><span class="macro">!</span>(<span class="kw">extern</span>);
+<span class="macro">wasm_declare_boxed_vec!</span>(<span class="kw">extern</span>);
 
 <span class="doccomment">/// Copy a `wasm_extern_t`.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_extern_copy</span>(<span class="ident">r#extern</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span> {
-    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">r#extern</span>.<span class="ident">clone</span>())
+    <span class="ident">Box::new</span>(<span class="ident">r#extern</span>.<span class="ident">clone</span>())
 }
 
 <span class="doccomment">/// Delete an extern.</span>
@@ -493,30 +493,30 @@
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_func_as_extern</span>(<span class="ident">func</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span> {
-    <span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">func</span>) }
+    <span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">func</span>) }
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_global_as_extern</span>(<span class="ident">global</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span> {
-    <span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">global</span>) }
+    <span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">global</span>) }
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_memory_as_extern</span>(<span class="ident">memory</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span> {
-    <span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">memory</span>) }
+    <span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">memory</span>) }
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_table_as_extern</span>(<span class="ident">table</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span> {
-    <span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">table</span>) }
+    <span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">table</span>) }
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_extern_as_func</span>(<span class="ident">r#extern</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">r#extern</span> <span class="op">=</span> <span class="ident">r#extern</span><span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag</span>::<span class="ident">Function</span> {
-        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
+    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag::Function</span> {
+        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_func_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
     } <span class="kw">else</span> {
         <span class="prelude-val">None</span>
     }
@@ -528,8 +528,8 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">r#extern</span> <span class="op">=</span> <span class="ident">r#extern</span><span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag</span>::<span class="ident">Global</span> {
-        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
+    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag::Global</span> {
+        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_global_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
     } <span class="kw">else</span> {
         <span class="prelude-val">None</span>
     }
@@ -541,8 +541,8 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">r#extern</span> <span class="op">=</span> <span class="ident">r#extern</span><span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag</span>::<span class="ident">Memory</span> {
-        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
+    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag::Memory</span> {
+        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_memory_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
     } <span class="kw">else</span> {
         <span class="prelude-val">None</span>
     }
@@ -552,8 +552,8 @@
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_extern_as_table</span>(<span class="ident">r#extern</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">r#extern</span> <span class="op">=</span> <span class="ident">r#extern</span><span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag</span>::<span class="ident">Table</span> {
-        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
+    <span class="kw">if</span> <span class="ident">r#extern</span>.<span class="ident">get_tag</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">CApiExternTag::Table</span> {
+        <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_table_t</span><span class="op">&gt;</span>(<span class="ident">r#extern</span>) })
     } <span class="kw">else</span> {
         <span class="prelude-val">None</span>
     }
@@ -561,11 +561,11 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident">inline_c</span>::<span class="ident">assert_c</span>;
+    <span class="kw">use</span> <span class="ident">inline_c::assert_c</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_extern_copy</span>() {
-        (<span class="macro">assert_c</span><span class="macro">!</span> {
+        (<span class="macro">assert_c!</span> {
             #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
 
             <span class="ident">int</span> <span class="ident">main</span>() {
@@ -617,5 +617,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api"></div>
-    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script><script defer src="../../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>
+    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script></body></html>

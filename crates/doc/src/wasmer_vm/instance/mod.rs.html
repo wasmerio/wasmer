@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/instance/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/instance/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1487,17 +1487,17 @@
 <span class="kw">mod</span> <span class="ident">allocator</span>;
 <span class="kw">mod</span> <span class="ident">r#ref</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">allocator</span>::<span class="ident">InstanceAllocator</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">allocator::InstanceAllocator</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">r#ref</span>::{<span class="ident">InstanceRef</span>, <span class="ident">WeakInstanceRef</span>, <span class="ident">WeakOrStrongInstanceRef</span>};
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">export</span>::<span class="ident">VMExtern</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">func_data_registry</span>::{<span class="ident">FuncDataRegistry</span>, <span class="ident">VMFuncRef</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">global</span>::<span class="ident">Global</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">imports</span>::<span class="ident">Imports</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryError</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">table</span>::{<span class="ident">Table</span>, <span class="ident">TableElement</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trap</span>::{<span class="ident">catch_traps</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>, <span class="ident">TrapHandler</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::{
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::export::VMExtern</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::func_data_registry</span>::{<span class="ident">FuncDataRegistry</span>, <span class="ident">VMFuncRef</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::global::Global</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::imports::Imports</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryError</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::table</span>::{<span class="ident">Table</span>, <span class="ident">TableElement</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::trap</span>::{<span class="ident">catch_traps</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>, <span class="ident">TrapHandler</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::vmcontext</span>::{
     <span class="ident">VMBuiltinFunctionsArray</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMFunctionBody</span>,
     <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalDefinition</span>, <span class="ident">VMGlobalImport</span>,
     <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMMemoryImport</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTableDefinition</span>, <span class="ident">VMTableImport</span>,
@@ -1506,19 +1506,19 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">VMOffsets</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">VMFunction</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>};
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
-<span class="kw">use</span> <span class="ident">memoffset</span>::<span class="ident">offset_of</span>;
-<span class="kw">use</span> <span class="ident">more_asserts</span>::<span class="ident">assert_lt</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">RefCell</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">slice</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">packed_option</span>::<span class="ident">ReservedValue</span>, <span class="ident">BoxedSlice</span>, <span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
+<span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
+<span class="kw">use</span> <span class="ident">more_asserts::assert_lt</span>;
+<span class="kw">use</span> <span class="ident">std::any::Any</span>;
+<span class="kw">use</span> <span class="ident">std::cell::RefCell</span>;
+<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
+<span class="kw">use</span> <span class="ident">std::convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
+<span class="kw">use</span> <span class="ident">std::ffi</span>;
+<span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
+<span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
+<span class="kw">use</span> <span class="ident">std::slice</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">packed_option::ReservedValue</span>, <span class="ident">BoxedSlice</span>, <span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">DataIndex</span>, <span class="ident">DataInitializer</span>, <span class="ident">ElemIndex</span>, <span class="ident">ExportIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">GlobalInit</span>,
     <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>,
@@ -1527,8 +1527,8 @@
 
 <span class="doccomment">/// The function pointer to call with data and an [`Instance`] pointer to</span>
 <span class="doccomment">/// finish initializing the host env.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ImportInitializerFuncPtr</span><span class="op">&lt;</span><span class="ident">ResultErr</span> <span class="op">=</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span><span class="op">&gt;</span> <span class="op">=</span>
-    <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ResultErr</span><span class="op">&gt;</span>;
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ImportInitializerFuncPtr</span><span class="op">&lt;</span><span class="ident">ResultErr</span> <span class="op">=</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi::c_void</span><span class="op">&gt;</span> <span class="op">=</span>
+    <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi::c_void</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi::c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ResultErr</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// A WebAssembly instance.</span>
 <span class="doccomment">///</span>
@@ -1605,10 +1605,10 @@
     <span class="ident">Env</span> {
         <span class="doccomment">/// The function environment. This is not always the user-supplied</span>
         <span class="doccomment">/// env.</span>
-        <span class="ident">env</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>,
+        <span class="ident">env</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi::c_void</span>,
 
         <span class="doccomment">/// A clone function for duplicating the env.</span>
-        <span class="ident">clone</span>: <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>,
+        <span class="ident">clone</span>: <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi::c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi::c_void</span>,
         <span class="doccomment">/// This field is not always present. When it is present, it</span>
         <span class="doccomment">/// should be set to `None` after use to prevent double</span>
         <span class="doccomment">/// initialization.</span>
@@ -1618,7 +1618,7 @@
         <span class="doccomment">/// # Safety</span>
         <span class="doccomment">/// - This function must be called ina synchronized way. For</span>
         <span class="doccomment">///   example, in the `Drop` implementation of this type.</span>
-        <span class="ident">destructor</span>: <span class="kw">unsafe</span> <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>),
+        <span class="ident">destructor</span>: <span class="kw">unsafe</span> <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi::c_void</span>),
     },
 }
 
@@ -1626,7 +1626,7 @@
     <span class="doccomment">/// Get the `initializer` function pointer if it exists.</span>
     <span class="kw">fn</span> <span class="ident">initializer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ImportInitializerFuncPtr</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">Env</span> { <span class="ident">initializer</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">initializer</span>,
+            <span class="self">Self</span><span class="ident">::Env</span> { <span class="ident">initializer</span>, .. } <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">initializer</span>,
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
         }
     }
@@ -1635,15 +1635,15 @@
 <span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">ImportFunctionEnv</span> {
     <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">NoEnv</span>,
-            <span class="self">Self</span>::<span class="ident">Env</span> {
+            <span class="self">Self</span><span class="ident">::NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::NoEnv</span>,
+            <span class="self">Self</span><span class="ident">::Env</span> {
                 <span class="ident">env</span>,
                 <span class="ident">clone</span>,
                 <span class="ident">destructor</span>,
                 <span class="ident">initializer</span>,
             } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">new_env</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">clone</span>)(<span class="kw-2">*</span><span class="ident">env</span>);
-                <span class="self">Self</span>::<span class="ident">Env</span> {
+                <span class="self">Self</span><span class="ident">::Env</span> {
                     <span class="ident">env</span>: <span class="ident">new_env</span>,
                     <span class="ident">clone</span>: <span class="kw-2">*</span><span class="ident">clone</span>,
                     <span class="ident">destructor</span>: <span class="kw-2">*</span><span class="ident">destructor</span>,
@@ -1657,7 +1657,7 @@
 <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">ImportFunctionEnv</span> {
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">Env</span> {
+            <span class="self">Self</span><span class="ident">::Env</span> {
                 <span class="ident">env</span>, <span class="ident">destructor</span>, ..
             } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// # Safety</span>
@@ -1667,30 +1667,30 @@
                     (<span class="ident">destructor</span>)(<span class="kw-2">*</span><span class="ident">env</span>);
                 }
             }
-            <span class="self">Self</span>::<span class="ident">NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> (),
+            <span class="self">Self</span><span class="ident">::NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> (),
         }
     }
 }
 
 <span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">ImportFunctionEnv</span> {
     <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-        <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="self">self</span>)
+        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">Instance</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">formatter</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Instance</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">formatter</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="ident">formatter</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Instance&quot;</span>).<span class="ident">finish</span>()
     }
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
 <span class="kw">impl</span> <span class="ident">Instance</span> {
     <span class="doccomment">/// Helper function to access various locations offset from our `*mut</span>
     <span class="doccomment">/// VMContext` object.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">vmctx_plus_offset</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">T</span> {
         (<span class="self">self</span>.<span class="ident">vmctx_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>)
-            .<span class="ident">add</span>(<span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">offset</span>).<span class="ident">unwrap</span>())
+            .<span class="ident">add</span>(<span class="ident">usize::try_from</span>(<span class="ident">offset</span>).<span class="ident">unwrap</span>())
             .<span class="ident">cast</span>()
     }
 
@@ -1714,7 +1714,7 @@
 
     <span class="doccomment">/// Return the indexed `VMFunctionImport`.</span>
     <span class="kw">fn</span> <span class="ident">imported_function</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">FunctionIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">VMFunctionImport</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
         <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">imported_functions_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }
     }
 
@@ -1733,7 +1733,7 @@
 
     <span class="doccomment">/// Return the index `VMTableImport`.</span>
     <span class="kw">fn</span> <span class="ident">imported_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">TableIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">VMTableImport</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
         <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">imported_tables_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }
     }
 
@@ -1744,7 +1744,7 @@
 
     <span class="doccomment">/// Return the indexed `VMMemoryImport`.</span>
     <span class="kw">fn</span> <span class="ident">imported_memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">VMMemoryImport</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
         <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">imported_memories_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }
     }
 
@@ -1755,7 +1755,7 @@
 
     <span class="doccomment">/// Return the indexed `VMGlobalImport`.</span>
     <span class="kw">fn</span> <span class="ident">imported_global</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">GlobalIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">VMGlobalImport</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
         <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">imported_globals_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }
     }
 
@@ -1780,8 +1780,8 @@
 
     <span class="doccomment">/// Return the indexed `VMTableDefinition`.</span>
     <span class="kw">fn</span> <span class="ident">table_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalTableIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
-        <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">tables_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }).<span class="ident">unwrap</span>()
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
+        <span class="ident">NonNull::new</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">tables_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }).<span class="ident">unwrap</span>()
     }
 
     <span class="doccomment">/// Return a pointer to the `VMTableDefinition`s.</span>
@@ -1814,8 +1814,8 @@
 
     <span class="doccomment">/// Return the indexed `VMMemoryDefinition`.</span>
     <span class="kw">fn</span> <span class="ident">memory_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalMemoryIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
-        <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">memories_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }).<span class="ident">unwrap</span>()
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
+        <span class="ident">NonNull::new</span>(<span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">memories_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }).<span class="ident">unwrap</span>()
     }
 
     <span class="doccomment">/// Return a pointer to the `VMMemoryDefinition`s.</span>
@@ -1838,9 +1838,9 @@
 
     <span class="doccomment">/// Return the indexed `VMGlobalDefinition`.</span>
     <span class="kw">fn</span> <span class="ident">global_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalGlobalIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>()).<span class="ident">unwrap</span>();
         <span class="comment">// TODO:</span>
-        <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="kw">unsafe</span> { <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">globals_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }).<span class="ident">unwrap</span>()
+        <span class="ident">NonNull::new</span>(<span class="kw">unsafe</span> { <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">globals_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>) }).<span class="ident">unwrap</span>()
     }
 
     <span class="doccomment">/// Return a pointer to the `VMGlobalDefinition`s.</span>
@@ -1891,7 +1891,7 @@
                 )
             }
             <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">assert_lt</span><span class="macro">!</span>(<span class="ident">start_index</span>.<span class="ident">index</span>(), <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_functions</span>);
+                <span class="macro">assert_lt!</span>(<span class="ident">start_index</span>.<span class="ident">index</span>(), <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_functions</span>);
                 <span class="kw">let</span> <span class="ident">import</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">imported_function</span>(<span class="ident">start_index</span>);
                 (<span class="ident">import</span>.<span class="ident">body</span>, <span class="ident">import</span>.<span class="ident">environment</span>)
             }
@@ -1900,7 +1900,7 @@
         <span class="comment">// Make the call.</span>
         <span class="kw">unsafe</span> {
             <span class="ident">catch_traps</span>(<span class="ident">trap_handler</span>, <span class="op">|</span><span class="op">|</span> {
-                <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMFunctionBody</span>, <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(<span class="ident">VMFunctionEnvironment</span>)<span class="op">&gt;</span>(
+                <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMFunctionBody</span>, <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(<span class="ident">VMFunctionEnvironment</span>)<span class="op">&gt;</span>(
                     <span class="ident">callee_address</span>,
                 )(<span class="ident">callee_vmctx</span>)
             })
@@ -1910,7 +1910,7 @@
     <span class="doccomment">/// Return the offset from the vmctx pointer to its containing `Instance`.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">vmctx_offset</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">isize</span> {
-        <span class="macro">offset_of</span><span class="macro">!</span>(<span class="self">Self</span>, <span class="ident">vmctx</span>) <span class="kw">as</span> <span class="ident">isize</span>
+        <span class="macro">offset_of!</span>(<span class="self">Self</span>, <span class="ident">vmctx</span>) <span class="kw">as</span> <span class="ident">isize</span>
     }
 
     <span class="doccomment">/// Return the table index for the given `VMTableDefinition`.</span>
@@ -1918,10 +1918,10 @@
         <span class="kw">let</span> <span class="ident">begin</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMTableDefinition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tables_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>;
         <span class="kw">let</span> <span class="ident">end</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMTableDefinition</span> <span class="op">=</span> <span class="ident">table</span>;
         <span class="comment">// TODO: Use `offset_from` once it stablizes.</span>
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">LocalTableIndex</span>::<span class="ident">new</span>(
-            (<span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="ident">begin</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>(),
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::new</span>(
+            (<span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="ident">begin</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">/</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>(),
         );
-        <span class="macro">assert_lt</span><span class="macro">!</span>(<span class="ident">index</span>.<span class="ident">index</span>(), <span class="self">self</span>.<span class="ident">tables</span>.<span class="ident">len</span>());
+        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">index</span>(), <span class="self">self</span>.<span class="ident">tables</span>.<span class="ident">len</span>());
         <span class="ident">index</span>
     }
 
@@ -1930,10 +1930,10 @@
         <span class="kw">let</span> <span class="ident">begin</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMMemoryDefinition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memories_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>;
         <span class="kw">let</span> <span class="ident">end</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMMemoryDefinition</span> <span class="op">=</span> <span class="ident">memory</span>;
         <span class="comment">// TODO: Use `offset_from` once it stablizes.</span>
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex</span>::<span class="ident">new</span>(
-            (<span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="ident">begin</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">/</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>(),
+        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::new</span>(
+            (<span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="ident">begin</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">/</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>(),
         );
-        <span class="macro">assert_lt</span><span class="macro">!</span>(<span class="ident">index</span>.<span class="ident">index</span>(), <span class="self">self</span>.<span class="ident">memories</span>.<span class="ident">len</span>());
+        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">index</span>(), <span class="self">self</span>.<span class="ident">memories</span>.<span class="ident">len</span>());
         <span class="ident">index</span>
     }
 
@@ -1952,7 +1952,7 @@
         <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">memories</span>
             .<span class="ident">get</span>(<span class="ident">memory_index</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;no memory for index {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">index</span>()));
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;no memory for index {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">index</span>()));
         <span class="ident">mem</span>.<span class="ident">grow</span>(<span class="ident">delta</span>.<span class="ident">into</span>())
     }
 
@@ -1981,7 +1981,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">memory_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory_index</span>: <span class="ident">LocalMemoryIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Pages</span> {
         <span class="self">self</span>.<span class="ident">memories</span>
             .<span class="ident">get</span>(<span class="ident">memory_index</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;no memory for index {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">index</span>()))
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;no memory for index {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">index</span>()))
             .<span class="ident">size</span>()
     }
 
@@ -2000,7 +2000,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">table_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">table_index</span>: <span class="ident">LocalTableIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
         <span class="self">self</span>.<span class="ident">tables</span>
             .<span class="ident">get</span>(<span class="ident">table_index</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
             .<span class="ident">size</span>()
     }
 
@@ -2027,7 +2027,7 @@
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">tables</span>
             .<span class="ident">get</span>(<span class="ident">table_index</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
             .<span class="ident">grow</span>(<span class="ident">delta</span>, <span class="ident">init_value</span>);
 
         <span class="ident">result</span>
@@ -2056,7 +2056,7 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TableElement</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">tables</span>
             .<span class="ident">get</span>(<span class="ident">table_index</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
             .<span class="ident">get</span>(<span class="ident">index</span>)
     }
 
@@ -2083,7 +2083,7 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">tables</span>
             .<span class="ident">get</span>(<span class="ident">table_index</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;no table for index {}&quot;</span>, <span class="ident">table_index</span>.<span class="ident">index</span>()))
             .<span class="ident">set</span>(<span class="ident">index</span>, <span class="ident">val</span>)
     }
 
@@ -2108,8 +2108,8 @@
 
     <span class="doccomment">/// Get a `VMFuncRef` for the given `FunctionIndex`.</span>
     <span class="kw">fn</span> <span class="ident">get_vm_funcref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">FunctionIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VMFuncRef</span> {
-        <span class="kw">if</span> <span class="ident">index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">FunctionIndex</span>::<span class="ident">reserved_value</span>() {
-            <span class="kw">return</span> <span class="ident">VMFuncRef</span>::<span class="ident">null</span>();
+        <span class="kw">if</span> <span class="ident">index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">FunctionIndex::reserved_value</span>() {
+            <span class="kw">return</span> <span class="ident">VMFuncRef::null</span>();
         }
         <span class="self">self</span>.<span class="ident">funcrefs</span>[<span class="ident">index</span>]
     }
@@ -2142,12 +2142,12 @@
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">elem</span>.<span class="ident">len</span>())
             <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>.<span class="ident">checked_add</span>(<span class="ident">len</span>).<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="ident">table</span>.<span class="ident">size</span>())
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>));
         }
 
         <span class="kw">for</span> (<span class="ident">dst</span>, <span class="ident">src</span>) <span class="kw">in</span> (<span class="ident">dst</span>..<span class="ident">dst</span> <span class="op">+</span> <span class="ident">len</span>).<span class="ident">zip</span>(<span class="ident">src</span>..<span class="ident">src</span> <span class="op">+</span> <span class="ident">len</span>) {
             <span class="ident">table</span>
-                .<span class="ident">set</span>(<span class="ident">dst</span>, <span class="ident">TableElement</span>::<span class="ident">FuncRef</span>(<span class="ident">elem</span>[<span class="ident">src</span> <span class="kw">as</span> <span class="ident">usize</span>]))
+                .<span class="ident">set</span>(<span class="ident">dst</span>, <span class="ident">TableElement::FuncRef</span>(<span class="ident">elem</span>[<span class="ident">src</span> <span class="kw">as</span> <span class="ident">usize</span>]))
                 .<span class="ident">expect</span>(<span class="string">&quot;should never panic because we already did the bounds check above&quot;</span>);
         }
 
@@ -2175,7 +2175,7 @@
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">table_size</span>)
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>));
         }
 
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="ident">start_index</span>..(<span class="ident">start_index</span> <span class="op">+</span> <span class="ident">len</span>) {
@@ -2294,14 +2294,14 @@
                 .<span class="ident">checked_add</span>(<span class="ident">len</span>)
                 .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>)
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">HeapAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
         }
 
         <span class="kw">let</span> <span class="ident">src_slice</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">data</span>[<span class="ident">src</span> <span class="kw">as</span> <span class="ident">usize</span>..(<span class="ident">src</span> <span class="op">+</span> <span class="ident">len</span>) <span class="kw">as</span> <span class="ident">usize</span>];
 
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">dst_start</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">usize</span>);
-            <span class="kw">let</span> <span class="ident">dst_slice</span> <span class="op">=</span> <span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(<span class="ident">dst_start</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
+            <span class="kw">let</span> <span class="ident">dst_slice</span> <span class="op">=</span> <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">dst_start</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
             <span class="ident">dst_slice</span>.<span class="ident">copy_from_slice</span>(<span class="ident">src_slice</span>);
         }
 
@@ -2369,7 +2369,7 @@
     <span class="doccomment">///   all the local tables.</span>
     <span class="doccomment">/// - The memory at `instance.memories_ptr()` must be initialized with data for</span>
     <span class="doccomment">///   all the local memories.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>)]</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">allocator</span>: <span class="ident">InstanceAllocator</span>,
         <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
@@ -2389,12 +2389,12 @@
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">vmglobal</span>())
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">passive_data</span> <span class="op">=</span> <span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">module</span>.<span class="ident">passive_data</span>.<span class="ident">clone</span>());
+        <span class="kw">let</span> <span class="ident">passive_data</span> <span class="op">=</span> <span class="ident">RefCell::new</span>(<span class="ident">module</span>.<span class="ident">passive_data</span>.<span class="ident">clone</span>());
 
         <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">allocator</span>.<span class="ident">offsets</span>().<span class="ident">clone</span>();
             <span class="comment">// use dummy value to create an instance so we can get the vmctx pointer</span>
-            <span class="kw">let</span> <span class="ident">funcrefs</span> <span class="op">=</span> <span class="ident">PrimaryMap</span>::<span class="ident">new</span>().<span class="ident">into_boxed_slice</span>();
+            <span class="kw">let</span> <span class="ident">funcrefs</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>().<span class="ident">into_boxed_slice</span>();
             <span class="comment">// Create the `Instance`. The unique, the One.</span>
             <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span> {
                 <span class="ident">module</span>,
@@ -2404,7 +2404,7 @@
                 <span class="ident">globals</span>: <span class="ident">finished_globals</span>,
                 <span class="ident">functions</span>: <span class="ident">finished_functions</span>,
                 <span class="ident">function_call_trampolines</span>: <span class="ident">finished_function_call_trampolines</span>,
-                <span class="ident">passive_elements</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+                <span class="ident">passive_elements</span>: <span class="ident">Default::default</span>(),
                 <span class="ident">passive_data</span>,
                 <span class="ident">host_state</span>,
                 <span class="ident">funcrefs</span>,
@@ -2434,27 +2434,27 @@
         };
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">instance</span>().<span class="ident">as_ref</span>();
 
-        <span class="ident">ptr</span>::<span class="ident">copy</span>(
+        <span class="ident">ptr::copy</span>(
             <span class="ident">vmshared_signatures</span>.<span class="ident">values</span>().<span class="ident">as_slice</span>().<span class="ident">as_ptr</span>(),
             <span class="ident">instance</span>.<span class="ident">signature_ids_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMSharedSignatureIndex</span>,
             <span class="ident">vmshared_signatures</span>.<span class="ident">len</span>(),
         );
-        <span class="ident">ptr</span>::<span class="ident">copy</span>(
+        <span class="ident">ptr::copy</span>(
             <span class="ident">imports</span>.<span class="ident">functions</span>.<span class="ident">values</span>().<span class="ident">as_slice</span>().<span class="ident">as_ptr</span>(),
             <span class="ident">instance</span>.<span class="ident">imported_functions_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMFunctionImport</span>,
             <span class="ident">imports</span>.<span class="ident">functions</span>.<span class="ident">len</span>(),
         );
-        <span class="ident">ptr</span>::<span class="ident">copy</span>(
+        <span class="ident">ptr::copy</span>(
             <span class="ident">imports</span>.<span class="ident">tables</span>.<span class="ident">values</span>().<span class="ident">as_slice</span>().<span class="ident">as_ptr</span>(),
             <span class="ident">instance</span>.<span class="ident">imported_tables_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMTableImport</span>,
             <span class="ident">imports</span>.<span class="ident">tables</span>.<span class="ident">len</span>(),
         );
-        <span class="ident">ptr</span>::<span class="ident">copy</span>(
+        <span class="ident">ptr::copy</span>(
             <span class="ident">imports</span>.<span class="ident">memories</span>.<span class="ident">values</span>().<span class="ident">as_slice</span>().<span class="ident">as_ptr</span>(),
             <span class="ident">instance</span>.<span class="ident">imported_memories_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMMemoryImport</span>,
             <span class="ident">imports</span>.<span class="ident">memories</span>.<span class="ident">len</span>(),
         );
-        <span class="ident">ptr</span>::<span class="ident">copy</span>(
+        <span class="ident">ptr::copy</span>(
             <span class="ident">imports</span>.<span class="ident">globals</span>.<span class="ident">values</span>().<span class="ident">as_slice</span>().<span class="ident">as_ptr</span>(),
             <span class="ident">instance</span>.<span class="ident">imported_globals_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMGlobalImport</span>,
             <span class="ident">imports</span>.<span class="ident">globals</span>.<span class="ident">len</span>(),
@@ -2462,14 +2462,14 @@
         <span class="comment">// these should already be set, add asserts here? for:</span>
         <span class="comment">// - instance.tables_ptr() as *mut VMTableDefinition</span>
         <span class="comment">// - instance.memories_ptr() as *mut VMMemoryDefinition</span>
-        <span class="ident">ptr</span>::<span class="ident">copy</span>(
+        <span class="ident">ptr::copy</span>(
             <span class="ident">vmctx_globals</span>.<span class="ident">values</span>().<span class="ident">as_slice</span>().<span class="ident">as_ptr</span>(),
             <span class="ident">instance</span>.<span class="ident">globals_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>,
             <span class="ident">vmctx_globals</span>.<span class="ident">len</span>(),
         );
-        <span class="ident">ptr</span>::<span class="ident">write</span>(
+        <span class="ident">ptr::write</span>(
             <span class="ident">instance</span>.<span class="ident">builtin_functions_ptr</span>() <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMBuiltinFunctionsArray</span>,
-            <span class="ident">VMBuiltinFunctionsArray</span>::<span class="ident">initialized</span>(),
+            <span class="ident">VMBuiltinFunctionsArray::initialized</span>(),
         );
 
         <span class="comment">// Perform infallible initialization in this constructor, while fallible</span>
@@ -2548,7 +2548,7 @@
         <span class="kw">let</span> <span class="ident">instance_ref</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">as_ref</span>();
 
         <span class="kw">match</span> <span class="ident">export</span> {
-            <span class="ident">ExportIndex</span>::<span class="ident">Function</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">ExportIndex::Function</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">sig_index</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">instance_ref</span>.<span class="ident">module</span>.<span class="ident">functions</span>[<span class="kw-2">*</span><span class="ident">index</span>];
                 <span class="kw">let</span> (<span class="ident">address</span>, <span class="ident">vmctx</span>, <span class="ident">_function_ptr</span>) <span class="op">=</span>
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">def_index</span>) <span class="op">=</span> <span class="ident">instance_ref</span>.<span class="ident">module</span>.<span class="ident">local_func_index</span>(<span class="kw-2">*</span><span class="ident">index</span>) {
@@ -2573,15 +2573,15 @@
                     <span class="comment">// 1. All locally defined functions in the Wasm have a static signature.</span>
                     <span class="comment">// 2. All the imported functions are already static (because</span>
                     <span class="comment">//    they point to the trampolines rather than the dynamic addresses).</span>
-                    <span class="ident">kind</span>: <span class="ident">VMFunctionKind</span>::<span class="ident">Static</span>,
+                    <span class="ident">kind</span>: <span class="ident">VMFunctionKind::Static</span>,
                     <span class="ident">signature</span>,
                     <span class="ident">vmctx</span>,
                     <span class="ident">call_trampoline</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef::Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }
-            <span class="ident">ExportIndex</span>::<span class="ident">Table</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">ExportIndex::Table</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">from</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">def_index</span>) <span class="op">=</span> <span class="ident">instance_ref</span>.<span class="ident">module</span>.<span class="ident">local_table_index</span>(<span class="kw-2">*</span><span class="ident">index</span>) {
                     <span class="ident">instance_ref</span>.<span class="ident">tables</span>[<span class="ident">def_index</span>].<span class="ident">clone</span>()
                 } <span class="kw">else</span> {
@@ -2590,11 +2590,11 @@
                 };
                 <span class="ident">VMTable</span> {
                     <span class="ident">from</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef::Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }
-            <span class="ident">ExportIndex</span>::<span class="ident">Memory</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">ExportIndex::Memory</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">from</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">def_index</span>) <span class="op">=</span> <span class="ident">instance_ref</span>.<span class="ident">module</span>.<span class="ident">local_memory_index</span>(<span class="kw-2">*</span><span class="ident">index</span>) {
                     <span class="ident">instance_ref</span>.<span class="ident">memories</span>[<span class="ident">def_index</span>].<span class="ident">clone</span>()
                 } <span class="kw">else</span> {
@@ -2603,11 +2603,11 @@
                 };
                 <span class="ident">VMMemory</span> {
                     <span class="ident">from</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef::Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }
-            <span class="ident">ExportIndex</span>::<span class="ident">Global</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">ExportIndex::Global</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">from</span> <span class="op">=</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">def_index</span>) <span class="op">=</span> <span class="ident">instance_ref</span>.<span class="ident">module</span>.<span class="ident">local_global_index</span>(<span class="kw-2">*</span><span class="ident">index</span>) {
                         <span class="ident">instance_ref</span>.<span class="ident">globals</span>[<span class="ident">def_index</span>].<span class="ident">clone</span>()
@@ -2618,7 +2618,7 @@
                 };
                 <span class="ident">VMGlobal</span> {
                     <span class="ident">from</span>,
-                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef</span>::<span class="ident">Strong</span>(<span class="ident">instance</span>)),
+                    <span class="ident">instance_ref</span>: <span class="prelude-val">Some</span>(<span class="ident">WeakOrStrongInstanceRef::Strong</span>(<span class="ident">instance</span>)),
                 }
                 .<span class="ident">into</span>()
             }
@@ -2630,7 +2630,7 @@
     <span class="doccomment">/// Specifically, it provides access to the key-value pairs, where the keys</span>
     <span class="doccomment">/// are export names, and the values are export declarations which can be</span>
     <span class="doccomment">/// resolved `lookup_by_declaration`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">indexmap</span>::<span class="ident">map</span>::<span class="ident">Iter</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ExportIndex</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">indexmap::map::Iter</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ExportIndex</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">module</span>().<span class="ident">exports</span>.<span class="ident">iter</span>()
     }
 
@@ -2712,20 +2712,20 @@
     <span class="doccomment">/// - `instance_ptr` must point to a valid `wasmer::Instance`.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_host_envs</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">Sized</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">instance_ptr</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>,
+        <span class="ident">instance_ptr</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi::c_void</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">instance_ref</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">as_mut_unchecked</span>();
 
         <span class="kw">for</span> <span class="ident">import_function_env</span> <span class="kw">in</span> <span class="ident">instance_ref</span>.<span class="ident">imported_function_envs</span>.<span class="ident">values_mut</span>() {
             <span class="kw">match</span> <span class="ident">import_function_env</span> {
-                <span class="ident">ImportFunctionEnv</span>::<span class="ident">Env</span> {
+                <span class="ident">ImportFunctionEnv::Env</span> {
                     <span class="ident">env</span>,
                     <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">initializer</span>,
                     ..
                 } <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">f</span>) <span class="op">=</span> <span class="ident">initializer</span> {
                         <span class="comment">// transmute our function pointer into one with the correct error type</span>
-                        <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span>
+                        <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">mem::transmute</span>::<span class="op">&lt;</span>
                             <span class="kw-2">&amp;</span><span class="ident">ImportInitializerFuncPtr</span>,
                             <span class="kw-2">&amp;</span><span class="ident">ImportInitializerFuncPtr</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>,
                         <span class="op">&gt;</span>(<span class="ident">f</span>);
@@ -2733,7 +2733,7 @@
                     }
                     <span class="kw-2">*</span><span class="ident">initializer</span> <span class="op">=</span> <span class="prelude-val">None</span>;
                 }
-                <span class="ident">ImportFunctionEnv</span>::<span class="ident">NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> (),
+                <span class="ident">ImportFunctionEnv::NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> (),
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -2752,13 +2752,13 @@
                 <span class="ident">instance</span>.<span class="ident">imported_global</span>(<span class="ident">base</span>).<span class="ident">definition</span>.<span class="ident">as_ref</span>().<span class="ident">to_u32</span>()
             }
         };
-        <span class="ident">start</span> <span class="op">+</span><span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">val</span>).<span class="ident">unwrap</span>();
+        <span class="ident">start</span> <span class="op">+</span><span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">val</span>).<span class="ident">unwrap</span>();
     }
 
     <span class="ident">start</span>
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">mut_from_ref</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::mut_from_ref</span>)]</span>
 <span class="doccomment">/// Return a byte-slice view of a memory&#39;s data.</span>
 <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_memory_slice</span><span class="op">&lt;</span><span class="lifetime">&#39;instance</span><span class="op">&gt;</span>(
     <span class="ident">init</span>: <span class="kw-2">&amp;</span><span class="ident">DataInitializer</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
@@ -2773,7 +2773,7 @@
         <span class="kw">let</span> <span class="ident">import</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">imported_memory</span>(<span class="ident">init</span>.<span class="ident">location</span>.<span class="ident">memory_index</span>);
         <span class="kw-2">*</span><span class="ident">import</span>.<span class="ident">definition</span>.<span class="ident">as_ref</span>()
     };
-    <span class="ident">slice</span>::<span class="ident">from_raw_parts_mut</span>(<span class="ident">memory</span>.<span class="ident">base</span>, <span class="ident">memory</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>())
+    <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">memory</span>.<span class="ident">base</span>, <span class="ident">memory</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>())
 }
 
 <span class="doccomment">/// Compute the offset for a table element initializer.</span>
@@ -2788,7 +2788,7 @@
                 <span class="ident">instance</span>.<span class="ident">imported_global</span>(<span class="ident">base</span>).<span class="ident">definition</span>.<span class="ident">as_ref</span>().<span class="ident">to_u32</span>()
             }
         };
-        <span class="ident">start</span> <span class="op">+</span><span class="op">=</span> <span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">val</span>).<span class="ident">unwrap</span>();
+        <span class="ident">start</span> <span class="op">+</span><span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">val</span>).<span class="ident">unwrap</span>();
     }
 
     <span class="ident">start</span>
@@ -2796,7 +2796,7 @@
 
 <span class="doccomment">/// Initialize the table memory from the provided initializers.</span>
 <span class="kw">fn</span> <span class="ident">initialize_tables</span>(<span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">module</span>);
+    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">module</span>);
     <span class="kw">for</span> <span class="ident">init</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">table_initializers</span> {
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">get_table_init_start</span>(<span class="ident">init</span>, <span class="ident">instance</span>);
         <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">init</span>.<span class="ident">table_index</span>);
@@ -2805,15 +2805,15 @@
             .<span class="ident">checked_add</span>(<span class="ident">init</span>.<span class="ident">elements</span>.<span class="ident">len</span>())
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">end</span><span class="op">|</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">table</span>.<span class="ident">size</span>() <span class="kw">as</span> <span class="ident">usize</span>)
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>));
         }
 
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">func_idx</span>) <span class="kw">in</span> <span class="ident">init</span>.<span class="ident">elements</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">let</span> <span class="ident">anyfunc</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">get_vm_funcref</span>(<span class="kw-2">*</span><span class="ident">func_idx</span>);
             <span class="ident">table</span>
                 .<span class="ident">set</span>(
-                    <span class="ident">u32</span>::<span class="ident">try_from</span>(<span class="ident">start</span> <span class="op">+</span> <span class="ident">i</span>).<span class="ident">unwrap</span>(),
-                    <span class="ident">TableElement</span>::<span class="ident">FuncRef</span>(<span class="ident">anyfunc</span>),
+                    <span class="ident">u32::try_from</span>(<span class="ident">start</span> <span class="op">+</span> <span class="ident">i</span>).<span class="ident">unwrap</span>(),
+                    <span class="ident">TableElement::FuncRef</span>(<span class="ident">anyfunc</span>),
                 )
                 .<span class="ident">unwrap</span>();
         }
@@ -2827,7 +2827,7 @@
 <span class="doccomment">/// this instance.</span>
 <span class="kw">fn</span> <span class="ident">initialize_passive_elements</span>(<span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">passive_elements</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">passive_elements</span>.<span class="ident">borrow_mut</span>();
-    <span class="macro">debug_assert</span><span class="macro">!</span>(
+    <span class="macro">debug_assert!</span>(
         <span class="ident">passive_elements</span>.<span class="ident">is_empty</span>(),
         <span class="string">&quot;should only be called once, at initialization time&quot;</span>
     );
@@ -2863,7 +2863,7 @@
             .<span class="ident">checked_add</span>(<span class="ident">init</span>.<span class="ident">data</span>.<span class="ident">len</span>())
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">end</span><span class="op">|</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>.<span class="ident">try_into</span>().<span class="ident">unwrap</span>())
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap</span>::<span class="ident">lib</span>(<span class="ident">TrapCode</span>::<span class="ident">HeapAccessOutOfBounds</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
         }
 
         <span class="kw">unsafe</span> {
@@ -2878,17 +2878,17 @@
 }
 
 <span class="kw">fn</span> <span class="ident">initialize_globals</span>(<span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>) {
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">module</span>);
+    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">module</span>);
     <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">initializer</span>) <span class="kw">in</span> <span class="ident">module</span>.<span class="ident">global_initializers</span>.<span class="ident">iter</span>() {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">to</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">global_ptr</span>(<span class="ident">index</span>).<span class="ident">as_ptr</span>();
             <span class="kw">match</span> <span class="ident">initializer</span> {
-                <span class="ident">GlobalInit</span>::<span class="ident">I32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_i32_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
-                <span class="ident">GlobalInit</span>::<span class="ident">I64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_i64_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
-                <span class="ident">GlobalInit</span>::<span class="ident">F32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_f32_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
-                <span class="ident">GlobalInit</span>::<span class="ident">F64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_f64_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
-                <span class="ident">GlobalInit</span>::<span class="ident">V128Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_bytes_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>.<span class="ident">bytes</span>(),
-                <span class="ident">GlobalInit</span>::<span class="ident">GetGlobal</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">GlobalInit::I32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_i32_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
+                <span class="ident">GlobalInit::I64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_i64_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
+                <span class="ident">GlobalInit::F32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_f32_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
+                <span class="ident">GlobalInit::F64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_f64_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>,
+                <span class="ident">GlobalInit::V128Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_bytes_mut</span>() <span class="op">=</span> <span class="kw-2">*</span><span class="ident">x</span>.<span class="ident">bytes</span>(),
+                <span class="ident">GlobalInit::GetGlobal</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">from</span>: <span class="ident">VMGlobalDefinition</span> <span class="op">=</span>
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">def_x</span>) <span class="op">=</span> <span class="ident">module</span>.<span class="ident">local_global_index</span>(<span class="kw-2">*</span><span class="ident">x</span>) {
                             <span class="ident">instance</span>.<span class="ident">global</span>(<span class="ident">def_x</span>)
@@ -2897,8 +2897,8 @@
                         };
                     <span class="kw-2">*</span><span class="ident">to</span> <span class="op">=</span> <span class="ident">from</span>;
                 }
-                <span class="ident">GlobalInit</span>::<span class="ident">RefNullConst</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_funcref_mut</span>() <span class="op">=</span> <span class="ident">VMFuncRef</span>::<span class="ident">null</span>(),
-                <span class="ident">GlobalInit</span>::<span class="ident">RefFunc</span>(<span class="ident">func_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">GlobalInit::RefNullConst</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_funcref_mut</span>() <span class="op">=</span> <span class="ident">VMFuncRef::null</span>(),
+                <span class="ident">GlobalInit::RefFunc</span>(<span class="ident">func_idx</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">funcref</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">func_ref</span>(<span class="kw-2">*</span><span class="ident">func_idx</span>).<span class="ident">unwrap</span>();
                     <span class="kw-2">*</span>(<span class="kw-2">*</span><span class="ident">to</span>).<span class="ident">as_funcref_mut</span>() <span class="op">=</span> <span class="ident">funcref</span>;
                 }
@@ -2917,7 +2917,7 @@
     <span class="ident">vmshared_signatures</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
     <span class="ident">vmctx_ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMContext</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">VMFuncRef</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_refs</span> <span class="op">=</span> <span class="ident">PrimaryMap</span>::<span class="ident">with_capacity</span>(<span class="ident">module_info</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_refs</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module_info</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
 
     <span class="comment">// do imported functions</span>
     <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">import</span>) <span class="kw">in</span> <span class="ident">imports</span>.<span class="ident">functions</span>.<span class="ident">iter</span>() {
@@ -2949,5 +2949,5 @@
     <span class="ident">func_refs</span>.<span class="ident">into_boxed_slice</span>()
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_vm"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_vm" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

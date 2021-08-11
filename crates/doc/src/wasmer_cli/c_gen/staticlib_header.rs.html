@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/c_gen/staticlib_header.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>staticlib_header.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_cli/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/c_gen/staticlib_header.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>staticlib_header.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_cli/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -300,7 +300,7 @@
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">generate_c</span>, <span class="ident">CStatement</span>, <span class="ident">CType</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ModuleInfo</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
 
 <span class="doccomment">/// Helper functions to simplify the usage of the Staticlib engine.</span>
 <span class="kw">const</span> <span class="ident">HELPER_FUNCTIONS</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">r#&quot;
@@ -372,28 +372,28 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
     <span class="ident">symbol_registry</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">SymbolRegistry</span>,
     <span class="ident">metadata_length</span>: <span class="ident">usize</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_statements</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_statements</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
         <span class="ident">value</span>: <span class="string">&quot;#include &lt;stdlib.h&gt;\n#include &lt;string.h&gt;\n\n&quot;</span>.<span class="ident">to_string</span>(),
     });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
         <span class="ident">value</span>: <span class="string">&quot;#ifdef __cplusplus\nextern \&quot;C\&quot; {\n#endif\n\n&quot;</span>.<span class="ident">to_string</span>(),
     });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
         <span class="ident">name</span>: <span class="string">&quot;module_bytes_len&quot;</span>.<span class="ident">to_string</span>(),
         <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
         <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-        <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">U32</span>,
-        <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+        <span class="ident">ctype</span>: <span class="ident">CType::U32</span>,
+        <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralConstant</span> {
             <span class="ident">value</span>: <span class="ident">metadata_length</span>.<span class="ident">to_string</span>(),
         })),
     });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
         <span class="ident">name</span>: <span class="string">&quot;WASMER_METADATA&quot;</span>.<span class="ident">to_string</span>(),
         <span class="ident">is_extern</span>: <span class="bool-val">true</span>,
         <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-        <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Array</span> {
-            <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">U8</span>),
+        <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
+            <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::U8</span>),
         },
         <span class="ident">definition</span>: <span class="prelude-val">None</span>,
     });
@@ -405,20 +405,20 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
         })
         .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">function_local_index</span>, <span class="ident">_sig_index</span>)<span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-                <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol</span>::<span class="ident">LocalFunction</span>(<span class="ident">function_local_index</span>));
+                <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::LocalFunction</span>(<span class="ident">function_local_index</span>));
             <span class="comment">// TODO: figure out the signature here too</span>
-            <span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+            <span class="ident">CStatement::Declaration</span> {
                 <span class="ident">name</span>: <span class="ident">function_name</span>,
                 <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
                 <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-                <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Function</span> {
-                    <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">CType</span>::<span class="ident">Void</span>],
+                <span class="ident">ctype</span>: <span class="ident">CType::Function</span> {
+                    <span class="ident">arguments</span>: <span class="macro">vec!</span>[<span class="ident">CType::Void</span>],
                     <span class="ident">return_value</span>: <span class="prelude-val">None</span>,
                 },
                 <span class="ident">definition</span>: <span class="prelude-val">None</span>,
             }
         });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
         <span class="ident">value</span>: <span class="string">r#&quot;
 // Compiled Wasm function pointers ordered by function index: the order they
 // appeared in in the Wasm module.
@@ -437,26 +437,26 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
             })
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">function_local_index</span>, <span class="ident">_sig_index</span>)<span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol</span>::<span class="ident">LocalFunction</span>(<span class="ident">function_local_index</span>));
+                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::LocalFunction</span>(<span class="ident">function_local_index</span>));
                 <span class="comment">// TODO: figure out the signature here too</span>
 
-                <span class="ident">CStatement</span>::<span class="ident">Cast</span> {
-                    <span class="ident">target_type</span>: <span class="ident">CType</span>::<span class="ident">void_ptr</span>(),
-                    <span class="ident">expression</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+                <span class="ident">CStatement::Cast</span> {
+                    <span class="ident">target_type</span>: <span class="ident">CType::void_ptr</span>(),
+                    <span class="ident">expression</span>: <span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralConstant</span> {
                         <span class="ident">value</span>: <span class="ident">function_name</span>,
                     }),
                 }
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-        <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+        <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
             <span class="ident">name</span>: <span class="string">&quot;function_pointers&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-            <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Array</span> {
-                <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">void_ptr</span>()),
+            <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
+                <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::void_ptr</span>()),
             },
-            <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralArray</span> {
+            <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralArray</span> {
                 <span class="ident">items</span>: <span class="ident">function_pointer_array_statements</span>,
             })),
         });
@@ -468,20 +468,20 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">sig_index</span>, <span class="ident">_func_type</span>)<span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol</span>::<span class="ident">FunctionCallTrampoline</span>(<span class="ident">sig_index</span>));
+                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::FunctionCallTrampoline</span>(<span class="ident">sig_index</span>));
 
-                <span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+                <span class="ident">CStatement::Declaration</span> {
                     <span class="ident">name</span>: <span class="ident">function_name</span>,
                     <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
                     <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-                    <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Function</span> {
-                        <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">CType</span>::<span class="ident">void_ptr</span>(), <span class="ident">CType</span>::<span class="ident">void_ptr</span>(), <span class="ident">CType</span>::<span class="ident">void_ptr</span>()],
+                    <span class="ident">ctype</span>: <span class="ident">CType::Function</span> {
+                        <span class="ident">arguments</span>: <span class="macro">vec!</span>[<span class="ident">CType::void_ptr</span>(), <span class="ident">CType::void_ptr</span>(), <span class="ident">CType::void_ptr</span>()],
                         <span class="ident">return_value</span>: <span class="prelude-val">None</span>,
                     },
                     <span class="ident">definition</span>: <span class="prelude-val">None</span>,
                 }
             });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
         <span class="ident">value</span>: <span class="string">r#&quot;
 // Trampolines (functions by which we can call into Wasm) ordered by signature.
 // There is 1 trampoline per function signature in the order they appear in
@@ -498,21 +498,21 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">sig_index</span>, <span class="ident">_vm_shared_index</span>)<span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol</span>::<span class="ident">FunctionCallTrampoline</span>(<span class="ident">sig_index</span>));
-                <span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::FunctionCallTrampoline</span>(<span class="ident">sig_index</span>));
+                <span class="ident">CStatement::LiteralConstant</span> {
                     <span class="ident">value</span>: <span class="ident">function_name</span>,
                 }
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-        <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+        <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
             <span class="ident">name</span>: <span class="string">&quot;function_trampolines&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-            <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Array</span> {
-                <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">void_ptr</span>()),
+            <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
+                <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::void_ptr</span>()),
             },
-            <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralArray</span> {
+            <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralArray</span> {
                 <span class="ident">items</span>: <span class="ident">function_trampoline_statements</span>,
             })),
         });
@@ -524,20 +524,20 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
         .<span class="ident">take</span>(<span class="ident">module_info</span>.<span class="ident">num_imported_functions</span>)
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_index</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-                <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol</span>::<span class="ident">DynamicFunctionTrampoline</span>(<span class="ident">func_index</span>));
+                <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::DynamicFunctionTrampoline</span>(<span class="ident">func_index</span>));
             <span class="comment">// TODO: figure out the signature here</span>
-            <span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+            <span class="ident">CStatement::Declaration</span> {
                 <span class="ident">name</span>: <span class="ident">function_name</span>,
                 <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
                 <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-                <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Function</span> {
-                    <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">CType</span>::<span class="ident">void_ptr</span>(), <span class="ident">CType</span>::<span class="ident">void_ptr</span>(), <span class="ident">CType</span>::<span class="ident">void_ptr</span>()],
+                <span class="ident">ctype</span>: <span class="ident">CType::Function</span> {
+                    <span class="ident">arguments</span>: <span class="macro">vec!</span>[<span class="ident">CType::void_ptr</span>(), <span class="ident">CType::void_ptr</span>(), <span class="ident">CType::void_ptr</span>()],
                     <span class="ident">return_value</span>: <span class="prelude-val">None</span>,
                 },
                 <span class="ident">definition</span>: <span class="prelude-val">None</span>,
             }
         });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
         <span class="ident">value</span>: <span class="string">r#&quot;
 // Dynamic trampolines are per-function and are used for each function where
 // the type signature is not known statically. In this case, this corresponds to
@@ -547,9 +547,9 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
     });
     <span class="ident">c_statements</span>.<span class="ident">extend</span>(<span class="ident">dyn_func_declarations</span>);
 
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">TypeDef</span> {
-        <span class="ident">source_type</span>: <span class="ident">CType</span>::<span class="ident">Function</span> {
-            <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">CType</span>::<span class="ident">void_ptr</span>(), <span class="ident">CType</span>::<span class="ident">void_ptr</span>(), <span class="ident">CType</span>::<span class="ident">void_ptr</span>()],
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::TypeDef</span> {
+        <span class="ident">source_type</span>: <span class="ident">CType::Function</span> {
+            <span class="ident">arguments</span>: <span class="macro">vec!</span>[<span class="ident">CType::void_ptr</span>(), <span class="ident">CType::void_ptr</span>(), <span class="ident">CType::void_ptr</span>()],
             <span class="ident">return_value</span>: <span class="prelude-val">None</span>,
         },
         <span class="ident">new_name</span>: <span class="string">&quot;dyn_func_trampoline_t&quot;</span>.<span class="ident">to_string</span>(),
@@ -563,35 +563,35 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
             .<span class="ident">take</span>(<span class="ident">module_info</span>.<span class="ident">num_imported_functions</span>)
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_index</span><span class="op">|</span> {
                 <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol</span>::<span class="ident">DynamicFunctionTrampoline</span>(<span class="ident">func_index</span>));
-                <span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+                    <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::DynamicFunctionTrampoline</span>(<span class="ident">func_index</span>));
+                <span class="ident">CStatement::LiteralConstant</span> {
                     <span class="ident">value</span>: <span class="ident">function_name</span>,
                 }
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">Declaration</span> {
+        <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
             <span class="ident">name</span>: <span class="string">&quot;dynamic_function_trampoline_pointers&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-            <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Array</span> {
-                <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">TypeDef</span>(<span class="string">&quot;dyn_func_trampoline_t&quot;</span>.<span class="ident">to_string</span>())),
+            <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
+                <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::TypeDef</span>(<span class="string">&quot;dyn_func_trampoline_t&quot;</span>.<span class="ident">to_string</span>())),
             },
-            <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralArray</span> {
+            <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralArray</span> {
                 <span class="ident">items</span>: <span class="ident">dynamic_function_trampoline_statements</span>,
             })),
         });
     }
 
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
         <span class="ident">value</span>: <span class="ident">HELPER_FUNCTIONS</span>.<span class="ident">to_string</span>(),
     });
 
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
+    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
         <span class="ident">value</span>: <span class="string">&quot;\n#ifdef __cplusplus\n}\n#endif\n\n&quot;</span>.<span class="ident">to_string</span>(),
     });
 
     <span class="ident">generate_c</span>(<span class="kw-2">&amp;</span><span class="ident">c_statements</span>)
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

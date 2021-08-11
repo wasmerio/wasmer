@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/wast/src/wast.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wast.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/wast/src/wast.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wast.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_wast/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_wast/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -645,13 +645,42 @@
 <span id="642">642</span>
 <span id="643">643</span>
 <span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
+<span id="671">671</span>
+<span id="672">672</span>
+<span id="673">673</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">DirectiveError</span>, <span class="ident">DirectiveErrors</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">spectest</span>::<span class="ident">spectest_importobject</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::error</span>::{<span class="ident">DirectiveError</span>, <span class="ident">DirectiveErrors</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::spectest::spectest_importobject</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">bail</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">str</span>;
+<span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
+<span class="kw">use</span> <span class="ident">std::path::Path</span>;
+<span class="kw">use</span> <span class="ident">std::str</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// The wast test script language allows modules to be defined and actions</span>
@@ -690,11 +719,11 @@
             <span class="ident">current</span>: <span class="prelude-val">None</span>,
             <span class="ident">store</span>,
             <span class="ident">import_object</span>,
-            <span class="ident">allowed_instantiation_failures</span>: <span class="ident">HashSet</span>::<span class="ident">new</span>(),
-            <span class="ident">match_trap_messages</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
+            <span class="ident">allowed_instantiation_failures</span>: <span class="ident">HashSet::new</span>(),
+            <span class="ident">match_trap_messages</span>: <span class="ident">HashMap::new</span>(),
             <span class="ident">current_is_allowed_failure</span>: <span class="bool-val">false</span>,
-            <span class="ident">instances</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
-            <span class="ident">extern_refs</span>: <span class="ident">BTreeMap</span>::<span class="ident">new</span>(),
+            <span class="ident">instances</span>: <span class="ident">HashMap::new</span>(),
+            <span class="ident">extern_refs</span>: <span class="ident">BTreeMap::new</span>(),
             <span class="ident">fail_fast</span>: <span class="bool-val">true</span>,
             <span class="ident">disable_assert_trap_exhaustion</span>: <span class="bool-val">false</span>,
         }
@@ -722,7 +751,7 @@
     <span class="doccomment">/// Construct a new instance of `Wast` with the spectests imports.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_spectest</span>(<span class="ident">store</span>: <span class="ident">Store</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="ident">spectest_importobject</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-        <span class="self">Self</span>::<span class="ident">new</span>(<span class="ident">store</span>, <span class="ident">import_object</span>)
+        <span class="self">Self</span><span class="ident">::new</span>(<span class="ident">store</span>, <span class="ident">import_object</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">get_instance</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">instance_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span> {
@@ -731,28 +760,28 @@
                 .<span class="ident">instances</span>
                 .<span class="ident">get</span>(<span class="ident">name</span>)
                 .<span class="ident">cloned</span>()
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow</span><span class="macro">!</span>(<span class="string">&quot;failed to find instance named `{}`&quot;</span>, <span class="ident">name</span>)),
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;failed to find instance named `{}`&quot;</span>, <span class="ident">name</span>)),
             <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>
                 .<span class="ident">current</span>
                 .<span class="ident">clone</span>()
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow</span><span class="macro">!</span>(<span class="string">&quot;no previous instance found&quot;</span>)),
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;no previous instance found&quot;</span>)),
         }
     }
 
     <span class="doccomment">/// Perform the action portion of a command.</span>
-    <span class="kw">fn</span> <span class="ident">perform_execute</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">exec</span>: <span class="ident">wast</span>::<span class="ident">WastExecute</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">perform_execute</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">exec</span>: <span class="ident">wast::WastExecute</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">exec</span> {
-            <span class="ident">wast</span>::<span class="ident">WastExecute</span>::<span class="ident">Invoke</span>(<span class="ident">invoke</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">perform_invoke</span>(<span class="ident">invoke</span>),
-            <span class="ident">wast</span>::<span class="ident">WastExecute</span>::<span class="ident">Module</span>(<span class="kw-2">mut</span> <span class="ident">module</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">wast::WastExecute::Invoke</span>(<span class="ident">invoke</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">perform_invoke</span>(<span class="ident">invoke</span>),
+            <span class="ident">wast::WastExecute::Module</span>(<span class="kw-2">mut</span> <span class="ident">module</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">binary</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>);
-                <span class="ident">result</span>.<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Vec</span>::<span class="ident">new</span>())
+                <span class="ident">result</span>.<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Vec::new</span>())
             }
-            <span class="ident">wast</span>::<span class="ident">WastExecute</span>::<span class="ident">Get</span> { <span class="ident">module</span>, <span class="ident">global</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">module</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">name</span>()), <span class="ident">global</span>),
+            <span class="ident">wast::WastExecute::Get</span> { <span class="ident">module</span>, <span class="ident">global</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">module</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">name</span>()), <span class="ident">global</span>),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">perform_invoke</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">exec</span>: <span class="ident">wast</span>::<span class="ident">WastInvoke</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">perform_invoke</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">exec</span>: <span class="ident">wast::WastInvoke</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">exec</span>
             .<span class="ident">args</span>
             .<span class="ident">iter</span>()
@@ -764,16 +793,16 @@
     <span class="kw">fn</span> <span class="ident">assert_return</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">results</span>: <span class="kw-2">&amp;</span>[<span class="ident">wast</span>::<span class="ident">AssertExpression</span>],
+        <span class="ident">results</span>: <span class="kw-2">&amp;</span>[<span class="ident">wast::AssertExpression</span>],
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">result</span><span class="question-mark">?</span>;
         <span class="kw">for</span> (<span class="ident">v</span>, <span class="ident">e</span>) <span class="kw">in</span> <span class="ident">values</span>.<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">results</span>) {
             <span class="kw">if</span> <span class="self">self</span>.<span class="ident">val_matches</span>(<span class="ident">v</span>, <span class="ident">e</span>)<span class="question-mark">?</span> {
                 <span class="kw">continue</span>;
             }
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Val</span>::<span class="ident">V128</span>(<span class="ident">bits</span>) <span class="op">=</span> <span class="ident">v</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">V128</span>(<span class="ident">pattern</span>) <span class="op">=</span> <span class="ident">e</span> {
-                    <span class="macro">bail</span><span class="macro">!</span>(
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Val::V128</span>(<span class="ident">bits</span>) <span class="op">=</span> <span class="ident">v</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">wast::AssertExpression::V128</span>(<span class="ident">pattern</span>) <span class="op">=</span> <span class="ident">e</span> {
+                    <span class="macro">bail!</span>(
                         <span class="string">&quot;expected {:?}, got {:?} (v128 bits: {})&quot;</span>,
                         <span class="ident">e</span>,
                         <span class="ident">v128_format</span>(<span class="kw-2">*</span><span class="ident">bits</span>, <span class="ident">pattern</span>),
@@ -781,24 +810,24 @@
                     );
                 }
             }
-            <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;expected {:?}, got {:?}&quot;</span>, <span class="ident">e</span>, <span class="ident">v</span>)
+            <span class="macro">bail!</span>(<span class="string">&quot;expected {:?}, got {:?}&quot;</span>, <span class="ident">e</span>, <span class="ident">v</span>)
         }
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn</span> <span class="ident">assert_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">actual</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">values</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;expected trap, got {:?}&quot;</span>, <span class="ident">values</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">t</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">t</span>),
+            <span class="prelude-val">Ok</span>(<span class="ident">values</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail!</span>(<span class="string">&quot;expected trap, got {:?}&quot;</span>, <span class="ident">values</span>),
+            <span class="prelude-val">Err</span>(<span class="ident">t</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">t</span>),
         };
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">matches_message_assert_trap</span>(<span class="ident">expected</span>, <span class="kw-2">&amp;</span><span class="ident">actual</span>) {
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
         }
-        <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;expected &#39;{}&#39;, got &#39;{}&#39;&quot;</span>, <span class="ident">expected</span>, <span class="ident">actual</span>)
+        <span class="macro">bail!</span>(<span class="string">&quot;expected &#39;{}&#39;, got &#39;{}&#39;&quot;</span>, <span class="ident">expected</span>, <span class="ident">actual</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">run_directive</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">directive</span>: <span class="ident">wast</span>::<span class="ident">WastDirective</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">wast</span>::<span class="ident">WastDirective</span>::<span class="kw-2">*</span>;
+    <span class="kw">fn</span> <span class="ident">run_directive</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">test</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">directive</span>: <span class="ident">wast::WastDirective</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="ident">wast::WastDirective</span>::<span class="kw-2">*</span>;
 
         <span class="kw">match</span> <span class="ident">directive</span> {
             <span class="ident">Module</span>(<span class="kw-2">mut</span> <span class="ident">module</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -845,17 +874,20 @@
             }
             <span class="ident">AssertInvalid</span> {
                 <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="kw-2">mut</span> <span class="ident">module</span>,
+                <span class="ident">module</span>,
                 <span class="ident">message</span>,
             } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">module</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>) {
-                    <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;expected module to fail to build&quot;</span>),
+                <span class="kw">let</span> <span class="ident">wasm</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">module</span> {
+                    <span class="ident">wast::QuoteModule::Module</span>(<span class="kw-2">mut</span> <span class="ident">m</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">m</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>,
+                    <span class="ident">wast::QuoteModule::Quote</span>(<span class="ident">list</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">parse_quote_module</span>(<span class="ident">test</span>, <span class="kw-2">&amp;</span><span class="ident">list</span>)<span class="question-mark">?</span>,
+                };
+                <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">module</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>) {
+                    <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail!</span>(<span class="string">&quot;expected module to fail to build&quot;</span>),
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">e</span>,
                 };
-                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="self">Self</span>::<span class="ident">matches_message_assert_invalid</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
-                    <span class="macro">bail</span><span class="macro">!</span>(
+                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
+                <span class="kw">if</span> <span class="op">!</span><span class="self">Self</span><span class="ident">::matches_message_assert_invalid</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
+                    <span class="macro">bail!</span>(
                         <span class="string">&quot;assert_invalid: expected \&quot;{}\&quot;, got \&quot;{}\&quot;&quot;</span>,
                         <span class="ident">message</span>,
                         <span class="ident">error_message</span>
@@ -865,20 +897,23 @@
             <span class="ident">QuoteModule</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// Do nothing</span>
             }
+            <span class="ident">AssertUncaughtException</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="comment">// Do nothing for now</span>
+            }
             <span class="ident">AssertMalformed</span> {
                 <span class="ident">module</span>,
                 <span class="ident">span</span>: <span class="kw">_</span>,
                 <span class="ident">message</span>: <span class="kw">_</span>,
             } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">module</span> {
-                    <span class="ident">wast</span>::<span class="ident">QuoteModule</span>::<span class="ident">Module</span>(<span class="ident">m</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">m</span>,
+                    <span class="ident">wast::QuoteModule::Module</span>(<span class="ident">m</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">m</span>,
                     <span class="comment">// This is a `*.wat` parser test which we&#39;re not</span>
                     <span class="comment">// interested in.</span>
-                    <span class="ident">wast</span>::<span class="ident">QuoteModule</span>::<span class="ident">Quote</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Ok</span>(()),
+                    <span class="ident">wast::QuoteModule::Quote</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Ok</span>(()),
                 };
                 <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">module</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>).<span class="ident">is_ok</span>() {
-                    <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;expected malformed module to fail to instantiate&quot;</span>);
+                    <span class="macro">bail!</span>(<span class="string">&quot;expected malformed module to fail to instantiate&quot;</span>);
                 }
             }
             <span class="ident">AssertUnlinkable</span> {
@@ -888,12 +923,12 @@
             } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">module</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>) {
-                    <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;expected module to fail to link&quot;</span>),
+                    <span class="prelude-val">Ok</span>(()) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail!</span>(<span class="string">&quot;expected module to fail to link&quot;</span>),
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">e</span>,
                 };
-                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="self">Self</span>::<span class="ident">matches_message_assert_unlinkable</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
-                    <span class="macro">bail</span><span class="macro">!</span>(
+                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
+                <span class="kw">if</span> <span class="op">!</span><span class="self">Self</span><span class="ident">::matches_message_assert_unlinkable</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
+                    <span class="macro">bail!</span>(
                         <span class="string">&quot;assert_unlinkable: expected {}, got {}&quot;</span>,
                         <span class="ident">message</span>,
                         <span class="ident">error_message</span>
@@ -906,22 +941,22 @@
     }
 
     <span class="doccomment">/// Run a wast script from a byte buffer.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_buffer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">filename</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">wast</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">wast</span> <span class="op">=</span> <span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="ident">wast</span>)<span class="question-mark">?</span>;
-
-        <span class="kw">let</span> <span class="ident">adjust_wast</span> <span class="op">=</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">err</span>: <span class="ident">wast</span>::<span class="ident">Error</span><span class="op">|</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_buffer</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">test</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">wast</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">wast</span> <span class="op">=</span> <span class="ident">str::from_utf8</span>(<span class="ident">wast</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">test</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">adjust_wast</span> <span class="op">=</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">err</span>: <span class="ident">wast::Error</span><span class="op">|</span> {
             <span class="ident">err</span>.<span class="ident">set_path</span>(<span class="ident">filename</span>.<span class="ident">as_ref</span>());
             <span class="ident">err</span>.<span class="ident">set_text</span>(<span class="ident">wast</span>);
             <span class="ident">err</span>
         };
 
-        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">wast</span>::<span class="ident">parser</span>::<span class="ident">ParseBuffer</span>::<span class="ident">new</span>(<span class="ident">wast</span>).<span class="ident">map_err</span>(<span class="ident">adjust_wast</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">ast</span> <span class="op">=</span> <span class="ident">wast</span>::<span class="ident">parser</span>::<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wast</span>::<span class="ident">Wast</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>).<span class="ident">map_err</span>(<span class="ident">adjust_wast</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">errors</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">ast</span>.<span class="ident">directives</span>.<span class="ident">len</span>());
+        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">wast::parser::ParseBuffer::new</span>(<span class="ident">wast</span>).<span class="ident">map_err</span>(<span class="ident">adjust_wast</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">ast</span> <span class="op">=</span> <span class="ident">wast::parser::parse</span>::<span class="op">&lt;</span><span class="ident">wast::Wast</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>).<span class="ident">map_err</span>(<span class="ident">adjust_wast</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">errors</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">ast</span>.<span class="ident">directives</span>.<span class="ident">len</span>());
         <span class="kw">for</span> <span class="ident">directive</span> <span class="kw">in</span> <span class="ident">ast</span>.<span class="ident">directives</span> {
             <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">directive</span>.<span class="ident">span</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">run_directive</span>(<span class="ident">directive</span>) {
-                <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>);
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">run_directive</span>(<span class="kw-2">&amp;</span><span class="ident">test</span>, <span class="ident">directive</span>) {
+                <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>);
                 <span class="comment">// If depends on an instance that doesn&#39;t exist</span>
                 <span class="kw">if</span> <span class="ident">message</span>.<span class="ident">contains</span>(<span class="string">&quot;no previous instance found&quot;</span>) {
                     <span class="kw">continue</span>;
@@ -952,10 +987,33 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="kw">fn</span> <span class="ident">parse_quote_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">test</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">source</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">String::new</span>();
+        <span class="kw">for</span> <span class="ident">src</span> <span class="kw">in</span> <span class="ident">source</span> {
+            <span class="kw">match</span> <span class="ident">str::from_utf8</span>(<span class="ident">src</span>) {
+                <span class="prelude-val">Ok</span>(<span class="ident">s</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ret</span>.<span class="ident">push_str</span>(<span class="ident">s</span>),
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail!</span>(<span class="string">&quot;malformed UTF-8 encoding&quot;</span>),
+            }
+            <span class="ident">ret</span>.<span class="ident">push_str</span>(<span class="string">&quot; &quot;</span>);
+        }
+        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">wast::parser::ParseBuffer::new</span>(<span class="kw-2">&amp;</span><span class="ident">ret</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wat</span> <span class="op">=</span> <span class="ident">wast::parser::parse</span>::<span class="op">&lt;</span><span class="ident">wast::Wat</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>)<span class="question-mark">?</span>;
+
+        <span class="comment">// TODO: when memory64 merges into the proper spec then this should be</span>
+        <span class="comment">// removed since it will presumably no longer be a text-format error but</span>
+        <span class="comment">// rather a validation error. Currently all non-memory64 proposals</span>
+        <span class="comment">// assert that this offset is a text-parser error, whereas with memory64</span>
+        <span class="comment">// support that error is deferred until later.</span>
+        <span class="kw">if</span> <span class="ident">ret</span>.<span class="ident">contains</span>(<span class="string">&quot;offset=4294967296&quot;</span>) <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">test</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span> <span class="op">=</span><span class="op">=</span> <span class="string">&quot;memory64&quot;</span>) {
+            <span class="macro">bail!</span>(<span class="string">&quot;i32 constant out of bounds&quot;</span>);
+        }
+        <span class="prelude-val">Ok</span>(<span class="ident">wat</span>.<span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>)
+    }
+
     <span class="doccomment">/// Run a wast script from a file.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_file</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">read</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">run_buffer</span>(<span class="ident">path</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>(), <span class="kw-2">&amp;</span><span class="ident">bytes</span>)
+        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">run_buffer</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>)
     }
 }
 
@@ -969,7 +1027,7 @@
                 <span class="comment">// We set the current to None to allow running other</span>
                 <span class="comment">// spectests when `fail_fast` is `false`.</span>
                 <span class="self">self</span>.<span class="ident">current</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>);
+                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>);
                 <span class="self">self</span>.<span class="ident">current_is_allowed_failure</span> <span class="op">=</span> <span class="bool-val">false</span>;
                 <span class="kw">for</span> <span class="ident">allowed_failure</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">allowed_instantiation_failures</span>.<span class="ident">iter</span>() {
                     <span class="kw">if</span> <span class="ident">error_message</span>.<span class="ident">contains</span>(<span class="ident">allowed_failure</span>) {
@@ -977,7 +1035,7 @@
                         <span class="kw">break</span>;
                     }
                 }
-                <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;instantiation failed with: {}&quot;</span>, <span class="ident">e</span>)
+                <span class="macro">bail!</span>(<span class="string">&quot;instantiation failed with: {}&quot;</span>, <span class="ident">e</span>)
             }
         };
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">instance_name</span> {
@@ -989,7 +1047,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>, <span class="ident">module</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>, <span class="ident">module</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">imports</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">import_object</span>.<span class="ident">clone</span>();
 
         <span class="kw">for</span> <span class="ident">import</span> <span class="kw">in</span> <span class="ident">module</span>.<span class="ident">imports</span>() {
@@ -1000,11 +1058,11 @@
             <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>
                 .<span class="ident">instances</span>
                 .<span class="ident">get</span>(<span class="ident">module_name</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow</span><span class="macro">!</span>(<span class="string">&quot;constant expression required&quot;</span>))<span class="question-mark">?</span>;
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;constant expression required&quot;</span>))<span class="question-mark">?</span>;
             <span class="ident">imports</span>.<span class="ident">register</span>(<span class="ident">module_name</span>, <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">clone</span>());
         }
 
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">instance</span>)
     }
 
@@ -1034,32 +1092,32 @@
     <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">instance_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">instance_name</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">global</span>: <span class="kw-2">&amp;</span><span class="ident">Global</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">field</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">global</span>.<span class="ident">get</span>()])
+        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[<span class="ident">global</span>.<span class="ident">get</span>()])
     }
 
     <span class="doccomment">/// Translate from a `script::Value` to a `Val`.</span>
-    <span class="kw">fn</span> <span class="ident">runtime_value</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">wast</span>::<span class="ident">Expression</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">wast</span>::<span class="ident">Instruction</span>::<span class="kw-2">*</span>;
+    <span class="kw">fn</span> <span class="ident">runtime_value</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">wast::Expression</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="ident">wast::Instruction</span>::<span class="kw-2">*</span>;
 
         <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">instrs</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-            <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;too many instructions in {:?}&quot;</span>, <span class="ident">v</span>);
+            <span class="macro">bail!</span>(<span class="string">&quot;too many instructions in {:?}&quot;</span>, <span class="ident">v</span>);
         }
         <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">instrs</span>[<span class="number">0</span>] {
-            <span class="ident">I32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val</span>::<span class="ident">I32</span>(<span class="kw-2">*</span><span class="ident">x</span>),
-            <span class="ident">I64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val</span>::<span class="ident">I64</span>(<span class="kw-2">*</span><span class="ident">x</span>),
-            <span class="ident">F32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val</span>::<span class="ident">F32</span>(<span class="ident">f32</span>::<span class="ident">from_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>)),
-            <span class="ident">F64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val</span>::<span class="ident">F64</span>(<span class="ident">f64</span>::<span class="ident">from_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>)),
-            <span class="ident">V128Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val</span>::<span class="ident">V128</span>(<span class="ident">u128</span>::<span class="ident">from_le_bytes</span>(<span class="ident">x</span>.<span class="ident">to_le_bytes</span>())),
-            <span class="ident">RefNull</span>(<span class="ident">wast</span>::<span class="ident">HeapType</span>::<span class="ident">Func</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">None</span>),
-            <span class="ident">RefNull</span>(<span class="ident">wast</span>::<span class="ident">HeapType</span>::<span class="ident">Extern</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val</span>::<span class="ident">null</span>(),
+            <span class="ident">I32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val::I32</span>(<span class="kw-2">*</span><span class="ident">x</span>),
+            <span class="ident">I64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val::I64</span>(<span class="kw-2">*</span><span class="ident">x</span>),
+            <span class="ident">F32Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val::F32</span>(<span class="ident">f32::from_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>)),
+            <span class="ident">F64Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val::F64</span>(<span class="ident">f64::from_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>)),
+            <span class="ident">V128Const</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val::V128</span>(<span class="ident">u128::from_le_bytes</span>(<span class="ident">x</span>.<span class="ident">to_le_bytes</span>())),
+            <span class="ident">RefNull</span>(<span class="ident">wast::HeapType::Func</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val::FuncRef</span>(<span class="prelude-val">None</span>),
+            <span class="ident">RefNull</span>(<span class="ident">wast::HeapType::Extern</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Val::null</span>(),
             <span class="ident">RefExtern</span>(<span class="ident">number</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">extern_ref</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">extern_refs</span>
                     .<span class="ident">entry</span>(<span class="kw-2">*</span><span class="ident">number</span>)
-                    .<span class="ident">or_insert_with</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ExternRef</span>::<span class="ident">new</span>(<span class="kw-2">*</span><span class="ident">number</span>));
-                <span class="ident">Val</span>::<span class="ident">ExternRef</span>(<span class="ident">extern_ref</span>.<span class="ident">clone</span>())
+                    .<span class="ident">or_insert_with</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ExternRef::new</span>(<span class="kw-2">*</span><span class="ident">number</span>));
+                <span class="ident">Val::ExternRef</span>(<span class="ident">extern_ref</span>.<span class="ident">clone</span>())
             }
-            <span class="ident">other</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(<span class="string">&quot;couldn&#39;t convert {:?} to a runtime value&quot;</span>, <span class="ident">other</span>),
+            <span class="ident">other</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail!</span>(<span class="string">&quot;couldn&#39;t convert {:?} to a runtime value&quot;</span>, <span class="ident">other</span>),
         })
     }
 
@@ -1096,40 +1154,40 @@
                 .<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">val_matches</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">actual</span>: <span class="kw-2">&amp;</span><span class="ident">Val</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast</span>::<span class="ident">AssertExpression</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">val_matches</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">actual</span>: <span class="kw-2">&amp;</span><span class="ident">Val</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::AssertExpression</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="kw">match</span> (<span class="ident">actual</span>, <span class="ident">expected</span>) {
-            (<span class="ident">Val</span>::<span class="ident">I32</span>(<span class="ident">a</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">I32</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">b</span>,
-            (<span class="ident">Val</span>::<span class="ident">I64</span>(<span class="ident">a</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">I64</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">b</span>,
+            (<span class="ident">Val::I32</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::I32</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">b</span>,
+            (<span class="ident">Val::I64</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::I64</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">b</span>,
             <span class="comment">// Note that these float comparisons are comparing bits, not float</span>
             <span class="comment">// values, so we&#39;re testing for bit-for-bit equivalence</span>
-            (<span class="ident">Val</span>::<span class="ident">F32</span>(<span class="ident">a</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">F32</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f32_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
-            (<span class="ident">Val</span>::<span class="ident">F64</span>(<span class="ident">a</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">F64</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f64_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
-            (<span class="ident">Val</span>::<span class="ident">V128</span>(<span class="ident">a</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">V128</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v128_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
-            (<span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefNull</span>(<span class="prelude-val">Some</span>(<span class="ident">wast</span>::<span class="ident">HeapType</span>::<span class="ident">Func</span>))) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="ident">Val::F32</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::F32</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f32_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
+            (<span class="ident">Val::F64</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::F64</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f64_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
+            (<span class="ident">Val::V128</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::V128</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v128_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
+            (<span class="ident">Val::FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast::AssertExpression::RefNull</span>(<span class="prelude-val">Some</span>(<span class="ident">wast::HeapType::Func</span>))) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="bool-val">true</span>
             }
-            (<span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefNull</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
-            (<span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefFunc</span>(<span class="prelude-val">None</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-            (<span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefFunc</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>))) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
+            (<span class="ident">Val::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), <span class="ident">wast::AssertExpression::RefNull</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
+            (<span class="ident">Val::FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast::AssertExpression::RefFunc</span>(<span class="prelude-val">None</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+            (<span class="ident">Val::FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast::AssertExpression::RefFunc</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>))) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
             (
-                <span class="ident">Val</span>::<span class="ident">ExternRef</span>(<span class="ident">extern_ref</span>),
-                <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefNull</span>(<span class="prelude-val">Some</span>(<span class="ident">wast</span>::<span class="ident">HeapType</span>::<span class="ident">Extern</span>)),
+                <span class="ident">Val::ExternRef</span>(<span class="ident">extern_ref</span>),
+                <span class="ident">wast::AssertExpression::RefNull</span>(<span class="prelude-val">Some</span>(<span class="ident">wast::HeapType::Extern</span>)),
             ) <span class="kw">if</span> <span class="ident">extern_ref</span>.<span class="ident">is_null</span>() <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-            (<span class="ident">Val</span>::<span class="ident">ExternRef</span>(<span class="ident">extern_ref</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefExtern</span>(<span class="kw">_</span>))
+            (<span class="ident">Val::ExternRef</span>(<span class="ident">extern_ref</span>), <span class="ident">wast::AssertExpression::RefExtern</span>(<span class="kw">_</span>))
                 <span class="kw">if</span> <span class="ident">extern_ref</span>.<span class="ident">is_null</span>() <span class="op">=</span><span class="op">&gt;</span>
             {
                 <span class="bool-val">false</span>
             }
 
-            (<span class="ident">Val</span>::<span class="ident">ExternRef</span>(<span class="kw">_</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefNull</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
-            (<span class="ident">Val</span>::<span class="ident">ExternRef</span>(<span class="ident">extern_ref</span>), <span class="ident">wast</span>::<span class="ident">AssertExpression</span>::<span class="ident">RefExtern</span>(<span class="ident">num</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="ident">Val::ExternRef</span>(<span class="kw">_</span>), <span class="ident">wast::AssertExpression::RefNull</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
+            (<span class="ident">Val::ExternRef</span>(<span class="ident">extern_ref</span>), <span class="ident">wast::AssertExpression::RefExtern</span>(<span class="ident">num</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stored_extern_ref</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">extern_refs</span>.<span class="ident">get</span>(<span class="ident">num</span>) {
                     <span class="ident">extern_ref</span> <span class="op">=</span><span class="op">=</span> <span class="ident">stored_extern_ref</span>
                 } <span class="kw">else</span> {
                     <span class="bool-val">false</span>
                 }
             }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail!</span>(
                 <span class="string">&quot;don&#39;t know how to compare {:?} and {:?} yet&quot;</span>,
                 <span class="ident">actual</span>,
                 <span class="ident">expected</span>
@@ -1154,54 +1212,54 @@
     (<span class="ident">bytes</span> <span class="op">&gt;</span><span class="op">&gt;</span> (<span class="ident">lane</span> <span class="op">*</span> <span class="number">64</span>)) <span class="kw">as</span> <span class="ident">i64</span>
 }
 
-<span class="kw">fn</span> <span class="ident">f32_matches</span>(<span class="ident">actual</span>: <span class="ident">f32</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast</span>::<span class="ident">NanPattern</span><span class="op">&lt;</span><span class="ident">wast</span>::<span class="ident">Float32</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+<span class="kw">fn</span> <span class="ident">f32_matches</span>(<span class="ident">actual</span>: <span class="ident">f32</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::NanPattern</span><span class="op">&lt;</span><span class="ident">wast::Float32</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">CanonicalNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_canonical_nan</span>(),
-        <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">ArithmeticNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_arithmetic_nan</span>(),
-        <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">expected_value</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">to_bits</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">expected_value</span>.<span class="ident">bits</span>,
+        <span class="ident">wast::NanPattern::CanonicalNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_canonical_nan</span>(),
+        <span class="ident">wast::NanPattern::ArithmeticNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_arithmetic_nan</span>(),
+        <span class="ident">wast::NanPattern::Value</span>(<span class="ident">expected_value</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">to_bits</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">expected_value</span>.<span class="ident">bits</span>,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">f64_matches</span>(<span class="ident">actual</span>: <span class="ident">f64</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast</span>::<span class="ident">NanPattern</span><span class="op">&lt;</span><span class="ident">wast</span>::<span class="ident">Float64</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+<span class="kw">fn</span> <span class="ident">f64_matches</span>(<span class="ident">actual</span>: <span class="ident">f64</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::NanPattern</span><span class="op">&lt;</span><span class="ident">wast::Float64</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">CanonicalNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_canonical_nan</span>(),
-        <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">ArithmeticNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_arithmetic_nan</span>(),
-        <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">expected_value</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">to_bits</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">expected_value</span>.<span class="ident">bits</span>,
+        <span class="ident">wast::NanPattern::CanonicalNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_canonical_nan</span>(),
+        <span class="ident">wast::NanPattern::ArithmeticNan</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">is_arithmetic_nan</span>(),
+        <span class="ident">wast::NanPattern::Value</span>(<span class="ident">expected_value</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">actual</span>.<span class="ident">to_bits</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">expected_value</span>.<span class="ident">bits</span>,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">v128_matches</span>(<span class="ident">actual</span>: <span class="ident">u128</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast</span>::<span class="ident">V128Pattern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+<span class="kw">fn</span> <span class="ident">v128_matches</span>(<span class="ident">actual</span>: <span class="ident">u128</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::V128Pattern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I8x16</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
+        <span class="ident">wast::V128Pattern::I8x16</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
             .<span class="ident">iter</span>()
             .<span class="ident">enumerate</span>()
             .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">=</span><span class="op">=</span> <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I16x8</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
+        <span class="ident">wast::V128Pattern::I16x8</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
             .<span class="ident">iter</span>()
             .<span class="ident">enumerate</span>()
             .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">=</span><span class="op">=</span> <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I32x4</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
+        <span class="ident">wast::V128Pattern::I32x4</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
             .<span class="ident">iter</span>()
             .<span class="ident">enumerate</span>()
             .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">=</span><span class="op">=</span> <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I64x2</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
+        <span class="ident">wast::V128Pattern::I64x2</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>
             .<span class="ident">iter</span>()
             .<span class="ident">enumerate</span>()
             .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">=</span><span class="op">=</span> <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">F32x4</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> {
+        <span class="ident">wast::V128Pattern::F32x4</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="ident">i</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-            <span class="ident">f32_matches</span>(<span class="ident">f32</span>::<span class="ident">from_bits</span>(<span class="ident">a</span>), <span class="ident">b</span>)
+            <span class="ident">f32_matches</span>(<span class="ident">f32::from_bits</span>(<span class="ident">a</span>), <span class="ident">b</span>)
         }),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">F64x2</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> {
+        <span class="ident">wast::V128Pattern::F64x2</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="ident">i</span>) <span class="kw">as</span> <span class="ident">u64</span>;
-            <span class="ident">f64_matches</span>(<span class="ident">f64</span>::<span class="ident">from_bits</span>(<span class="ident">a</span>), <span class="ident">b</span>)
+            <span class="ident">f64_matches</span>(<span class="ident">f64::from_bits</span>(<span class="ident">a</span>), <span class="ident">b</span>)
         }),
     }
 }
 
-<span class="kw">fn</span> <span class="ident">v128_format</span>(<span class="ident">actual</span>: <span class="ident">u128</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast</span>::<span class="ident">V128Pattern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wast</span>::<span class="ident">V128Pattern</span> {
+<span class="kw">fn</span> <span class="ident">v128_format</span>(<span class="ident">actual</span>: <span class="ident">u128</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::V128Pattern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wast::V128Pattern</span> {
     <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I8x16</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I8x16</span>([
+        <span class="ident">wast::V128Pattern::I8x16</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast::V128Pattern::I8x16</span>([
             <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">0</span>),
             <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">1</span>),
             <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">2</span>),
@@ -1219,7 +1277,7 @@
             <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">14</span>),
             <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">15</span>),
         ]),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I16x8</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I16x8</span>([
+        <span class="ident">wast::V128Pattern::I16x8</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast::V128Pattern::I16x8</span>([
             <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">0</span>),
             <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">1</span>),
             <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">2</span>),
@@ -1229,35 +1287,35 @@
             <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">6</span>),
             <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">7</span>),
         ]),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I32x4</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I32x4</span>([
+        <span class="ident">wast::V128Pattern::I32x4</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast::V128Pattern::I32x4</span>([
             <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">0</span>),
             <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">1</span>),
             <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">2</span>),
             <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">3</span>),
         ]),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I64x2</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">I64x2</span>([
+        <span class="ident">wast::V128Pattern::I64x2</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast::V128Pattern::I64x2</span>([
             <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">0</span>),
             <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">1</span>),
         ]),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">F32x4</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">F32x4</span>([
-            <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">wast</span>::<span class="ident">Float32</span> {
+        <span class="ident">wast::V128Pattern::F32x4</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast::V128Pattern::F32x4</span>([
+            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
                 <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">0</span>) <span class="kw">as</span> <span class="kw">_</span>,
             }),
-            <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">wast</span>::<span class="ident">Float32</span> {
+            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
                 <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">1</span>) <span class="kw">as</span> <span class="kw">_</span>,
             }),
-            <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">wast</span>::<span class="ident">Float32</span> {
+            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
                 <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">2</span>) <span class="kw">as</span> <span class="kw">_</span>,
             }),
-            <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">wast</span>::<span class="ident">Float32</span> {
+            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
                 <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">3</span>) <span class="kw">as</span> <span class="kw">_</span>,
             }),
         ]),
-        <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">F64x2</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>::<span class="ident">V128Pattern</span>::<span class="ident">F64x2</span>([
-            <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">wast</span>::<span class="ident">Float64</span> {
+        <span class="ident">wast::V128Pattern::F64x2</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast::V128Pattern::F64x2</span>([
+            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float64</span> {
                 <span class="ident">bits</span>: <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">0</span>) <span class="kw">as</span> <span class="kw">_</span>,
             }),
-            <span class="ident">wast</span>::<span class="ident">NanPattern</span>::<span class="ident">Value</span>(<span class="ident">wast</span>::<span class="ident">Float64</span> {
+            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float64</span> {
                 <span class="ident">bits</span>: <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">1</span>) <span class="kw">as</span> <span class="kw">_</span>,
             }),
         ]),
@@ -1291,5 +1349,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wast"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wast" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

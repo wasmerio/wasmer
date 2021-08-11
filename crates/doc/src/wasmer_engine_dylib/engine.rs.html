@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/engine-dylib/src/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/engine-dylib/src/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_engine_dylib/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_engine_dylib/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -334,19 +334,19 @@
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Dylib Engine.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">DylibArtifact</span>;
-<span class="kw">use</span> <span class="ident">libloading</span>::<span class="ident">Library</span>;
-<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Mutex</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::DylibArtifact</span>;
+<span class="kw">use</span> <span class="ident">libloading::Library</span>;
+<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+<span class="kw">use</span> <span class="ident">std::path::Path</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">Target</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">Triple</span>};
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">Engine</span>, <span class="ident">EngineId</span>, <span class="ident">Tunables</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">Features</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">FunctionType</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::Features</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::FunctionType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
     <span class="ident">FuncDataRegistry</span>, <span class="ident">SignatureRegistry</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMFuncRef</span>, <span class="ident">VMSharedSignatureIndex</span>,
 };
@@ -364,22 +364,22 @@
     <span class="doccomment">/// Create a new `DylibEngine` with the given config</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">compiler</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Compiler</span><span class="op">&gt;</span>, <span class="ident">target</span>: <span class="ident">Target</span>, <span class="ident">features</span>: <span class="ident">Features</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">is_cross_compiling</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">target</span>.<span class="ident">triple</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">Triple</span>::<span class="ident">host</span>();
-        <span class="kw">let</span> <span class="ident">linker</span> <span class="op">=</span> <span class="ident">Linker</span>::<span class="ident">find_linker</span>(<span class="ident">is_cross_compiling</span>);
+        <span class="kw">let</span> <span class="ident">is_cross_compiling</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">target</span>.<span class="ident">triple</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">Triple::host</span>();
+        <span class="kw">let</span> <span class="ident">linker</span> <span class="op">=</span> <span class="ident">Linker::find_linker</span>(<span class="ident">is_cross_compiling</span>);
 
         <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">DylibEngineInner</span> {
+            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">DylibEngineInner</span> {
                 <span class="ident">compiler</span>: <span class="prelude-val">Some</span>(<span class="ident">compiler</span>),
-                <span class="ident">signatures</span>: <span class="ident">SignatureRegistry</span>::<span class="ident">new</span>(),
-                <span class="ident">func_data</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">FuncDataRegistry</span>::<span class="ident">new</span>()),
+                <span class="ident">signatures</span>: <span class="ident">SignatureRegistry::new</span>(),
+                <span class="ident">func_data</span>: <span class="ident">Arc::new</span>(<span class="ident">FuncDataRegistry::new</span>()),
                 <span class="ident">prefixer</span>: <span class="prelude-val">None</span>,
                 <span class="ident">features</span>,
                 <span class="ident">is_cross_compiling</span>,
                 <span class="ident">linker</span>,
-                <span class="ident">libraries</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+                <span class="ident">libraries</span>: <span class="macro">vec!</span>[],
             })),
-            <span class="ident">target</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">target</span>),
-            <span class="ident">engine_id</span>: <span class="ident">EngineId</span>::<span class="ident">default</span>(),
+            <span class="ident">target</span>: <span class="ident">Arc::new</span>(<span class="ident">target</span>),
+            <span class="ident">engine_id</span>: <span class="ident">EngineId::default</span>(),
         }
     }
 
@@ -398,20 +398,20 @@
     <span class="doccomment">/// they just take already processed Modules (via `Module::serialize`).</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">headless</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">DylibEngineInner</span> {
+            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">DylibEngineInner</span> {
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
                 <span class="ident">compiler</span>: <span class="prelude-val">None</span>,
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-                <span class="ident">features</span>: <span class="ident">Features</span>::<span class="ident">default</span>(),
-                <span class="ident">signatures</span>: <span class="ident">SignatureRegistry</span>::<span class="ident">new</span>(),
-                <span class="ident">func_data</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">FuncDataRegistry</span>::<span class="ident">new</span>()),
+                <span class="ident">features</span>: <span class="ident">Features::default</span>(),
+                <span class="ident">signatures</span>: <span class="ident">SignatureRegistry::new</span>(),
+                <span class="ident">func_data</span>: <span class="ident">Arc::new</span>(<span class="ident">FuncDataRegistry::new</span>()),
                 <span class="ident">prefixer</span>: <span class="prelude-val">None</span>,
                 <span class="ident">is_cross_compiling</span>: <span class="bool-val">false</span>,
-                <span class="ident">linker</span>: <span class="ident">Linker</span>::<span class="prelude-val">None</span>,
-                <span class="ident">libraries</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+                <span class="ident">linker</span>: <span class="ident">Linker::None</span>,
+                <span class="ident">libraries</span>: <span class="macro">vec!</span>[],
             })),
-            <span class="ident">target</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Target</span>::<span class="ident">default</span>()),
-            <span class="ident">engine_id</span>: <span class="ident">EngineId</span>::<span class="ident">default</span>(),
+            <span class="ident">target</span>: <span class="ident">Arc::new</span>(<span class="ident">Target::default</span>()),
+            <span class="ident">engine_id</span>: <span class="ident">EngineId::default</span>(),
         }
     }
 
@@ -430,14 +430,14 @@
         <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner_mut</span>();
-        <span class="ident">inner</span>.<span class="ident">prefixer</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">prefixer</span>));
+        <span class="ident">inner</span>.<span class="ident">prefixer</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">prefixer</span>));
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">inner</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">DylibEngineInner</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">inner</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::sync::MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">DylibEngineInner</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">inner_mut</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">DylibEngineInner</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">inner_mut</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::sync::MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">DylibEngineInner</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>()
     }
 }
@@ -477,7 +477,7 @@
         <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
         <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">DylibArtifact</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">binary</span>, <span class="ident">tunables</span>)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">DylibArtifact::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">binary</span>, <span class="ident">tunables</span>)<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Compile a WebAssembly binary (it will fail because the `compiler` flag is disabled).</span>
@@ -487,7 +487,7 @@
         <span class="ident">_binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
         <span class="ident">_tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(
+        <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
             <span class="string">&quot;The `DylibEngine` is operating in headless mode, so it cannot compile a module.&quot;</span>
                 .<span class="ident">to_string</span>(),
         ))
@@ -495,7 +495,7 @@
 
     <span class="doccomment">/// Deserializes a WebAssembly module (binary content of a shared object file)</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">DylibArtifact</span>::<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">DylibArtifact::deserialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>)<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Deserializes a WebAssembly module from a path</span>
@@ -504,7 +504,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">file_ref</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">DylibArtifact</span>::<span class="ident">deserialize_from_file</span>(
+        <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">DylibArtifact::deserialize_from_file</span>(
             <span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">&amp;</span><span class="ident">file_ref</span>,
         )<span class="question-mark">?</span>))
     }
@@ -514,7 +514,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">cloned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> {
-        <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
+        <span class="ident">Arc::new</span>(<span class="self">self</span>.<span class="ident">clone</span>())
     }
 }
 
@@ -532,18 +532,18 @@
     <span class="kw">fn</span> <span class="ident">find_linker</span>(<span class="ident">is_cross_compiling</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> (<span class="ident">possibilities</span>, <span class="ident">requirements</span>): (<span class="kw-2">&amp;</span>[<span class="kw">_</span>], <span class="kw">_</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_cross_compiling</span> {
             (
-                <span class="kw-2">&amp;</span>[<span class="ident">Linker</span>::<span class="ident">Clang11</span>, <span class="ident">Linker</span>::<span class="ident">Clang10</span>, <span class="ident">Linker</span>::<span class="ident">Clang</span>],
+                <span class="kw-2">&amp;</span>[<span class="ident">Linker::Clang11</span>, <span class="ident">Linker::Clang10</span>, <span class="ident">Linker::Clang</span>],
                 <span class="string">&quot;at least one of `clang-11`, `clang-10`, or `clang`&quot;</span>,
             )
         } <span class="kw">else</span> {
-            (<span class="kw-2">&amp;</span>[<span class="ident">Linker</span>::<span class="ident">Gcc</span>], <span class="string">&quot;`gcc`&quot;</span>)
+            (<span class="kw-2">&amp;</span>[<span class="ident">Linker::Gcc</span>], <span class="string">&quot;`gcc`&quot;</span>)
         };
         <span class="kw-2">*</span><span class="ident">possibilities</span>
             .<span class="ident">iter</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">linker</span><span class="op">|</span> <span class="ident">which</span>::<span class="ident">which</span>(<span class="ident">linker</span>.<span class="ident">executable</span>()).<span class="ident">is_ok</span>())
+            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">linker</span><span class="op">|</span> <span class="ident">which::which</span>(<span class="ident">linker</span>.<span class="ident">executable</span>()).<span class="ident">is_ok</span>())
             .<span class="ident">next</span>()
             .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="macro">panic</span><span class="macro">!</span>(
+                <span class="macro">panic!</span>(
                     <span class="string">&quot;Need {} installed in order to use `DylibEngine` when {}cross-compiling&quot;</span>,
                     <span class="ident">requirements</span>,
                     <span class="kw">if</span> <span class="ident">is_cross_compiling</span> { <span class="string">&quot;&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;not &quot;</span> }
@@ -553,11 +553,11 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">executable</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Clang11</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang-11&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Clang10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang-10&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Clang</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">Gcc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;gcc&quot;</span>,
+            <span class="self">Self</span><span class="ident">::None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Clang11</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang-11&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Clang10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang-10&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Clang</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang&quot;</span>,
+            <span class="self">Self</span><span class="ident">::Gcc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;gcc&quot;</span>,
         }
     }
 }
@@ -604,7 +604,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compiler</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">compiler</span>.<span class="ident">is_none</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="string">&quot;The `DylibEngine` is operating in headless mode, so it can only execute already compiled Modules.&quot;</span>.<span class="ident">to_string</span>()));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="string">&quot;The `DylibEngine` is operating in headless mode, so it can only execute already compiled Modules.&quot;</span>.<span class="ident">to_string</span>()));
         }
         <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>
             .<span class="ident">compiler</span>
@@ -635,7 +635,7 @@
     <span class="doccomment">/// Validate the module</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Validate</span>(
+        <span class="prelude-val">Err</span>(<span class="ident">CompileError::Validate</span>(
             <span class="string">&quot;The `DylibEngine` is not compiled with compiler support, which is required for validating&quot;</span>.<span class="ident">to_string</span>(),
         ))
     }
@@ -663,5 +663,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_engine_dylib"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_engine_dylib" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

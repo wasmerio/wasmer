@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/process.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>process.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/process.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>process.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -205,40 +205,40 @@
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">abort</span>, <span class="ident">c_int</span>, <span class="ident">exit</span>, <span class="ident">EAGAIN</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-<span class="kw">type</span> <span class="ident">PidT</span> <span class="op">=</span> <span class="ident">libc</span>::<span class="ident">pid_t</span>;
+<span class="kw">type</span> <span class="ident">PidT</span> <span class="op">=</span> <span class="ident">libc::pid_t</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
 <span class="kw">type</span> <span class="ident">PidT</span> <span class="op">=</span> <span class="ident">c_int</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">EmEnv</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::EmEnv</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">abort_with_message</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::abort_with_message&quot;</span>);
-    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">message</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::abort_with_message&quot;</span>);
+    <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">message</span>);
     <span class="ident">_abort</span>(<span class="ident">ctx</span>);
 }
 
 <span class="doccomment">/// The name of this call is `abort` but we want to avoid conflicts with libc::abort</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">em_abort</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">arg</span>: <span class="ident">u32</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::abort&quot;</span>);
-    <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;Program aborted with value {}&quot;</span>, <span class="ident">arg</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::abort&quot;</span>);
+    <span class="macro">eprintln!</span>(<span class="string">&quot;Program aborted with value {}&quot;</span>, <span class="ident">arg</span>);
     <span class="ident">_abort</span>(<span class="ident">ctx</span>);
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_abort</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_abort&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_abort&quot;</span>);
     <span class="kw">unsafe</span> {
         <span class="ident">abort</span>();
     }
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_prctl</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_prctl&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_prctl&quot;</span>);
     <span class="ident">abort_with_message</span>(<span class="ident">ctx</span>, <span class="string">&quot;missing function: prctl&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_fork</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PidT</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_fork&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_fork&quot;</span>);
     <span class="comment">// unsafe {</span>
     <span class="comment">//     fork()</span>
     <span class="comment">// }</span>
@@ -246,132 +246,132 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_endgrent</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_endgrent&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_endgrent&quot;</span>);
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_execve</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>, <span class="ident">_three</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_execve&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_execve&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_exit</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">status</span>: <span class="ident">c_int</span>) {
     <span class="comment">// -&gt; !</span>
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_exit {}&quot;</span>, <span class="ident">status</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_exit {}&quot;</span>, <span class="ident">status</span>);
     <span class="kw">unsafe</span> { <span class="ident">exit</span>(<span class="ident">status</span>) }
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_kill</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_kill&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_kill&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_sched_yield</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_sched_yield&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_sched_yield&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_llvm_stacksave</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_llvm_stacksave&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_llvm_stacksave&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_llvm_stackrestore</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_llvm_stackrestore&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_llvm_stackrestore&quot;</span>);
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_raise</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_raise&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_raise&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_sem_init</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>, <span class="ident">_three</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_sem_init: {}, {}, {}&quot;</span>, <span class="ident">_one</span>, <span class="ident">_two</span>, <span class="ident">_three</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_sem_init: {}, {}, {}&quot;</span>, <span class="ident">_one</span>, <span class="ident">_two</span>, <span class="ident">_three</span>);
     <span class="number">0</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_sem_destroy</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_sem_destroy&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_sem_destroy&quot;</span>);
     <span class="number">0</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_sem_post</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_sem_post&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_sem_post&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_sem_wait</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_sem_post&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_sem_post&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getgrent</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_getgrent&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_getgrent&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_setgrent</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_setgrent&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_setgrent&quot;</span>);
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_setgroups</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_setgroups&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_setgroups&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_setitimer</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>, <span class="ident">_three</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_setitimer&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_setitimer&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_usleep</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_usleep&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_usleep&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_nanosleep</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_nanosleep&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_nanosleep&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_utime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_utime&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_utime&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_utimes</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_utimes&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_utimes&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_wait</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_wait&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_wait&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_wait3</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>, <span class="ident">_three</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_wait3&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_wait3&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_wait4</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>, <span class="ident">_three</span>: <span class="ident">i32</span>, <span class="ident">_d</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_wait4&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_wait4&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_waitid</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>, <span class="ident">_three</span>: <span class="ident">i32</span>, <span class="ident">_d</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_waitid&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_waitid&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_waitpid</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>, <span class="ident">_three</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_waitpid&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_waitpid&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">abort_stack_overflow</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_what</span>: <span class="ident">c_int</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::abort_stack_overflow&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::abort_stack_overflow&quot;</span>);
     <span class="comment">// TODO: Message incomplete. Need to finish em runtime data first</span>
     <span class="ident">abort_with_message</span>(
         <span class="ident">ctx</span>,
@@ -380,30 +380,30 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_llvm_trap</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_llvm_trap&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_llvm_trap&quot;</span>);
     <span class="ident">abort_with_message</span>(<span class="ident">ctx</span>, <span class="string">&quot;abort!&quot;</span>);
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_llvm_eh_typeid_for</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_type_info_addr</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_llvm_eh_typeid_for&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_llvm_eh_typeid_for&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_system</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_system&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_system&quot;</span>);
     <span class="comment">// TODO: May need to change this Em impl to a working version</span>
-    <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;Can&#39;t call external programs&quot;</span>);
+    <span class="macro">eprintln!</span>(<span class="string">&quot;Can&#39;t call external programs&quot;</span>);
     <span class="ident">EAGAIN</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_popen</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_popen&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_popen&quot;</span>);
     <span class="comment">// TODO: May need to change this Em impl to a working version</span>
-    <span class="macro">eprintln</span><span class="macro">!</span>(<span class="string">&quot;Missing function: popen&quot;</span>);
+    <span class="macro">eprintln!</span>(<span class="string">&quot;Missing function: popen&quot;</span>);
     <span class="kw">unsafe</span> {
         <span class="ident">abort</span>();
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

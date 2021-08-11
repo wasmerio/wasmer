@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/object_file.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>object_file.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_compiler_llvm/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/object_file.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>object_file.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_compiler_llvm/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -344,28 +344,28 @@
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">Object</span>, <span class="ident">ObjectSection</span>, <span class="ident">ObjectSymbol</span>};
 
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">num</span>::<span class="ident">TryFromIntError</span>;
+<span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
+<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
+<span class="kw">use</span> <span class="ident">std::num::TryFromIntError</span>;
 
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">CompileError</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>,
     <span class="ident">CustomSections</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>,
     <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">SectionIndex</span>, <span class="ident">SourceLoc</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">PrimaryMap</span>, <span class="ident">SecondaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">libcalls</span>::<span class="ident">LibCall</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">PrimaryMap</span>, <span class="ident">SecondaryMap</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm::libcalls::LibCall</span>;
 
 <span class="kw">fn</span> <span class="ident">map_tryfromint_err</span>(<span class="ident">error</span>: <span class="ident">TryFromIntError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CompileError</span> {
-    <span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;int doesn&#39;t fit: {}&quot;</span>, <span class="ident">error</span>))
+    <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;int doesn&#39;t fit: {}&quot;</span>, <span class="ident">error</span>))
 }
 
-<span class="kw">fn</span> <span class="ident">map_object_err</span>(<span class="ident">error</span>: <span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CompileError</span> {
-    <span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;error parsing object file: {}&quot;</span>, <span class="ident">error</span>))
+<span class="kw">fn</span> <span class="ident">map_object_err</span>(<span class="ident">error</span>: <span class="ident">object::read::Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CompileError</span> {
+    <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;error parsing object file: {}&quot;</span>, <span class="ident">error</span>))
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompiledFunction</span> {
-    <span class="kw">pub</span> <span class="ident">compiled_function</span>: <span class="ident">wasmer_compiler</span>::<span class="ident">CompiledFunction</span>,
+    <span class="kw">pub</span> <span class="ident">compiled_function</span>: <span class="ident">wasmer_compiler::CompiledFunction</span>,
     <span class="kw">pub</span> <span class="ident">custom_sections</span>: <span class="ident">CustomSections</span>,
     <span class="kw">pub</span> <span class="ident">eh_frame_section_indices</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">SectionIndex</span><span class="op">&gt;</span>,
 }
@@ -380,89 +380,89 @@
     <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RelocationTarget</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span>,
 {
     <span class="comment">// TODO: use perfect hash function?</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libcalls</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceilf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floorf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyintf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyint&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;truncf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Size</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libcalls</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceilf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floorf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyintf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyint&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;truncf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Size</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(
         <span class="string">&quot;wasmer_vm_imported_memory32_size&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall</span>::<span class="ident">ImportedMemory32Size</span>,
+        <span class="ident">LibCall::ImportedMemory32Size</span>,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableCopy</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableInit</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableFill</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableSize</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableCopy</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableInit</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableFill</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableSize</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(
         <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall</span>::<span class="ident">ImportedTableSize</span>,
+        <span class="ident">LibCall::ImportedTableSize</span>,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_get&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableGet</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_get&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableGet</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(
         <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall</span>::<span class="ident">ImportedTableGet</span>,
+        <span class="ident">LibCall::ImportedTableGet</span>,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_set&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableSet</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_set&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableSet</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(
         <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall</span>::<span class="ident">ImportedTableSet</span>,
+        <span class="ident">LibCall::ImportedTableSet</span>,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_grow&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableGrow</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_grow&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableGrow</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(
         <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall</span>::<span class="ident">ImportedTableGrow</span>,
+        <span class="ident">LibCall::ImportedTableGrow</span>,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_func_ref&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FuncRef</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_elem_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">ElemDrop</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Copy</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_func_ref&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FuncRef</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_elem_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::ElemDrop</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Copy</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(
         <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall</span>::<span class="ident">ImportedMemory32Copy</span>,
+        <span class="ident">LibCall::ImportedMemory32Copy</span>,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Fill</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Fill</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(
         <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall</span>::<span class="ident">ImportedMemory32Fill</span>,
+        <span class="ident">LibCall::ImportedMemory32Fill</span>,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Init</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_data_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">DataDrop</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_raise_trap&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">RaiseTrap</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_probestack&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Probestack</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Init</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_data_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::DataDrop</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_raise_trap&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::RaiseTrap</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_probestack&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Probestack</span>);
 
-    <span class="kw">let</span> <span class="ident">elf</span> <span class="op">=</span> <span class="ident">object</span>::<span class="ident">File</span>::<span class="ident">parse</span>(<span class="ident">contents</span>).<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">elf</span> <span class="op">=</span> <span class="ident">object::File::parse</span>(<span class="ident">contents</span>).<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">visited</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">SectionIndex</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashSet</span>::<span class="ident">new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">worklist</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">SectionIndex</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">section_targets</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">SectionIndex</span>, <span class="ident">RelocationTarget</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">visited</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashSet::new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">worklist</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">section_targets</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span>, <span class="ident">RelocationTarget</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
 
     <span class="kw">let</span> <span class="ident">root_section_index</span> <span class="op">=</span> <span class="ident">elf</span>
         .<span class="ident">section_by_name</span>(<span class="ident">root_section</span>)
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;no section named {}&quot;</span>, <span class="ident">root_section</span>)))<span class="question-mark">?</span>
+        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;no section named {}&quot;</span>, <span class="ident">root_section</span>)))<span class="question-mark">?</span>
         .<span class="ident">index</span>();
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">section_to_custom_section</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">section_to_custom_section</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
 
     <span class="ident">section_targets</span>.<span class="ident">insert</span>(<span class="ident">root_section_index</span>, <span class="ident">root_section_reloc_target</span>);
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_custom_section</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">elf_section_to_target</span> <span class="op">=</span> <span class="op">|</span><span class="ident">elf_section_index</span>: <span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">SectionIndex</span><span class="op">|</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">elf_section_to_target</span> <span class="op">=</span> <span class="op">|</span><span class="ident">elf_section_index</span>: <span class="ident">object::read::SectionIndex</span><span class="op">|</span> {
         <span class="kw-2">*</span><span class="ident">section_targets</span>.<span class="ident">entry</span>(<span class="ident">elf_section_index</span>).<span class="ident">or_insert_with</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">SectionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">next_custom_section</span>);
+            <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">SectionIndex::from_u32</span>(<span class="ident">next_custom_section</span>);
             <span class="ident">section_to_custom_section</span>.<span class="ident">insert</span>(<span class="ident">elf_section_index</span>, <span class="ident">next</span>);
-            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">RelocationTarget</span>::<span class="ident">CustomSection</span>(<span class="ident">next</span>);
+            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">RelocationTarget::CustomSection</span>(<span class="ident">next</span>);
             <span class="ident">next_custom_section</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
             <span class="ident">target</span>
         })
@@ -470,7 +470,7 @@
 
     <span class="comment">// From elf section index to list of Relocations. Although we use a Vec,</span>
     <span class="comment">// the order of relocations is not important.</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">relocations</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">SectionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">relocations</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
 
     <span class="comment">// Each iteration of this loop pulls a section and the relocations</span>
     <span class="comment">// relocations that apply to it. We begin with the &quot;.root_section&quot;</span>
@@ -489,9 +489,9 @@
     <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">root_section_index</span>);
 
     <span class="comment">// Also add any .eh_frame sections.</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">eh_frame_section_indices</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">eh_frame_section_indices</span> <span class="op">=</span> <span class="macro">vec!</span>[];
     <span class="kw">for</span> <span class="ident">section</span> <span class="kw">in</span> <span class="ident">elf</span>.<span class="ident">sections</span>() {
-        <span class="kw">if</span> <span class="ident">section</span>.<span class="ident">kind</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">object</span>::<span class="ident">SectionKind</span>::<span class="ident">Elf</span>(<span class="ident">object</span>::<span class="ident">elf</span>::<span class="ident">SHT_X86_64_UNWIND</span>) {
+        <span class="kw">if</span> <span class="ident">section</span>.<span class="ident">kind</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">object::SectionKind::Elf</span>(<span class="ident">object::elf::SHT_X86_64_UNWIND</span>) {
             <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">section</span>.<span class="ident">index</span>();
             <span class="ident">worklist</span>.<span class="ident">push</span>(<span class="ident">index</span>);
             <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">index</span>);
@@ -508,12 +508,12 @@
             .<span class="ident">relocations</span>()
         {
             <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">reloc</span>.<span class="ident">kind</span>(), <span class="ident">reloc</span>.<span class="ident">size</span>()) {
-                (<span class="ident">object</span>::<span class="ident">RelocationKind</span>::<span class="ident">Absolute</span>, <span class="number">64</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind</span>::<span class="ident">Abs8</span>,
-                (<span class="ident">object</span>::<span class="ident">RelocationKind</span>::<span class="ident">Elf</span>(<span class="ident">object</span>::<span class="ident">elf</span>::<span class="ident">R_X86_64_PC64</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">RelocationKind</span>::<span class="ident">X86PCRel8</span>
+                (<span class="ident">object::RelocationKind::Absolute</span>, <span class="number">64</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Abs8</span>,
+                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_X86_64_PC64</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">RelocationKind::X86PCRel8</span>
                 }
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                         <span class="string">&quot;unknown relocation {:?}&quot;</span>,
                         <span class="ident">reloc</span>
                     )));
@@ -521,12 +521,12 @@
             };
             <span class="kw">let</span> <span class="ident">addend</span> <span class="op">=</span> <span class="ident">reloc</span>.<span class="ident">addend</span>();
             <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">reloc</span>.<span class="ident">target</span>() {
-                <span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">RelocationTarget</span>::<span class="ident">Symbol</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">object::read::RelocationTarget::Symbol</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">let</span> <span class="ident">symbol</span> <span class="op">=</span> <span class="ident">elf</span>.<span class="ident">symbol_by_index</span>(<span class="ident">index</span>).<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
                     <span class="kw">let</span> <span class="ident">symbol_name</span> <span class="op">=</span> <span class="ident">symbol</span>.<span class="ident">name</span>().<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
-                    <span class="kw">if</span> <span class="ident">symbol</span>.<span class="ident">kind</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">object</span>::<span class="ident">SymbolKind</span>::<span class="ident">Section</span> {
+                    <span class="kw">if</span> <span class="ident">symbol</span>.<span class="ident">kind</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">object::SymbolKind::Section</span> {
                         <span class="kw">match</span> <span class="ident">symbol</span>.<span class="ident">section</span>() {
-                            <span class="ident">object</span>::<span class="ident">SymbolSection</span>::<span class="ident">Section</span>(<span class="ident">section_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">object::SymbolSection::Section</span>(<span class="ident">section_index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                                 <span class="kw">if</span> <span class="ident">section_index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">root_section_index</span> {
                                     <span class="ident">root_section_reloc_target</span>
                                 } <span class="kw">else</span> {
@@ -537,7 +537,7 @@
                                 }
                             }
                             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-                                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
+                                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                                     <span class="string">&quot;relocation targets unknown section {:?}&quot;</span>,
                                     <span class="ident">reloc</span>
                                 )));
@@ -545,20 +545,20 @@
                         }
                         <span class="comment">// Maybe a libcall then?</span>
                     } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">libcall</span>) <span class="op">=</span> <span class="ident">libcalls</span>.<span class="ident">get</span>(<span class="ident">symbol_name</span>) {
-                        <span class="ident">RelocationTarget</span>::<span class="ident">LibCall</span>(<span class="kw-2">*</span><span class="ident">libcall</span>)
+                        <span class="ident">RelocationTarget::LibCall</span>(<span class="kw-2">*</span><span class="ident">libcall</span>)
                     } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">reloc_target</span>) <span class="op">=</span>
                         <span class="ident">symbol_name_to_relocation_target</span>(<span class="ident">symbol_name</span>)<span class="question-mark">?</span>
                     {
                         <span class="ident">reloc_target</span>
                     } <span class="kw">else</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                             <span class="string">&quot;relocation targets unknown symbol {:?}&quot;</span>,
                             <span class="ident">reloc</span>
                         )));
                     }
                 }
 
-                <span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">RelocationTarget</span>::<span class="ident">Section</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">object::read::RelocationTarget::Section</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="ident">index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">root_section_index</span> {
                         <span class="ident">root_section_reloc_target</span>
                     } <span class="kw">else</span> {
@@ -569,11 +569,11 @@
                     }
                 }
 
-                <span class="ident">object</span>::<span class="ident">read</span>::<span class="ident">RelocationTarget</span>::<span class="ident">Absolute</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">object::read::RelocationTarget::Absolute</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="comment">// Wasm-produced object files should never have absolute</span>
                     <span class="comment">// addresses in them because none of the parts of the Wasm</span>
                     <span class="comment">// VM, nor the generated code are loaded at fixed addresses.</span>
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                         <span class="string">&quot;relocation targets absolute address {:?}&quot;</span>,
                         <span class="ident">reloc</span>
                     )));
@@ -586,7 +586,7 @@
                 <span class="comment">// of non-exhaustive enums, an extra wildcard arm must</span>
                 <span class="comment">// be added to account for any future variants.</span>
                 <span class="ident">t</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                         <span class="string">&quot;relocation target is unknown `{:?}`&quot;</span>,
                         <span class="ident">t</span>
                     )));
@@ -609,7 +609,7 @@
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">index</span><span class="op">|</span> {
             <span class="ident">section_to_custom_section</span>.<span class="ident">get</span>(<span class="ident">index</span>).<span class="ident">map_or_else</span>(
                 <span class="op">|</span><span class="op">|</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
+                    <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                         <span class="string">&quot;.eh_frame section with index={:?} was never loaded&quot;</span>,
                         <span class="ident">index</span>
                     )))
@@ -625,8 +625,8 @@
             (
                 <span class="ident">custom_section_index</span>,
                 <span class="ident">CustomSection</span> {
-                    <span class="ident">protection</span>: <span class="ident">CustomSectionProtection</span>::<span class="ident">Read</span>,
-                    <span class="ident">bytes</span>: <span class="ident">SectionBody</span>::<span class="ident">new_with_vec</span>(
+                    <span class="ident">protection</span>: <span class="ident">CustomSectionProtection::Read</span>,
+                    <span class="ident">bytes</span>: <span class="ident">SectionBody::new_with_vec</span>(
                         <span class="ident">elf</span>.<span class="ident">section_by_index</span>(<span class="kw-2">*</span><span class="ident">elf_section_index</span>)
                             .<span class="ident">unwrap</span>()
                             .<span class="ident">data</span>()
@@ -635,7 +635,7 @@
                     ),
                     <span class="ident">relocations</span>: <span class="ident">relocations</span>
                         .<span class="ident">remove_entry</span>(<span class="ident">elf_section_index</span>)
-                        .<span class="ident">map_or</span>(<span class="macro">vec</span><span class="macro">!</span>[], <span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>),
+                        .<span class="ident">map_or</span>(<span class="macro">vec!</span>[], <span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>),
                 },
             )
         })
@@ -657,27 +657,27 @@
     };
 
     <span class="kw">let</span> <span class="ident">address_map</span> <span class="op">=</span> <span class="ident">FunctionAddressMap</span> {
-        <span class="ident">instructions</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">InstructionAddressMap</span> {
-            <span class="ident">srcloc</span>: <span class="ident">SourceLoc</span>::<span class="ident">default</span>(),
+        <span class="ident">instructions</span>: <span class="macro">vec!</span>[<span class="ident">InstructionAddressMap</span> {
+            <span class="ident">srcloc</span>: <span class="ident">SourceLoc::default</span>(),
             <span class="ident">code_offset</span>: <span class="number">0</span>,
             <span class="ident">code_len</span>: <span class="ident">function_body</span>.<span class="ident">body</span>.<span class="ident">len</span>(),
         }],
-        <span class="ident">start_srcloc</span>: <span class="ident">SourceLoc</span>::<span class="ident">default</span>(),
-        <span class="ident">end_srcloc</span>: <span class="ident">SourceLoc</span>::<span class="ident">default</span>(),
+        <span class="ident">start_srcloc</span>: <span class="ident">SourceLoc::default</span>(),
+        <span class="ident">end_srcloc</span>: <span class="ident">SourceLoc::default</span>(),
         <span class="ident">body_offset</span>: <span class="number">0</span>,
         <span class="ident">body_len</span>: <span class="ident">function_body</span>.<span class="ident">body</span>.<span class="ident">len</span>(),
     };
 
     <span class="prelude-val">Ok</span>(<span class="ident">CompiledFunction</span> {
-        <span class="ident">compiled_function</span>: <span class="ident">wasmer_compiler</span>::<span class="ident">CompiledFunction</span> {
+        <span class="ident">compiled_function</span>: <span class="ident">wasmer_compiler::CompiledFunction</span> {
             <span class="ident">body</span>: <span class="ident">function_body</span>,
-            <span class="ident">jt_offsets</span>: <span class="ident">SecondaryMap</span>::<span class="ident">new</span>(),
+            <span class="ident">jt_offsets</span>: <span class="ident">SecondaryMap::new</span>(),
             <span class="ident">relocations</span>: <span class="ident">relocations</span>
                 .<span class="ident">remove_entry</span>(<span class="kw-2">&amp;</span><span class="ident">root_section_index</span>)
-                .<span class="ident">map_or</span>(<span class="macro">vec</span><span class="macro">!</span>[], <span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>),
+                .<span class="ident">map_or</span>(<span class="macro">vec!</span>[], <span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>),
             <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> {
                 <span class="ident">address_map</span>,
-                <span class="ident">traps</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+                <span class="ident">traps</span>: <span class="macro">vec!</span>[],
             },
         },
         <span class="ident">custom_sections</span>,
@@ -685,5 +685,5 @@
     })
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_llvm"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_llvm" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

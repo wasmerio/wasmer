@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -213,11 +213,11 @@
 <span id="210">210</span>
 <span id="211">211</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">compiler</span>::<span class="ident">CraneliftCompiler</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>};
-<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::compiler::CraneliftCompiler</span>;
+<span class="kw">use</span> <span class="ident">cranelift_codegen::isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
+<span class="kw">use</span> <span class="ident">cranelift_codegen::settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>};
+<span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">Architecture</span>, <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">CpuFeature</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Target</span>,
 };
@@ -260,9 +260,9 @@
         <span class="self">Self</span> {
             <span class="ident">enable_nan_canonicalization</span>: <span class="bool-val">false</span>,
             <span class="ident">enable_verifier</span>: <span class="bool-val">false</span>,
-            <span class="ident">opt_level</span>: <span class="ident">CraneliftOptLevel</span>::<span class="ident">Speed</span>,
+            <span class="ident">opt_level</span>: <span class="ident">CraneliftOptLevel::Speed</span>,
             <span class="ident">enable_pic</span>: <span class="bool-val">false</span>,
-            <span class="ident">middlewares</span>: <span class="macro">vec</span><span class="macro">!</span>[],
+            <span class="ident">middlewares</span>: <span class="macro">vec!</span>[],
         }
     }
 
@@ -287,49 +287,49 @@
             <span class="ident">lookup</span>(<span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">clone</span>()).<span class="ident">expect</span>(<span class="string">&quot;construct Cranelift ISA for triple&quot;</span>);
         <span class="comment">// Cpu Features</span>
         <span class="kw">let</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">cpu_features</span>();
-        <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Architecture</span>::<span class="ident">X86_64</span>
-            <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">SSE2</span>)
+        <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Architecture::X86_64</span>
+            <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE2</span>)
         {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;x86 support requires SSE2&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">&quot;x86 support requires SSE2&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">SSE3</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE3</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_sse3&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">SSSE3</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSSE3</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_ssse3&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">SSE41</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE41</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_sse41&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">SSE42</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE42</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_sse42&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">POPCNT</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::POPCNT</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_popcnt&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">AVX</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_avx&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">BMI1</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::BMI1</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_bmi1&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">BMI2</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::BMI2</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_bmi2&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">AVX2</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX2</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_avx2&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">AVX512DQ</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX512DQ</span>) {
             <span class="ident">builder</span>
                 .<span class="ident">enable</span>(<span class="string">&quot;has_avx512dq&quot;</span>)
                 .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">AVX512VL</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX512VL</span>) {
             <span class="ident">builder</span>
                 .<span class="ident">enable</span>(<span class="string">&quot;has_avx512vl&quot;</span>)
                 .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature</span>::<span class="ident">LZCNT</span>) {
+        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::LZCNT</span>) {
             <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_lzcnt&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
         }
 
@@ -337,8 +337,8 @@
     }
 
     <span class="doccomment">/// Generates the flags for the compiler</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">flags</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">settings</span>::<span class="ident">Flags</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">settings</span>::<span class="ident">builder</span>();
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">flags</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">settings::Flags</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">settings::builder</span>();
 
         <span class="comment">// There are two possible traps for division, and this way</span>
         <span class="comment">// we get the proper one if code traps.</span>
@@ -367,9 +367,9 @@
             .<span class="ident">set</span>(
                 <span class="string">&quot;opt_level&quot;</span>,
                 <span class="kw">match</span> <span class="self">self</span>.<span class="ident">opt_level</span> {
-                    <span class="ident">CraneliftOptLevel</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;none&quot;</span>,
-                    <span class="ident">CraneliftOptLevel</span>::<span class="ident">Speed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed&quot;</span>,
-                    <span class="ident">CraneliftOptLevel</span>::<span class="ident">SpeedAndSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed_and_size&quot;</span>,
+                    <span class="ident">CraneliftOptLevel::None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;none&quot;</span>,
+                    <span class="ident">CraneliftOptLevel::Speed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed&quot;</span>,
+                    <span class="ident">CraneliftOptLevel::SpeedAndSize</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;speed_and_size&quot;</span>,
                 },
             )
             .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
@@ -387,7 +387,7 @@
             .<span class="ident">set</span>(<span class="string">&quot;enable_nan_canonicalization&quot;</span>, <span class="ident">enable_nan_canonicalization</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="ident">settings</span>::<span class="ident">Flags</span>::<span class="ident">new</span>(<span class="ident">flags</span>)
+        <span class="ident">settings::Flags::new</span>(<span class="ident">flags</span>)
     }
 }
 
@@ -410,7 +410,7 @@
 
     <span class="doccomment">/// Transform it into the compiler</span>
     <span class="kw">fn</span> <span class="ident">compiler</span>(<span class="self">self</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Compiler</span><span class="op">&gt;</span> {
-        <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CraneliftCompiler</span>::<span class="ident">new</span>(<span class="kw-2">*</span><span class="self">self</span>))
+        <span class="ident">Box::new</span>(<span class="ident">CraneliftCompiler::new</span>(<span class="kw-2">*</span><span class="self">self</span>))
     }
 
     <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.</span>
@@ -421,9 +421,9 @@
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Cranelift</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>::<span class="ident">new</span>()
+        <span class="self">Self</span><span class="ident">::new</span>()
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

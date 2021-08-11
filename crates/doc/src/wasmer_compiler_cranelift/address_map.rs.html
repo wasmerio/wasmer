@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/address_map.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>address_map.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/address_map.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>address_map.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
 <span id="2"> 2</span>
 <span id="3"> 3</span>
 <span id="4"> 4</span>
@@ -62,24 +62,24 @@
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">machinst</span>::<span class="ident">buffer</span>::<span class="ident">MachSrcLoc</span>;
+<span class="kw">use</span> <span class="ident">cranelift_codegen::MachSrcLoc</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">isa</span>, <span class="ident">Context</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wasmparser</span>::<span class="ident">Range</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wasmparser::Range</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
     <span class="ident">range</span>: <span class="ident">Range</span>,
     <span class="ident">body_len</span>: <span class="ident">usize</span>,
-    <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">isa</span>::<span class="ident">TargetIsa</span>,
+    <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">isa::TargetIsa</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionAddressMap</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instructions</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instructions</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
 
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">mcr</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">mach_compile_result</span> {
         <span class="comment">// New-style backend: we have a `MachCompileResult` that will give us `MachSrcLoc` mapping</span>
         <span class="comment">// tuples.</span>
         <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">MachSrcLoc</span> { <span class="ident">start</span>, <span class="ident">end</span>, <span class="ident">loc</span> } <span class="kw">in</span> <span class="ident">mcr</span>.<span class="ident">buffer</span>.<span class="ident">get_srclocs_sorted</span>() {
             <span class="ident">instructions</span>.<span class="ident">push</span>(<span class="ident">InstructionAddressMap</span> {
-                <span class="ident">srcloc</span>: <span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">loc</span>.<span class="ident">bits</span>()),
+                <span class="ident">srcloc</span>: <span class="ident">SourceLoc::new</span>(<span class="ident">loc</span>.<span class="ident">bits</span>()),
                 <span class="ident">code_offset</span>: <span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>,
                 <span class="ident">code_len</span>: (<span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>) <span class="kw">as</span> <span class="ident">usize</span>,
             });
@@ -94,7 +94,7 @@
             <span class="kw">for</span> (<span class="ident">offset</span>, <span class="ident">inst</span>, <span class="ident">size</span>) <span class="kw">in</span> <span class="ident">func</span>.<span class="ident">inst_offsets</span>(<span class="ident">block</span>, <span class="kw-2">&amp;</span><span class="ident">encinfo</span>) {
                 <span class="kw">let</span> <span class="ident">srcloc</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">srclocs</span>[<span class="ident">inst</span>];
                 <span class="ident">instructions</span>.<span class="ident">push</span>(<span class="ident">InstructionAddressMap</span> {
-                    <span class="ident">srcloc</span>: <span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">srcloc</span>.<span class="ident">bits</span>()),
+                    <span class="ident">srcloc</span>: <span class="ident">SourceLoc::new</span>(<span class="ident">srcloc</span>.<span class="ident">bits</span>()),
                     <span class="ident">code_offset</span>: <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>,
                     <span class="ident">code_len</span>: <span class="ident">size</span> <span class="kw">as</span> <span class="ident">usize</span>,
                 });
@@ -105,8 +105,8 @@
     <span class="comment">// Generate artificial srcloc for function start/end to identify boundary</span>
     <span class="comment">// within module. Similar to FuncTranslator::cur_srcloc(): it will wrap around</span>
     <span class="comment">// if byte code is larger than 4 GB.</span>
-    <span class="kw">let</span> <span class="ident">start_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">range</span>.<span class="ident">start</span> <span class="kw">as</span> <span class="ident">u32</span>);
-    <span class="kw">let</span> <span class="ident">end_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">range</span>.<span class="ident">end</span> <span class="kw">as</span> <span class="ident">u32</span>);
+    <span class="kw">let</span> <span class="ident">start_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc::new</span>(<span class="ident">range</span>.<span class="ident">start</span> <span class="kw">as</span> <span class="ident">u32</span>);
+    <span class="kw">let</span> <span class="ident">end_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc::new</span>(<span class="ident">range</span>.<span class="ident">end</span> <span class="kw">as</span> <span class="ident">u32</span>);
 
     <span class="ident">FunctionAddressMap</span> {
         <span class="ident">instructions</span>,
@@ -117,5 +117,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

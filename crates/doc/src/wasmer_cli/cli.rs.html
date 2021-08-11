@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/cli.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>cli.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_cli/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/cli.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>cli.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_cli/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -122,16 +122,16 @@
 <span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">commands</span>::<span class="ident">Compile</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::commands::Compile</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">commands</span>::<span class="ident">CreateExe</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::commands::CreateExe</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">commands</span>::<span class="ident">Wast</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">commands</span>::{<span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Inspect</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">PrettyError</span>;
-<span class="kw">use</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::commands::Wast</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::commands</span>::{<span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Inspect</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::error::PrettyError</span>;
+<span class="kw">use</span> <span class="ident">anyhow::Result</span>;
 
-<span class="kw">use</span> <span class="ident">structopt</span>::{<span class="ident">clap</span>::<span class="ident">ErrorKind</span>, <span class="ident">StructOpt</span>};
+<span class="kw">use</span> <span class="ident">structopt</span>::{<span class="ident">clap::ErrorKind</span>, <span class="ident">StructOpt</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">StructOpt</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
@@ -192,18 +192,18 @@
 <span class="kw">impl</span> <span class="ident">WasmerCLIOptions</span> {
     <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span>::<span class="ident">Run</span>(<span class="ident">options</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">options</span>.<span class="ident">execute</span>(),
-            <span class="self">Self</span>::<span class="ident">SelfUpdate</span>(<span class="ident">options</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">options</span>.<span class="ident">execute</span>(),
-            <span class="self">Self</span>::<span class="ident">Cache</span>(<span class="ident">cache</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cache</span>.<span class="ident">execute</span>(),
-            <span class="self">Self</span>::<span class="ident">Validate</span>(<span class="ident">validate</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">validate</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::Run</span>(<span class="ident">options</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">options</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::SelfUpdate</span>(<span class="ident">options</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">options</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::Cache</span>(<span class="ident">cache</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cache</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::Validate</span>(<span class="ident">validate</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">validate</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-            <span class="self">Self</span>::<span class="ident">Compile</span>(<span class="ident">compile</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">compile</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::Compile</span>(<span class="ident">compile</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">compile</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-            <span class="self">Self</span>::<span class="ident">CreateExe</span>(<span class="ident">create_exe</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">create_exe</span>.<span class="ident">execute</span>(),
-            <span class="self">Self</span>::<span class="ident">Config</span>(<span class="ident">config</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">config</span>.<span class="ident">execute</span>(),
-            <span class="self">Self</span>::<span class="ident">Inspect</span>(<span class="ident">inspect</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">inspect</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::CreateExe</span>(<span class="ident">create_exe</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">create_exe</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::Config</span>(<span class="ident">config</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">config</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::Inspect</span>(<span class="ident">inspect</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">inspect</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
-            <span class="self">Self</span>::<span class="ident">Wast</span>(<span class="ident">wast</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>.<span class="ident">execute</span>(),
+            <span class="self">Self</span><span class="ident">::Wast</span>(<span class="ident">wast</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wast</span>.<span class="ident">execute</span>(),
         }
     }
 }
@@ -212,32 +212,32 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasmer_main</span>() {
     <span class="comment">// We allow windows to print properly colors</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-    <span class="ident">colored</span>::<span class="ident">control</span>::<span class="ident">set_virtual_terminal</span>(<span class="bool-val">true</span>).<span class="ident">unwrap</span>();
+    <span class="ident">colored::control::set_virtual_terminal</span>(<span class="bool-val">true</span>).<span class="ident">unwrap</span>();
 
     <span class="comment">// We try to run wasmer with the normal arguments.</span>
     <span class="comment">// Eg. `wasmer &lt;SUBCOMMAND&gt;`</span>
     <span class="comment">// In case that fails, we fallback trying the Run subcommand directly.</span>
     <span class="comment">// Eg. `wasmer myfile.wasm --dir=.`</span>
-    <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">env</span>::<span class="ident">args</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">std::env::args</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
     <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">get</span>(<span class="number">1</span>);
     <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">command</span>.<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()).<span class="ident">as_ref</span>() {
         <span class="string">&quot;cache&quot;</span> <span class="op">|</span> <span class="string">&quot;compile&quot;</span> <span class="op">|</span> <span class="string">&quot;config&quot;</span> <span class="op">|</span> <span class="string">&quot;create-exe&quot;</span> <span class="op">|</span> <span class="string">&quot;help&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;run&quot;</span>
-        <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions</span>::<span class="ident">from_args</span>(),
+        <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions::from_args</span>(),
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="ident">WasmerCLIOptions</span>::<span class="ident">from_iter_safe</span>(<span class="ident">args</span>.<span class="ident">iter</span>()).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+            <span class="ident">WasmerCLIOptions::from_iter_safe</span>(<span class="ident">args</span>.<span class="ident">iter</span>()).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
                 <span class="kw">match</span> <span class="ident">e</span>.<span class="ident">kind</span> {
                     <span class="comment">// This fixes a issue that:</span>
                     <span class="comment">// 1. Shows the version twice when doing `wasmer -V`</span>
                     <span class="comment">// 2. Shows the run help (instead of normal help) when doing `wasmer --help`</span>
-                    <span class="ident">ErrorKind</span>::<span class="ident">VersionDisplayed</span> <span class="op">|</span> <span class="ident">ErrorKind</span>::<span class="ident">HelpDisplayed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">e</span>.<span class="ident">exit</span>(),
-                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions</span>::<span class="ident">Run</span>(<span class="ident">Run</span>::<span class="ident">from_args</span>()),
+                    <span class="ident">ErrorKind::VersionDisplayed</span> <span class="op">|</span> <span class="ident">ErrorKind::HelpDisplayed</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">e</span>.<span class="ident">exit</span>(),
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasmerCLIOptions::Run</span>(<span class="ident">Run::from_args</span>()),
                 }
             })
         }
     };
 
-    <span class="ident">PrettyError</span>::<span class="ident">report</span>(<span class="ident">options</span>.<span class="ident">execute</span>());
+    <span class="ident">PrettyError::report</span>(<span class="ident">options</span>.<span class="ident">execute</span>());
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_cli"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_cli" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

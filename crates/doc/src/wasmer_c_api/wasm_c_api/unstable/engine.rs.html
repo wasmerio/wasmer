@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../../storage.js"></script><script src="../../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -275,9 +275,9 @@
 <span class="doccomment">//! Unstable non-standard Wasmer-specific types for the</span>
 <span class="doccomment">//! `wasm_engine_t` and siblings.</span>
 
-<span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">engine</span>::{<span class="ident">wasm_config_t</span>, <span class="ident">wasmer_compiler_t</span>, <span class="ident">wasmer_engine_t</span>};
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">features</span>::<span class="ident">wasmer_features_t</span>;
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">target_lexicon</span>::<span class="ident">wasmer_target_t</span>;
+<span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span><span class="ident">::engine</span>::{<span class="ident">wasm_config_t</span>, <span class="ident">wasmer_compiler_t</span>, <span class="ident">wasmer_engine_t</span>};
+<span class="kw">use</span> <span class="kw">super</span><span class="ident">::features::wasmer_features_t</span>;
+<span class="kw">use</span> <span class="kw">super</span><span class="ident">::target_lexicon::wasmer_target_t</span>;
 
 <span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the</span>
 <span class="doccomment">/// configuration to specify a particular target for the engine.</span>
@@ -413,9 +413,9 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_compiler_available</span>(<span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">match</span> <span class="ident">compiler</span> {
-        <span class="ident">wasmer_compiler_t</span>::<span class="ident">CRANELIFT</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-        <span class="ident">wasmer_compiler_t</span>::<span class="ident">LLVM</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-        <span class="ident">wasmer_compiler_t</span>::<span class="ident">SINGLEPASS</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="ident">wasmer_compiler_t::CRANELIFT</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="ident">wasmer_compiler_t::LLVM</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="ident">wasmer_compiler_t::SINGLEPASS</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
     }
 }
@@ -424,7 +424,7 @@
 <span class="doccomment">/// library.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_headless</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-    <span class="op">!</span><span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)
+    <span class="op">!</span><span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)
 }
 
 <span class="doccomment">/// Check whether the given engine is available, i.e. part of this</span>
@@ -432,26 +432,26 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_engine_available</span>(<span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">match</span> <span class="ident">engine</span> {
-        <span class="ident">wasmer_engine_t</span>::<span class="ident">UNIVERSAL</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-        <span class="ident">wasmer_engine_t</span>::<span class="ident">DYLIB</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
-        <span class="ident">wasmer_engine_t</span>::<span class="ident">STATICLIB</span> <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="ident">wasmer_engine_t::UNIVERSAL</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="ident">wasmer_engine_t::DYLIB</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
+        <span class="ident">wasmer_engine_t::STATICLIB</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
     }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident">inline_c</span>::<span class="ident">assert_c</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">env</span>::{<span class="ident">remove_var</span>, <span class="ident">set_var</span>};
+    <span class="kw">use</span> <span class="ident">inline_c::assert_c</span>;
+    <span class="kw">use</span> <span class="ident">std::env</span>::{<span class="ident">remove_var</span>, <span class="ident">set_var</span>};
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_wasmer_is_headless</span>() {
         <span class="ident">set_var</span>(
             <span class="string">&quot;COMPILER&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>) { <span class="string">&quot;0&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;1&quot;</span> },
+            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>) { <span class="string">&quot;0&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;1&quot;</span> },
         );
 
-        (<span class="macro">assert_c</span><span class="macro">!</span> {
+        (<span class="macro">assert_c!</span> {
             #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
             #<span class="ident">include</span> <span class="op">&lt;</span><span class="ident">stdlib</span>.<span class="ident">h</span><span class="op">&gt;</span>
 
@@ -470,23 +470,23 @@
     <span class="kw">fn</span> <span class="ident">test_wasmer_is_compiler_available</span>() {
         <span class="ident">set_var</span>(
             <span class="string">&quot;CRANELIFT&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>) {
+            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>) {
                 <span class="string">&quot;1&quot;</span>
             } <span class="kw">else</span> {
                 <span class="string">&quot;0&quot;</span>
             },
         );
-        <span class="ident">set_var</span>(<span class="string">&quot;LLVM&quot;</span>, <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> });
+        <span class="ident">set_var</span>(<span class="string">&quot;LLVM&quot;</span>, <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> });
         <span class="ident">set_var</span>(
             <span class="string">&quot;SINGLEPASS&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>) {
+            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>) {
                 <span class="string">&quot;1&quot;</span>
             } <span class="kw">else</span> {
                 <span class="string">&quot;0&quot;</span>
             },
         );
 
-        (<span class="macro">assert_c</span><span class="macro">!</span> {
+        (<span class="macro">assert_c!</span> {
             #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
             #<span class="ident">include</span> <span class="op">&lt;</span><span class="ident">stdlib</span>.<span class="ident">h</span><span class="op">&gt;</span>
 
@@ -509,23 +509,23 @@
     <span class="kw">fn</span> <span class="ident">test_wasmer_is_engine_available</span>() {
         <span class="ident">set_var</span>(
             <span class="string">&quot;UNIVERSAL&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) {
+            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>) {
                 <span class="string">&quot;1&quot;</span>
             } <span class="kw">else</span> {
                 <span class="string">&quot;0&quot;</span>
             },
         );
-        <span class="ident">set_var</span>(<span class="string">&quot;DYLIB&quot;</span>, <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> });
+        <span class="ident">set_var</span>(<span class="string">&quot;DYLIB&quot;</span>, <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> });
         <span class="ident">set_var</span>(
             <span class="string">&quot;STATICLIB&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg</span><span class="macro">!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>) {
+            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;staticlib&quot;</span>) {
                 <span class="string">&quot;1&quot;</span>
             } <span class="kw">else</span> {
                 <span class="string">&quot;0&quot;</span>
             },
         );
 
-        (<span class="macro">assert_c</span><span class="macro">!</span> {
+        (<span class="macro">assert_c!</span> {
             #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
             #<span class="ident">include</span> <span class="op">&lt;</span><span class="ident">stdlib</span>.<span class="ident">h</span><span class="op">&gt;</span>
 
@@ -545,5 +545,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api"></div>
-    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script><script defer src="../../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-search-index-js="../../../../search-index.js" data-search-js="../../../../search.js"></div>
+    <script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script></body></html>

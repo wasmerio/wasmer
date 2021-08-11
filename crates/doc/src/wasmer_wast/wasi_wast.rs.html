@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/wast/src/wasi_wast.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasi_wast.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/wast/src/wasi_wast.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasi_wast.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_wast/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_wast/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -558,18 +558,18 @@
 <span id="555">555</span>
 <span id="556">556</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="ident">anyhow</span>::<span class="ident">Context</span>;
+<span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">File</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
+<span class="kw">use</span> <span class="ident">std::fs::File</span>;
+<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
+<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">ImportObject</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::<span class="ident">types</span>::{<span class="ident">__wasi_filesize_t</span>, <span class="ident">__wasi_timestamp_t</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasi::types</span>::{<span class="ident">__wasi_filesize_t</span>, <span class="ident">__wasi_timestamp_t</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{
     <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">Pipe</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiFile</span>, <span class="ident">WasiFsError</span>,
     <span class="ident">WasiState</span>, <span class="ident">WasiVersion</span>,
 };
-<span class="kw">use</span> <span class="ident">wast</span>::<span class="ident">parser</span>::{<span class="self">self</span>, <span class="ident">Parse</span>, <span class="ident">ParseBuffer</span>, <span class="ident">Parser</span>};
+<span class="kw">use</span> <span class="ident">wast::parser</span>::{<span class="self">self</span>, <span class="ident">Parse</span>, <span class="ident">ParseBuffer</span>, <span class="ident">Parser</span>};
 
 <span class="doccomment">/// Crate holding metadata parsed from the WASI WAST about the test to be run.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>)]</span>
@@ -587,14 +587,14 @@
 }
 
 <span class="comment">// TODO: add `test_fs` here to sandbox better</span>
-<span class="kw">const</span> <span class="ident">BASE_TEST_DIR</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat</span><span class="macro">!</span>(<span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../wasi-wast/wasi/&quot;</span>);
+<span class="kw">const</span> <span class="ident">BASE_TEST_DIR</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../wasi-wast/wasi/&quot;</span>);
 
-<span class="kw">fn</span> <span class="ident">get_stdout_output</span>(<span class="ident">wasi_state</span>: <span class="kw-2">&amp;</span><span class="ident">WasiState</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">get_stdout_output</span>(<span class="ident">wasi_state</span>: <span class="kw-2">&amp;</span><span class="ident">WasiState</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">stdout_boxed</span> <span class="op">=</span> <span class="ident">wasi_state</span>.<span class="ident">fs</span>.<span class="ident">stdout</span>()<span class="question-mark">?</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">stdout</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">stdout_boxed</span>)
         .<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">OutputCapturerer</span><span class="op">&gt;</span>()
         .<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">stdout</span>.<span class="ident">output</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">stdout</span>.<span class="ident">output</span>)<span class="question-mark">?</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="comment">// normalize line endings</span>
     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">stdout_str</span>.<span class="ident">replace</span>(<span class="string">&quot;\r\n&quot;</span>, <span class="string">&quot;\n&quot;</span>));
@@ -603,12 +603,12 @@
     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">stdout_str</span>.<span class="ident">to_string</span>());
 }
 
-<span class="kw">fn</span> <span class="ident">get_stderr_output</span>(<span class="ident">wasi_state</span>: <span class="kw-2">&amp;</span><span class="ident">WasiState</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">get_stderr_output</span>(<span class="ident">wasi_state</span>: <span class="kw-2">&amp;</span><span class="ident">WasiState</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">stderr_boxed</span> <span class="op">=</span> <span class="ident">wasi_state</span>.<span class="ident">fs</span>.<span class="ident">stderr</span>()<span class="question-mark">?</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">stderr</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">stderr_boxed</span>)
         .<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">OutputCapturerer</span><span class="op">&gt;</span>()
         .<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">stderr</span>.<span class="ident">output</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">stderr</span>.<span class="ident">output</span>)<span class="question-mark">?</span>;
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="comment">// normalize line endings</span>
@@ -621,36 +621,36 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">WasiTest</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Turn a WASI WAST string into a list of tokens.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lex_string</span>(<span class="ident">wast</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ParseBuffer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">ParseBuffer</span>::<span class="ident">new</span>(<span class="ident">wast</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lex_string</span>(<span class="ident">wast</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="ident">ParseBuffer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">ParseBuffer::new</span>(<span class="ident">wast</span>)
     }
 
     <span class="doccomment">/// Turn a WASI WAST list of tokens into a `WasiTest` struct.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_tokens</span>(<span class="ident">tokens</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ParseBuffer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">parser</span>::<span class="ident">parse</span>(<span class="ident">tokens</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_tokens</span>(<span class="ident">tokens</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ParseBuffer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">parser::parse</span>(<span class="ident">tokens</span>)
     }
 
     <span class="doccomment">/// Execute the WASI test and assert.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">base_path</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">base_path</span>);
         <span class="ident">pb</span>.<span class="ident">push</span>(<span class="self">self</span>.<span class="ident">wasm_path</span>);
         <span class="kw">let</span> <span class="ident">wasm_bytes</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_module</span> <span class="op">=</span> <span class="ident">File</span>::<span class="ident">open</span>(<span class="ident">pb</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_module</span> <span class="op">=</span> <span class="ident">File::open</span>(<span class="ident">pb</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="macro">vec!</span>[];
             <span class="ident">wasm_module</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">out</span>)<span class="question-mark">?</span>;
             <span class="ident">out</span>
         };
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> (<span class="ident">env</span>, <span class="ident">_tempdirs</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">create_wasi_env</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_imports</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="ident">env</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stdin</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stdin</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>();
             <span class="kw">let</span> <span class="ident">wasi_stdin</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stdin_mut</span>()<span class="question-mark">?</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>();
             <span class="comment">// Then we can write to it!</span>
-            <span class="macro">write</span><span class="macro">!</span>(<span class="ident">wasi_stdin</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">stdin</span>.<span class="ident">stream</span>)<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(<span class="ident">wasi_stdin</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">stdin</span>.<span class="ident">stream</span>)<span class="question-mark">?</span>;
         }
         <span class="comment">// TODO: handle errors here when the error fix gets shipped</span>
         <span class="kw">match</span> <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[]) {
@@ -660,7 +660,7 @@
                 <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">get_stdout_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">get_stderr_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
-                    <span class="macro">format</span><span class="macro">!</span>(
+                    <span class="macro">format!</span>(
                         <span class="string">&quot;failed to run WASI `_start` function: failed with stdout: \&quot;{}\&quot;\nstderr: \&quot;{}\&quot;&quot;</span>,
                         <span class="ident">stdout_str</span>,
                         <span class="ident">stderr_str</span>,
@@ -673,41 +673,41 @@
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">expected_stdout</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">assert_stdout</span> {
             <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">get_stdout_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
-            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stdout_str</span>, <span class="ident">expected_stdout</span>.<span class="ident">expected</span>);
+            <span class="macro">assert_eq!</span>(<span class="ident">stdout_str</span>, <span class="ident">expected_stdout</span>.<span class="ident">expected</span>);
         }
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">expected_stderr</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">assert_stderr</span> {
             <span class="kw">let</span> <span class="ident">stderr_str</span> <span class="op">=</span> <span class="ident">get_stderr_output</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_state</span>)<span class="question-mark">?</span>;
-            <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">stderr_str</span>, <span class="ident">expected_stderr</span>.<span class="ident">expected</span>);
+            <span class="macro">assert_eq!</span>(<span class="ident">stderr_str</span>, <span class="ident">expected_stderr</span>.<span class="ident">expected</span>);
         }
 
         <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
     }
 
     <span class="doccomment">/// Create the wasi env with the given metadata.</span>
-    <span class="kw">fn</span> <span class="ident">create_wasi_env</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">WasiEnv</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">tempfile</span>::<span class="ident">TempDir</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiState</span>::<span class="ident">new</span>(<span class="self">self</span>.<span class="ident">wasm_path</span>);
+    <span class="kw">fn</span> <span class="ident">create_wasi_env</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow::Result</span><span class="op">&lt;</span>(<span class="ident">WasiEnv</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">tempfile::TempDir</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiState::new</span>(<span class="self">self</span>.<span class="ident">wasm_path</span>);
 
-        <span class="kw">let</span> <span class="ident">stdin_pipe</span> <span class="op">=</span> <span class="ident">Pipe</span>::<span class="ident">new</span>();
-        <span class="ident">builder</span>.<span class="ident">stdin</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">stdin_pipe</span>));
+        <span class="kw">let</span> <span class="ident">stdin_pipe</span> <span class="op">=</span> <span class="ident">Pipe::new</span>();
+        <span class="ident">builder</span>.<span class="ident">stdin</span>(<span class="ident">Box::new</span>(<span class="ident">stdin_pipe</span>));
 
         <span class="kw">for</span> (<span class="ident">name</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">envs</span> {
             <span class="ident">builder</span>.<span class="ident">env</span>(<span class="ident">name</span>, <span class="ident">value</span>);
         }
         <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mapped_dirs</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">BASE_TEST_DIR</span>);
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">BASE_TEST_DIR</span>);
             <span class="ident">dir</span>.<span class="ident">push</span>(<span class="ident">real_dir</span>);
             <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">dir</span>)<span class="question-mark">?</span>;
         }
 
         <span class="comment">// due to the structure of our code, all preopen dirs must be mapped now</span>
         <span class="kw">for</span> <span class="ident">dir</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">dirs</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_dir</span> <span class="op">=</span> <span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">BASE_TEST_DIR</span>);
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_dir</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">BASE_TEST_DIR</span>);
             <span class="ident">new_dir</span>.<span class="ident">push</span>(<span class="ident">dir</span>);
             <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">dir</span>, <span class="ident">new_dir</span>)<span class="question-mark">?</span>;
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">temp_dirs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">temp_dirs</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="kw">for</span> <span class="ident">alias</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">temp_dirs</span> {
-            <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">tempfile</span>::<span class="ident">tempdir</span>()<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">tempfile::tempdir</span>()<span class="question-mark">?</span>;
             <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">td</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
             <span class="ident">temp_dirs</span>.<span class="ident">push</span>(<span class="ident">td</span>);
         }
@@ -716,14 +716,14 @@
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>)
             <span class="comment">// adding this causes some tests to fail. TODO: investigate this</span>
             <span class="comment">//.env(&quot;RUST_BACKTRACE&quot;, &quot;1&quot;)</span>
-            .<span class="ident">stdout</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">OutputCapturerer</span>::<span class="ident">new</span>()))
-            .<span class="ident">stderr</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">OutputCapturerer</span>::<span class="ident">new</span>()))
+            .<span class="ident">stdout</span>(<span class="ident">Box::new</span>(<span class="ident">OutputCapturerer::new</span>()))
+            .<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">OutputCapturerer::new</span>()))
             .<span class="ident">finalize</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((<span class="ident">out</span>, <span class="ident">temp_dirs</span>))
     }
 
     <span class="doccomment">/// Get the correct [`WasiVersion`] from the Wasm [`Module`].</span>
-    <span class="kw">fn</span> <span class="ident">get_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">get_wasi_version</span>(<span class="ident">module</span>, <span class="bool-val">true</span>)
             .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;failed to detect a version of WASI from the module&quot;</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">version</span>)
@@ -736,83 +736,83 @@
         <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>,
         <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>,
         <span class="ident">env</span>: <span class="ident">WasiEnv</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ImportObject</span><span class="op">&gt;</span> {
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">ImportObject</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_version</span>(<span class="ident">module</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">generate_import_object_from_env</span>(<span class="ident">store</span>, <span class="ident">env</span>, <span class="ident">version</span>))
     }
 }
 
 <span class="kw">mod</span> <span class="ident">wasi_kw</span> {
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">wasi_test</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">envs</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">args</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">preopens</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">map_dirs</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">temp_dirs</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">assert_return</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">stdin</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">assert_stdout</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">assert_stderr</span>);
-    <span class="ident">wast</span>::<span class="macro">custom_keyword</span><span class="macro">!</span>(<span class="ident">fake_i64_const</span> <span class="op">=</span> <span class="string">&quot;i64.const&quot;</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">wasi_test</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">envs</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">args</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">preopens</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">map_dirs</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">temp_dirs</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">assert_return</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">stdin</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">assert_stdout</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">assert_stderr</span>);
+    <span class="macro">wast::custom_keyword!</span>(<span class="ident">fake_i64_const</span> <span class="op">=</span> <span class="string">&quot;i64.const&quot;</span>);
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WasiTest</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">parser</span><span class="op">|</span> {
-            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">wasi_test</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+            <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::wasi_test</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
             <span class="comment">// TODO: improve error message here</span>
             <span class="kw">let</span> <span class="ident">wasm_path</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
             <span class="comment">// TODO: allow these to come in any order</span>
-            <span class="kw">let</span> <span class="ident">envs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">envs</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">envs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::envs</span><span class="op">&gt;</span>() {
                 <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Envs</span><span class="op">&gt;</span>())<span class="question-mark">?</span>.<span class="ident">envs</span>
             } <span class="kw">else</span> {
-                <span class="macro">vec</span><span class="macro">!</span>[]
+                <span class="macro">vec!</span>[]
             };
 
-            <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">args</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::args</span><span class="op">&gt;</span>() {
                 <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Args</span><span class="op">&gt;</span>())<span class="question-mark">?</span>.<span class="ident">args</span>
             } <span class="kw">else</span> {
-                <span class="macro">vec</span><span class="macro">!</span>[]
+                <span class="macro">vec!</span>[]
             };
 
-            <span class="kw">let</span> <span class="ident">dirs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">preopens</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">dirs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::preopens</span><span class="op">&gt;</span>() {
                 <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Preopens</span><span class="op">&gt;</span>())<span class="question-mark">?</span>.<span class="ident">preopens</span>
             } <span class="kw">else</span> {
-                <span class="macro">vec</span><span class="macro">!</span>[]
+                <span class="macro">vec!</span>[]
             };
 
-            <span class="kw">let</span> <span class="ident">mapped_dirs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">map_dirs</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">mapped_dirs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::map_dirs</span><span class="op">&gt;</span>() {
                 <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">MapDirs</span><span class="op">&gt;</span>())<span class="question-mark">?</span>.<span class="ident">map_dirs</span>
             } <span class="kw">else</span> {
-                <span class="macro">vec</span><span class="macro">!</span>[]
+                <span class="macro">vec!</span>[]
             };
 
-            <span class="kw">let</span> <span class="ident">temp_dirs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">temp_dirs</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">temp_dirs</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::temp_dirs</span><span class="op">&gt;</span>() {
                 <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">TempDirs</span><span class="op">&gt;</span>())<span class="question-mark">?</span>.<span class="ident">temp_dirs</span>
             } <span class="kw">else</span> {
-                <span class="macro">vec</span><span class="macro">!</span>[]
+                <span class="macro">vec!</span>[]
             };
 
-            <span class="kw">let</span> <span class="ident">assert_return</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">assert_return</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">assert_return</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::assert_return</span><span class="op">&gt;</span>() {
                 <span class="prelude-val">Some</span>(<span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">AssertReturn</span><span class="op">&gt;</span>())<span class="question-mark">?</span>)
             } <span class="kw">else</span> {
                 <span class="prelude-val">None</span>
             };
 
-            <span class="kw">let</span> <span class="ident">stdin</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">stdin</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">stdin</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::stdin</span><span class="op">&gt;</span>() {
                 <span class="prelude-val">Some</span>(<span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Stdin</span><span class="op">&gt;</span>())<span class="question-mark">?</span>)
             } <span class="kw">else</span> {
                 <span class="prelude-val">None</span>
             };
 
-            <span class="kw">let</span> <span class="ident">assert_stdout</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">assert_stdout</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">assert_stdout</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::assert_stdout</span><span class="op">&gt;</span>() {
                 <span class="prelude-val">Some</span>(<span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">AssertStdout</span><span class="op">&gt;</span>())<span class="question-mark">?</span>)
             } <span class="kw">else</span> {
                 <span class="prelude-val">None</span>
             };
 
-            <span class="kw">let</span> <span class="ident">assert_stderr</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">assert_stderr</span><span class="op">&gt;</span>() {
+            <span class="kw">let</span> <span class="ident">assert_stderr</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">parser</span>.<span class="ident">peek2</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::assert_stderr</span><span class="op">&gt;</span>() {
                 <span class="prelude-val">Some</span>(<span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">AssertStderr</span><span class="op">&gt;</span>())<span class="question-mark">?</span>)
             } <span class="kw">else</span> {
                 <span class="prelude-val">None</span>
@@ -840,9 +840,9 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Envs</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">envs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">envs</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">envs</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::envs</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
         <span class="kw">while</span> <span class="ident">parser</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>() {
             <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
@@ -862,9 +862,9 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Args</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">args</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">args</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">args</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::args</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
         <span class="kw">while</span> <span class="ident">parser</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>() {
             <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
@@ -880,9 +880,9 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Preopens</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">preopens</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">preopens</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">preopens</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::preopens</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
         <span class="kw">while</span> <span class="ident">parser</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>() {
             <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
@@ -898,9 +898,9 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MapDirs</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map_dirs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">map_dirs</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map_dirs</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::map_dirs</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
         <span class="kw">while</span> <span class="ident">parser</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>() {
             <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
@@ -919,9 +919,9 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">TempDirs</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">temp_dirs</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">temp_dirs</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">temp_dirs</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::temp_dirs</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
         <span class="kw">while</span> <span class="ident">parser</span>.<span class="ident">peek</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>() {
             <span class="kw">let</span> <span class="ident">alias</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
@@ -937,10 +937,10 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AssertReturn</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">assert_return</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::assert_return</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">return_value</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">parens</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
-            <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">fake_i64_const</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+            <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::fake_i64_const</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
             <span class="ident">p</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>()
         })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">return_value</span> })
@@ -953,8 +953,8 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Stdin</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">stdin</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::stdin</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">stream</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
         })
@@ -967,8 +967,8 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AssertStdout</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">assert_stdout</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::assert_stdout</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">expected</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
         })
@@ -981,8 +981,8 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Parse</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">AssertStderr</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw</span>::<span class="ident">assert_stderr</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">parser</span>: <span class="ident">Parser</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">parser::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="ident">parser</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">wasi_kw::assert_stderr</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">expected</span>: <span class="ident">parser</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>,
         })
@@ -995,7 +995,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_parse</span>() {
-        <span class="kw">let</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">wast</span>::<span class="ident">parser</span>::<span class="ident">ParseBuffer</span>::<span class="ident">new</span>(
+        <span class="kw">let</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">wast::parser::ParseBuffer::new</span>(
             <span class="string">r#&quot;(wasi_test &quot;my_wasm.wasm&quot;
                     (envs &quot;HELLO=WORLD&quot; &quot;RUST_BACKTRACE=1&quot;)
                     (args &quot;hello&quot; &quot;world&quot; &quot;--help&quot;)
@@ -1007,24 +1007,24 @@
 )&quot;#</span>,
         )
         .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">wast</span>::<span class="ident">parser</span>::<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">WasiTest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">pb</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">wast::parser::parse</span>::<span class="op">&lt;</span><span class="ident">WasiTest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">pb</span>).<span class="ident">unwrap</span>();
 
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">args</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;hello&quot;</span>, <span class="string">&quot;world&quot;</span>, <span class="string">&quot;--help&quot;</span>]);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">args</span>, <span class="macro">vec!</span>[<span class="string">&quot;hello&quot;</span>, <span class="string">&quot;world&quot;</span>, <span class="string">&quot;--help&quot;</span>]);
+        <span class="macro">assert_eq!</span>(
             <span class="ident">result</span>.<span class="ident">envs</span>,
-            <span class="macro">vec</span><span class="macro">!</span>[(<span class="string">&quot;HELLO&quot;</span>, <span class="string">&quot;WORLD&quot;</span>), (<span class="string">&quot;RUST_BACKTRACE&quot;</span>, <span class="string">&quot;1&quot;</span>)]
+            <span class="macro">vec!</span>[(<span class="string">&quot;HELLO&quot;</span>, <span class="string">&quot;WORLD&quot;</span>), (<span class="string">&quot;RUST_BACKTRACE&quot;</span>, <span class="string">&quot;1&quot;</span>)]
         );
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">dirs</span>, <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;.&quot;</span>, <span class="string">&quot;src/io&quot;</span>]);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">assert_return</span>.<span class="ident">unwrap</span>().<span class="ident">return_value</span>, <span class="number">0</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">dirs</span>, <span class="macro">vec!</span>[<span class="string">&quot;.&quot;</span>, <span class="string">&quot;src/io&quot;</span>]);
+        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">assert_return</span>.<span class="ident">unwrap</span>().<span class="ident">return_value</span>, <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(
             <span class="ident">result</span>.<span class="ident">assert_stdout</span>.<span class="ident">unwrap</span>().<span class="ident">expected</span>,
             <span class="string">&quot;This is a \&quot;string\&quot; inside a string!&quot;</span>
         );
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(
             <span class="ident">result</span>.<span class="ident">stdin</span>.<span class="ident">unwrap</span>().<span class="ident">stream</span>,
             <span class="string">&quot;This is another \&quot;string\&quot; inside a string!&quot;</span>
         );
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">result</span>.<span class="ident">assert_stderr</span>.<span class="ident">unwrap</span>().<span class="ident">expected</span>, <span class="string">&quot;&quot;</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">assert_stderr</span>.<span class="ident">unwrap</span>().<span class="ident">expected</span>, <span class="string">&quot;&quot;</span>);
     }
 }
 
@@ -1035,62 +1035,62 @@
 
 <span class="kw">impl</span> <span class="ident">OutputCapturerer</span> {
     <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">output</span>: <span class="macro">vec</span><span class="macro">!</span>[] }
+        <span class="self">Self</span> { <span class="ident">output</span>: <span class="macro">vec!</span>[] }
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
+    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
             <span class="string">&quot;can not read from logging wrapper&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
+    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
             <span class="string">&quot;can not read from logging wrapper&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
+    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
             <span class="string">&quot;can not read from logging wrapper&quot;</span>,
         ))
     }
-    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
+    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
             <span class="string">&quot;can not read from logging wrapper&quot;</span>,
         ))
     }
 }
 <span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io</span>::<span class="ident">SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io</span>::<span class="ident">Error</span>::<span class="ident">new</span>(
-            <span class="ident">io</span>::<span class="ident">ErrorKind</span>::<span class="ident">Other</span>,
+    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io::SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
             <span class="string">&quot;can not seek logging wrapper&quot;</span>,
         ))
     }
 }
 <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">extend_from_slice</span>(<span class="ident">buf</span>);
         <span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>())
     }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">extend_from_slice</span>(<span class="ident">buf</span>);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Arguments</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: <span class="ident">std::fmt::Arguments</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)
     }
 }
 
-<span class="attribute">#[<span class="ident">typetag</span>::<span class="ident">serde</span>]</span>
+<span class="attribute">#[<span class="ident">typetag::serde</span>]</span>
 <span class="kw">impl</span> <span class="ident">WasiFile</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_timestamp_t</span> {
         <span class="number">0</span>
@@ -1115,5 +1115,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wast"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wast" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

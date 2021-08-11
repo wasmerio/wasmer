@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/trampoline/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/trampoline/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
 <span id="2"> 2</span>
 <span id="3"> 3</span>
 <span id="4"> 4</span>
@@ -58,16 +58,16 @@
 <span class="kw">mod</span> <span class="ident">dynamic_function</span>;
 <span class="kw">mod</span> <span class="ident">function_call</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">dynamic_function</span>::<span class="ident">make_trampoline_dynamic_function</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::<span class="ident">function_call</span>::<span class="ident">make_trampoline_function_call</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span><span class="ident">::dynamic_function::make_trampoline_dynamic_function</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span><span class="ident">::function_call::make_trampoline_function_call</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">print_errors</span>::<span class="ident">pretty_error</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">Context</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen::print_errors::pretty_error</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen::Context</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">FunctionBuilderContext</span>};
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">binemit</span> {
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">binemit</span>::<span class="ident">NullTrapSink</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">binemit</span>::{<span class="ident">CodeOffset</span>, <span class="ident">NullStackMapSink</span>, <span class="ident">TrapSink</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen::binemit::NullTrapSink</span>;
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_codegen::binemit</span>::{<span class="ident">CodeOffset</span>, <span class="ident">NullStackMapSink</span>, <span class="ident">TrapSink</span>};
 
     <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">binemit</span>, <span class="ident">ir</span>};
 
@@ -75,35 +75,35 @@
     <span class="doccomment">/// this `RelocSink` just asserts that it doesn&#39;t recieve any.</span>
     <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TrampolineRelocSink</span> {}
 
-    <span class="kw">impl</span> <span class="ident">binemit</span>::<span class="ident">RelocSink</span> <span class="kw">for</span> <span class="ident">TrampolineRelocSink</span> {
+    <span class="kw">impl</span> <span class="ident">binemit::RelocSink</span> <span class="kw">for</span> <span class="ident">TrampolineRelocSink</span> {
         <span class="kw">fn</span> <span class="ident">reloc_external</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-            <span class="ident">_offset</span>: <span class="ident">binemit</span>::<span class="ident">CodeOffset</span>,
-            <span class="ident">_source_loc</span>: <span class="ident">ir</span>::<span class="ident">SourceLoc</span>,
-            <span class="ident">_reloc</span>: <span class="ident">binemit</span>::<span class="ident">Reloc</span>,
-            <span class="ident">_name</span>: <span class="kw-2">&amp;</span><span class="ident">ir</span>::<span class="ident">ExternalName</span>,
-            <span class="ident">_addend</span>: <span class="ident">binemit</span>::<span class="ident">Addend</span>,
+            <span class="ident">_offset</span>: <span class="ident">binemit::CodeOffset</span>,
+            <span class="ident">_source_loc</span>: <span class="ident">ir::SourceLoc</span>,
+            <span class="ident">_reloc</span>: <span class="ident">binemit::Reloc</span>,
+            <span class="ident">_name</span>: <span class="kw-2">&amp;</span><span class="ident">ir::ExternalName</span>,
+            <span class="ident">_addend</span>: <span class="ident">binemit::Addend</span>,
         ) {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;trampoline compilation should not produce external symbol relocs&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">&quot;trampoline compilation should not produce external symbol relocs&quot;</span>);
         }
         <span class="kw">fn</span> <span class="ident">reloc_constant</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-            <span class="ident">_code_offset</span>: <span class="ident">binemit</span>::<span class="ident">CodeOffset</span>,
-            <span class="ident">_reloc</span>: <span class="ident">binemit</span>::<span class="ident">Reloc</span>,
-            <span class="ident">_constant_offset</span>: <span class="ident">ir</span>::<span class="ident">ConstantOffset</span>,
+            <span class="ident">_code_offset</span>: <span class="ident">binemit::CodeOffset</span>,
+            <span class="ident">_reloc</span>: <span class="ident">binemit::Reloc</span>,
+            <span class="ident">_constant_offset</span>: <span class="ident">ir::ConstantOffset</span>,
         ) {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;trampoline compilation should not produce constant relocs&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">&quot;trampoline compilation should not produce constant relocs&quot;</span>);
         }
         <span class="kw">fn</span> <span class="ident">reloc_jt</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-            <span class="ident">_offset</span>: <span class="ident">binemit</span>::<span class="ident">CodeOffset</span>,
-            <span class="ident">_reloc</span>: <span class="ident">binemit</span>::<span class="ident">Reloc</span>,
-            <span class="ident">_jt</span>: <span class="ident">ir</span>::<span class="ident">JumpTable</span>,
+            <span class="ident">_offset</span>: <span class="ident">binemit::CodeOffset</span>,
+            <span class="ident">_reloc</span>: <span class="ident">binemit::Reloc</span>,
+            <span class="ident">_jt</span>: <span class="ident">ir::JumpTable</span>,
         ) {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;trampoline compilation should not produce jump table relocs&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">&quot;trampoline compilation should not produce jump table relocs&quot;</span>);
         }
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

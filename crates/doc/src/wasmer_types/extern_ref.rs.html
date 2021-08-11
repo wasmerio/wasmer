@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/extern_ref.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>extern_ref.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/extern_ref.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>extern_ref.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -297,9 +297,9 @@
 <span id="294">294</span>
 <span id="295">295</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">atomic</span>;
+<span class="kw">use</span> <span class="ident">std::any::Any</span>;
+<span class="kw">use</span> <span class="ident">std::ptr</span>;
+<span class="kw">use</span> <span class="ident">std::sync::atomic</span>;
 
 <span class="doccomment">/// This type does not do reference counting automatically, reference counting can be done with</span>
 <span class="doccomment">/// [`Self::ref_clone`] and [`Self::ref_drop`].</span>
@@ -309,7 +309,7 @@
 
 <span class="kw">impl</span> <span class="ident">VMExternRef</span> {
     <span class="doccomment">/// The maximum number of references allowed to this data.</span>
-    <span class="kw">const</span> <span class="ident">MAX_REFCOUNT</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">usize</span>::<span class="ident">MAX</span> <span class="op">-</span> <span class="number">1</span>;
+    <span class="kw">const</span> <span class="ident">MAX_REFCOUNT</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">std::usize::MAX</span> <span class="op">-</span> <span class="number">1</span>;
 
     <span class="doccomment">/// Checks if the given ExternRef is null.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_null</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -318,7 +318,7 @@
 
     <span class="doccomment">/// New null extern ref</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">null</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">ptr</span>::<span class="ident">null</span>())
+        <span class="self">Self</span>(<span class="ident">ptr::null</span>())
     }
 
     <span class="doccomment">/// Get a bit-level representation of an externref.</span>
@@ -343,7 +343,7 @@
     <span class="kw">where</span>
         <span class="ident">T</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Sized</span>,
     {
-        <span class="self">Self</span>(<span class="ident">Box</span>::<span class="ident">into_raw</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">VMExternRefInner</span>::<span class="ident">new</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">value</span>))))
+        <span class="self">Self</span>(<span class="ident">Box::into_raw</span>(<span class="ident">Box::new</span>(<span class="ident">VMExternRefInner::new</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">value</span>))))
     }
 
     <span class="doccomment">/// Try to downcast to the given value</span>
@@ -376,10 +376,10 @@
         <span class="comment">// taken by references to the data leaving no room for the data itself.</span>
         <span class="kw">if</span> <span class="ident">old_size</span>
             .<span class="ident">checked_add</span>(<span class="ident">growth_amount</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">MAX_REFCOUNT</span>)
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::MAX_REFCOUNT</span>)
             .<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>)
         {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Too many references to `ExternRef`&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">&quot;Too many references to `ExternRef`&quot;</span>);
         }
     }
 
@@ -398,7 +398,7 @@
             <span class="ident">ref_inner</span>.<span class="ident">increment_ref_count</span>(<span class="ident">val</span>)
         };
 
-        <span class="self">Self</span>::<span class="ident">sanity_check_ref_count</span>(<span class="ident">old_size</span>, <span class="ident">val</span>);
+        <span class="self">Self</span><span class="ident">::sanity_check_ref_count</span>(<span class="ident">old_size</span>, <span class="ident">val</span>);
     }
 
     <span class="doccomment">/// A deep copy of the reference, increments the strong count.</span>
@@ -413,8 +413,8 @@
         };
 
         <span class="comment">// See comments in [`Self::sanity_check_ref_count`] for more information.</span>
-        <span class="kw">if</span> <span class="ident">old_size</span> <span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">MAX_REFCOUNT</span> {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Too many references to `ExternRef`&quot;</span>);
+        <span class="kw">if</span> <span class="ident">old_size</span> <span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::MAX_REFCOUNT</span> {
+            <span class="macro">panic!</span>(<span class="string">&quot;Too many references to `ExternRef`&quot;</span>);
         }
 
         <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0</span>)
@@ -429,7 +429,7 @@
                     <span class="ident">ref_inner</span>.<span class="ident">decrement_and_drop</span>()
                 };
                 <span class="kw">if</span> <span class="ident">should_drop</span> {
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">from_raw</span>(<span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMExternRefInner</span>);
+                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">Box::from_raw</span>(<span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMExternRefInner</span>);
                 }
             }
         }
@@ -441,7 +441,7 @@
         <span class="kw">if</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">is_null</span>() {
             <span class="number">0</span>
         } <span class="kw">else</span> {
-            <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>).<span class="ident">strong</span>.<span class="ident">load</span>(<span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">SeqCst</span>) }
+            <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>).<span class="ident">strong</span>.<span class="ident">load</span>(<span class="ident">atomic::Ordering::SeqCst</span>) }
         }
     }
 }
@@ -449,7 +449,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">VMExternRefInner</span> {
-    <span class="ident">strong</span>: <span class="ident">atomic</span>::<span class="ident">AtomicUsize</span>,
+    <span class="ident">strong</span>: <span class="ident">atomic::AtomicUsize</span>,
     <span class="doccomment">/// Do something obviously correct to get started. This can &quot;easily&quot; be improved</span>
     <span class="doccomment">/// to be an inline allocation later as the logic is fully encapsulated.</span>
     <span class="ident">data</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
@@ -461,8 +461,8 @@
         <span class="ident">T</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Sized</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
     {
         <span class="self">Self</span> {
-            <span class="ident">strong</span>: <span class="ident">atomic</span>::<span class="ident">AtomicUsize</span>::<span class="ident">new</span>(<span class="number">1</span>),
-            <span class="ident">data</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">value</span>),
+            <span class="ident">strong</span>: <span class="ident">atomic::AtomicUsize::new</span>(<span class="number">1</span>),
+            <span class="ident">data</span>: <span class="ident">Box::new</span>(<span class="ident">value</span>),
         }
     }
 
@@ -482,7 +482,7 @@
         <span class="comment">// &gt; provide any required synchronization.</span>
         <span class="comment">//</span>
         <span class="comment">// [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html</span>
-        <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">fetch_add</span>(<span class="ident">val</span>, <span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">Relaxed</span>)
+        <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">fetch_add</span>(<span class="ident">val</span>, <span class="ident">atomic::Ordering::Relaxed</span>)
     }
 
     <span class="doccomment">/// Decrement the count and drop the data if the count hits 0</span>
@@ -490,7 +490,7 @@
     <span class="kw">fn</span> <span class="ident">decrement_and_drop</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="comment">// Because `fetch_sub` is already atomic, we do not need to</span>
         <span class="comment">// synchronize with other thread.</span>
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">fetch_sub</span>(<span class="number">1</span>, <span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">Release</span>) <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">fetch_sub</span>(<span class="number">1</span>, <span class="ident">atomic::Ordering::Release</span>) <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
             <span class="kw">return</span> <span class="bool-val">false</span>;
         }
 
@@ -511,7 +511,7 @@
         <span class="comment">// &gt; &quot;acquire&quot; operation before deleting the object.</span>
         <span class="comment">//</span>
         <span class="comment">// [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html</span>
-        <span class="ident">atomic</span>::<span class="ident">fence</span>(<span class="ident">atomic</span>::<span class="ident">Ordering</span>::<span class="ident">Acquire</span>);
+        <span class="ident">atomic::fence</span>(<span class="ident">atomic::Ordering::Acquire</span>);
 
         <span class="kw">return</span> <span class="bool-val">true</span>;
     }
@@ -547,7 +547,7 @@
     <span class="doccomment">/// New null extern ref</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">null</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">VMExternRef</span>::<span class="ident">null</span>(),
+            <span class="ident">inner</span>: <span class="ident">VMExternRef::null</span>(),
         }
     }
 
@@ -558,7 +558,7 @@
         <span class="ident">T</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Sized</span>,
     {
         <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">VMExternRef</span>::<span class="ident">new</span>(<span class="ident">value</span>),
+            <span class="ident">inner</span>: <span class="ident">VMExternRef::new</span>(<span class="ident">value</span>),
         }
     }
 
@@ -588,10 +588,10 @@
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">ExternRef</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">other</span>.<span class="ident">inner</span>;
         <span class="comment">// We want to make this transformation without decrementing the count.</span>
-        <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">forget</span>(<span class="ident">other</span>);
+        <span class="ident">std::mem::forget</span>(<span class="ident">other</span>);
         <span class="ident">out</span>
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

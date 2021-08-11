@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/file.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>file.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_wasi_types/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/file.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>file.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_wasi_types/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -297,8 +297,8 @@
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">ValueType</span>;
+<span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::ValueType</span>;
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_device_t</span> <span class="op">=</span> <span class="ident">u64</span>;
 
@@ -331,9 +331,9 @@
     <span class="ident">dir</span>: <span class="ident">__wasi_prestat_u_dir_t</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">__wasi_prestat_u</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-        <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;__wasi_prestat_u&quot;</span>)
+<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">__wasi_prestat_u</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
+        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;__wasi_prestat_u&quot;</span>)
     }
 }
 
@@ -354,7 +354,7 @@
 <span class="kw">impl</span> <span class="ident">PrestatEnum</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">untagged</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_prestat_u</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">PrestatEnum</span>::<span class="ident">Dir</span> { <span class="ident">pr_name_len</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__wasi_prestat_u</span> {
+            <span class="ident">PrestatEnum::Dir</span> { <span class="ident">pr_name_len</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__wasi_prestat_u</span> {
                 <span class="ident">dir</span>: <span class="ident">__wasi_prestat_u_dir_t</span> { <span class="ident">pr_name_len</span> },
             },
         }
@@ -362,10 +362,10 @@
 }
 
 <span class="kw">impl</span> <span class="ident">__wasi_prestat_t</span> {
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">trivially_copy_pass_by_ref</span>)]</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::trivially_copy_pass_by_ref</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">tagged</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PrestatEnum</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">pr_type</span> {
-            <span class="ident">__WASI_PREOPENTYPE_DIR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">PrestatEnum</span>::<span class="ident">Dir</span> {
+            <span class="ident">__WASI_PREOPENTYPE_DIR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">PrestatEnum::Dir</span> {
                 <span class="ident">pr_name_len</span>: <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">u</span>.<span class="ident">dir</span>.<span class="ident">pr_name_len</span> },
             }),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
@@ -406,33 +406,33 @@
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">__wasi_filestat_t</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">__wasi_filestat_t</span> {
-            <span class="ident">st_dev</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-            <span class="ident">st_ino</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">st_dev</span>: <span class="ident">Default::default</span>(),
+            <span class="ident">st_ino</span>: <span class="ident">Default::default</span>(),
             <span class="ident">st_filetype</span>: <span class="ident">__WASI_FILETYPE_UNKNOWN</span>,
             <span class="ident">st_nlink</span>: <span class="number">1</span>,
-            <span class="ident">st_size</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-            <span class="ident">st_atim</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-            <span class="ident">st_mtim</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-            <span class="ident">st_ctim</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+            <span class="ident">st_size</span>: <span class="ident">Default::default</span>(),
+            <span class="ident">st_atim</span>: <span class="ident">Default::default</span>(),
+            <span class="ident">st_mtim</span>: <span class="ident">Default::default</span>(),
+            <span class="ident">st_ctim</span>: <span class="ident">Default::default</span>(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">__wasi_filestat_t</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">__wasi_filestat_t</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="kw">let</span> <span class="ident">convert_ts_into_time_string</span> <span class="op">=</span> <span class="op">|</span><span class="ident">ts</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">tspec</span> <span class="op">=</span>
-                ::<span class="ident">time</span>::<span class="ident">Timespec</span>::<span class="ident">new</span>(<span class="ident">ts</span> <span class="kw">as</span> <span class="ident">i64</span> <span class="op">/</span> <span class="number">1_000_000_000</span>, (<span class="ident">ts</span> <span class="op">%</span> <span class="number">1_000_000_000</span>) <span class="kw">as</span> <span class="ident">i32</span>);
-            <span class="kw">let</span> <span class="ident">tm</span> <span class="op">=</span> ::<span class="ident">time</span>::<span class="ident">at</span>(<span class="ident">tspec</span>);
+                <span class="ident">::time::Timespec::new</span>(<span class="ident">ts</span> <span class="kw">as</span> <span class="ident">i64</span> <span class="op">/</span> <span class="number">1_000_000_000</span>, (<span class="ident">ts</span> <span class="op">%</span> <span class="number">1_000_000_000</span>) <span class="kw">as</span> <span class="ident">i32</span>);
+            <span class="kw">let</span> <span class="ident">tm</span> <span class="op">=</span> <span class="ident">::time::at</span>(<span class="ident">tspec</span>);
             <span class="kw">let</span> <span class="ident">out_time</span> <span class="op">=</span> <span class="ident">tm</span>.<span class="ident">rfc822</span>();
-            <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{} ({})&quot;</span>, <span class="ident">out_time</span>, <span class="ident">ts</span>)
+            <span class="macro">format!</span>(<span class="string">&quot;{} ({})&quot;</span>, <span class="ident">out_time</span>, <span class="ident">ts</span>)
         };
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;__wasi_filestat_t&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;st_dev&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">st_dev</span>)
             .<span class="ident">field</span>(<span class="string">&quot;st_ino&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">st_ino</span>)
             .<span class="ident">field</span>(
                 <span class="string">&quot;st_filetype&quot;</span>,
-                <span class="kw-2">&amp;</span><span class="macro">format</span><span class="macro">!</span>(
+                <span class="kw-2">&amp;</span><span class="macro">format!</span>(
                     <span class="string">&quot;{} ({})&quot;</span>,
                     <span class="ident">wasi_filetype_to_name</span>(<span class="self">self</span>.<span class="ident">st_filetype</span>),
                     <span class="self">self</span>.<span class="ident">st_filetype</span>,
@@ -527,14 +527,14 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">print_right_set</span>(<span class="ident">rights</span>: <span class="ident">__wasi_rights_t</span>) {
     <span class="comment">// BTreeSet for consistent order</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">right_set</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">BTreeSet</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">right_set</span> <span class="op">=</span> <span class="ident">std::collections::BTreeSet::new</span>();
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">28</span> {
         <span class="kw">let</span> <span class="ident">cur_right</span> <span class="op">=</span> <span class="ident">rights</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>);
         <span class="kw">if</span> <span class="ident">cur_right</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="ident">right_set</span>.<span class="ident">insert</span>(<span class="ident">right_to_string</span>(<span class="ident">cur_right</span>).<span class="ident">unwrap_or</span>(<span class="string">&quot;INVALID RIGHT&quot;</span>));
         }
     }
-    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:#?}&quot;</span>, <span class="ident">right_set</span>);
+    <span class="macro">println!</span>(<span class="string">&quot;{:#?}&quot;</span>, <span class="ident">right_set</span>);
 }
 
 <span class="doccomment">/// expects a single right, returns None if out of bounds or &gt; 1 bit set</span>
@@ -591,5 +591,5 @@
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_siflags_t</span> <span class="op">=</span> <span class="ident">u16</span>;
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi_types"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi_types" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

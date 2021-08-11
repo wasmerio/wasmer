@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/middlewares/src/metering.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>metering.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/middlewares/src/metering.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>metering.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_middlewares/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_middlewares/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -501,11 +501,11 @@
 <span class="doccomment">//! example](https://github.com/wasmerio/wasmer/blob/master/examples/metering.rs).</span>
 
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
-<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
+<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
+<span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
+<span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
+<span class="kw">use</span> <span class="ident">wasmer::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
     <span class="ident">ExportIndex</span>, <span class="ident">FunctionMiddleware</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>, <span class="ident">Instance</span>, <span class="ident">LocalFunctionIndex</span>,
     <span class="ident">MiddlewareError</span>, <span class="ident">MiddlewareReaderState</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Mutability</span>, <span class="ident">Type</span>,
@@ -531,8 +531,8 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">MeteringGlobalIndexes</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">MeteringGlobalIndexes</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;MeteringGlobalIndexes&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;remaining_points&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">remaining_points</span>())
             .<span class="ident">field</span>(<span class="string">&quot;points_exhausted&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">points_exhausted</span>())
@@ -621,14 +621,14 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">initial_limit</span>: <span class="ident">u64</span>, <span class="ident">cost_function</span>: <span class="ident">F</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">initial_limit</span>,
-            <span class="ident">cost_function</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">cost_function</span>),
-            <span class="ident">global_indexes</span>: <span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="prelude-val">None</span>),
+            <span class="ident">cost_function</span>: <span class="ident">Arc::new</span>(<span class="ident">cost_function</span>),
+            <span class="ident">global_indexes</span>: <span class="ident">Mutex::new</span>(<span class="prelude-val">None</span>),
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Metering&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;initial_limit&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">initial_limit</span>)
             .<span class="ident">field</span>(<span class="string">&quot;cost_function&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;&lt;function&gt;&quot;</span>)
@@ -640,7 +640,7 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">ModuleMiddleware</span> <span class="kw">for</span> <span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Generates a `FunctionMiddleware` for a given function.</span>
     <span class="kw">fn</span> <span class="ident">generate_function_middleware</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="ident">LocalFunctionIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span> {
-        <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">FunctionMetering</span> {
+        <span class="ident">Box::new</span>(<span class="ident">FunctionMetering</span> {
             <span class="ident">cost_function</span>: <span class="self">self</span>.<span class="ident">cost_function</span>.<span class="ident">clone</span>(),
             <span class="ident">global_indexes</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>().<span class="ident">clone</span>().<span class="ident">unwrap</span>(),
             <span class="ident">accumulated_cost</span>: <span class="number">0</span>,
@@ -652,35 +652,35 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">global_indexes</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
 
         <span class="kw">if</span> <span class="ident">global_indexes</span>.<span class="ident">is_some</span>() {
-            <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Metering::transform_module_info: Attempting to use a `Metering` middleware from multiple modules.&quot;</span>);
+            <span class="macro">panic!</span>(<span class="string">&quot;Metering::transform_module_info: Attempting to use a `Metering` middleware from multiple modules.&quot;</span>);
         }
 
         <span class="comment">// Append a global for remaining points and initialize it.</span>
         <span class="kw">let</span> <span class="ident">remaining_points_global_index</span> <span class="op">=</span> <span class="ident">module_info</span>
             .<span class="ident">globals</span>
-            .<span class="ident">push</span>(<span class="ident">GlobalType</span>::<span class="ident">new</span>(<span class="ident">Type</span>::<span class="ident">I64</span>, <span class="ident">Mutability</span>::<span class="ident">Var</span>));
+            .<span class="ident">push</span>(<span class="ident">GlobalType::new</span>(<span class="ident">Type::I64</span>, <span class="ident">Mutability::Var</span>));
 
         <span class="ident">module_info</span>
             .<span class="ident">global_initializers</span>
-            .<span class="ident">push</span>(<span class="ident">GlobalInit</span>::<span class="ident">I64Const</span>(<span class="self">self</span>.<span class="ident">initial_limit</span> <span class="kw">as</span> <span class="ident">i64</span>));
+            .<span class="ident">push</span>(<span class="ident">GlobalInit::I64Const</span>(<span class="self">self</span>.<span class="ident">initial_limit</span> <span class="kw">as</span> <span class="ident">i64</span>));
 
         <span class="ident">module_info</span>.<span class="ident">exports</span>.<span class="ident">insert</span>(
             <span class="string">&quot;wasmer_metering_remaining_points&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">ExportIndex</span>::<span class="ident">Global</span>(<span class="ident">remaining_points_global_index</span>),
+            <span class="ident">ExportIndex::Global</span>(<span class="ident">remaining_points_global_index</span>),
         );
 
         <span class="comment">// Append a global for the exhausted points boolean and initialize it.</span>
         <span class="kw">let</span> <span class="ident">points_exhausted_global_index</span> <span class="op">=</span> <span class="ident">module_info</span>
             .<span class="ident">globals</span>
-            .<span class="ident">push</span>(<span class="ident">GlobalType</span>::<span class="ident">new</span>(<span class="ident">Type</span>::<span class="ident">I32</span>, <span class="ident">Mutability</span>::<span class="ident">Var</span>));
+            .<span class="ident">push</span>(<span class="ident">GlobalType::new</span>(<span class="ident">Type::I32</span>, <span class="ident">Mutability::Var</span>));
 
         <span class="ident">module_info</span>
             .<span class="ident">global_initializers</span>
-            .<span class="ident">push</span>(<span class="ident">GlobalInit</span>::<span class="ident">I32Const</span>(<span class="number">0</span>));
+            .<span class="ident">push</span>(<span class="ident">GlobalInit::I32Const</span>(<span class="number">0</span>));
 
         <span class="ident">module_info</span>.<span class="ident">exports</span>.<span class="ident">insert</span>(
             <span class="string">&quot;wasmer_metering_points_exhausted&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">ExportIndex</span>::<span class="ident">Global</span>(<span class="ident">points_exhausted_global_index</span>),
+            <span class="ident">ExportIndex::Global</span>(<span class="ident">points_exhausted_global_index</span>),
         );
 
         <span class="kw-2">*</span><span class="ident">global_indexes</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">MeteringGlobalIndexes</span>(
@@ -692,13 +692,13 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-        <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
-            <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">global_indexes</span>)
+        <span class="ident">mem::size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
+            <span class="op">-</span> <span class="ident">mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">global_indexes</span>)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">FunctionMetering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">FunctionMetering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;FunctionMetering&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;cost_function&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;&lt;function&gt;&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;global_indexes&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">global_indexes</span>)
@@ -719,33 +719,33 @@
 
         <span class="comment">// Possible sources and targets of a branch. Finalize the cost of the previous basic block and perform necessary checks.</span>
         <span class="kw">match</span> <span class="ident">operator</span> {
-            <span class="ident">Operator</span>::<span class="ident">Loop</span> { .. } <span class="comment">// loop headers are branch targets</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">End</span> <span class="comment">// block ends are branch targets</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Else</span> <span class="comment">// &quot;else&quot; is the &quot;end&quot; of an if branch</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Br</span> { .. } <span class="comment">// branch source</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">BrTable</span> { .. } <span class="comment">// branch source</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">BrIf</span> { .. } <span class="comment">// branch source</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Call</span> { .. } <span class="comment">// function call - branch source</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">CallIndirect</span> { .. } <span class="comment">// function call - branch source</span>
-            <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Return</span> <span class="comment">// end of function - branch source</span>
+            <span class="ident">Operator::Loop</span> { .. } <span class="comment">// loop headers are branch targets</span>
+            <span class="op">|</span> <span class="ident">Operator::End</span> <span class="comment">// block ends are branch targets</span>
+            <span class="op">|</span> <span class="ident">Operator::Else</span> <span class="comment">// &quot;else&quot; is the &quot;end&quot; of an if branch</span>
+            <span class="op">|</span> <span class="ident">Operator::Br</span> { .. } <span class="comment">// branch source</span>
+            <span class="op">|</span> <span class="ident">Operator::BrTable</span> { .. } <span class="comment">// branch source</span>
+            <span class="op">|</span> <span class="ident">Operator::BrIf</span> { .. } <span class="comment">// branch source</span>
+            <span class="op">|</span> <span class="ident">Operator::Call</span> { .. } <span class="comment">// function call - branch source</span>
+            <span class="op">|</span> <span class="ident">Operator::CallIndirect</span> { .. } <span class="comment">// function call - branch source</span>
+            <span class="op">|</span> <span class="ident">Operator::Return</span> <span class="comment">// end of function - branch source</span>
             <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">accumulated_cost</span> <span class="op">&gt;</span> <span class="number">0</span> {
                     <span class="ident">state</span>.<span class="ident">extend</span>(<span class="kw-2">&amp;</span>[
                         <span class="comment">// if unsigned(globals[remaining_points_index]) &lt; unsigned(self.accumulated_cost) { throw(); }</span>
-                        <span class="ident">Operator</span>::<span class="ident">GlobalGet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">remaining_points</span>().<span class="ident">as_u32</span>() },
-                        <span class="ident">Operator</span>::<span class="ident">I64Const</span> { <span class="ident">value</span>: <span class="self">self</span>.<span class="ident">accumulated_cost</span> <span class="kw">as</span> <span class="ident">i64</span> },
-                        <span class="ident">Operator</span>::<span class="ident">I64LtU</span>,
-                        <span class="ident">Operator</span>::<span class="ident">If</span> { <span class="ident">ty</span>: <span class="ident">WpTypeOrFuncType</span>::<span class="ident">Type</span>(<span class="ident">WpType</span>::<span class="ident">EmptyBlockType</span>) },
-                        <span class="ident">Operator</span>::<span class="ident">I32Const</span> { <span class="ident">value</span>: <span class="number">1</span> },
-                        <span class="ident">Operator</span>::<span class="ident">GlobalSet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">points_exhausted</span>().<span class="ident">as_u32</span>() },
-                        <span class="ident">Operator</span>::<span class="ident">Unreachable</span>,
-                        <span class="ident">Operator</span>::<span class="ident">End</span>,
+                        <span class="ident">Operator::GlobalGet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">remaining_points</span>().<span class="ident">as_u32</span>() },
+                        <span class="ident">Operator::I64Const</span> { <span class="ident">value</span>: <span class="self">self</span>.<span class="ident">accumulated_cost</span> <span class="kw">as</span> <span class="ident">i64</span> },
+                        <span class="ident">Operator::I64LtU</span>,
+                        <span class="ident">Operator::If</span> { <span class="ident">ty</span>: <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) },
+                        <span class="ident">Operator::I32Const</span> { <span class="ident">value</span>: <span class="number">1</span> },
+                        <span class="ident">Operator::GlobalSet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">points_exhausted</span>().<span class="ident">as_u32</span>() },
+                        <span class="ident">Operator::Unreachable</span>,
+                        <span class="ident">Operator::End</span>,
 
                         <span class="comment">// globals[remaining_points_index] -= self.accumulated_cost;</span>
-                        <span class="ident">Operator</span>::<span class="ident">GlobalGet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">remaining_points</span>().<span class="ident">as_u32</span>() },
-                        <span class="ident">Operator</span>::<span class="ident">I64Const</span> { <span class="ident">value</span>: <span class="self">self</span>.<span class="ident">accumulated_cost</span> <span class="kw">as</span> <span class="ident">i64</span> },
-                        <span class="ident">Operator</span>::<span class="ident">I64Sub</span>,
-                        <span class="ident">Operator</span>::<span class="ident">GlobalSet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">remaining_points</span>().<span class="ident">as_u32</span>() },
+                        <span class="ident">Operator::GlobalGet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">remaining_points</span>().<span class="ident">as_u32</span>() },
+                        <span class="ident">Operator::I64Const</span> { <span class="ident">value</span>: <span class="self">self</span>.<span class="ident">accumulated_cost</span> <span class="kw">as</span> <span class="ident">i64</span> },
+                        <span class="ident">Operator::I64Sub</span>,
+                        <span class="ident">Operator::GlobalSet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">remaining_points</span>().<span class="ident">as_u32</span>() },
                     ]);
 
                     <span class="self">self</span>.<span class="ident">accumulated_cost</span> <span class="op">=</span> <span class="number">0</span>;
@@ -792,7 +792,7 @@
         .<span class="ident">expect</span>(<span class="string">&quot;`wasmer_metering_points_exhausted` from Instance has wrong type&quot;</span>);
 
     <span class="kw">if</span> <span class="ident">exhausted</span> <span class="op">&gt;</span> <span class="number">0</span> {
-        <span class="kw">return</span> <span class="ident">MeteringPoints</span>::<span class="ident">Exhausted</span>;
+        <span class="kw">return</span> <span class="ident">MeteringPoints::Exhausted</span>;
     }
 
     <span class="kw">let</span> <span class="ident">points</span> <span class="op">=</span> <span class="ident">instance</span>
@@ -803,7 +803,7 @@
         .<span class="ident">try_into</span>()
         .<span class="ident">expect</span>(<span class="string">&quot;`wasmer_metering_remaining_points` from Instance has wrong type&quot;</span>);
 
-    <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="ident">points</span>)
+    <span class="ident">MeteringPoints::Remaining</span>(<span class="ident">points</span>)
 }
 
 <span class="doccomment">/// Set the new provided remaining points in an</span>
@@ -852,13 +852,13 @@
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
+    <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
     <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">imports</span>, <span class="ident">wat2wasm</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Cranelift</span>, <span class="ident">Module</span>, <span class="ident">Store</span>, <span class="ident">Universal</span>};
 
     <span class="kw">fn</span> <span class="ident">cost_function</span>(<span class="ident">operator</span>: <span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="kw">match</span> <span class="ident">operator</span> {
-            <span class="ident">Operator</span>::<span class="ident">LocalGet</span> { .. } <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32Const</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="number">1</span>,
-            <span class="ident">Operator</span>::<span class="ident">I32Add</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="number">2</span>,
+            <span class="ident">Operator::LocalGet</span> { .. } <span class="op">|</span> <span class="ident">Operator::I32Const</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="number">1</span>,
+            <span class="ident">Operator::I32Add</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="number">2</span>,
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
         }
     }
@@ -881,17 +881,17 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">get_remaining_points_works</span>() {
-        <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Metering</span>::<span class="ident">new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift</span>::<span class="ident">default</span>();
+        <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Metering::new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
         <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">Universal</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="ident">Universal::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
 
         <span class="comment">// Instantiate</span>
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports</span><span class="macro">!</span> {}).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports!</span> {}).<span class="ident">unwrap</span>();
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">10</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">10</span>)
         );
 
         <span class="comment">// First call</span>
@@ -907,36 +907,36 @@
             .<span class="ident">native</span>::<span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">i32</span><span class="op">&gt;</span>()
             .<span class="ident">unwrap</span>();
         <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">6</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">6</span>)
         );
 
         <span class="comment">// Second call</span>
         <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">2</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">2</span>)
         );
 
         <span class="comment">// Third call fails due to limit</span>
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">is_err</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>), <span class="ident">MeteringPoints</span>::<span class="ident">Exhausted</span>);
+        <span class="macro">assert!</span>(<span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">is_err</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>), <span class="ident">MeteringPoints::Exhausted</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">set_remaining_points_works</span>() {
-        <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Metering</span>::<span class="ident">new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift</span>::<span class="ident">default</span>();
+        <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">Metering::new</span>(<span class="number">10</span>, <span class="ident">cost_function</span>));
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
         <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">metering</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">Universal</span>::<span class="ident">new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="kw-2">&amp;</span><span class="ident">Universal::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>());
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">bytecode</span>()).<span class="ident">unwrap</span>();
 
         <span class="comment">// Instantiate</span>
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports</span><span class="macro">!</span> {}).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports!</span> {}).<span class="ident">unwrap</span>();
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">10</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">10</span>)
         );
         <span class="kw">let</span> <span class="ident">add_one</span> <span class="op">=</span> <span class="ident">instance</span>
             .<span class="ident">exports</span>
@@ -950,34 +950,34 @@
 
         <span class="comment">// Ensure we can use the new points now</span>
         <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">8</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">8</span>)
         );
 
         <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">4</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">4</span>)
         );
 
         <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">0</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">0</span>)
         );
 
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">is_err</span>());
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>), <span class="ident">MeteringPoints</span>::<span class="ident">Exhausted</span>);
+        <span class="macro">assert!</span>(<span class="ident">add_one</span>.<span class="ident">call</span>(<span class="number">1</span>).<span class="ident">is_err</span>());
+        <span class="macro">assert_eq!</span>(<span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>), <span class="ident">MeteringPoints::Exhausted</span>);
 
         <span class="comment">// Add some points for another call</span>
         <span class="ident">set_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="number">4</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(
+        <span class="macro">assert_eq!</span>(
             <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>),
-            <span class="ident">MeteringPoints</span>::<span class="ident">Remaining</span>(<span class="number">4</span>)
+            <span class="ident">MeteringPoints::Remaining</span>(<span class="number">4</span>)
         );
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_middlewares"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_middlewares" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>

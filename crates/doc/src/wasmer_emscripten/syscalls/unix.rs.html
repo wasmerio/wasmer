@@ -1,5 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/syscalls/unix.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>unix.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/syscalls/unix.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>unix.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/images/icons/favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -1142,9 +1142,9 @@
 <span id="1141">1141</span>
 <span id="1142">1142</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ptr</span>::<span class="ident">WasmPtr</span>, <span class="ident">varargs</span>::<span class="ident">VarArgs</span>, <span class="ident">LibcDirWrapper</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ptr::WasmPtr</span>, <span class="ident">varargs::VarArgs</span>, <span class="ident">LibcDirWrapper</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">size_t</span>;
+<span class="kw">use</span> <span class="ident">libc::size_t</span>;
 <span class="doccomment">/// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32</span>
 <span class="doccomment">/// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html</span>
 <span class="kw">use</span> <span class="ident">libc</span>::{
@@ -1249,20 +1249,20 @@
         <span class="ident">WASM_TCGETS</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TCGETS</span> <span class="kw">as</span> <span class="kw">_</span>,
         <span class="ident">WASM_TCSETSW</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">TCSETSW</span> <span class="kw">as</span> <span class="kw">_</span>,
         <span class="ident">_otherwise</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;The ioctl {} is not yet implemented&quot;</span>, <span class="ident">wasm_ioctl</span>);
+            <span class="macro">unimplemented!</span>(<span class="string">&quot;The ioctl {} is not yet implemented&quot;</span>, <span class="ident">wasm_ioctl</span>);
         }
     }
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>;
+<span class="kw">use</span> <span class="ident">std::ffi::CStr</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">env</span>::<span class="ident">EmSockAddr</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::{<span class="self">self</span>, <span class="ident">get_cstr_path</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">EmEnv</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::env::EmSockAddr</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::utils</span>::{<span class="self">self</span>, <span class="ident">get_cstr_path</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::EmEnv</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
+<span class="kw">use</span> <span class="ident">std::io::Error</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
 
 <span class="comment">// Linking to functions that are not provided by rust libc</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
@@ -1271,7 +1271,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wait4</span>(<span class="ident">pid</span>: <span class="ident">pid_t</span>, <span class="ident">status</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_int</span>, <span class="ident">options</span>: <span class="ident">c_int</span>, <span class="ident">rusage</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">rusage</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">pid_t</span>;
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">madvise</span>(<span class="ident">addr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>, <span class="ident">len</span>: <span class="ident">size_t</span>, <span class="ident">advice</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fdatasync</span>(<span class="ident">fd</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lstat64</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_char</span>, <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lstat64</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc::c_char</span>, <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
 }
 
 <span class="comment">// Linking to functions that are not provided by rust libc</span>
@@ -1281,13 +1281,13 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wait4</span>(<span class="ident">pid</span>: <span class="ident">pid_t</span>, <span class="ident">status</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_int</span>, <span class="ident">options</span>: <span class="ident">c_int</span>, <span class="ident">rusage</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">rusage</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">pid_t</span>;
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fdatasync</span>(<span class="ident">fd</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ftruncate</span>(<span class="ident">fd</span>: <span class="ident">c_int</span>, <span class="ident">length</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lstat</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_char</span>, <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">stat</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lstat</span>(<span class="ident">path</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc::c_char</span>, <span class="ident">buf</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">stat</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span>;
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>)))]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">fallocate</span>;
+<span class="kw">use</span> <span class="ident">libc::fallocate</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">madvise</span>;
+<span class="kw">use</span> <span class="ident">libc::madvise</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)))]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">fdatasync</span>, <span class="ident">ftruncate64</span>, <span class="ident">lstat</span>, <span class="ident">madvise</span>, <span class="ident">wait4</span>};
 
@@ -1295,45 +1295,45 @@
 <span class="comment">// SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.</span>
 <span class="comment">// Other platforms do otherwise.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::<span class="ident">SO_NOSIGPIPE</span>;
+<span class="kw">use</span> <span class="ident">libc::SO_NOSIGPIPE</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
 <span class="kw">const</span> <span class="ident">SO_NOSIGPIPE</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="number">0</span>;
 
 <span class="doccomment">/// open</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall5</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall5 (open) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall5 (open) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">pathname_addr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">flags</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">mode</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
         <span class="ident">pathname_addr</span>
     };
-    <span class="kw">let</span> <span class="ident">_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() };
+    <span class="kw">let</span> <span class="ident">_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() };
     <span class="kw">let</span> <span class="ident">fd</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">open</span>(<span class="ident">real_path</span>, <span class="ident">flags</span>, <span class="ident">mode</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; path: {}, flags: {}, mode: {} = fd: {}&quot;</span>,
         <span class="ident">_path_str</span>, <span class="ident">flags</span>, <span class="ident">mode</span>, <span class="ident">fd</span>,
     );
     <span class="kw">if</span> <span class="ident">fd</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error</span>::<span class="ident">last_os_error</span>(),);
+        <span class="macro">debug!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error::last_os_error</span>(),);
     }
     <span class="ident">fd</span>
 }
 
 <span class="doccomment">/// link</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall9</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall9 (link) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall9 (link) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">oldname_ptr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">newname_ptr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">link</span>(<span class="ident">oldname_ptr</span>, <span class="ident">newname_ptr</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; oldname: {}, newname: {}, result: {}&quot;</span>,
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">oldname_ptr</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">newname_ptr</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">oldname_ptr</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">newname_ptr</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
         <span class="ident">result</span>,
     );
     <span class="ident">result</span>
@@ -1341,39 +1341,39 @@
 
 <span class="doccomment">/// getrusage</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall77</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall77 (getrusage) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall77 (getrusage) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">resource</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">rusage_ptr</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-    <span class="kw">let</span> <span class="ident">rusage</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">rusage_ptr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">rusage</span>;
-    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">8</span>, <span class="ident">mem</span>::<span class="ident">align_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">rusage</span>));
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
+    <span class="kw">let</span> <span class="ident">rusage</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">rusage_ptr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">rusage</span>;
+    <span class="macro">assert_eq!</span>(<span class="number">8</span>, <span class="ident">mem::align_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">rusage</span>));
     <span class="kw">unsafe</span> { <span class="ident">getrusage</span>(<span class="ident">resource</span>, <span class="ident">rusage</span>) }
 }
 
 <span class="doccomment">/// symlink</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall83</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall83 (symlink) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall83 (symlink) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">path1</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">path2</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path1_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path1</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path1_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path1</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path1</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path1_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
         <span class="ident">path1</span>
     };
-    <span class="kw">let</span> <span class="ident">real_path2_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path2</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path2_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path2</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path2</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path2_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
         <span class="ident">path2</span>
     };
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">symlink</span>(<span class="ident">real_path1</span>, <span class="ident">real_path2</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; path1: {}, path2: {}, result: {}&quot;</span>,
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">real_path1</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">real_path2</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">real_path1</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">real_path2</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
         <span class="ident">result</span>,
     );
     <span class="ident">result</span>
@@ -1381,7 +1381,7 @@
 
 <span class="doccomment">/// readlink</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall85</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall85 (readlink)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall85 (readlink)&quot;</span>);
     <span class="kw">let</span> <span class="ident">pathname_addr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="comment">// let buf_addr: i32 = varargs.get(ctx);</span>
@@ -1393,15 +1393,15 @@
         <span class="ident">pathname_addr</span>
     };
 
-    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc</span>::<span class="ident">readlink</span>(<span class="ident">real_path</span>, <span class="ident">buf</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">buf_size</span> <span class="kw">as</span> <span class="kw">_</span>) <span class="kw">as</span> <span class="ident">i32</span> };
+    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc::readlink</span>(<span class="ident">real_path</span>, <span class="ident">buf</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">buf_size</span> <span class="kw">as</span> <span class="kw">_</span>) <span class="kw">as</span> <span class="ident">i32</span> };
     <span class="kw">if</span> <span class="ident">ret</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;readlink failed&quot;</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;readlink failed&quot;</span>);
         <span class="kw">return</span> <span class="ident">ret</span>;
     }
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; path: {}, buf: {}, buf_size: {}, return: {} &quot;</span>,
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">buf</span> <span class="kw">as</span> <span class="kw">_</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">buf</span> <span class="kw">as</span> <span class="kw">_</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
         <span class="ident">buf_size</span>,
         <span class="ident">ret</span>
     );
@@ -1410,7 +1410,7 @@
 
 <span class="doccomment">/// ftruncate64</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall194</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall194 (ftruncate64) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall194 (ftruncate64) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">_fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_length</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)))]</span>
@@ -1422,14 +1422,14 @@
         <span class="ident">ftruncate</span>(<span class="ident">_fd</span>, <span class="ident">_length</span>)
     }
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
-    <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall194 (ftruncate64) {}&quot;</span>, <span class="ident">_which</span>)
+    <span class="macro">unimplemented!</span>(<span class="string">&quot;emscripten::___syscall194 (ftruncate64) {}&quot;</span>, <span class="ident">_which</span>)
 }
 
 <span class="doccomment">/// lchown</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall198</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall198 (lchown) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall198 (lchown) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">path_ptr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path_ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path_ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -1438,9 +1438,9 @@
     <span class="kw">let</span> <span class="ident">uid</span>: <span class="ident">uid_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">gid</span>: <span class="ident">gid_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">lchown</span>(<span class="ident">real_path</span>, <span class="ident">uid</span>, <span class="ident">gid</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; path: {}, uid: {}, gid: {}, result: {}&quot;</span>,
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
         <span class="ident">uid</span>,
         <span class="ident">gid</span>,
         <span class="ident">result</span>,
@@ -1450,15 +1450,15 @@
 
 <span class="doccomment">/// getgroups</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall205</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall205 (getgroups) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall205 (getgroups) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">ngroups_max</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">groups</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-    <span class="kw">let</span> <span class="ident">gid_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">groups</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">gid_t</span>;
-    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="number">4</span>, <span class="ident">mem</span>::<span class="ident">align_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">gid_ptr</span>));
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
+    <span class="kw">let</span> <span class="ident">gid_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">groups</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">gid_t</span>;
+    <span class="macro">assert_eq!</span>(<span class="number">4</span>, <span class="ident">mem::align_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">gid_ptr</span>));
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">getgroups</span>(<span class="ident">ngroups_max</span>, <span class="ident">gid_ptr</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; ngroups_max: {}, gid_ptr: {:?}, result: {}&quot;</span>,
         <span class="ident">ngroups_max</span>, <span class="ident">gid_ptr</span>, <span class="ident">result</span>,
     );
@@ -1467,10 +1467,10 @@
 
 <span class="comment">// chown</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall212</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall212 (chown) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall212 (chown) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">pathname_addr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -1484,22 +1484,22 @@
 
 <span class="doccomment">/// madvise</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall219</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall212 (chown) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall212 (chown) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">addr_ptr</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">len</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">advice</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">addr_ptr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
+    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">addr_ptr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
 
     <span class="kw">unsafe</span> { <span class="ident">madvise</span>(<span class="ident">addr</span>, <span class="ident">len</span>, <span class="ident">advice</span>) }
 }
 
 <span class="doccomment">/// access</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall33</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall33 (access) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall33 (access) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -1507,9 +1507,9 @@
     };
     <span class="kw">let</span> <span class="ident">amode</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">access</span>(<span class="ident">real_path</span>, <span class="ident">amode</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; path: {}, amode: {}, result: {}&quot;</span>,
-        <span class="kw">unsafe</span> { <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
+        <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() },
         <span class="ident">amode</span>,
         <span class="ident">result</span>
     );
@@ -1518,16 +1518,16 @@
 
 <span class="doccomment">/// nice</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall34</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall34 (nice) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall34 (nice) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">inc_r</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">unsafe</span> { <span class="ident">nice</span>(<span class="ident">inc_r</span>) }
 }
 
 <span class="comment">// mkdir</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall39</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall39 (mkdir) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall39 (mkdir) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">pathname_addr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -1539,20 +1539,20 @@
 
 <span class="doccomment">/// dup</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall41</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall41 (dup) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall41 (dup) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">unsafe</span> { <span class="ident">dup</span>(<span class="ident">fd</span>) }
 }
 
 <span class="doccomment">/// getgid32</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall200</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall200 (getgid32)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall200 (getgid32)&quot;</span>);
     <span class="kw">unsafe</span> { <span class="ident">getgid</span>() <span class="kw">as</span> <span class="ident">i32</span> }
 }
 
 <span class="comment">// geteuid32</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall201</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall201 (geteuid32)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall201 (geteuid32)&quot;</span>);
     <span class="kw">unsafe</span> {
         <span class="comment">// Maybe fix: Emscripten returns 0 always</span>
         <span class="ident">geteuid</span>() <span class="kw">as</span> <span class="ident">i32</span>
@@ -1562,7 +1562,7 @@
 <span class="comment">// getegid32</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall202</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="comment">// gid_t</span>
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall202 (getegid32)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall202 (getegid32)&quot;</span>);
     <span class="kw">unsafe</span> {
         <span class="comment">// Maybe fix: Emscripten returns 0 always</span>
         <span class="ident">getegid</span>() <span class="kw">as</span> <span class="kw">_</span>
@@ -1571,7 +1571,7 @@
 
 <span class="doccomment">/// fchown</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall207</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall207 (fchown) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall207 (fchown) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">owner</span>: <span class="ident">uid_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">group</span>: <span class="ident">gid_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1581,7 +1581,7 @@
 <span class="doccomment">/// dup3</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall330</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">pid_t</span> {
     <span class="comment">// Implementation based on description at https://linux.die.net/man/2/dup3</span>
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall330 (dup3)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall330 (dup3)&quot;</span>);
     <span class="kw">let</span> <span class="ident">oldfd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">newfd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">flags</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1605,7 +1605,7 @@
         <span class="ident">fcntl</span>(<span class="ident">newfd</span>, <span class="ident">F_SETFD</span>, <span class="ident">old_flags</span>);
     }
 
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; oldfd: {}, newfd: {}, flags: {} = pid: {}&quot;</span>,
         <span class="ident">oldfd</span>, <span class="ident">newfd</span>, <span class="ident">flags</span>, <span class="ident">res</span>
     );
@@ -1614,21 +1614,21 @@
 
 <span class="doccomment">/// ioctl</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall54</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall54 (ioctl) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall54 (ioctl) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">request</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; fd: {}, op: {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">request</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; fd: {}, op: {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">request</span>);
 
     <span class="comment">// Got the equivalents here: https://code.woboq.org/linux/linux/include/uapi/asm-generic/ioctls.h.html</span>
     <span class="kw">match</span> <span class="ident">request</span> {
         <span class="ident">WASM_FIOCLEX</span> <span class="op">|</span> <span class="ident">WASM_FIONBIO</span> <span class="op">|</span> <span class="ident">WASM_TIOCGWINSZ</span> <span class="op">|</span> <span class="ident">WASM_TIOCSPGRP</span> <span class="op">|</span> <span class="ident">WASM_TCGETS</span>
         <span class="op">|</span> <span class="ident">WASM_TCSETSW</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">argp</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">argp_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">argp</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
+            <span class="kw">let</span> <span class="ident">argp_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">argp</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
             <span class="kw">let</span> <span class="ident">translated_request</span> <span class="op">=</span> <span class="ident">translate_ioctl</span>(<span class="ident">request</span>);
             <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translated_request</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">argp_ptr</span>) };
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot; =&gt; request: {}, translated: {}, return: {}&quot;</span>,
                 <span class="ident">request</span>, <span class="ident">translated_request</span>, <span class="ident">ret</span>
             );
@@ -1641,7 +1641,7 @@
             <span class="ident">ret</span>
         }
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot; =&gt; not implemented case {} (noop, hardcoded to 0)&quot;</span>,
                 <span class="ident">request</span>
             );
@@ -1654,9 +1654,9 @@
 <span class="kw">const</span> <span class="ident">SOCK_CLOEXC</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0x80000</span>;
 
 <span class="comment">// socketcall</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall102</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall102 (socketcall) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall102 (socketcall) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">call</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">socket_varargs</span>: <span class="ident">VarArgs</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
@@ -1678,7 +1678,7 @@
 
     <span class="kw">match</span> <span class="ident">call</span> {
         <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: socket&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: socket&quot;</span>);
             <span class="comment">// socket (domain: c_int, ty: c_int, protocol: c_int) -&gt; c_int</span>
             <span class="kw">let</span> <span class="ident">domain</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">ty_and_flags</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1695,7 +1695,7 @@
 
             <span class="kw">if</span> <span class="ident">ty_and_flags</span> <span class="op">&amp;</span> <span class="ident">SOCK_NON_BLOCK</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                 <span class="comment">// do something here</span>
-                <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;non blocking sockets&quot;</span>);
+                <span class="macro">unimplemented!</span>(<span class="string">&quot;non blocking sockets&quot;</span>);
             }
 
             <span class="comment">// why is this here?</span>
@@ -1707,35 +1707,35 @@
                     <span class="ident">SOL_SOCKET</span>,
                     <span class="ident">SO_NOSIGPIPE</span>,
                     <span class="ident">payload</span>,
-                    <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">socklen_t</span>,
+                    <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">socklen_t</span>,
                 );
             };
 
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;=&gt; domain: {}, type: {}, protocol: {} = fd: {}&quot;</span>,
                 <span class="ident">domain</span>, <span class="ident">ty</span>, <span class="ident">protocol</span>, <span class="ident">fd</span>
             );
             <span class="ident">fd</span> <span class="kw">as</span> <span class="kw">_</span>
         }
         <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: bind&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: bind&quot;</span>);
             <span class="comment">// bind (socket: c_int, address: *const sockaddr, address_len: socklen_t) -&gt; c_int</span>
             <span class="comment">// TODO: Emscripten has a different signature.</span>
             <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address_len</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
+            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
 
             <span class="comment">// Debug received address</span>
             <span class="kw">let</span> <span class="ident">_proper_address</span> <span class="op">=</span> <span class="ident">address</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">GuestSockaddrIn</span>;
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                     <span class="string">&quot;=&gt; address.sin_family: {:?}, address.sin_port: {:?}, address.sin_addr.s_addr: {:?}&quot;</span>,
                 <span class="kw">unsafe</span> { (<span class="kw-2">*</span><span class="ident">_proper_address</span>).<span class="ident">sin_family</span> }, <span class="kw">unsafe</span> { (<span class="kw-2">*</span><span class="ident">_proper_address</span>).<span class="ident">sin_port</span> }, <span class="kw">unsafe</span> { (<span class="kw-2">*</span><span class="ident">_proper_address</span>).<span class="ident">sin_addr</span>.<span class="ident">s_addr</span> }
                 );
 
             <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">bind</span>(<span class="ident">socket</span>, <span class="ident">address</span>, <span class="ident">address_len</span>) };
             <span class="comment">// debug!(&quot;=&gt; status: {}&quot;, status);</span>
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;=&gt; socketfd: {}, address: {:?}, address_len: {} = status: {}&quot;</span>,
                 <span class="ident">socket</span>, <span class="ident">address</span>, <span class="ident">address_len</span>, <span class="ident">status</span>
             );
@@ -1743,35 +1743,35 @@
             <span class="comment">// -1</span>
         }
         <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: connect&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: connect&quot;</span>);
             <span class="comment">// connect (socket: c_int, address: *const sockaddr, len: socklen_t) -&gt; c_int</span>
             <span class="comment">// TODO: Emscripten has a different signature.</span>
             <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address_len</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
+            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
             <span class="kw">unsafe</span> { <span class="ident">connect</span>(<span class="ident">socket</span>, <span class="ident">address</span>, <span class="ident">address_len</span>) }
         }
         <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: listen&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: listen&quot;</span>);
             <span class="comment">// listen (socket: c_int, backlog: c_int) -&gt; c_int</span>
             <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">backlog</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">listen</span>(<span class="ident">socket</span>, <span class="ident">backlog</span>) };
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;=&gt; socketfd: {}, backlog: {} = status: {}&quot;</span>,
                 <span class="ident">socket</span>, <span class="ident">backlog</span>, <span class="ident">status</span>
             );
             <span class="ident">status</span>
         }
         <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: accept&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: accept&quot;</span>);
             <span class="comment">// accept (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -&gt; c_int</span>
             <span class="kw">let</span> <span class="ident">socket</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmSockAddr</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;=&gt; socket: {}, address: {:?}, address_len: {}&quot;</span>,
                 <span class="ident">socket</span>,
                 <span class="ident">address</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get</span>(),
@@ -1781,10 +1781,10 @@
             <span class="comment">// let mut address_len_addr: socklen_t = 0;</span>
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">host_address</span>: <span class="ident">sockaddr</span> <span class="op">=</span> <span class="ident">sockaddr</span> {
-                <span class="ident">sa_family</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-                <span class="ident">sa_data</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+                <span class="ident">sa_family</span>: <span class="ident">Default::default</span>(),
+                <span class="ident">sa_data</span>: <span class="ident">Default::default</span>(),
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
-                <span class="ident">sa_len</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+                <span class="ident">sa_len</span>: <span class="ident">Default::default</span>(),
             };
             <span class="kw">let</span> <span class="ident">fd</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">accept</span>(<span class="ident">socket</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">host_address</span>, <span class="ident">address_len_addr</span>) };
             <span class="kw">let</span> <span class="ident">address_addr</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">address</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>() };
@@ -1798,7 +1798,7 @@
                 <span class="ident">ioctl</span>(<span class="ident">fd</span>, <span class="ident">translate_ioctl</span>(<span class="ident">WASM_FIOCLEX</span>) <span class="kw">as</span> <span class="kw">_</span>);
             };
 
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;address: {:?}, len: {}, result fd = {}&quot;</span>,
                 <span class="ident">address_addr</span>, <span class="ident">address_len_addr</span>, <span class="ident">fd</span>
             );
@@ -1806,7 +1806,7 @@
             <span class="ident">fd</span> <span class="kw">as</span> <span class="kw">_</span>
         }
         <span class="number">6</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: getsockname&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: getsockname&quot;</span>);
             <span class="comment">// getsockname (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -&gt; c_int</span>
             <span class="kw">let</span> <span class="ident">socket</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmSockAddr</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1814,10 +1814,10 @@
             <span class="kw">let</span> <span class="ident">address_len_addr</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">address_len</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>() };
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sock_addr_host</span>: <span class="ident">sockaddr</span> <span class="op">=</span> <span class="ident">sockaddr</span> {
-                <span class="ident">sa_family</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
-                <span class="ident">sa_data</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+                <span class="ident">sa_family</span>: <span class="ident">Default::default</span>(),
+                <span class="ident">sa_data</span>: <span class="ident">Default::default</span>(),
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
-                <span class="ident">sa_len</span>: <span class="ident">Default</span>::<span class="ident">default</span>(),
+                <span class="ident">sa_len</span>: <span class="ident">Default::default</span>(),
             };
             <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> {
                 <span class="ident">getsockname</span>(
@@ -1831,7 +1831,7 @@
             <span class="ident">address_mut</span>.<span class="ident">sa_family</span> <span class="op">=</span> <span class="ident">sock_addr_host</span>.<span class="ident">sa_family</span> <span class="kw">as</span> <span class="kw">_</span>;
             <span class="ident">address_mut</span>.<span class="ident">sa_data</span> <span class="op">=</span> <span class="ident">sock_addr_host</span>.<span class="ident">sa_data</span>;
 
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;=&gt; socket: {}, address, {:?}, address_len: {}, result = {}&quot;</span>,
                 <span class="ident">socket</span>, <span class="ident">address_mut</span>, <span class="ident">address_len_addr</span>, <span class="ident">ret</span>
             );
@@ -1839,18 +1839,18 @@
             <span class="ident">ret</span>
         }
         <span class="number">7</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: getpeername&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: getpeername&quot;</span>);
             <span class="comment">// getpeername (socket: c_int, address: *mut sockaddr, address_len: *mut socklen_t) -&gt; c_int</span>
             <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address_len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
+            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
             <span class="kw">let</span> <span class="ident">address_len_addr</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">address_len</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">socklen_t</span>;
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">address_len</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">socklen_t</span>;
             <span class="kw">unsafe</span> { <span class="ident">getpeername</span>(<span class="ident">socket</span>, <span class="ident">address</span>, <span class="ident">address_len_addr</span>) }
         }
         <span class="number">11</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: sendto&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: sendto&quot;</span>);
             <span class="comment">// sendto (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -&gt; ssize_t</span>
             <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1858,12 +1858,12 @@
             <span class="kw">let</span> <span class="ident">len</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address_len</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
-            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
+            <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
+            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
             <span class="kw">unsafe</span> { <span class="ident">sendto</span>(<span class="ident">socket</span>, <span class="ident">buf_addr</span>, <span class="ident">flags</span>, <span class="ident">len</span>, <span class="ident">address</span>, <span class="ident">address_len</span>) <span class="kw">as</span> <span class="ident">i32</span> }
         }
         <span class="number">12</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: recvfrom&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: recvfrom&quot;</span>);
             <span class="comment">// recvfrom (socket: c_int, buf: *const c_void, len: size_t, flags: c_int, addr: *const sockaddr, addrlen: socklen_t) -&gt; ssize_t</span>
             <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1871,10 +1871,10 @@
             <span class="kw">let</span> <span class="ident">flags</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">address_len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
-            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
+            <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
+            <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">address</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">sockaddr</span>;
             <span class="kw">let</span> <span class="ident">address_len_addr</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">address_len</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">socklen_t</span>;
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">address_len</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">socklen_t</span>;
             <span class="kw">unsafe</span> {
                 <span class="ident">recvfrom</span>(
                     <span class="ident">socket</span>,
@@ -1887,7 +1887,7 @@
             }
         }
         <span class="number">14</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: setsockopt&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: setsockopt&quot;</span>);
             <span class="comment">// OSX and BSD have completely different values, be very careful here</span>
             <span class="comment">//      https://github.com/openbsd/src/blob/master/sys/sys/socket.h#L156</span>
             <span class="comment">// setsockopt (socket: c_int, level: c_int, name: c_int, value: *const c_void, option_len: socklen_t) -&gt; c_int</span>
@@ -1898,16 +1898,16 @@
             <span class="kw">let</span> <span class="ident">untranslated_name</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">value</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">option_len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">value_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">value</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">c_void</span>;
+            <span class="kw">let</span> <span class="ident">value_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">value</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc::c_void</span>;
             <span class="kw">let</span> <span class="ident">name</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">translate_socket_name_flag</span>(<span class="ident">untranslated_name</span>);
 
             <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">setsockopt</span>(<span class="ident">socket</span>, <span class="ident">level</span>, <span class="ident">name</span>, <span class="ident">value_addr</span>, <span class="ident">option_len</span>) };
 
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; socketfd: {}, level: {}, name: {}, value_addr: {:?}, option_len: {} = status: {}&quot;</span>, <span class="ident">socket</span>, <span class="ident">level</span>, <span class="ident">untranslated_name</span>, <span class="ident">value_addr</span>, <span class="ident">option_len</span>, <span class="ident">ret</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;=&gt; socketfd: {}, level: {}, name: {}, value_addr: {:?}, option_len: {} = status: {}&quot;</span>, <span class="ident">socket</span>, <span class="ident">level</span>, <span class="ident">untranslated_name</span>, <span class="ident">value_addr</span>, <span class="ident">option_len</span>, <span class="ident">ret</span>);
             <span class="ident">ret</span>
         }
         <span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: getsockopt&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: getsockopt&quot;</span>);
             <span class="comment">// getsockopt (sockfd: c_int, level: c_int, optname: c_int, optval: *mut c_void, optlen: *mut socklen_t) -&gt; c_int</span>
             <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">level</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1916,26 +1916,26 @@
             <span class="kw">let</span> <span class="ident">name</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">translate_socket_name_flag</span>(<span class="ident">untranslated_name</span>);
             <span class="kw">let</span> <span class="ident">value</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">option_len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">value_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">value</span>) <span class="kw">as</span> <span class="kw">_</span>;
-            <span class="kw">let</span> <span class="ident">option_len_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">option_len</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">socklen_t</span>;
+            <span class="kw">let</span> <span class="ident">value_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">value</span>) <span class="kw">as</span> <span class="kw">_</span>;
+            <span class="kw">let</span> <span class="ident">option_len_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">option_len</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">socklen_t</span>;
             <span class="kw">unsafe</span> { <span class="ident">getsockopt</span>(<span class="ident">socket</span>, <span class="ident">level</span>, <span class="ident">name</span>, <span class="ident">value_addr</span>, <span class="ident">option_len_addr</span>) }
         }
         <span class="number">16</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: sendmsg&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: sendmsg&quot;</span>);
             <span class="comment">// sendmsg (fd: c_int, msg: *const msghdr, flags: c_int) -&gt; ssize_t</span>
             <span class="kw">let</span> <span class="ident">socket</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">msg</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">flags</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">msg_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">msg</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">msghdr</span>;
+            <span class="kw">let</span> <span class="ident">msg_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">msg</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">msghdr</span>;
             <span class="kw">unsafe</span> { <span class="ident">sendmsg</span>(<span class="ident">socket</span>, <span class="ident">msg_addr</span>, <span class="ident">flags</span>) <span class="kw">as</span> <span class="ident">i32</span> }
         }
         <span class="number">17</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;socket: recvmsg&quot;</span>);
+            <span class="macro">debug!</span>(<span class="string">&quot;socket: recvmsg&quot;</span>);
             <span class="comment">// recvmsg (fd: c_int, msg: *mut msghdr, flags: c_int) -&gt; ssize_t</span>
             <span class="kw">let</span> <span class="ident">socket</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">msg</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
             <span class="kw">let</span> <span class="ident">flags</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">socket_varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-            <span class="kw">let</span> <span class="ident">msg_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">msg</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">msghdr</span>;
+            <span class="kw">let</span> <span class="ident">msg_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>, <span class="ident">msg</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">msghdr</span>;
             <span class="kw">unsafe</span> { <span class="ident">recvmsg</span>(<span class="ident">socket</span>, <span class="ident">msg_addr</span>, <span class="ident">flags</span>) <span class="kw">as</span> <span class="ident">i32</span> }
         }
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
@@ -1949,36 +1949,36 @@
 <span class="doccomment">/// value into one that we can pass to native syscalls</span>
 <span class="kw">fn</span> <span class="ident">translate_socket_name_flag</span>(<span class="ident">name</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="kw">match</span> <span class="ident">name</span> {
-        <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_REUSEADDR</span>,
-        <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_TYPE</span>,
-        <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_ERROR</span>,
-        <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_DONTROUTE</span>,
-        <span class="number">6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_BROADCAST</span>,
-        <span class="number">7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_SNDBUF</span>,
-        <span class="number">8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_RCVBUF</span>,
-        <span class="number">9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_KEEPALIVE</span>,
-        <span class="number">10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_OOBINLINE</span>,
-        <span class="number">13</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_LINGER</span>,
-        <span class="number">18</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_RCVLOWAT</span>,
-        <span class="number">19</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_SNDLOWAT</span>,
-        <span class="number">20</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_RCVTIMEO</span>,
-        <span class="number">21</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_SNDTIMEO</span>,
+        <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_REUSEADDR</span>,
+        <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_TYPE</span>,
+        <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_ERROR</span>,
+        <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_DONTROUTE</span>,
+        <span class="number">6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_BROADCAST</span>,
+        <span class="number">7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_SNDBUF</span>,
+        <span class="number">8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_RCVBUF</span>,
+        <span class="number">9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_KEEPALIVE</span>,
+        <span class="number">10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_OOBINLINE</span>,
+        <span class="number">13</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_LINGER</span>,
+        <span class="number">18</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_RCVLOWAT</span>,
+        <span class="number">19</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_SNDLOWAT</span>,
+        <span class="number">20</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_RCVTIMEO</span>,
+        <span class="number">21</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_SNDTIMEO</span>,
         <span class="comment">// SO_DEBUG missing</span>
-        <span class="number">30</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc</span>::<span class="ident">SO_ACCEPTCONN</span>,
+        <span class="number">30</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::SO_ACCEPTCONN</span>,
         <span class="ident">otherwise</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">otherwise</span>,
     }
 }
 
 <span class="doccomment">/// getpgid</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall132</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall132 (getpgid)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall132 (getpgid)&quot;</span>);
 
     <span class="kw">let</span> <span class="ident">pid</span>: <span class="ident">pid_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">getpgid</span>(<span class="ident">pid</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; pid: {} = {}&quot;</span>, <span class="ident">pid</span>, <span class="ident">ret</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; pid: {} = {}&quot;</span>, <span class="ident">pid</span>, <span class="ident">ret</span>);
     <span class="kw">if</span> <span class="ident">ret</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error</span>::<span class="ident">last_os_error</span>(),);
+        <span class="macro">debug!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error::last_os_error</span>(),);
     }
     <span class="ident">ret</span>
 }
@@ -1991,11 +1991,11 @@
     <span class="kw">pub</span> <span class="ident">revents</span>: <span class="ident">i16</span>,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">wasmer</span>::<span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">EmPollFd</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">wasmer::ValueType</span> <span class="kw">for</span> <span class="ident">EmPollFd</span> {}
 
 <span class="doccomment">/// poll</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall168</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall168(poll)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall168(poll)&quot;</span>);
     <span class="kw">let</span> <span class="ident">fds</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmPollFd</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">nfds</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">timeout</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -2004,8 +2004,8 @@
     <span class="kw">let</span> <span class="ident">fds_mut</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">fds</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get_mut</span>() };
 
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-        <span class="ident">libc</span>::<span class="ident">poll</span>(
-            <span class="ident">fds_mut</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">EmPollFd</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">libc</span>::<span class="ident">pollfd</span>,
+        <span class="ident">libc::poll</span>(
+            <span class="ident">fds_mut</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">EmPollFd</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">libc::pollfd</span>,
             <span class="ident">nfds</span> <span class="kw">as</span> <span class="kw">_</span>,
             <span class="ident">timeout</span>,
         )
@@ -2016,36 +2016,36 @@
 
 <span class="comment">// pread</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall180</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall180 (pread) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall180 (pread) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">count</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     {
         <span class="kw">let</span> <span class="ident">zero</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">zero</span>, <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">zero</span>, <span class="number">0</span>);
     }
     <span class="kw">let</span> <span class="ident">offset</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
 
     <span class="kw">unsafe</span> { <span class="ident">pread</span>(<span class="ident">fd</span>, <span class="ident">buf_ptr</span>, <span class="ident">count</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">offset</span>) <span class="kw">as</span> <span class="kw">_</span> }
 }
 
 <span class="comment">// pwrite</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall181</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall181 (pwrite) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall181 (pwrite) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">count</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     {
         <span class="kw">let</span> <span class="ident">zero</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">zero</span>, <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(<span class="ident">zero</span>, <span class="number">0</span>);
     }
     <span class="kw">let</span> <span class="ident">offset</span>: <span class="ident">i64</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw">_</span>;
     <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">pwrite</span>(<span class="ident">fd</span>, <span class="ident">buf_ptr</span>, <span class="ident">count</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">offset</span>) <span class="kw">as</span> <span class="kw">_</span> };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; fd: {}, buf: {}, count: {}, offset: {} = status:{}&quot;</span>,
         <span class="ident">fd</span>, <span class="ident">buf</span>, <span class="ident">count</span>, <span class="ident">offset</span>, <span class="ident">status</span>
     );
@@ -2054,25 +2054,25 @@
 
 <span class="doccomment">/// fchmod</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall94</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall118 (fchmod) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall118 (fchmod) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">mode</span>: <span class="ident">mode_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">unsafe</span> { <span class="ident">fchmod</span>(<span class="ident">fd</span>, <span class="ident">mode</span>) }
 }
 
 <span class="doccomment">/// wait4</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall114</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">pid_t</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall114 (wait4)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall114 (wait4)&quot;</span>);
     <span class="kw">let</span> <span class="ident">pid</span>: <span class="ident">pid_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">status</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">options</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">rusage</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">status_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">status</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_int</span>;
+    <span class="kw">let</span> <span class="ident">status_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">status</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_int</span>;
 
-    <span class="kw">let</span> <span class="ident">rusage_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">rusage</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">rusage</span>;
+    <span class="kw">let</span> <span class="ident">rusage_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">rusage</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">rusage</span>;
     <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">wait4</span>(<span class="ident">pid</span>, <span class="ident">status_addr</span>, <span class="ident">options</span>, <span class="ident">rusage_addr</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;=&gt; pid: {}, status: {:?}, options: {}, rusage: {:?} = pid: {}&quot;</span>,
         <span class="ident">pid</span>, <span class="ident">status_addr</span>, <span class="ident">options</span>, <span class="ident">rusage_addr</span>, <span class="ident">res</span>
     );
@@ -2081,15 +2081,15 @@
 
 <span class="doccomment">/// fsync</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall118</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall118 (fsync) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall118 (fsync) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">unsafe</span> { <span class="ident">fsync</span>(<span class="ident">fd</span>) }
 }
 
 <span class="comment">// select</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall142</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall142 (newselect) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall142 (newselect) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">nfds</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">readfds</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -2101,17 +2101,17 @@
         <span class="comment">// EINVAL</span>
         <span class="kw">return</span> <span class="op">-</span><span class="number">22</span>;
     }
-    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">exceptfds</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>, <span class="string">&quot;`exceptfds` is not supporrted&quot;</span>);
+    <span class="macro">assert!</span>(<span class="ident">exceptfds</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>, <span class="string">&quot;`exceptfds` is not supporrted&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">readfds_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">readfds</span>) <span class="kw">as</span> <span class="kw">_</span>;
-    <span class="kw">let</span> <span class="ident">writefds_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">writefds</span>) <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">readfds_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">readfds</span>) <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">writefds_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">writefds</span>) <span class="kw">as</span> <span class="kw">_</span>;
 
     <span class="kw">unsafe</span> { <span class="ident">select</span>(<span class="ident">nfds</span>, <span class="ident">readfds_ptr</span>, <span class="ident">writefds_ptr</span>, <span class="number">0</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="number">0</span> <span class="kw">as</span> <span class="kw">_</span>) }
 }
 
 <span class="doccomment">/// fdatasync</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall148</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall148 (fdatasync) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall148 (fdatasync) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
@@ -2120,15 +2120,15 @@
 
 <span class="comment">// setpgid</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall57</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall57 (setpgid) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall57 (setpgid) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">pid</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">pgid</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">setpgid</span>(<span class="ident">pid</span>, <span class="ident">pgid</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; pid: {}, pgid: {} = {}&quot;</span>, <span class="ident">pid</span>, <span class="ident">pgid</span>, <span class="ident">ret</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; pid: {}, pgid: {} = {}&quot;</span>, <span class="ident">pid</span>, <span class="ident">pgid</span>, <span class="ident">ret</span>);
     <span class="kw">if</span> <span class="ident">ret</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error</span>::<span class="ident">last_os_error</span>(),);
+        <span class="macro">debug!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error::last_os_error</span>(),);
     }
     <span class="ident">ret</span>
 }
@@ -2136,18 +2136,18 @@
 <span class="doccomment">/// uname</span>
 <span class="comment">// NOTE: Wondering if we should return custom utsname, like Emscripten.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall122</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall122 (uname) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall122 (uname) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; buf: {}&quot;</span>, <span class="ident">buf</span>);
-    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">utsname</span>;
+    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; buf: {}&quot;</span>, <span class="ident">buf</span>);
+    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">utsname</span>;
     <span class="kw">unsafe</span> { <span class="ident">uname</span>(<span class="ident">buf_addr</span>) }
 }
 
 <span class="doccomment">/// lstat64</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall196</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall196 (lstat64) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall196 (lstat64) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils</span>::<span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">utils::get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -2155,7 +2155,7 @@
     };
     <span class="kw">let</span> <span class="ident">buf_ptr</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stat</span>: <span class="ident">stat</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">zeroed</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stat</span>: <span class="ident">stat</span> <span class="op">=</span> <span class="ident">std::mem::zeroed</span>();
 
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
         <span class="kw">let</span> <span class="ident">stat_ptr</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stat</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">stat</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
@@ -2167,20 +2167,20 @@
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">lstat</span>(<span class="ident">real_path</span>, <span class="ident">stat_ptr</span>);
 
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;ret: {}&quot;</span>, <span class="ident">ret</span>);
+        <span class="macro">debug!</span>(<span class="string">&quot;ret: {}&quot;</span>, <span class="ident">ret</span>);
         <span class="kw">if</span> <span class="ident">ret</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="ident">ret</span>;
         }
-        <span class="ident">utils</span>::<span class="ident">copy_stat_into_wasm</span>(<span class="ident">ctx</span>, <span class="ident">buf_ptr</span>, <span class="kw-2">&amp;</span><span class="ident">stat</span>);
+        <span class="ident">utils::copy_stat_into_wasm</span>(<span class="ident">ctx</span>, <span class="ident">buf_ptr</span>, <span class="kw-2">&amp;</span><span class="ident">stat</span>);
     }
     <span class="number">0</span>
 }
 
 <span class="comment">// getuid</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall199</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall199 (getuid)&quot;</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall199 (getuid)&quot;</span>);
     <span class="kw">let</span> <span class="ident">uid</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">getuid</span>() <span class="kw">as</span> <span class="kw">_</span> };
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;  =&gt; {}&quot;</span>, <span class="ident">uid</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;  =&gt; {}&quot;</span>, <span class="ident">uid</span>);
     <span class="ident">uid</span>
 }
 
@@ -2188,17 +2188,17 @@
 <span class="comment">// dirent structure is</span>
 <span class="comment">// i64, i64, u16 (280), i8, [i8; 256]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall220</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">env</span>::<span class="ident">get_emscripten_data</span>;
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span><span class="ident">::env::get_emscripten_data</span>;
 
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">dirp_addr</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">count</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="macro">debug</span><span class="macro">!</span>(
+    <span class="macro">debug!</span>(
         <span class="string">&quot;emscripten::___syscall220 (getdents) {} {} {}&quot;</span>,
         <span class="ident">fd</span>, <span class="ident">dirp_addr</span>, <span class="ident">count</span>
     );
 
-    <span class="kw">let</span> <span class="ident">dirp</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">dirp_addr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>;
+    <span class="kw">let</span> <span class="ident">dirp</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">dirp_addr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>;
 
     <span class="kw">let</span> <span class="ident">opened_dirs</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">get_emscripten_data</span>(<span class="ident">ctx</span>).<span class="ident">opened_dirs</span>;
 
@@ -2206,7 +2206,7 @@
     <span class="comment">// let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };</span>
     <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">opened_dirs</span>
         .<span class="ident">entry</span>(<span class="ident">fd</span>)
-        .<span class="ident">or_insert_with</span>(<span class="op">|</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">LibcDirWrapper</span>(<span class="ident">libc</span>::<span class="ident">fdopendir</span>(<span class="ident">fd</span>))) });
+        .<span class="ident">or_insert_with</span>(<span class="op">|</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">Box::new</span>(<span class="ident">LibcDirWrapper</span>(<span class="ident">libc::fdopendir</span>(<span class="ident">fd</span>))) });
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pos</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="number">256</span> <span class="op">+</span> <span class="number">12</span>;
@@ -2215,22 +2215,22 @@
         <span class="kw">if</span> <span class="ident">dirent</span>.<span class="ident">is_null</span>() {
             <span class="kw">break</span>;
         }
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>))]</span>
         <span class="kw">unsafe</span> {
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>) <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_ino</span> <span class="kw">as</span> <span class="ident">u32</span>;
         }
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
         <span class="kw">unsafe</span> {
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>) <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_fileno</span> <span class="kw">as</span> <span class="ident">u32</span>;
         }
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
+        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
         <span class="kw">unsafe</span> {
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u32</span>) <span class="op">=</span> <span class="ident">pos</span> <span class="kw">as</span> <span class="ident">u32</span>;
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u16</span>) <span class="op">=</span> <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u16</span>;
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">10</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_type</span>;
-            <span class="kw">let</span> <span class="ident">upper_bound</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">cmp</span>::<span class="ident">min</span>((<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_reclen</span>, <span class="number">255</span>) <span class="kw">as</span> <span class="ident">usize</span>;
+            <span class="kw">let</span> <span class="ident">upper_bound</span> <span class="op">=</span> <span class="ident">std::cmp::min</span>((<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_reclen</span>, <span class="number">255</span>) <span class="kw">as</span> <span class="ident">usize</span>;
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
             <span class="kw">while</span> <span class="ident">i</span> <span class="op">&lt;</span> <span class="ident">upper_bound</span> {
                 <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">11</span> <span class="op">+</span> <span class="ident">i</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_char</span>) <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">dirent</span>).<span class="ident">d_name</span>[<span class="ident">i</span>] <span class="kw">as</span> <span class="ident">c_char</span>;
@@ -2238,9 +2238,9 @@
             }
             <span class="comment">// We set the termination string char</span>
             <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">11</span> <span class="op">+</span> <span class="ident">i</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_char</span>) <span class="op">=</span> <span class="number">0</span> <span class="kw">as</span> <span class="ident">c_char</span>;
-            <span class="macro">debug</span><span class="macro">!</span>(
+            <span class="macro">debug!</span>(
                 <span class="string">&quot;  =&gt; file {}&quot;</span>,
-                <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">11</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>)
+                <span class="ident">CStr::from_ptr</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">11</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>)
                     .<span class="ident">to_str</span>()
                     .<span class="ident">unwrap</span>()
             );
@@ -2252,7 +2252,7 @@
 
 <span class="comment">// fcntl64</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall221</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall221 (fcntl64) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall221 (fcntl64) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">cmd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">arg</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -2261,16 +2261,16 @@
     <span class="comment">// |FFSYNC    - 0x80</span>
     <span class="comment">// |FNONBLOCK - 0x04</span>
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">fcntl</span>(<span class="ident">fd</span>, <span class="ident">cmd</span>, <span class="ident">arg</span>) };
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; fd: {}, cmd: {} = {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">cmd</span>, <span class="ident">ret</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; fd: {}, cmd: {} = {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">cmd</span>, <span class="ident">ret</span>);
     <span class="kw">if</span> <span class="ident">ret</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
-        <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error</span>::<span class="ident">last_os_error</span>(),);
+        <span class="macro">debug!</span>(<span class="string">&quot;=&gt; last os error: {}&quot;</span>, <span class="ident">Error::last_os_error</span>(),);
     }
     <span class="ident">ret</span>
 }
 
 <span class="doccomment">/// fallocate</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall324</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall324 (fallocate) {}&quot;</span>, <span class="ident">_which</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall324 (fallocate) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">_fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_mode</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_offset</span>: <span class="ident">off_t</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -2281,9 +2281,9 @@
     }
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
     {
-        <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___syscall324 (fallocate) {}&quot;</span>, <span class="ident">_which</span>)
+        <span class="macro">unimplemented!</span>(<span class="string">&quot;emscripten::___syscall324 (fallocate) {}&quot;</span>, <span class="ident">_which</span>)
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_emscripten"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_emscripten" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

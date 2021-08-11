@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/trampoline/function_call.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function_call.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/trampoline/function_call.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function_call.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
 <link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_compiler_cranelift/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -142,19 +142,19 @@
 <span class="doccomment">//! let my_func = instance.exports.get(&quot;func&quot;);</span>
 <span class="doccomment">//! my_func.call([1, 2])</span>
 <span class="doccomment">//! ```</span>
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">binemit</span>::<span class="ident">TrampolineRelocSink</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">translator</span>::{
+<span class="kw">use</span> <span class="kw">super</span><span class="ident">::binemit::TrampolineRelocSink</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::translator</span>::{
     <span class="ident">compiled_function_unwind_info</span>, <span class="ident">signature_to_cranelift_ir</span>, <span class="comment">/*transform_jump_table, */</span>
 };
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">ir</span>::<span class="ident">InstBuilder</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>::<span class="ident">TargetIsa</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">print_errors</span>::<span class="ident">pretty_error</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">Context</span>;
+<span class="kw">use</span> <span class="ident">cranelift_codegen::ir::InstBuilder</span>;
+<span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetIsa</span>;
+<span class="kw">use</span> <span class="ident">cranelift_codegen::print_errors::pretty_error</span>;
+<span class="kw">use</span> <span class="ident">cranelift_codegen::Context</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">binemit</span>, <span class="ident">ir</span>};
 <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">FunctionBuilderContext</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">FunctionBody</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">FunctionType</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::FunctionType</span>;
 
 <span class="doccomment">/// Create a trampoline for invoking a WebAssembly function.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">make_trampoline_function_call</span>(
@@ -165,26 +165,26 @@
     <span class="kw">let</span> <span class="ident">pointer_type</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">pointer_type</span>();
     <span class="kw">let</span> <span class="ident">frontend_config</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">frontend_config</span>();
     <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">signature_to_cranelift_ir</span>(<span class="ident">func_type</span>, <span class="ident">frontend_config</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wrapper_sig</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">Signature</span>::<span class="ident">new</span>(<span class="ident">frontend_config</span>.<span class="ident">default_call_conv</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wrapper_sig</span> <span class="op">=</span> <span class="ident">ir::Signature::new</span>(<span class="ident">frontend_config</span>.<span class="ident">default_call_conv</span>);
 
     <span class="comment">// Add the callee `vmctx` parameter.</span>
-    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir</span>::<span class="ident">AbiParam</span>::<span class="ident">special</span>(
+    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir::AbiParam::special</span>(
         <span class="ident">pointer_type</span>,
-        <span class="ident">ir</span>::<span class="ident">ArgumentPurpose</span>::<span class="ident">VMContext</span>,
+        <span class="ident">ir::ArgumentPurpose::VMContext</span>,
     ));
 
     <span class="comment">// Add the `callee_address` parameter.</span>
-    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir</span>::<span class="ident">AbiParam</span>::<span class="ident">new</span>(<span class="ident">pointer_type</span>));
+    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir::AbiParam::new</span>(<span class="ident">pointer_type</span>));
 
     <span class="comment">// Add the `values_vec` parameter.</span>
-    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir</span>::<span class="ident">AbiParam</span>::<span class="ident">new</span>(<span class="ident">pointer_type</span>));
+    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir::AbiParam::new</span>(<span class="ident">pointer_type</span>));
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">Context</span>::<span class="ident">new</span>();
-    <span class="ident">context</span>.<span class="ident">func</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">Function</span>::<span class="ident">with_name_signature</span>(<span class="ident">ir</span>::<span class="ident">ExternalName</span>::<span class="ident">user</span>(<span class="number">0</span>, <span class="number">0</span>), <span class="ident">wrapper_sig</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">Context::new</span>();
+    <span class="ident">context</span>.<span class="ident">func</span> <span class="op">=</span> <span class="ident">ir::Function::with_name_signature</span>(<span class="ident">ir::ExternalName::user</span>(<span class="number">0</span>, <span class="number">0</span>), <span class="ident">wrapper_sig</span>);
 
-    <span class="kw">let</span> <span class="ident">value_size</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span>();
+    <span class="kw">let</span> <span class="ident">value_size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span>();
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">FunctionBuilder</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">context</span>.<span class="ident">func</span>, <span class="ident">fn_builder_ctx</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">FunctionBuilder::new</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">context</span>.<span class="ident">func</span>, <span class="ident">fn_builder_ctx</span>);
         <span class="kw">let</span> <span class="ident">block0</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
 
         <span class="ident">builder</span>.<span class="ident">append_block_params_for_function_params</span>(<span class="ident">block0</span>);
@@ -197,7 +197,7 @@
         };
 
         <span class="comment">// Load the argument values out of `values_vec`.</span>
-        <span class="kw">let</span> <span class="ident">mflags</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">MemFlags</span>::<span class="ident">trusted</span>();
+        <span class="kw">let</span> <span class="ident">mflags</span> <span class="op">=</span> <span class="ident">ir::MemFlags::trusted</span>();
         <span class="kw">let</span> <span class="ident">callee_args</span> <span class="op">=</span> <span class="ident">signature</span>
             .<span class="ident">params</span>
             .<span class="ident">iter</span>()
@@ -228,7 +228,7 @@
         <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">inst_results</span>(<span class="ident">call</span>).<span class="ident">to_vec</span>();
 
         <span class="comment">// Store the return values into `values_vec`.</span>
-        <span class="kw">let</span> <span class="ident">mflags</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">MemFlags</span>::<span class="ident">trusted</span>();
+        <span class="kw">let</span> <span class="ident">mflags</span> <span class="op">=</span> <span class="ident">ir::MemFlags::trusted</span>();
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">r</span>) <span class="kw">in</span> <span class="ident">results</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="ident">builder</span>
                 .<span class="ident">ins</span>()
@@ -239,10 +239,10 @@
         <span class="ident">builder</span>.<span class="ident">finalize</span>()
     }
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code_buf</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code_buf</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reloc_sink</span> <span class="op">=</span> <span class="ident">TrampolineRelocSink</span> {};
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trap_sink</span> <span class="op">=</span> <span class="ident">binemit</span>::<span class="ident">NullTrapSink</span> {};
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stackmap_sink</span> <span class="op">=</span> <span class="ident">binemit</span>::<span class="ident">NullStackMapSink</span> {};
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trap_sink</span> <span class="op">=</span> <span class="ident">binemit::NullTrapSink</span> {};
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stackmap_sink</span> <span class="op">=</span> <span class="ident">binemit::NullStackMapSink</span> {};
 
     <span class="ident">context</span>
         .<span class="ident">compile_and_emit</span>(
@@ -252,7 +252,7 @@
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">trap_sink</span>,
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stackmap_sink</span>,
         )
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="ident">pretty_error</span>(<span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>, <span class="prelude-val">Some</span>(<span class="ident">isa</span>), <span class="ident">error</span>)))<span class="question-mark">?</span>;
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">pretty_error</span>(<span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>, <span class="prelude-val">Some</span>(<span class="ident">isa</span>), <span class="ident">error</span>)))<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">unwind_info</span> <span class="op">=</span> <span class="ident">compiled_function_unwind_info</span>(<span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>)<span class="question-mark">?</span>.<span class="ident">maybe_into_to_windows_unwind</span>();
 
@@ -263,5 +263,5 @@
     })
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>
