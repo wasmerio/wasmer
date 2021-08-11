@@ -64,7 +64,6 @@ use wasmer_engine_dylib::Dylib;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First step, let's compile the Wasm module and serialize it.
     // Note: we need a compiler here.
-    let mut dylib_file = Path::new("./sum.dylib");
     let serialized_module_file = {
         // Let's declare the Wasm module with the text representation.
         let wasm_bytes = wat2wasm(
@@ -101,11 +100,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Compiling module...");
         // Let's compile the Wasm module.
         let module = Module::new(&store, wasm_bytes)?;
-
-        println!("Serializing module...");
         // Here we go. Let's serialize the compiled Wasm module in a
         // file.
+        println!("Serializing module...");
+        let mut dylib_file = Path::new("./sum.dylib");
         module.serialize_to_file(dylib_file)?;
+        dylib_file
     };
 
     // Second step, deserialize the compiled Wasm module, and execute
@@ -150,6 +150,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 #[cfg(not(any(windows, target_arch = "aarch64", target_env = "musl")))]
-fn test_engine_headless() -> Result<(), Box<dyn std::error::Error>> {
+fn test_engine_headless_ios() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }
