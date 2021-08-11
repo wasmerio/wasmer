@@ -16,7 +16,7 @@ wasmer-types = { path = "../types", version = "2.0.0", default-features = false 
 wasmparser = { version = "0.78", optional = true, default-features = false }
 target-lexicon = { version = "0.12", default-features = false }
 enumset = "1.0"
-hashbrown = { version = "0.9", optional = true }
+hashbrown = { version = "0.11", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
