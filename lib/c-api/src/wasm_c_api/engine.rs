@@ -23,7 +23,6 @@ use wasmer_engine_universal::Universal;
 ///
 /// This is a Wasmer-specific type with Wasmer-specific functions for
 /// manipulating it.
-#[cfg(feature = "compiler")]
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub enum wasmer_compiler_t {

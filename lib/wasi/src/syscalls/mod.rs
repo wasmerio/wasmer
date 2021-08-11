@@ -8,7 +8,7 @@ pub mod types {
     target_os = "freebsd",
     target_os = "linux",
     target_os = "android",
-    target_os = "macos"
+    target_vendor = "apple"
 ))]
 pub mod unix;
 #[cfg(any(target_os = "windows"))]
@@ -36,7 +36,7 @@ use wasmer::{Memory, RuntimeError, Value, WasmCell};
     target_os = "freebsd",
     target_os = "linux",
     target_os = "android",
-    target_os = "macos"
+    target_vendor = "apple"
 ))]
 pub use unix::*;
 
