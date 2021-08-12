@@ -177,8 +177,8 @@ path = "examples/engine_headless.rs"
 required-features = ["cranelift"]
 
 [[example]]
-name = "engine-headless-ios"
-path = "examples/engine_headless_ios.rs"
+name = "platform-headless-ios"
+path = "examples/platform_ios_headless.rs"
 required-features = ["cranelift"]
 
 [[example]]
