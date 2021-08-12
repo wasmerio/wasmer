@@ -809,7 +809,17 @@ impl Artifact for DylibArtifact {
         let serialized = self.serialize()?;
         std::fs::write(&path, serialized)?;
 
-        // Rename .dylib identifier to avoid linking issues
+        /*
+        When you write the artifact to a new file it still has the 'Mach-O Identifier'
+        of the original file, and so this can causes linker issues when adding
+        the new file to an XCode project.
+
+        The below code renames the ID of the file so that it references itself through
+        an @executable_path prefix. Basically it tells XCode to find this file
+        inside of the projects' list of 'linked executables'.
+
+        You need to be running MacOS for the following to actually work though.
+        */
         if path.extension().unwrap() == "dylib" {
             let filename = path.file_name().unwrap().to_str().unwrap();
             let parent_dir = path.parent().unwrap();
