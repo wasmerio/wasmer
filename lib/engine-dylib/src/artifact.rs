@@ -793,4 +793,29 @@ impl Artifact for DylibArtifact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.dylib_path)?)
     }
+
+    /// Serialize a `DylibArtifact` to a portable file
+    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        std::fs::write(&path, serialized)?;
+
+        // Rename .dylib identifier to avoid linking issues
+        if path.extension().unwrap() == "dylib" {
+            let filename = path.file_name().unwrap();
+            let parent_dir = path.parent().unwrap();
+            let absolute_path = std::fs::canonicalize(&parent_dir)
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+
+            Command::new("install_name_tool")
+                .arg("-id")
+                .arg(&filename)
+                .arg(&filename)
+                .current_dir(&absolute_path);
+        }
+
+        Ok(())
+    }
 }
