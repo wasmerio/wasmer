@@ -292,8 +292,9 @@ impl DylibArtifact {
         };
 
         // Set 'isysroot' clang flag if compiling to iOS target
+        let ios_compile_target = target_triple.operating_system == OperatingSystem::Ios;
         let ios_sdk_flag = {
-            if target_triple.operating_system == OperatingSystem::Ios {
+            if ios_compile_target {
                 "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
             } else {
                 ""
@@ -303,7 +304,7 @@ impl DylibArtifact {
         // Get the location of the 'ld' linker for clang
         let fuse_linker = {
             let ld_install = which::which("ld");
-            if ld_install.is_ok() {
+            if ios_compile_target && ld_install.is_ok() {
                 ld_install.unwrap().into_os_string().into_string().unwrap()
             } else {
                 "ld".to_string()
