@@ -809,7 +809,7 @@ impl Artifact for DylibArtifact {
 
         // Rename .dylib identifier to avoid linking issues
         if path.extension().unwrap() == "dylib" {
-            let filename = path.file_name().unwrap();
+            let filename = path.file_name().unwrap().to_str().unwrap();
             let parent_dir = path.parent().unwrap();
             let absolute_path = std::fs::canonicalize(&parent_dir)
                 .unwrap()
@@ -819,10 +819,10 @@ impl Artifact for DylibArtifact {
 
             Command::new("install_name_tool")
                 .arg("-id")
-                .arg(format!("@executable_path/{:?}", &filename))
+                .arg(format!("@executable_path/{}", &filename))
                 .arg(&filename)
                 .current_dir(&absolute_path)
-                .output();
+                .output()?;
         }
 
         Ok(())
