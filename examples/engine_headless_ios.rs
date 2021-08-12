@@ -58,7 +58,6 @@ use wasmer::Store;
 use wasmer::Value;
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_compiler_llvm::LLVM;
 use wasmer_engine_dylib::Dylib;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -79,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_bytes(),
         )?;
 
-        let compiler_config = LLVM::default();
+        let compiler_config = Cranelift::default();
         let triple = Triple::from_str("aarch64-apple-ios")
             .map_err(|error| RuntimeError::new(error.to_string()))?;
 
@@ -107,43 +106,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         module.serialize_to_file(dylib_file)?;
         dylib_file
     };
-
-    // Second step, deserialize the compiled Wasm module, and execute
-    // it, for example with Wasmer without a compiler.
-    {
-        println!("Creating headless Dylib engine...");
-        // We create a headless Dylib engine.
-        let engine = Dylib::headless().engine();
-        let store = Store::new(&engine);
-
-        println!("Deserializing module...");
-        // Here we go.
-        //
-        // Deserialize the compiled Wasm module. This code is unsafe
-        // because Wasmer can't assert the bytes are valid (see the
-        // `wasmer::Module::deserialize`'s documentation to learn
-        // more).
-        let module = unsafe { Module::deserialize_from_file(&store, dylib_file) }?;
-        println!("Done...");
-        // Congrats, the Wasm module has been deserialized! Now let's
-        // execute it for the sake of having a complete example.
-
-        // Create an import object. Since our Wasm module didn't declare
-        // any imports, it's an empty object.
-        let import_object = imports! {};
-
-        // println!("Instantiating module...");
-        // Let's instantiate the Wasm module.
-        // let instance = Instance::new(&module, &import_object)?;
-
-        // println!("Calling `sum` function...");
-        // The Wasm module exports a function called `sum`.
-        // let sum = instance.exports.get_function("sum")?;
-        // let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
-
-        // println!("Results: {:?}", results);
-        // assert_eq!(results.to_vec(), vec![Value::I32(3)]);
-    }
 
     Ok(())
 }

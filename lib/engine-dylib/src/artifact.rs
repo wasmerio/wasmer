@@ -291,12 +291,32 @@ impl DylibArtifact {
             }
         };
 
+        // Set 'isysroot' clang flag if compiling to iOS target
+        let ios_sdk_flag = {
+            if target_triple.operating_system == OperatingSystem::Ios {
+                "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+            } else {
+                ""
+            }
+        };
+
+        // Get the location of the 'ld' linker for clang
+        let fuse_linker = {
+            let ld_install = which::which("ld");
+            if ld_install.is_ok() {
+                ld_install.unwrap().into_os_string().into_string().unwrap()
+            } else {
+                "ld".to_string()
+            }
+        };
+
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple_str),
-                "-fuse-ld=lld".to_string(),
+                format!("-fuse-ld={}", fuse_linker),
                 "-nodefaultlibs".to_string(),
                 "-nostdlib".to_string(),
+                ios_sdk_flag.to_string(),
             ]
         } else {
             // We are explicit on the target when the host system is
