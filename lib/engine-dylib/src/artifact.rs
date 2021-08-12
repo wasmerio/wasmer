@@ -819,9 +819,10 @@ impl Artifact for DylibArtifact {
 
             Command::new("install_name_tool")
                 .arg("-id")
+                .arg(format!("@executable_path/{:?}", &filename))
                 .arg(&filename)
-                .arg(&filename)
-                .current_dir(&absolute_path);
+                .current_dir(&absolute_path)
+                .output();
         }
 
         Ok(())
