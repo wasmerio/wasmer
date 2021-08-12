@@ -71,7 +71,7 @@ i32.add)
 }
 
 #[test]
-#[cfg(not(any(windows, target_env = "musl")))]
+#[cfg(target_os = "macos")]
 fn test_engine_headless_ios() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }
