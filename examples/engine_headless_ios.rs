@@ -78,15 +78,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_bytes(),
         )?;
 
+        // Create a compiler for iOS
         let compiler_config = Cranelift::default();
         let triple = Triple::from_str("aarch64-apple-ios")
             .map_err(|error| RuntimeError::new(error.to_string()))?;
 
-        // Let's define a CPU feature.
-        let mut cpu_feature = CpuFeature::set();
-        cpu_feature.insert(CpuFeature::from_str("sse2")?);
-
         // Let's build the target.
+        let mut cpu_feature = CpuFeature::set();
         let target = Target::new(triple, cpu_feature);
         println!("Chosen target: {:?}", target);
 
@@ -111,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-#[cfg(not(any(windows, target_arch = "aarch64", target_env = "musl")))]
+#[cfg(not(any(windows, target_env = "musl")))]
 fn test_engine_headless_ios() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }
