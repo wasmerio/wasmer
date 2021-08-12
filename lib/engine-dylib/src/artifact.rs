@@ -65,7 +65,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
 impl DylibArtifact {
-    // Mach-O header in Mac
+    // Mach-O header in iOS/Mac
     #[allow(dead_code)]
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
 
@@ -87,7 +87,7 @@ impl DylibArtifact {
     /// system.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         cfg_if::cfg_if! {
-            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
+            if #[cfg(all(target_pointer_width = "64", target_vendor="apple"))] {
                 bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64)
             }
             else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
@@ -795,6 +795,7 @@ impl Artifact for DylibArtifact {
     }
 
     /// Serialize a `DylibArtifact` to a portable file
+    #[cfg(feature = "compiler")]
     fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
         std::fs::write(&path, serialized)?;
