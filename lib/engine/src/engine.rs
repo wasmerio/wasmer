@@ -40,6 +40,9 @@ pub trait Engine: MemoryUsage {
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError>;
 
+    /// If this engine needs to install POSIX signal handlers.
+    fn use_signals(&self) -> bool;
+
     /// Deserializes a WebAssembly module
     ///
     /// # Safety

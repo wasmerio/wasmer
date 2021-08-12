@@ -109,6 +109,8 @@ impl DylibEngine {
 }
 
 impl Engine for DylibEngine {
+    fn use_signals(&self) -> bool { true }
+
     /// The target
     fn target(&self) -> &Target {
         &self.target

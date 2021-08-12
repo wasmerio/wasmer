@@ -53,6 +53,8 @@ impl DummyEngine {
 }
 
 impl Engine for DummyEngine {
+    fn use_signals(&self) -> bool { true }
+
     /// Get the tunables
     fn target(&self) -> &Target {
         &self.target

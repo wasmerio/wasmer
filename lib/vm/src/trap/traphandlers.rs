@@ -13,7 +13,6 @@ use std::error::Error;
 use std::io;
 use std::mem::{self, MaybeUninit};
 use std::ptr;
-use std::sync::Once;
 pub use tls::TlsRestore;
 
 cfg_if::cfg_if! {
@@ -372,6 +371,9 @@ cfg_if::cfg_if! {
 /// `wasmer` currently.
 static mut IS_WASM_PC: fn(usize) -> bool = |_| false;
 
+/// If signal handlers installed.
+static mut HANDLERS_INSTALLED: bool = false;
+
 /// This function is required to be called before any WebAssembly is entered.
 /// This will configure global state such as signal handlers to prepare the
 /// process to receive wasm traps.
@@ -385,12 +387,14 @@ static mut IS_WASM_PC: fn(usize) -> bool = |_| false;
 /// program counter is the pc of an actual wasm trap or not. This is then used
 /// to disambiguate faults that happen due to wasm and faults that happen due to
 /// bugs in Rust or elsewhere.
-pub fn init_traps(is_wasm_pc: fn(usize) -> bool) {
-    static INIT: Once = Once::new();
-    INIT.call_once(|| unsafe {
+pub fn init_traps(is_wasm_pc: fn(usize) -> bool, install_handlers: bool) {
+    unsafe {
         IS_WASM_PC = is_wasm_pc;
-        platform_init();
-    });
+        if !HANDLERS_INSTALLED && install_handlers {
+            platform_init();
+            HANDLERS_INSTALLED = true;
+        }
+    }
 }
 
 /// Raises a user-defined trap immediately.

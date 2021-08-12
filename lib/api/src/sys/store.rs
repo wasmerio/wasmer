@@ -48,7 +48,7 @@ impl Store {
     {
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
-        init_traps(is_wasm_pc);
+        init_traps(is_wasm_pc, engine.use_signals());
 
         Self {
             engine: engine.cloned(),

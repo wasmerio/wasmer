@@ -337,20 +337,14 @@ impl<'a> FuncGen<'a> {
             Machine::get_param_location(1),
         );
         // Align stack.
-        // TODO: emit saner asm.
         self.assembler.emit_and(
             Size::S64,
             Location::Imm32(0xfffffff0),
             Location::GPR(GPR::RSP),
         );
-        self.assembler.emit_sub(
-            Size::S64,
-            Location::Imm32(8),
-            Location::GPR(GPR::RSP)
-        );
         let offset = self.vmoffsets.vmctx_trap_handler();
         self.assembler
-            .emit_jmp_location(Location::Memory(Machine::get_vmctx_reg(), offset as i32));
+            .emit_call_location(Location::Memory(Machine::get_vmctx_reg(), offset as i32));
     }
 
     /// Canonicalizes the floating point value at `input` into `output`.

@@ -120,6 +120,9 @@ pub trait Compiler: Send + MemoryUsage {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError>;
 
+    /// If signal handlers are required.
+    fn use_signals(&self) -> bool;
+
     /// Compiles a module into a native object file.
     ///
     /// It returns the bytes as a `&[u8]` or a [`CompileError`].
