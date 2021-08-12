@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer Logo">
   </a>
 
   <p>
@@ -8,40 +8,40 @@
       <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="Lizenz">
     </a>
     <a href="https://docs.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
+      <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Doku">
     </a>
     <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20us!&color=brighgreen" alt="Slack channel">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=teilnehmen&color=brighgreen" alt="Slack Kanal">
     </a>
   </p>
 </div>
 
 <br />
 
-Wasmer is a _fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables super
-_lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* and *IoT* devices.
+Wasmer ist eine _schnelle_ und _sichere_ [**WebAssembly**](https://webassembly.org) Runtime, die das Ausführen von
+_schlanken Containern_ überall ermöglicht: auf dem *Desktop* in der *Cloud*, so wie auf *Edge* und *IoT* Geräten.
 
-> _This document is also available in:
-[🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
-[🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • 
-[🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
-[🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
-[🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
+> _Die README ist auch in folgenden Sprachen verfügbar:
+[🇨🇳 中文-Chinesisch](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
+[🇬🇧 English-Englisch](https://github.com/wasmerio/wasmer/blob/master/README.md) •
+[🇪🇸 Español-Spanisch](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
+[🇫🇷 Français-Französisch](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
+[🇯🇵 日本語-Japanisch](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
 
-### Features
+### Leistungsmerkmale
 
-* Secure by default. No file, network, or environment access, unless explicitly enabled.
-* Supports [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
-* Fast. Run WebAssembly at near-native speeds.
-* Embeddable in [multiple programming languages](https://github.com/wasmerio/wasmer/#-language-integrations)
-* Compliant with latest WebAssembly Proposals (SIMD, Reference Types, Threads, ...)
+* Standardmäßig sicher. Kein Datei-, Netzwerk- oder Umgebungszugriff, sofern nicht explizit aktiviert.
+* Unterstützt [WASI](https://github.com/WebAssembly/WASI) und [Emscripten](https://emscripten.org/) standardmäßig.
+* Schnell. Führt WebAssembly in nahezu nativer Geschwindigkeit aus.
+* Einbettbar in [mehrere Programmiersprachen](https://github.com/wasmerio/wasmer/#-language-integrations)
+* Kompatibel mit den neuesten Empfehlungen für WebAssembly (SIMD, Referenztypen, Threads, ...)
 
-### Install
+### Installation
 
-Wasmer CLI ships as a single executable with no dependencies.
+Wasmer CLI wird als eine einzige ausführbare Datei ohne Abhängigkeiten ausgeliefert.
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
@@ -49,9 +49,9 @@ curl https://get.wasmer.io -sSfL | sh
 
 
 <details>
-  <summary>Other installation options (Powershell, Brew, Cargo, ...)</summary>
+  <summary>Weitere Installationsmöglichkeiten (Powershell, Brew, Cargo, ...)</summary>
   
-  _Wasmer can be installed from various package managers. Choose the one that fits best for your environment:_
+  _Wasmer kann über verschiedene Paketmanager installiert werden. Wählen Sie den für Ihre Umgebung am besten geeigneten aus:_
   
   * Powershell (Windows)
     ```powershell
@@ -86,16 +86,15 @@ curl https://get.wasmer.io -sSfL | sh
     cargo install wasmer-cli
     ```
 
-  > Looking for more installation options? See [the `wasmer-install`
-  repository](https://github.com/wasmerio/wasmer-install) to learn
-  more!
+  > Suchen Sie nach weiteren Installationsmöglichkeiten? Im [`wasmer-install`
+  Repository](https://github.com/wasmerio/wasmer-install) können Si mehr erfahren!
 </details>
 
-### Quickstart
+### Schnellstart
 
-You can start by running
-[QuickJS](https://github.com/bellard/quickjs/), a small and
-embeddable Javascript engine compiled as a WebAssembly module ([`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)):
+Sie können beginnen,
+[QuickJS](https://github.com/bellard/quickjs/) auszuführen, eine kleine und
+einbettbare Javascript Engine, die als WebAssembly Modul kompiliert ist: ([`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)):
 
 ```bash
 $ wasmer qjs.wasm
@@ -105,37 +104,37 @@ qjs > console.log("hello " + i);
 hello 3
 ```
 
-#### Here is what you can do next:
+#### Folgendes können Sie als nächstes tun:
 
-- [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
-- [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
-- [Read more about Wasmer](https://medium.com/wasmer/)
+- [Wasmer für eine Rust Anwendung nutzen](https://docs.wasmer.io/integrations/rust)
+- [Ein asm Paket auf WAPM veröffentlichen](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
+- [Mehr zu Wasmer lesen](https://medium.com/wasmer/)
 
-## 📦 Language Integrations
+## 📦 Unterstützte Sprachen
 
-The Wasmer runtime can be used as a library **embedded in different
-languages**, so you can use WebAssembly _anywhere_.
+Die Wasmer-Laufzeit kann als Bibliothek **eingebettet in verschiedenen
+Sprachen** verwendet werden, so dass Sie WebAssembly _überall_ einsetzen können.
 
-| | Language | Package | Documentation |
+| | Sprache | Paket | Dokumentation |
 |-|-|-|-|
-| ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Learn][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` header] | [Learn][c docs] |
-| ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Learn][c# docs] |
-| ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Learn][d docs] |
-| ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Learn][python docs] |
-| ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [Learn][js docs] |
-| ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [Learn][go docs] |
-| ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [Learn][php docs] |
-| ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Learn][ruby docs] |
-| ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Learn][java docs] |
-| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Learn][elixir docs] |
-| ![R logo] | [**R**][R integration] | *no published package* | [Learn][r docs] |
-| ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Learn][postgres docs] |
-|  | [**Swift**][Swift integration] | *no published package* | |
-| ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
-| ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
+| ![Rust logo] | [**Rust**][Rust Integration] | [`wasmer` Rust crate] | [Lernen][rust docs]
+| ![C logo] | [**C/C++**][C Integration] | [`wasmer.h` header] | [Lernen][c docs] |
+| ![C# logo] | [**C#**][C# Integration] | [`WasmerSharp` NuGet Paket] | [Lernen][c# docs] |
+| ![D logo] | [**D**][D Integration] | [`wasmer` Dub Paket] | [Lernen][d docs] |
+| ![Python logo] | [**Python**][Python Integration] | [`wasmer` PyPI Paket] | [Lernen][python docs] |
+| ![JS logo] | [**Javascript**][JS Integration] | [`@wasmerio` NPM Paket] | [Lernen][js docs] |
+| ![Go logo] | [**Go**][Go Integration] | [`wasmer` Go Paket] | [Lernen][go docs] |
+| ![PHP logo] | [**PHP**][PHP Integration] | [`wasm` PECL Paket] | [Lernen][php docs] |
+| ![Ruby logo] | [**Ruby**][Ruby Integration] | [`wasmer` Ruby Gem] | [Lernen][ruby docs] |
+| ![Java logo] | [**Java**][Java Integration] | [`wasmer/wasmer-jni` Bintray Paket] | [Lernen][java docs] |
+| ![Elixir logo] | [**Elixir**][Elixir Integration] | [`wasmex` hex Paket] | [Lernen][elixir docs] |
+| ![R logo] | [**R**][R Integration] | *kein Paket veröffentlicht* | [Lernen][r docs] |
+| ![Postgres logo] | [**Postgres**][Postgres Integration] | *kein Paket veröffentlicht* | [Lernen][postgres docs] |
+|  | [**Swift**][Swift Integration] | *kein Paket veröffentlicht* | |
+| ![Zig logo] | [**Zig**][Zig Integration] | *kein Paket veröffentlicht* | |
+| ![Dart logo] | [**Dart**][Dart Integration] | [`wasm` pub Paket] | |
 
-[👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
+[👋&nbsp;&nbsp;Fehlt eine Sprache?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
@@ -209,18 +208,18 @@ languages**, so you can use WebAssembly _anywhere_.
 [dart integration]: https://github.com/dart-lang/wasm
 [`wasm` pub package]: https://pub.dev/packages/wasm
 
-## Contribute
+## Unterstützen
 
-We appreciate your help! 💜
+Wir sind dankbar für Ihre Hilfe! 💜
 
-Check our docs on how to [build Wasmer from
-source](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) or [test your changes](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
+Lesen Sie in unserer Dokumentation nach, wie man [Wasmer aus dem
+Quellcode kompiliert](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) oder [testen Sie Änderungen](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 
 ## Community
 
-Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋
+Wasmer hat eine wunderbare Community von Entwicklern und Mitwirkenden. Sie sind herzlich willkommen, bitte machen Sie mit! 👋
 
-- [Wasmer Community Slack](https://slack.wasmer.io/)
-- [Wasmer on Twitter](https://twitter.com/wasmerio)
-- [Wasmer on Facebook](https://www.facebook.com/wasmerio)
+- [Wasmer Community auf Slack](https://slack.wasmer.io/)
+- [Wasmer auf Twitter](https://twitter.com/wasmerio)
+- [Wasmer auf Facebook](https://www.facebook.com/wasmerio)
 - [Email](mailto:hello@wasmer.io)

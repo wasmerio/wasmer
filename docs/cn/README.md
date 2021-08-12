@@ -29,7 +29,7 @@
 
 [Wasmer](https://wasmer.io/) 提供基于 [WebAssembly](https://webassembly.org/) 的超轻量级容器，其可以在任何地方运行：从桌面到云、以及 IoT 设备，并且能也嵌入在 [*任何编程语言*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> 其他语言的 Readme: [🇬🇧 English-英文](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-西班牙语](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français-法语](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • [🇯🇵 日本語-日文](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md).
+> 其他语言的 Readme: [🇩🇪 Deutsch-德語](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • [🇬🇧 English-英文](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-西班牙语](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français-法语](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • [🇯🇵 日本語-日文](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md).
 
 ## 特性
 

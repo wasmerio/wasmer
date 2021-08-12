@@ -35,6 +35,8 @@ cranelift  multi_value_imports::dylib
 singlepass multi_value_imports::dylib
 singlepass multi_value_imports::dynamic
 
+# Memory load doesn't trap as expected when out out bounds in Windows
+windows+cranelift spec::memory_grow
 
 # LLVM/Universal doesn't work in macOS M1. Skip all tests
 llvm+universal+macos+aarch64 *

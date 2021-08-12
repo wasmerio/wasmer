@@ -522,13 +522,26 @@ impl Function {
     /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
+        // If it's a function defined in the Wasm, it will always have a call_trampoline
         if let Some(trampoline) = self.exported.vm_function.call_trampoline {
             let mut results = vec![Val::null(); self.result_arity()];
             self.call_wasm(trampoline, params, &mut results)?;
             return Ok(results.into_boxed_slice());
         }
 
-        unimplemented!("The function definition isn't supported for the moment");
+        // If it's a function defined in the host
+        match self.exported.vm_function.kind {
+            VMFunctionKind::Dynamic => unsafe {
+                type VMContextWithEnv = VMDynamicFunctionContext<DynamicFunction<std::ffi::c_void>>;
+                let ctx = self.exported.vm_function.vmctx.host_env as *mut VMContextWithEnv;
+                Ok((*ctx).ctx.call(&params)?.into_boxed_slice())
+            },
+            VMFunctionKind::Static => {
+                unimplemented!(
+                    "Native function definitions can't be directly called from the host yet"
+                );
+            }
+        }
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {
