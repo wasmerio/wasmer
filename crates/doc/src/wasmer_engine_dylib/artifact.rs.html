@@ -777,6 +777,14 @@
 <span id="774">774</span>
 <span id="775">775</span>
 <span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
@@ -786,7 +794,7 @@
 <span class="kw">use</span> <span class="ident">libloading</span>::{<span class="ident">Library</span>, <span class="ident">Symbol</span> <span class="kw">as</span> <span class="ident">LibrarySymbol</span>};
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::error::Error</span>;
-<span class="kw">use</span> <span class="ident">std::fs::File</span>;
+<span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="self">self</span>, <span class="ident">File</span>};
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Read</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
@@ -839,7 +847,7 @@
 }
 
 <span class="kw">fn</span> <span class="ident">to_compile_error</span>(<span class="ident">err</span>: <span class="kw">impl</span> <span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CompileError</span> {
-    <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>))
+    <span class="ident">CompileError::Codegen</span>(<span class="ident">err</span>.<span class="ident">to_string</span>())
 }
 
 <span class="kw">const</span> <span class="ident">WASMER_METADATA_SYMBOL</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="string">b&quot;WASMER_METADATA&quot;</span>;
@@ -1046,7 +1054,7 @@
             }
         };
 
-        <span class="kw">let</span> <span class="ident">shared_filepath</span> <span class="op">=</span> {
+        <span class="kw">let</span> <span class="ident">output_filepath</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="ident">suffix</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;.{}&quot;</span>, <span class="self">Self</span><span class="ident">::get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>));
             <span class="kw">let</span> <span class="ident">shared_file</span> <span class="op">=</span> <span class="ident">tempfile::Builder::new</span>()
                 .<span class="ident">prefix</span>(<span class="string">&quot;wasmer_dylib_&quot;</span>)
@@ -1102,14 +1110,20 @@
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">linker</span>)
             .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">filepath</span>)
             .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
-            .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">shared_filepath</span>)
+            .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">output_filepath</span>)
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">target_args</span>)
             <span class="comment">// .args(&amp;wasmer_symbols)</span>
             .<span class="ident">arg</span>(<span class="string">&quot;-shared&quot;</span>)
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">cross_compiling_args</span>)
             .<span class="ident">arg</span>(<span class="string">&quot;-v&quot;</span>)
             .<span class="ident">output</span>()
-            .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+            .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>);
+
+        <span class="kw">if</span> <span class="ident">fs::metadata</span>(<span class="kw-2">&amp;</span><span class="ident">filepath</span>).<span class="ident">is_ok</span>() {
+            <span class="ident">fs::remove_file</span>(<span class="ident">filepath</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">output</span><span class="question-mark">?</span>;
 
         <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
@@ -1118,12 +1132,14 @@
                 <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>).<span class="ident">trim_end</span>()
             )));
         }
+
         <span class="macro">trace!</span>(<span class="string">&quot;gcc command result {:?}&quot;</span>, <span class="ident">output</span>);
+
         <span class="kw">if</span> <span class="ident">is_cross_compiling</span> {
-            <span class="self">Self</span><span class="ident">::from_parts_crosscompiled</span>(<span class="ident">metadata</span>, <span class="ident">shared_filepath</span>)
+            <span class="self">Self</span><span class="ident">::from_parts_crosscompiled</span>(<span class="ident">metadata</span>, <span class="ident">output_filepath</span>)
         } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">lib</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Library::new</span>(<span class="kw-2">&amp;</span><span class="ident">shared_filepath</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span> };
-            <span class="self">Self</span><span class="ident">::from_parts</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">engine_inner</span>, <span class="ident">metadata</span>, <span class="ident">shared_filepath</span>, <span class="ident">lib</span>)
+            <span class="kw">let</span> <span class="ident">lib</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Library::new</span>(<span class="kw-2">&amp;</span><span class="ident">output_filepath</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span> };
+            <span class="self">Self</span><span class="ident">::from_parts</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">engine_inner</span>, <span class="ident">metadata</span>, <span class="ident">output_filepath</span>, <span class="ident">lib</span>)
         }
     }
 
