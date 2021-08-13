@@ -40,6 +40,7 @@ impl FileSystem for HostFileSystem {
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         fs::remove_file(path).map_err(Into::into)
     }
+
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(Box::new(HostFileOpener))
     }
