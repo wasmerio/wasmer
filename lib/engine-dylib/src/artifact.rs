@@ -6,7 +6,7 @@ use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata};
 use libloading::{Library, Symbol as LibrarySymbol};
 use loupe::MemoryUsage;
 use std::error::Error;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 #[cfg(feature = "compiler")]
@@ -59,7 +59,7 @@ pub struct DylibArtifact {
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
-    CompileError::Codegen(format!("{}", err))
+    CompileError::Codegen(err.to_string())
 }
 
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
@@ -266,7 +266,7 @@ impl DylibArtifact {
             }
         };
 
-        let shared_filepath = {
+        let output_filepath = {
             let suffix = format!(".{}", Self::get_default_extension(&target_triple));
             let shared_file = tempfile::Builder::new()
                 .prefix("wasmer_dylib_")
@@ -322,14 +322,20 @@ impl DylibArtifact {
         let output = Command::new(linker)
             .arg(&filepath)
             .arg("-o")
-            .arg(&shared_filepath)
+            .arg(&output_filepath)
             .args(&target_args)
             // .args(&wasmer_symbols)
             .arg("-shared")
             .args(&cross_compiling_args)
             .arg("-v")
             .output()
-            .map_err(to_compile_error)?;
+            .map_err(to_compile_error);
+
+        if fs::metadata(&filepath).is_ok() {
+            fs::remove_file(filepath).map_err(to_compile_error)?;
+        }
+
+        let output = output?;
 
         if !output.status.success() {
             return Err(CompileError::Codegen(format!(
@@ -338,12 +344,14 @@ impl DylibArtifact {
                 String::from_utf8_lossy(&output.stdout).trim_end()
             )));
         }
+
         trace!("gcc command result {:?}", output);
+
         if is_cross_compiling {
-            Self::from_parts_crosscompiled(metadata, shared_filepath)
+            Self::from_parts_crosscompiled(metadata, output_filepath)
         } else {
-            let lib = unsafe { Library::new(&shared_filepath).map_err(to_compile_error)? };
-            Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
+            let lib = unsafe { Library::new(&output_filepath).map_err(to_compile_error)? };
+            Self::from_parts(&mut engine_inner, metadata, output_filepath, lib)
         }
     }
 
