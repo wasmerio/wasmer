@@ -2,7 +2,6 @@ use crate::address_map::get_function_address_map;
 use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
 use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
-use std::collections::BTreeMap;
 use std::iter;
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
@@ -10,7 +9,7 @@ use wasmer_compiler::wasmparser::{
 use wasmer_compiler::{
     CompiledFunction, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
     FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SectionIndex, SourceLoc, TrapInformation,
+    RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
@@ -73,9 +72,6 @@ pub struct FuncGen<'a> {
     /// Function state map. Not yet used in the reborn version but let's keep it.
     fsm: FunctionStateMap,
 
-    /// Trap table.
-    trap_table: TrapTable,
-
     /// Relocation information.
     relocations: Vec<Relocation>,
 
@@ -99,13 +95,6 @@ struct SpecialLabelSet {
     table_access_oob: DynamicLabel,
     indirect_call_null: DynamicLabel,
     bad_signature: DynamicLabel,
-}
-
-/// A trap table for a `RunnableModuleInfo`.
-#[derive(Clone, Debug, Default)]
-pub struct TrapTable {
-    /// Mappings from offsets in generated machine code to the corresponding trap code.
-    pub offset_to_code: BTreeMap<usize, TrapCode>,
 }
 
 /// Metadata about a floating-point value.
@@ -304,31 +293,7 @@ impl<'a> FuncGen<'a> {
         );
     }
 
-    /// Marks each address in the code range emitted by `f` with the trap code `code`.
-    fn mark_range_with_trap_code<F: FnOnce(&mut Self) -> R, R>(
-        &mut self,
-        code: TrapCode,
-        f: F,
-    ) -> R {
-        let begin = self.assembler.get_offset().0;
-        let ret = f(self);
-        let end = self.assembler.get_offset().0;
-        for i in begin..end {
-            self.trap_table.offset_to_code.insert(i, code);
-        }
-        self.mark_instruction_address_end(begin);
-        ret
-    }
-
-    /// Marks one address as trappable with trap code `code`.
-    fn mark_address_with_trap_code(&mut self, code: TrapCode) {
-        let offset = self.assembler.get_offset().0;
-        self.trap_table.offset_to_code.insert(offset, code);
-        self.mark_instruction_address_end(offset);
-    }
-
     fn emit_trap(&mut self, code: TrapCode) {
-        self.mark_address_with_trap_code(code);
         let label = self.assembler.get_label();
         self.assembler.emit_label(label);
         self.assembler
@@ -1400,7 +1365,7 @@ impl<'a> FuncGen<'a> {
             self.machine.release_temp_gpr(tmp_aligncheck);
         }
 
-        self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| cb(this, tmp_addr))?;
+        cb(self, tmp_addr).unwrap();
 
         self.machine.release_temp_gpr(tmp_addr);
         Ok(())
@@ -1796,12 +1761,6 @@ impl<'a> FuncGen<'a> {
 
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
-        let offset = 0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::StackOverflow);
-        self.mark_instruction_address_end(offset);
-
         if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
                 message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
@@ -1876,7 +1835,6 @@ impl<'a> FuncGen<'a> {
             machine: Machine::new(),
             unreachable_depth: 0,
             fsm,
-            trap_table: TrapTable::default(),
             relocations: vec![],
             special_labels,
             src_loc: 0,
@@ -5227,12 +5185,7 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
-                        let offset = this.assembler.get_offset().0;
-                        this.trap_table
-                            .offset_to_code
-                            .insert(offset, TrapCode::StackOverflow);
                         this.assembler.emit_call_location(Location::GPR(GPR::RAX));
-                        this.mark_instruction_address_end(offset);
                     },
                     params.iter().copied(),
                 )?;
@@ -5422,11 +5375,6 @@ impl<'a> FuncGen<'a> {
                                 ),
                             );
                         } else {
-                            let offset = this.assembler.get_offset().0;
-                            this.trap_table
-                                .offset_to_code
-                                .insert(offset, TrapCode::StackOverflow);
-
                             // We set the context pointer
                             this.assembler.emit_mov(
                                 Size::S64,
@@ -5438,7 +5386,6 @@ impl<'a> FuncGen<'a> {
                                 GPR::RAX,
                                 vmcaller_checked_anyfunc_func_ptr as i32,
                             ));
-                            this.mark_instruction_address_end(offset);
                         }
                     },
                     params.iter().copied(),
@@ -8733,15 +8680,7 @@ impl<'a> FuncGen<'a> {
             relocations: self.relocations,
             jt_offsets: SecondaryMap::new(),
             frame_info: CompiledFunctionFrameInfo {
-                traps: self
-                    .trap_table
-                    .offset_to_code
-                    .into_iter()
-                    .map(|(offset, code)| TrapInformation {
-                        code_offset: offset as u32,
-                        trap_code: code,
-                    })
-                    .collect(),
+                traps: vec![],
                 address_map,
             },
         }
