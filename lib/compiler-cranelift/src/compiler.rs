@@ -52,7 +52,9 @@ impl CraneliftCompiler {
 }
 
 impl Compiler for CraneliftCompiler {
-    fn use_signals(&self) -> bool { true }
+    fn use_signals(&self) -> bool {
+        true
+    }
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {

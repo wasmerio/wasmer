@@ -44,7 +44,9 @@ impl SinglepassCompiler {
 
 impl Compiler for SinglepassCompiler {
     /// If signal handlers are required.
-    fn use_signals(&self) -> bool { false }
+    fn use_signals(&self) -> bool {
+        false
+    }
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {

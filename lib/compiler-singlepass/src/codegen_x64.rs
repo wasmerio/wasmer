@@ -397,47 +397,47 @@ impl<'a> FuncGen<'a> {
     }
 
     /// Moves `loc` to a valid location for `div`/`idiv`.
-    fn emit_relaxed_xdiv(
-        &mut self,
-        signed: bool,
-        sz: Size,
-        loc: Location,
-    ) {
+    fn emit_relaxed_xdiv(&mut self, signed: bool, sz: Size, loc: Location) {
         self.assembler.emit_cmp(sz, Location::Imm32(0), loc);
         self.assembler.emit_jmp(
             Condition::Equal,
             self.special_labels.integer_division_by_zero,
         );
 
-        // Boundary checks for integer overflow. It clearly doesnt' make sense for
+        // Boundary checks for integer overflow. It clearly doesn't make sense for
         // unsigned division, as numerator is of same size as the actual result, and divisor is
         // always >= 1.
         // For signed division we can get out of bound only when divide MIN_INT / -1,
-        // as result will be 0xso test for
-        // that case explicitly.
+        // as result will be MAX_INT+1 so test for that case explicitly.
         if signed {
             let end = self.assembler.get_label();
-            // Check if denominator is -1.
-            self.assembler.emit_cmp(sz, Location::Imm32(0xffffffff), loc);
-            self.assembler.emit_jmp(
-                Condition::NotEqual,
-                end,
-            );
-            // Check if divisor is MIN_INT.
+            // Check if divisor is -1.
+            self.assembler
+                .emit_cmp(sz, Location::Imm32(0xffffffff), loc);
+            self.assembler.emit_jmp(Condition::NotEqual, end);
+            // Check if numerator is MIN_INT.
             match sz {
                 Size::S32 => {
-                     self.assembler.emit_cmp(sz, Location::Imm32(0x80000000u32), Location::GPR(GPR::RAX));
-                },
+                    self.assembler.emit_cmp(
+                        sz,
+                        Location::Imm32(0x80000000u32),
+                        Location::GPR(GPR::RAX),
+                    );
+                }
                 Size::S64 => {
-                    self.assembler.emit_cmp(sz, Location::Imm64(0x8000000000000000u64), Location::GPR(GPR::RAX));
-                },
+                    self.assembler.emit_mov(
+                        sz,
+                        Location::Imm64(0x8000000000000000u64),
+                        Location::GPR(GPR::RCX),
+                    );
+                    self.assembler
+                        .emit_cmp(sz, Location::GPR(GPR::RCX), Location::GPR(GPR::RAX));
+                }
                 _ => assert!(false),
             }
-            self.assembler.emit_jmp(
-                Condition::NotEqual,
-                end,
-            );
-            self.assembler.emit_jmp(Condition::None, self.special_labels.integer_overflow);
+            self.assembler.emit_jmp(Condition::NotEqual, end);
+            self.assembler
+                .emit_jmp(Condition::None, self.special_labels.integer_overflow);
             self.assembler.emit_label(end);
         }
 
