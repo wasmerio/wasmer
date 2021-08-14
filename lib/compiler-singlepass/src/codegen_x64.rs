@@ -93,6 +93,8 @@ pub struct FuncGen<'a> {
 
 struct SpecialLabelSet {
     integer_division_by_zero: DynamicLabel,
+    integer_overflow: DynamicLabel,
+    bad_conversion_to_integer: DynamicLabel,
     heap_access_oob: DynamicLabel,
     table_access_oob: DynamicLabel,
     indirect_call_null: DynamicLabel,
@@ -397,7 +399,7 @@ impl<'a> FuncGen<'a> {
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         &mut self,
-        op: fn(&mut Assembler, Size, Location),
+        signed: bool,
         sz: Size,
         loc: Location,
     ) {
@@ -407,25 +409,53 @@ impl<'a> FuncGen<'a> {
             self.special_labels.integer_division_by_zero,
         );
 
+        // Boundary checks for integer overflow. It clearly doesnt' make sense for
+        // unsigned division, as numerator is of same size as the actual result, and divisor is
+        // always >= 1.
+        // For signed division we can get out of bound only when divide MIN_INT / -1,
+        // as result will be 0xso test for
+        // that case explicitly.
+        if signed {
+            let end = self.assembler.get_label();
+            // Check if denominator is -1.
+            self.assembler.emit_cmp(sz, Location::Imm32(0xffffffff), loc);
+            self.assembler.emit_jmp(
+                Condition::NotEqual,
+                end,
+            );
+            // Check if divisor is MIN_INT.
+            match sz {
+                Size::S32 => {
+                     self.assembler.emit_cmp(sz, Location::Imm32(0x80000000u32), Location::GPR(GPR::RAX));
+                },
+                Size::S64 => {
+                    self.assembler.emit_cmp(sz, Location::Imm64(0x8000000000000000u64), Location::GPR(GPR::RAX));
+                },
+                _ => assert!(false),
+            }
+            self.assembler.emit_jmp(
+                Condition::NotEqual,
+                end,
+            );
+            self.assembler.emit_jmp(Condition::None, self.special_labels.integer_overflow);
+            self.assembler.emit_label(end);
+        }
+
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.assembler.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
-                self.mark_trappable();
-                let offset = self.assembler.get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::IntegerOverflow);
-                op(&mut self.assembler, sz, Location::GPR(GPR::RCX));
-                self.mark_instruction_address_end(offset);
+                if signed {
+                    self.assembler.emit_idiv(sz, Location::GPR(GPR::RCX));
+                } else {
+                    self.assembler.emit_div(sz, Location::GPR(GPR::RCX));
+                }
             }
             _ => {
-                self.mark_trappable();
-                let offset = self.assembler.get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::IntegerOverflow);
-                op(&mut self.assembler, sz, loc);
-                self.mark_instruction_address_end(offset);
+                if signed {
+                    self.assembler.emit_idiv(sz, loc);
+                } else {
+                    self.assembler.emit_div(sz, loc);
+                }
             }
         }
     }
@@ -1494,8 +1524,8 @@ impl<'a> FuncGen<'a> {
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
     fn emit_f32_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f32, upper_bound: f32) {
-        let trap_overflow = self.assembler.get_label();
-        let trap_badconv = self.assembler.get_label();
+        let trap_overflow = self.special_labels.integer_overflow;
+        let trap_badconv = self.special_labels.bad_conversion_to_integer;
         let end = self.assembler.get_label();
 
         self.emit_f32_int_conv_check(
@@ -1507,23 +1537,6 @@ impl<'a> FuncGen<'a> {
             trap_badconv,
             end,
         );
-
-        self.assembler.emit_label(trap_overflow);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
-
-        self.assembler.emit_label(trap_badconv);
-
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(end);
     }
@@ -1647,8 +1660,8 @@ impl<'a> FuncGen<'a> {
 
     // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.
     fn emit_f64_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f64, upper_bound: f64) {
-        let trap_overflow = self.assembler.get_label();
-        let trap_badconv = self.assembler.get_label();
+        let trap_overflow = self.special_labels.integer_overflow;
+        let trap_badconv = self.special_labels.bad_conversion_to_integer;
         let end = self.assembler.get_label();
 
         self.emit_f64_int_conv_check(
@@ -1660,22 +1673,6 @@ impl<'a> FuncGen<'a> {
             trap_badconv,
             end,
         );
-
-        self.assembler.emit_label(trap_overflow);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
-
-        self.assembler.emit_label(trap_badconv);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.assembler.emit_ud2();
-        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(end);
     }
@@ -1855,6 +1852,8 @@ impl<'a> FuncGen<'a> {
         let mut assembler = Assembler::new().unwrap();
         let special_labels = SpecialLabelSet {
             integer_division_by_zero: assembler.get_label(),
+            integer_overflow: assembler.get_label(),
+            bad_conversion_to_integer: assembler.get_label(),
             heap_access_oob: assembler.get_label(),
             table_access_oob: assembler.get_label(),
             indirect_call_null: assembler.get_label(),
@@ -2137,7 +2136,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
             }
@@ -2147,7 +2146,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cdq();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
             }
@@ -2161,7 +2160,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
             }
@@ -2193,7 +2192,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cdq();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S32, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S32, loc_b);
                 self.assembler
                     .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
 
@@ -2376,7 +2375,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
@@ -2386,7 +2385,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
@@ -2400,7 +2399,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RDX),
                     Location::GPR(GPR::RDX),
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(false, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
             }
@@ -2433,7 +2432,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
                 self.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
+                self.emit_relaxed_xdiv(true, Size::S64, loc_b);
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
                 self.assembler.emit_label(end);
@@ -8695,6 +8694,14 @@ impl<'a> FuncGen<'a> {
         self.assembler
             .emit_label(self.special_labels.integer_division_by_zero);
         self.emit_trap(TrapCode::IntegerDivisionByZero);
+
+        self.assembler
+            .emit_label(self.special_labels.integer_overflow);
+        self.emit_trap(TrapCode::IntegerOverflow);
+
+        self.assembler
+            .emit_label(self.special_labels.bad_conversion_to_integer);
+        self.emit_trap(TrapCode::BadConversionToInteger);
 
         self.assembler
             .emit_label(self.special_labels.heap_access_oob);
