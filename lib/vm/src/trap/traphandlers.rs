@@ -1013,7 +1013,6 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 }
 
 extern "C" fn signal_less_trap_handler(pc: *const u8, trap: TrapCode) {
-    eprintln!("Trap at {:?}: {:?}", pc, trap);
     let jmp_buf = tls::with(|info| {
         let backtrace = Backtrace::new_unresolved();
         let info = info.unwrap();
