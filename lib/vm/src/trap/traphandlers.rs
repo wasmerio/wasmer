@@ -899,6 +899,7 @@ mod tls {
     }
 }
 
+/// Per-thread initialization, unneeded on Windows.
 #[cfg(not(unix))]
 pub fn lazy_per_thread_init() -> Result<(), Trap> {
     // Unused on Windows
