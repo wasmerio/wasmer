@@ -13,7 +13,7 @@ pub struct HostFileSystem;
 
 impl FileSystem for HostFileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
-        let read_dir = std::fs::read_dir(path)?;
+        let read_dir = fs::read_dir(path)?;
         let data = read_dir
             .map(|entry| -> Result<DirEntry, _> {
                 let entry = entry?;
@@ -114,7 +114,7 @@ impl FileOpener for HostFileOpener {
         let read = conf.read();
         let write = conf.write();
         let append = conf.append();
-        let mut oo = std::fs::OpenOptions::new();
+        let mut oo = fs::OpenOptions::new();
         oo.read(conf.read())
             .write(conf.write())
             .create_new(conf.create_new())
@@ -172,7 +172,7 @@ impl<'de> Deserialize<'de> for HostFile {
                 let flags = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let inner = std::fs::OpenOptions::new()
+                let inner = fs::OpenOptions::new()
                     .read(flags & HostFile::READ != 0)
                     .write(flags & HostFile::WRITE != 0)
                     .append(flags & HostFile::APPEND != 0)
@@ -209,7 +209,7 @@ impl<'de> Deserialize<'de> for HostFile {
                 }
                 let host_path = host_path.ok_or_else(|| de::Error::missing_field("host_path"))?;
                 let flags = flags.ok_or_else(|| de::Error::missing_field("flags"))?;
-                let inner = std::fs::OpenOptions::new()
+                let inner = fs::OpenOptions::new()
                     .read(flags & HostFile::READ != 0)
                     .write(flags & HostFile::WRITE != 0)
                     .append(flags & HostFile::APPEND != 0)
@@ -329,7 +329,7 @@ impl VirtualFile for HostFile {
     }
 
     fn unlink(&mut self) -> Result<(), FsError> {
-        std::fs::remove_file(&self.host_path).map_err(Into::into)
+        fs::remove_file(&self.host_path).map_err(Into::into)
     }
     fn sync_to_disk(&self) -> Result<(), FsError> {
         self.inner.sync_all().map_err(Into::into)
