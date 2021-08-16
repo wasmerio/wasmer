@@ -42,6 +42,7 @@ serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
+rayon = "1.5"
 
 [dev-dependencies]
 field-offset = "0.3.3"
