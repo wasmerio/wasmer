@@ -12,6 +12,11 @@ pub mod host_fs;
 #[cfg(feature = "mem_fs")]
 pub mod mem_fs;
 
+#[repr(transparent)]
+pub struct FileDescriptor {
+    inner: usize,
+}
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError>;
     fn create_dir(&self, path: &Path) -> Result<(), FsError>;
@@ -163,7 +168,7 @@ pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcas
 
     /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
     /// Returns the underlying host fd
-    fn get_raw_fd(&self) -> Option<i32> {
+    fn get_fd(&self) -> Option<Result<FileDescriptor, FsError>> {
         None
     }
 }

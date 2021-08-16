@@ -4,8 +4,64 @@ use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fs;
 use std::io::{Read, Seek, Write};
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::{AsRawHandle, RawHandle};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+
+impl FileDescriptor {
+    #[cfg(unix)]
+    fn as_raw(&self) -> Result<RawFd, FsError> {
+        self.inner.try_into().map_err(|_| FsError::InvalidFd)
+    }
+
+    #[cfg(windows)]
+    fn as_raw(&self) -> Result<RawHandle, FsError> {
+        self.inner.try_into().map_err(|_| FsError::InvalidFd)
+    }
+}
+
+trait TryIntoFileDescriptor {
+    type Error;
+
+    fn try_into_filedescriptor(&self) -> Result<FileDescriptor, Self::Error>;
+}
+
+#[cfg(unix)]
+impl<T> TryIntoFileDescriptor for T
+where
+    T: AsRawFd,
+{
+    type Error = FsError;
+
+    fn try_into_filedescriptor(&self) -> Result<FileDescriptor, Self::Error> {
+        Ok(FileDescriptor {
+            inner: self
+                .as_raw_fd()
+                .try_into()
+                .map_err(|_| FsError::InvalidFd)?,
+        })
+    }
+}
+
+#[cfg(windows)]
+impl<T> TryIntoFileDescriptor for T
+where
+    T: AsRawHandle,
+{
+    type Error = FsError;
+
+    fn try_into_filedescriptor(&self) -> Result<FileDescriptor, Self::Error> {
+        Ok(FileDescriptor {
+            inner: self
+                .as_raw_handle()
+                .try_into()
+                .map_err(|_| FsError::InvalidFd)?,
+        })
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -336,29 +392,14 @@ impl VirtualFile for HostFile {
     }
 
     fn bytes_available(&self) -> Result<usize, FsError> {
-        // unwrap is safe because of get_raw_fd implementation
-        let host_fd = self.get_raw_fd().unwrap();
-
-        host_file_bytes_available(host_fd)
-    }
-
-    #[cfg(unix)]
-    fn get_raw_fd(&self) -> Option<i32> {
-        use std::os::unix::io::AsRawFd;
-        Some(self.inner.as_raw_fd())
-    }
-    #[cfg(not(unix))]
-    fn get_raw_fd(&self) -> Option<i32> {
-        unimplemented!(
-            "HostFile::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
-        );
+        host_file_bytes_available(self.inner.try_into_filedescriptor()?)
     }
 }
 
 #[cfg(unix)]
-fn host_file_bytes_available(host_fd: i32) -> Result<usize, FsError> {
+fn host_file_bytes_available(host_fd: FileDescriptor) -> Result<usize, FsError> {
     let mut bytes_found = 0 as libc::c_int;
-    let result = unsafe { libc::ioctl(host_fd, libc::FIONREAD, &mut bytes_found) };
+    let result = unsafe { libc::ioctl(host_fd.as_raw()?, libc::FIONREAD, &mut bytes_found) };
 
     match result {
         // success
@@ -371,7 +412,7 @@ fn host_file_bytes_available(host_fd: i32) -> Result<usize, FsError> {
 }
 
 #[cfg(not(unix))]
-fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, FsError> {
+fn host_file_bytes_available(_host_fd: FileDescriptor) -> Result<usize, FsError> {
     unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
 }
 
@@ -448,21 +489,12 @@ impl VirtualFile for Stdout {
         Ok(())
     }
     fn bytes_available(&self) -> Result<usize, FsError> {
-        // unwrap is safe because of get_raw_fd implementation
-        let host_fd = self.get_raw_fd().unwrap();
-
-        host_file_bytes_available(host_fd)
+        // SAFETY: We can call `unwrap` because we are sure
+        // `Self::get_fd` returns `Some` value.
+        host_file_bytes_available(self.get_fd().unwrap()?)
     }
-    #[cfg(unix)]
-    fn get_raw_fd(&self) -> Option<i32> {
-        use std::os::unix::io::AsRawFd;
-        Some(io::stdout().as_raw_fd())
-    }
-    #[cfg(not(unix))]
-    fn get_raw_fd(&self) -> Option<i32> {
-        unimplemented!(
-            "Stdout::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
-        );
+    fn get_fd(&self) -> Option<Result<FileDescriptor, FsError>> {
+        Some(io::stdout().try_into_filedescriptor())
     }
 }
 
@@ -539,21 +571,12 @@ impl VirtualFile for Stderr {
         Ok(())
     }
     fn bytes_available(&self) -> Result<usize, FsError> {
-        // unwrap is safe because of get_raw_fd implementation
-        let host_fd = self.get_raw_fd().unwrap();
-
-        host_file_bytes_available(host_fd)
+        // SAFETY: We can call `unwrap` because we are sure
+        // `Self::get_fd` returns `Some` value.
+        host_file_bytes_available(self.get_fd().unwrap()?)
     }
-    #[cfg(unix)]
-    fn get_raw_fd(&self) -> Option<i32> {
-        use std::os::unix::io::AsRawFd;
-        Some(io::stderr().as_raw_fd())
-    }
-    #[cfg(not(unix))]
-    fn get_raw_fd(&self) -> Option<i32> {
-        unimplemented!(
-            "Stderr::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
-        );
+    fn get_fd(&self) -> Option<Result<FileDescriptor, FsError>> {
+        Some(io::stderr().try_into_filedescriptor())
     }
 }
 
@@ -630,20 +653,11 @@ impl VirtualFile for Stdin {
         Ok(())
     }
     fn bytes_available(&self) -> Result<usize, FsError> {
-        // unwrap is safe because of get_raw_fd implementation
-        let host_fd = self.get_raw_fd().unwrap();
-
-        host_file_bytes_available(host_fd)
+        // SAFETY: We can call `unwrap` because we are sure
+        // `Self::get_fd` returns `Some` value.
+        host_file_bytes_available(self.get_fd().unwrap()?)
     }
-    #[cfg(unix)]
-    fn get_raw_fd(&self) -> Option<i32> {
-        use std::os::unix::io::AsRawFd;
-        Some(io::stdin().as_raw_fd())
-    }
-    #[cfg(not(unix))]
-    fn get_raw_fd(&self) -> Option<i32> {
-        unimplemented!(
-            "Stdin::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
-        );
+    fn get_fd(&self) -> Option<Result<FileDescriptor, FsError>> {
+        Some(io::stdin().try_into_filedescriptor())
     }
 }
