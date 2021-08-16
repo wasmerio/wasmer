@@ -701,7 +701,7 @@ impl VirtualFile for Stdout {
         unimplemented!();
     }
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!();
     }
@@ -795,7 +795,7 @@ impl VirtualFile for Stderr {
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!();
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
             "Stderr::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
@@ -895,7 +895,7 @@ impl VirtualFile for Stdin {
         // Some(io::stdin().as_raw_fd())
         unimplemented!();
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
             "Stdin::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"

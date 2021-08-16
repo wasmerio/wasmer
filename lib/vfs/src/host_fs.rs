@@ -66,7 +66,7 @@ fn fs_metadata_to_metadata(metadata: fs::Metadata) -> Result<Metadata, std::io::
                 filetype.is_fifo(),
             )
         }
-        #[cfg(not(unix))]
+        #[cfg(windows)]
         {
             (false, false, false, false)
         }
@@ -347,7 +347,7 @@ impl VirtualFile for HostFile {
         use std::os::unix::io::AsRawFd;
         Some(self.inner.as_raw_fd())
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
             "HostFile::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
@@ -370,7 +370,7 @@ fn host_file_bytes_available(host_fd: i32) -> Result<usize, FsError> {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, FsError> {
     unimplemented!("host_file_bytes_available not yet implemented for non-Unix-like targets.  This probably means the program tried to use wasi::poll_oneoff")
 }
@@ -458,7 +458,7 @@ impl VirtualFile for Stdout {
         use std::os::unix::io::AsRawFd;
         Some(io::stdout().as_raw_fd())
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
             "Stdout::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
@@ -549,7 +549,7 @@ impl VirtualFile for Stderr {
         use std::os::unix::io::AsRawFd;
         Some(io::stderr().as_raw_fd())
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
             "Stderr::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
@@ -640,7 +640,7 @@ impl VirtualFile for Stdin {
         use std::os::unix::io::AsRawFd;
         Some(io::stdin().as_raw_fd())
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     fn get_raw_fd(&self) -> Option<i32> {
         unimplemented!(
             "Stdin::get_raw_fd in VirtualFile is not implemented for non-Unix-like targets yet"
