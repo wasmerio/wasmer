@@ -3,9 +3,9 @@ use crate::*;
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fs;
-use std::io::{Read, Seek, Write};
+use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -20,10 +20,10 @@ impl FileSystem for HostFileSystem {
                 let metadata = entry.metadata()?;
                 Ok(DirEntry {
                     path: entry.path(),
-                    metadata: Ok(fs_metadata_to_metadata(metadata)?),
+                    metadata: Ok(metadata.try_into()?),
                 })
             })
-            .collect::<Result<Vec<DirEntry>, std::io::Error>>()
+            .collect::<Result<Vec<DirEntry>, io::Error>>()
             .map_err::<FsError, _>(Into::into)?;
         Ok(ReadDir::new(data))
     }
@@ -47,58 +47,61 @@ impl FileSystem for HostFileSystem {
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         fs::metadata(path)
-            .and_then(fs_metadata_to_metadata)
+            .and_then(TryInto::try_into)
             .map_err(Into::into)
     }
 }
 
-fn fs_metadata_to_metadata(metadata: fs::Metadata) -> Result<Metadata, std::io::Error> {
-    use std::time::UNIX_EPOCH;
-    let filetype = metadata.file_type();
-    let (char_device, block_device, socket, fifo) = {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::FileTypeExt;
-            (
-                filetype.is_char_device(),
-                filetype.is_block_device(),
-                filetype.is_socket(),
-                filetype.is_fifo(),
-            )
-        }
-        #[cfg(not(unix))]
-        {
-            (false, false, false, false)
-        }
-    };
+impl TryInto<Metadata> for fs::Metadata {
+    type Error = io::Error;
 
-    Ok(Metadata {
-        ft: FileType {
-            dir: filetype.is_dir(),
-            file: filetype.is_file(),
-            symlink: filetype.is_symlink(),
-            char_device,
-            block_device,
-            socket,
-            fifo,
-        },
-        accessed: metadata
-            .accessed()?
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64,
-        created: metadata
-            .created()?
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64,
-        modified: metadata
-            .modified()?
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64,
-        len: metadata.len(),
-    })
+    fn try_into(self) -> Result<Metadata, Self::Error> {
+        let filetype = self.file_type();
+        let (char_device, block_device, socket, fifo) = {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::FileTypeExt;
+                (
+                    filetype.is_char_device(),
+                    filetype.is_block_device(),
+                    filetype.is_socket(),
+                    filetype.is_fifo(),
+                )
+            }
+            #[cfg(not(unix))]
+            {
+                (false, false, false, false)
+            }
+        };
+
+        Ok(Metadata {
+            ft: FileType {
+                dir: filetype.is_dir(),
+                file: filetype.is_file(),
+                symlink: filetype.is_symlink(),
+                char_device,
+                block_device,
+                socket,
+                fifo,
+            },
+            accessed: self
+                .accessed()?
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as u64,
+            created: self
+                .created()?
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as u64,
+            modified: self
+                .modified()?
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as u64,
+            len: self.len(),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
