@@ -812,7 +812,8 @@ impl Artifact for DylibArtifact {
 
         You need to be running MacOS for the following to actually work though.
         */
-        if path.extension().unwrap() == "dylib" {
+        let has_extension = path.extension().is_some();
+        if has_extension && path.extension().unwrap() == "dylib" {
             let filename = path.file_name().unwrap().to_str().unwrap();
             let parent_dir = path.parent().unwrap();
             let absolute_path = std::fs::canonicalize(&parent_dir)
