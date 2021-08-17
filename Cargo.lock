@@ -2745,6 +2745,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-integration-tests-ios"
+version = "2.0.0"
+
+[[package]]
 name = "wasmer-middlewares"
 version = "2.0.0"
 dependencies = [

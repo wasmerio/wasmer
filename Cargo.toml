@@ -52,6 +52,7 @@ members = [
     "tests/lib/wast",
     "tests/lib/compiler-test-derive",
     "tests/integration/cli",
+    "tests/integration/ios",
     "fuzz",
 ]
 

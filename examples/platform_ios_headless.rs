@@ -44,11 +44,12 @@ i32.add)
 
     // Create a compiler for iOS
     let compiler_config = Cranelift::default();
-    let triple = Triple::from_str("aarch64-apple-ios")
+    let triple = Triple::from_str("x86_64-apple-ios")
         .map_err(|error| RuntimeError::new(error.to_string()))?;
 
     // Let's build the target.
     let mut cpu_feature = CpuFeature::set();
+    cpu_feature.insert(CpuFeature::from_str("sse2")?);
     let target = Target::new(triple, cpu_feature);
     println!("Chosen target: {:?}", target);
 
@@ -66,6 +67,27 @@ i32.add)
     println!("Serializing module...");
     let mut dylib_file = Path::new("./sum.dylib");
     module.serialize_to_file(dylib_file)?;
+
+    let module = unsafe { Module::deserialize_from_file(&store, dylib_file) }?;
+
+    // Congrats, the Wasm module has been deserialized! Now let's
+    // execute it for the sake of having a complete example.
+
+    // Create an import object. Since our Wasm module didn't declare
+    // any imports, it's an empty object.
+    let import_object = imports! {};
+
+    println!("Instantiating module...");
+    // Let's instantiate the Wasm module.
+    let instance = Instance::new(&module, &import_object)?;
+
+    println!("Calling `sum` function...");
+    // The Wasm module exports a function called `sum`.
+    let sum = instance.exports.get_function("sum")?;
+    let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
+
+    println!("Results: {:?}", results);
+    assert_eq!(results.to_vec(), vec![Value::I32(3)]);
 
     Ok(())
 }
