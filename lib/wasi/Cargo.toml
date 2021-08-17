@@ -17,47 +17,43 @@ crate-type = ["cdylib", "rlib"]
 cfg-if = "1.0"
 thiserror = "1"
 generational-arena = { version = "0.2", features = ["serde"] }
-tracing = { version = "0.1" }
-getrandom = { version = "0.2" }
-typetag = { version = "0.1", optional = true }
-serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+tracing = "0.1"
+getrandom = "0.2"
 wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0" }
 wasmer = { path = "../api", version = "2.0.0", default-features = false }
 wasmer-vfs = { path = "../vfs", version = "2.0.0", default-features = false }
-
-[target.'cfg(windows)'.dependencies]
-winapi = "0.3"
+typetag = { version = "0.1", optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
 
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.74"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3.0"
+tracing-wasm = "0.2"
+
 [features]
-default = ["logging", "host_fs"]
-enable-serde = [
-    "typetag",
-    "serde",
-]
+default = ["sys-default"]
+
+sys = ["wasmer/sys"]
+sys-default = ["sys", "logging", "host_fs"]
+
+js = ["wasmer/js", "mem_fs", "getrandom/js"]
+js-default = ["js"]
+test-js = ["js", "wasmer/js-default", "wasmer/wat"]
+
+host_fs = ["wasmer-vfs/host_fs"]
+mem_fs = ["wasmer-vfs/mem_fs"]
+
 logging = ["tracing/log"]
 disable-all-logging = [
     "tracing/release_max_level_off",
     "tracing/max_level_off"
 ]
-host_fs = ["wasmer-vfs/host_fs"]
-mem_fs = ["wasmer-vfs/mem_fs"]
-js = [
-    "getrandom/js",
-    "mem_fs",
-    "wasmer/js",
-]
-test-js = [
-    "js",
-    "wasmer/js-default",
-    "wasmer/wat"
-]
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
-
-[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-wasm-bindgen-test = "0.3.0"
-tracing-wasm = { version = "0.2" }
+enable-serde = ["typetag", "serde"]
