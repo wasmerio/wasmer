@@ -53,8 +53,8 @@ pub struct VMOffsets {
     pub num_local_memories: u32,
     /// The number of defined globals in the module.
     pub num_local_globals: u32,
-    /// Number of trap handlers in the module, 0 or 1 depending if signal-less mode is used.
-    pub num_trap_handlers: u32,
+    /// If the module has trap handler.
+    pub has_trap_handlers: bool,
 }
 
 impl VMOffsets {
@@ -70,7 +70,7 @@ impl VMOffsets {
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
             num_local_globals: cast_to_u32(module.globals.len()),
-            num_trap_handlers: 1,
+            has_trap_handlers: true,
         }
     }
 
@@ -89,7 +89,7 @@ impl VMOffsets {
             num_local_tables: 0,
             num_local_memories: 0,
             num_local_globals: 0,
-            num_trap_handlers: 0,
+            has_trap_handlers: false,
         }
     }
 }
@@ -473,11 +473,11 @@ impl VMOffsets {
     /// [`VMContext`]: crate::vmcontext::VMContext
     pub fn size_of_vmctx(&self) -> u32 {
         self.vmctx_trap_handler_begin()
-            .checked_add(
-                self.num_trap_handlers
-                    .checked_mul(u32::from(self.pointer_size))
-                    .unwrap(),
-            )
+            .checked_add(if self.has_trap_handlers {
+                u32::from(self.pointer_size)
+            } else {
+                0u32
+            })
             .unwrap()
     }
 
@@ -702,7 +702,7 @@ impl VMOffsets {
     /// Return the offset to the trap handler.
     pub fn vmctx_trap_handler(&self) -> u32 {
         // Ensure that we never ask for trap handler offset if it's not enabled.
-        assert_eq!(self.num_trap_handlers, 1);
+        assert!(self.has_trap_handlers);
         self.vmctx_trap_handler_begin()
     }
 }

@@ -13,6 +13,7 @@ use std::error::Error;
 use std::io;
 use std::mem::{self, MaybeUninit};
 use std::ptr;
+use std::sync::Once;
 pub use tls::TlsRestore;
 
 cfg_if::cfg_if! {
@@ -387,14 +388,12 @@ static mut HANDLERS_INSTALLED: bool = false;
 /// program counter is the pc of an actual wasm trap or not. This is then used
 /// to disambiguate faults that happen due to wasm and faults that happen due to
 /// bugs in Rust or elsewhere.
-pub fn init_traps(is_wasm_pc: fn(usize) -> bool, install_handlers: bool) {
-    unsafe {
+pub fn init_traps(is_wasm_pc: fn(usize) -> bool) {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| unsafe {
         IS_WASM_PC = is_wasm_pc;
-        if !HANDLERS_INSTALLED && install_handlers {
-            platform_init();
-            HANDLERS_INSTALLED = true;
-        }
-    }
+        platform_init();
+    });
 }
 
 /// Raises a user-defined trap immediately.
