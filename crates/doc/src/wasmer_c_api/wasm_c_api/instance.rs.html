@@ -296,12 +296,14 @@
 <span id="295">295</span>
 <span id="296">296</span>
 <span id="297">297</span>
+<span id="298">298</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::externals</span>::{<span class="ident">wasm_extern_t</span>, <span class="ident">wasm_extern_vec_t</span>};
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::module::wasm_module_t</span>;
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::store::wasm_store_t</span>;
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::trap::wasm_trap_t</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::ordered_resolver::OrderedResolver</span>;
+<span class="kw">use</span> <span class="ident">rayon::prelude</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Extern</span>, <span class="ident">Instance</span>, <span class="ident">InstantiationError</span>};
@@ -350,8 +352,8 @@
     <span class="kw">let</span> <span class="ident">module_import_count</span> <span class="op">=</span> <span class="ident">module_imports</span>.<span class="ident">len</span>();
     <span class="kw">let</span> <span class="ident">resolver</span>: <span class="ident">OrderedResolver</span> <span class="op">=</span> <span class="ident">imports</span>
         .<span class="ident">into_slice</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">imports</span><span class="op">|</span> <span class="ident">imports</span>.<span class="ident">iter</span>())
-        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> [].<span class="ident">iter</span>())
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">imports</span><span class="op">|</span> <span class="ident">imports</span>.<span class="ident">par_iter</span>())
+        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> [].<span class="ident">par_iter</span>())
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">imp</span><span class="op">|</span> <span class="ident">Extern::from</span>((<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">imp</span>).<span class="ident">clone</span>()))
         .<span class="ident">take</span>(<span class="ident">module_import_count</span>)
         .<span class="ident">collect</span>();

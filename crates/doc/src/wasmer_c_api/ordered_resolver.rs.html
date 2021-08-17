@@ -33,6 +33,13 @@
 <span id="32">32</span>
 <span id="33">33</span>
 <span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Ordered Resolvers are a custom kind of [`Resolver`] that retrieves</span>
 <span class="doccomment">//! `EngineExport`s based on the index of the import, and not the module or name.</span>
@@ -40,6 +47,7 @@
 <span class="doccomment">//! This resolver is used in the Wasm-C-API as the imports are provided</span>
 <span class="doccomment">//! by index and not by module and name.</span>
 
+<span class="kw">use</span> <span class="ident">rayon::iter</span>::{<span class="ident">FromParallelIterator</span>, <span class="ident">IntoParallelIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std::iter::FromIterator</span>;
 <span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Export</span>, <span class="ident">Exportable</span>, <span class="ident">Extern</span>, <span class="ident">Resolver</span>};
 
@@ -61,11 +69,17 @@
 
 <span class="kw">impl</span> <span class="ident">FromIterator</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">OrderedResolver</span> {
     <span class="kw">fn</span> <span class="ident">from_iter</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Extern</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">iter</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">externs</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> <span class="ident">extern_</span> <span class="kw">in</span> <span class="ident">iter</span> {
-            <span class="ident">externs</span>.<span class="ident">push</span>(<span class="ident">extern_</span>);
+        <span class="ident">OrderedResolver</span> {
+            <span class="ident">externs</span>: <span class="ident">iter</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
         }
-        <span class="ident">OrderedResolver</span> { <span class="ident">externs</span> }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">FromParallelIterator</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">OrderedResolver</span> {
+    <span class="kw">fn</span> <span class="ident">from_par_iter</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoParallelIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Extern</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">iter</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">OrderedResolver</span> {
+            <span class="ident">externs</span>: <span class="ident">iter</span>.<span class="ident">into_par_iter</span>().<span class="ident">collect</span>(),
+        }
     }
 }
 </pre></div>
