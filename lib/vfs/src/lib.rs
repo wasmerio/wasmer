@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::debug;
 
+#[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
+compile_error!("At least the `host_fs` or the `mem_fs` feature must be enabled. Please, pick one.");
+
 #[cfg(feature = "host_fs")]
 pub mod host_fs;
 #[cfg(feature = "mem_fs")]
