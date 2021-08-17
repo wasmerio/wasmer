@@ -126,10 +126,10 @@ impl crate::FileSystem for FileSystem {
         let file = path.file_name().unwrap();
 
         let mut inner = self.inner.lock().unwrap();
-        let node = inner.get_node_at_mut(parent).unwrap();
+        let parent_node = inner.get_node_at_mut(parent);
 
-        match node {
-            Node::Directory { children, .. } => {
+        match parent_node {
+            Some(Node::Directory { children, .. }) => {
                 let name = file.to_str().unwrap();
 
                 if children.contains_key(name) {
