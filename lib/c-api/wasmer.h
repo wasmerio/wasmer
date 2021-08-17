@@ -62,17 +62,8 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
-// The `universal` feature has been enabled for this build.
-#define WASMER_UNIVERSAL_ENABLED
-
-// The `compiler` feature has been enabled for this build.
-#define WASMER_COMPILER_ENABLED
-
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
-
-// The `middlewares` feature has been enabled for this build.
-#define WASMER_MIDDLEWARES_ENABLED
 
 // This file corresponds to the following Wasmer version.
 #define WASMER_VERSION "2.0.0"
@@ -803,7 +794,9 @@ bool wasmer_features_tail_call(struct wasmer_features_t *features, bool enable);
 
 bool wasmer_features_threads(struct wasmer_features_t *features, bool enable);
 
+#if defined(WASMER_COMPILER_ENABLED)
 bool wasmer_is_compiler_available(enum wasmer_compiler_t compiler);
+#endif
 
 bool wasmer_is_engine_available(enum wasmer_engine_t engine);
 
