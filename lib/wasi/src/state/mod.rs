@@ -176,7 +176,7 @@ pub struct WasiFs {
 pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host_fs")] {
-            Box::new(wasmer_vfs::host_fs::HostFileSystem)
+            Box::new(wasmer_vfs::host_fs::FileSystem::default())
         } else if #[cfg(feature = "mem_fs")] {
             Box::new(wasmer_vfs::mem_fs::MemFileSystem::default())
         } else {

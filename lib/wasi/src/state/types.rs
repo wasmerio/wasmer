@@ -197,9 +197,9 @@ pub(crate) fn poll(
     let mut fds = selfs
         .iter()
         .enumerate()
-        .filter_map(|(i, s)| s.get_raw_fd().map(|rfd| (i, rfd)))
+        .filter_map(|(i, s)| s.get_fd().map(|rfd| (i, rfd)))
         .map(|(i, host_fd)| libc::pollfd {
-            fd: host_fd,
+            fd: host_fd.try_into().unwrap(),
             events: poll_event_set_to_platform_poll_events(events[i]),
             revents: 0,
         })
