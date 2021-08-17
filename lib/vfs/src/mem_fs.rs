@@ -233,6 +233,42 @@ impl crate::FileSystem for FileSystem {
     }
 }
 
+#[cfg(test)]
+mod test_filesystem {
+    use super::*;
+    use crate::FileSystem as FS;
+    use std::path::Path;
+
+    #[test]
+    fn test_create_dir() {
+        let fs = FileSystem::default();
+
+        assert_eq!(
+            fs.create_dir(Path::new("/foo")),
+            Ok(()),
+            "creating a directory"
+        );
+
+        assert_eq!(
+            fs.create_dir(Path::new("/foo")),
+            Err(FsError::AlreadyExists),
+            "creating a directory that already exists",
+        );
+
+        assert_eq!(
+            fs.create_dir(Path::new("/foo/qux")),
+            Ok(()),
+            "creating a subdirectory"
+        );
+
+        assert_eq!(
+            fs.create_dir(Path::new("/bar/baz")),
+            Err(FsError::BaseNotDirectory),
+            "creating a subdirectory with a parent that doesn't exist"
+        );
+    }
+}
+
 #[derive(Clone)]
 pub struct FileOpener(FileSystem);
 
