@@ -16,9 +16,7 @@ pub mod mem_fs;
 pub type Result<T> = std::result::Result<T, FsError>;
 
 #[repr(transparent)]
-pub struct FileDescriptor {
-    inner: usize,
-}
+pub struct FileDescriptor(usize);
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;

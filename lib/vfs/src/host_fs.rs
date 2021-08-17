@@ -29,12 +29,11 @@ where
     type Error = FsError;
 
     fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error> {
-        Ok(FileDescriptor {
-            inner: self
-                .as_raw_fd()
+        Ok(FileDescriptor(
+            self.as_raw_fd()
                 .try_into()
                 .map_err(|_| FsError::InvalidFd)?,
-        })
+        ))
     }
 }
 
@@ -43,7 +42,7 @@ impl TryInto<RawFd> for FileDescriptor {
     type Error = FsError;
 
     fn try_into(self) -> std::result::Result<RawFd, Self::Error> {
-        self.inner.try_into().map_err(|_| FsError::InvalidFd)
+        self.0.try_into().map_err(|_| FsError::InvalidFd)
     }
 }
 
@@ -55,12 +54,11 @@ where
     type Error = FsError;
 
     fn try_into_filedescriptor(&self) -> Result<FileDescriptor, Self::Error> {
-        Ok(FileDescriptor {
-            inner: self
-                .as_raw_handle()
+        Ok(FileDescriptor(
+            self.as_raw_handle()
                 .try_into()
                 .map_err(|_| FsError::InvalidFd)?,
-        })
+        ))
     }
 }
 
@@ -69,7 +67,7 @@ impl TryInto<RawHandle> for FileDescriptor {
     type Error = FsError;
 
     fn try_into(self) -> std::result::Result<RawHandle, Self::Error> {
-        self.inner.try_into().map_err(|_| FsError::InvalidFd)
+        self.0.try_into().map_err(|_| FsError::InvalidFd)
     }
 }
 
@@ -210,7 +208,7 @@ pub struct File {
 
 #[cfg(feature = "enable-serde")]
 impl<'de> Deserialize<'de> for File {
-    fn deserialize<D>(deserializer: D) -> Result<File, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<File, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -230,7 +228,7 @@ impl<'de> Deserialize<'de> for File {
                 formatter.write_str("struct File")
             }
 
-            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            fn visit_seq<V>(self, mut seq: V) -> std::result::Result<Self::Value, V::Error>
             where
                 V: de::SeqAccess<'de>,
             {
@@ -253,7 +251,7 @@ impl<'de> Deserialize<'de> for File {
                 })
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            fn visit_map<V>(self, mut map: V) -> std::result::Result<Self::Value, V::Error>
             where
                 V: de::MapAccess<'de>,
             {
