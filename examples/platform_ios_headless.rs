@@ -38,7 +38,8 @@ i32.add)
 
     // Create a compiler for iOS
     let compiler_config = Cranelift::default();
-    let triple = Triple::from_str("x86_64-apple-ios")
+    // Change it to `x86_64-apple-ios` if you want to target the iOS simulator
+    let triple = Triple::from_str("aarch64-apple-ios")
         .map_err(|error| RuntimeError::new(error.to_string()))?;
 
     // Let's build the target.
