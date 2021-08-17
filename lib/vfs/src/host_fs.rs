@@ -4,7 +4,6 @@ use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fs;
 use std::io::{self, Read, Seek, Write};
-use std::io::{Read, Seek, Write};
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, RawFd};
 #[cfg(windows)]
