@@ -32,7 +32,7 @@ wasmer-engine-universal = { version = "2.0.0", path = "../engine-universal", opt
 wasmer-engine-dylib = { version = "2.0.0", path = "../engine-dylib", optional = true }
 wasmer-engine-staticlib = { version = "2.0.0", path = "../engine-staticlib", optional = true }
 wasmer-middlewares = { version = "2.0.0", path = "../middlewares", optional = true }
-wasmer-wasi = { version = "2.0.0", path = "../wasi", default-features = false, features = ["host_fs"], optional = true }
+wasmer-wasi = { version = "2.0.0", path = "../wasi", optional = true }
 wasmer-types = { version = "2.0.0", path = "../types" }
 enumset = "1.0"
 cfg-if = "1.0"

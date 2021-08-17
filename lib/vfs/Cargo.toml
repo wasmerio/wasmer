@@ -14,6 +14,7 @@ typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [features]
+default = ["host_fs"]
 host_fs = ["libc"]
 mem_fs = []
 enable-serde = [
