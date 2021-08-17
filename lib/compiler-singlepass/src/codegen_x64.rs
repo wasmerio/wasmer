@@ -1255,10 +1255,7 @@ impl<'a> FuncGen<'a> {
         value_size: usize,
         cb: F,
     ) -> Result<(), CodegenError> {
-        let need_check = match self.memory_styles[MemoryIndex::new(0)] {
-            MemoryStyle::Static { .. } => false,
-            MemoryStyle::Dynamic { .. } => true,
-        };
+        let need_check = true;
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.

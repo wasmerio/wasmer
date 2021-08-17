@@ -372,9 +372,6 @@ cfg_if::cfg_if! {
 /// `wasmer` currently.
 static mut IS_WASM_PC: fn(usize) -> bool = |_| false;
 
-/// If signal handlers installed.
-static mut HANDLERS_INSTALLED: bool = false;
-
 /// This function is required to be called before any WebAssembly is entered.
 /// This will configure global state such as signal handlers to prepare the
 /// process to receive wasm traps.
