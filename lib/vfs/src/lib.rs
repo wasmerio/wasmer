@@ -4,7 +4,6 @@ use std::fmt;
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use tracing::debug;
 
 #[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
 compile_error!("At least the `host_fs` or the `mem_fs` feature must be enabled. Please, pick one.");
@@ -14,33 +13,31 @@ pub mod host_fs;
 #[cfg(feature = "mem_fs")]
 pub mod mem_fs;
 
+pub type Result<T> = std::result::Result<T, FsError>;
+
 #[repr(transparent)]
 pub struct FileDescriptor {
     inner: usize,
 }
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
-    fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError>;
-    fn create_dir(&self, path: &Path) -> Result<(), FsError>;
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError>;
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError>;
-    fn metadata(&self, path: &Path) -> Result<Metadata, FsError>;
+    fn read_dir(&self, path: &Path) -> Result<ReadDir>;
+    fn create_dir(&self, path: &Path) -> Result<()>;
+    fn remove_dir(&self, path: &Path) -> Result<()>;
+    fn rename(&self, from: &Path, to: &Path) -> Result<()>;
+    fn metadata(&self, path: &Path) -> Result<Metadata>;
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         self.metadata(path)
     }
-    fn remove_file(&self, path: &Path) -> Result<(), FsError>;
+    fn remove_file(&self, path: &Path) -> Result<()>;
     fn new_open_options(&self) -> OpenOptions;
 }
 
 pub trait FileOpener {
-    fn open(
-        &mut self,
-        path: &Path,
-        conf: &OpenOptionsConfig,
-    ) -> Result<Box<dyn VirtualFile>, FsError>;
+    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile>>;
 }
 
 #[derive(Debug, Clone)]
@@ -131,7 +128,7 @@ impl OpenOptions {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile>, FsError> {
+    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile>> {
         self.opener.open(path.as_ref(), &self.conf)
     }
 }
@@ -153,24 +150,24 @@ pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcas
 
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    fn set_len(&mut self, new_size: u64) -> Result<(), FsError>;
+    fn set_len(&mut self, new_size: u64) -> Result<()>;
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> Result<(), FsError>;
+    fn unlink(&mut self) -> Result<()>;
 
     /// Store file contents and metadata to disk
     /// Default implementation returns `Ok(())`.  You should implement this method if you care
     /// about flushing your cache to permanent storage
-    fn sync_to_disk(&self) -> Result<(), FsError> {
+    fn sync_to_disk(&self) -> Result<()> {
         Ok(())
     }
 
     /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize, FsError>;
+    fn bytes_available(&self) -> Result<usize>;
 
     /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
     /// Returns the underlying host fd
-    fn get_fd(&self) -> Option<Result<FileDescriptor, FsError>> {
+    fn get_fd(&self) -> Option<FileDescriptor> {
         None
     }
 }
@@ -331,7 +328,7 @@ impl ReadDir {
 pub struct DirEntry {
     pub path: PathBuf,
     // weird hack, to fix this we probably need an internal trait object or callbacks or something
-    pub metadata: Result<Metadata, FsError>,
+    pub metadata: Result<Metadata>,
 }
 
 impl DirEntry {
@@ -339,11 +336,11 @@ impl DirEntry {
         self.path.clone()
     }
 
-    pub fn metadata(&self) -> Result<Metadata, FsError> {
+    pub fn metadata(&self) -> Result<Metadata> {
         self.metadata.clone()
     }
 
-    pub fn file_type(&self) -> Result<FileType, FsError> {
+    pub fn file_type(&self) -> Result<FileType> {
         let metadata = self.metadata.clone()?;
         Ok(metadata.file_type())
     }
@@ -429,9 +426,9 @@ impl FileType {
 }
 
 impl Iterator for ReadDir {
-    type Item = Result<DirEntry, FsError>;
+    type Item = Result<DirEntry>;
 
-    fn next(&mut self) -> Option<Result<DirEntry, FsError>> {
+    fn next(&mut self) -> Option<Result<DirEntry>> {
         if let Some(v) = self.data.get(self.index).cloned() {
             self.index += 1;
             return Some(Ok(v));
@@ -439,12 +436,3 @@ impl Iterator for ReadDir {
         None
     }
 }
-
-/*impl From<vfs::VfsError> for FsError {
-    fn from(vfs_error: vfs::VfsError) -> Self {
-        match vfs_error {
-            vfs::VfsError::IoError(io_error) => io_error.into(),
-            _ => todo!("Not yet handled vfs error type {:?}", vfs_error)
-        }
-    }
-}*/
