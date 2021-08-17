@@ -58,7 +58,10 @@ default = [
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
-middlewares = ["wasmer-middlewares"]
+middlewares = [
+    "compiler",
+    "wasmer-middlewares",
+]
 universal = [
     "wasmer-engine-universal",
     "engine",
