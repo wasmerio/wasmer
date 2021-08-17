@@ -64,7 +64,7 @@ rustc_version = "0.4"
 
 [dev-dependencies]
 anyhow = "1.0"
-blake3 = "0.3"
+blake3 = "1.0"
 criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
