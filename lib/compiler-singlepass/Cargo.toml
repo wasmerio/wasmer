@@ -26,7 +26,7 @@ smallvec = "1.6"
 loupe = "0.1"
 
 [dev-dependencies]
-target-lexicon = { version = "0.12", default-features = false }
+target-lexicon = { version = "0.12.2", default-features = false }
 
 [badges]
 maintenance = { status = "actively-developed" }
