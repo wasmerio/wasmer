@@ -6,18 +6,17 @@
 //
 
 #ifndef calc_h
-#define WASM_hpp
+#define calc_h
 #include "wasm.h"
-#include "wasmer.h"
-#include "wasmer_wasm.h"
 #include <stdio.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-int calculate_sum(int a, int b);
-    
+    int calculate_sum(int a, int b);
+
 #ifdef __cplusplus
 }
 #endif
