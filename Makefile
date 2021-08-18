@@ -564,7 +564,7 @@ test-integration:
 	cargo test -p wasmer-integration-tests-cli
 
 test-integration-ios:
-	cargo test -p wasmer-integration-tests-ios --features cranelift
+	cargo test -p wasmer-integration-tests-ios
 
 #####
 #
