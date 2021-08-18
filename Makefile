@@ -563,6 +563,9 @@ test-examples:
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
 
+test-integration-ios:
+	cargo run --example platform-headless-ios --features cranelift
+
 #####
 #
 # Packaging.

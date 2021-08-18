@@ -339,7 +339,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "./../../../../target/release/wasmer compile DylibExample/sum.wasm --target x86_64-apple-ios --dylib  -o DylibExample/sum.dylib\n";
+			shellScript = "export ARCH='x86_64'\nif [[ `uname -m` == 'arm64' ]]; then\n  export ARCH='aarch64'\nfi\n\n\n./../../../../target/release/wasmer compile DylibExample/sum.wasm --target $ARCH-apple-ios --dylib  -o DylibExample/sum.dylib\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
