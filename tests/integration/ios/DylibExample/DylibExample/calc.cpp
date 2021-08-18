@@ -30,101 +30,94 @@ std::string get_resources_dir()
     {
       CFRelease(resourceURL);
     }
-   
+
     return resourcePath;
   }
-    
-    return "";
+
+  return "";
 }
 
-
-inline std::vector<uint8_t> read_vector_from_disk(std::string file_path) {
-    std::ifstream instream(file_path, std::ios::in | std::ios::binary);
-    std::vector<uint8_t> data((std::istreambuf_iterator<char>(instream)), std::istreambuf_iterator<char>());
-    return data;
+inline std::vector<uint8_t> read_vector_from_disk(std::string file_path)
+{
+  std::ifstream instream(file_path, std::ios::in | std::ios::binary);
+  std::vector<uint8_t> data((std::istreambuf_iterator<char>(instream)), std::istreambuf_iterator<char>());
+  return data;
 }
 
-int calculate_sum(int a, int b) {
-    printf("Creating the store...\n");
-    wasm_engine_t* engine = wasm_engine_new();
-    wasm_store_t* store = wasm_store_new(engine);
+int calculate_sum(int a, int b)
+{
+  printf("Creating the store...\n");
+  wasm_engine_t *engine = wasm_engine_new();
+  wasm_store_t *store = wasm_store_new(engine);
 
-    
-    printf("Loading .dylib file...\n");
-    std::string wasm_path = get_resources_dir() + "/sum.dylib";
-    std::vector<uint8_t> dylib = read_vector_from_disk(wasm_path.c_str());
-    uint8_t* wasm_bytes = dylib.data();
-    
-    wasm_byte_vec_t imported_bytes;
-    imported_bytes.size = dylib.size();
-    imported_bytes.data = (wasm_byte_t *) wasm_bytes;
-    
-    printf("Compiling module...\n");
-    wasm_module_t* module;
-    module = wasm_module_deserialize(store, &imported_bytes);
+  printf("Loading .dylib file...\n");
+  std::string wasm_path = get_resources_dir() + "/sum.dylib";
+  std::vector<uint8_t> dylib = read_vector_from_disk(wasm_path.c_str());
+  uint8_t *wasm_bytes = dylib.data();
 
-    if (!module) {
-        printf("> Error compiling module!\n");
+  wasm_byte_vec_t imported_bytes;
+  imported_bytes.size = dylib.size();
+  imported_bytes.data = (wasm_byte_t *)wasm_bytes;
 
-        return 1;
-    }
+  printf("Compiling module...\n");
+  wasm_module_t *module;
+  module = wasm_module_deserialize(store, &imported_bytes);
 
-    printf("Creating imports...\n");
-    wasm_extern_vec_t import_object = WASM_EMPTY_VEC;
+  if (!module)
+  {
+    printf("> Error compiling module!\n");
 
-    printf("Instantiating module...\n");
-    wasm_instance_t* instance = wasm_instance_new(store, module, &import_object, NULL);
+    return 1;
+  }
 
-    if (!instance) {
-      printf("> Error instantiating module!\n");
+  printf("Creating imports...\n");
+  wasm_extern_vec_t import_object = WASM_EMPTY_VEC;
 
-      return 1;
-    }
+  printf("Instantiating module...\n");
+  wasm_instance_t *instance = wasm_instance_new(store, module, &import_object, NULL);
 
-    printf("Retrieving exports...\n");
-    wasm_extern_vec_t exports;
-    wasm_instance_exports(instance, &exports);
+  if (!instance)
+  {
+    printf("> Error instantiating module!\n");
 
-    if (exports.size == 0) {
-        printf("> Error accessing exports!\n");
+    return 1;
+  }
 
-        return 1;
-    }
+  printf("Retrieving exports...\n");
+  wasm_extern_vec_t exports;
+  wasm_instance_exports(instance, &exports);
 
-    printf("Retrieving the `sum` function...\n");
-    wasm_func_t* sum_func = wasm_extern_as_func(exports.data[0]);
+  if (exports.size == 0)
+  {
+    printf("> Error accessing exports!\n");
 
-    if (sum_func == NULL) {
-        printf("> Failed to get the `sum` function!\n");
+    return 1;
+  }
 
-        return 1;
-    }
+  printf("Retrieving the `sum` function...\n");
+  wasm_func_t *sum_func = wasm_extern_as_func(exports.data[0]);
 
-    printf("Calling `sum` function...\n");
-    wasm_val_t args_val[2] = { WASM_I32_VAL(a), WASM_I32_VAL(b) };
-    wasm_val_t results_val[1] = { WASM_INIT_VAL };
-    wasm_val_vec_t args = WASM_ARRAY_VEC(args_val);
-    wasm_val_vec_t results = WASM_ARRAY_VEC(results_val);
+  if (sum_func == NULL)
+  {
+    printf("> Failed to get the `sum` function!\n");
 
-    if (wasm_func_call(sum_func, &args, &results)) {
-        printf("> Error calling the `sum` function!\n");
+    return 1;
+  }
 
-        return 1;
-    }
+  printf("Calling `sum` function...\n");
+  wasm_val_t args_val[2] = {WASM_I32_VAL(a), WASM_I32_VAL(b)};
+  wasm_val_t results_val[1] = {WASM_INIT_VAL};
+  wasm_val_vec_t args = WASM_ARRAY_VEC(args_val);
+  wasm_val_vec_t results = WASM_ARRAY_VEC(results_val);
 
-    printf("Results of `sum`: %d\n", results_val[0].of.i32);
-    
-    return results_val[0].of.i32;
+  if (wasm_func_call(sum_func, &args, &results))
+  {
+    printf("> Error calling the `sum` function!\n");
+
+    return 1;
+  }
+
+  printf("Results of `sum`: %d\n", results_val[0].of.i32);
+
+  return results_val[0].of.i32;
 }
-
-//    std::vector<uint8_t> buffer;
-//    {
-//        std::ifstream in(file_path, std::ios::binary);
-//        in.seekg(0, std::ios::end);
-//        size_t size = in.tellg();
-//        in.seekg(0, std::ios::beg);
-//        buffer.resize(size);
-//        in.read(reinterpret_cast<char*>(buffer.data()), size);
-//    }
-//
-//    return buffer;
