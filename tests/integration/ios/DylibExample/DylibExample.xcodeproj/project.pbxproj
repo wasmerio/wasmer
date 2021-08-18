@@ -532,6 +532,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
+				EXCLUDED_ARCHS = "";
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				HEADER_SEARCH_PATHS = "../../../../lib/**";
 				INFOPLIST_FILE = DylibExample/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -542,6 +544,7 @@
 					"../../../../target/universal/release/**",
 					"$(PROJECT_DIR)/DylibExample",
 				);
+				NEW_SETTING = "";
 				PATH = "/Users/nathanhorrigan/.wasmer/bin:/Users/nathanhorrigan/.cargo/bin:/Users/nathanhorrigan/Android/Sdk/tools:/Users/nathanhorrigan/Android/Sdk/tools/bin:/Users/nathanhorrigan/Android/Sdk/platform-tools:/Users/nathanhorrigan/.pyenv/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/Users/nathanhorrigan/.wasmer/globals/wapm_packages/.bin";
 				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -563,6 +566,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				HEADER_SEARCH_PATHS = "../../../../lib/**";
 				INFOPLIST_FILE = DylibExample/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -573,6 +577,7 @@
 					"../../../../target/universal/release/**",
 					"$(PROJECT_DIR)/DylibExample",
 				);
+				NEW_SETTING = "";
 				PATH = "/Users/nathanhorrigan/.wasmer/bin:/Users/nathanhorrigan/.cargo/bin:/Users/nathanhorrigan/Android/Sdk/tools:/Users/nathanhorrigan/Android/Sdk/tools/bin:/Users/nathanhorrigan/Android/Sdk/platform-tools:/Users/nathanhorrigan/.pyenv/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/Users/nathanhorrigan/.wasmer/globals/wapm_packages/.bin";
 				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
