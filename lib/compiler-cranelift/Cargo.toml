@@ -27,7 +27,7 @@ smallvec = "1.6"
 loupe = "0.1"
 
 [dev-dependencies]
-target-lexicon = { version = "0.12", default-features = false }
+target-lexicon = { version = "0.12.2", default-features = false }
 cranelift-codegen = { version = "0.76", features = ["all-arch"] }
 lazy_static = "1.4"
 
