@@ -254,6 +254,7 @@ jobs:
         run: |
           export WASMER_DIR=`pwd`/package
           make test-integration
+          make test-integration-ios
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Cross compile from Linux
         if: matrix.build == 'linux-x64'
