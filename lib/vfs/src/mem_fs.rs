@@ -246,7 +246,7 @@ mod test_filesystem {
         assert_eq!(
             fs.create_dir(Path::new("/foo")),
             Ok(()),
-            "creating a directory"
+            "creating a directory",
         );
 
         assert_eq!(
@@ -258,13 +258,51 @@ mod test_filesystem {
         assert_eq!(
             fs.create_dir(Path::new("/foo/qux")),
             Ok(()),
-            "creating a subdirectory"
+            "creating a subdirectory",
         );
 
         assert_eq!(
             fs.create_dir(Path::new("/bar/baz")),
             Err(FsError::BaseNotDirectory),
-            "creating a subdirectory with a parent that doesn't exist"
+            "creating a subdirectory with a parent that doesn't exist",
+        );
+    }
+
+    #[test]
+    fn test_remove_dir() {
+        let fs = FileSystem::default();
+
+        assert_eq!(
+            fs.create_dir(Path::new("/foo")),
+            Ok(()),
+            "creating a directory",
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("/foo/bar")),
+            Ok(()),
+            "creating a subdirectory",
+        );
+
+        assert_eq!(
+            fs.remove_dir(Path::new("/foo")),
+            Err(FsError::DirectoryNotEmpty),
+            "removing a non-empty directory",
+        );
+
+        assert_eq!(
+            fs.remove_dir(Path::new("/foo/bar")),
+            Ok(()),
+            "removing a sub-directory",
+        );
+        assert_eq!(
+            fs.remove_dir(Path::new("/foo")),
+            Ok(()),
+            "removing a directory"
+        );
+        assert_eq!(
+            fs.remove_dir(Path::new("/foo")),
+            Err(FsError::BaseNotDirectory),
+            "removing a directory that doesn't exist",
         );
     }
 }
