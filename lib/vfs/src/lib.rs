@@ -219,6 +219,9 @@ pub enum FsError {
     /// File exists
     #[error("file exists")]
     AlreadyExists,
+    /// The filesystem has failed to lock a resource.
+    #[error("lock error")]
+    Lock,
     /// Something failed when doing IO. These errors can generally not be handled.
     /// It may work if tried again.
     #[error("io error")]
@@ -351,7 +354,7 @@ impl DirEntry {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct Metadata {
     pub ft: FileType,
@@ -385,7 +388,7 @@ impl Metadata {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct FileType {
     pub dir: bool,
