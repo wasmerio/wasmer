@@ -21,6 +21,7 @@ mod tests {
             .arg("-destination")
             .arg("platform=iOS Simulator,name=iPhone 12 Pro,OS=14.5")
             .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .output()
             .expect("Could not run iOS Test");
 
