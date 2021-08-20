@@ -8,6 +8,7 @@ mod tests {
         // Create a unique iOS device
         delete_existing_device();
         create_ios_device();
+        list_devices();
 
         // Tets the 'DylibExample' scheme
         let success = run_ios_test("DylibExample/DylibExample.xcodeproj", "DylibExample");
@@ -43,6 +44,17 @@ mod tests {
         let success = command_success && test_success;
 
         return success;
+    }
+
+    fn list_devices() -> Output {
+        Command::new("xcrun")
+            .arg("simctl")
+            .arg("list")
+            .arg("devices")
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()
+            .expect("Could not list iOS devices")
     }
 
     fn create_ios_device() -> Output {
