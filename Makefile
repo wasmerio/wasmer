@@ -565,6 +565,8 @@ test-integration:
 
 test-integration-ios:
 	rm -f tests/integration/ios/DylibExample/DylibExample/sum.dylib
+	# TODO: Remove below line
+	xcrun simctl list devices
 	cargo test -p wasmer-integration-tests-ios
 
 #####
