@@ -19,7 +19,7 @@ mod tests {
             .arg("-scheme")
             .arg(scheme)
             .arg("-destination")
-            .arg("platform=iOS Simulator,name=iPhone 12 Pro,OS=14.5")
+            .arg("platform=iOS Simulator,name=iPod touch (7th generation)")
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()
