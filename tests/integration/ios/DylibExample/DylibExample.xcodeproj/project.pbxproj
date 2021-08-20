@@ -15,7 +15,6 @@
 		63CD62CD26C9492400424C7A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63CD62CC26C9492400424C7A /* Assets.xcassets */; };
 		63CD62D026C9492400424C7A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 63CD62CE26C9492400424C7A /* LaunchScreen.storyboard */; };
 		63CD62DB26C9492400424C7A /* DylibExampleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CD62DA26C9492400424C7A /* DylibExampleTests.swift */; };
-		63CD62E626C9492400424C7A /* DylibExampleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CD62E526C9492400424C7A /* DylibExampleUITests.swift */; };
 		63CD62FB26C94F4700424C7A /* libwasmer.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 63CD62F826C94EB600424C7A /* libwasmer.a */; };
 		63CD62FF26C952CC00424C7A /* sum.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 63CD62FE26C952CC00424C7A /* sum.wasm */; };
 		63CD630126C9541E00424C7A /* sum.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 63CD630026C9541E00424C7A /* sum.dylib */; };
@@ -24,13 +23,6 @@
 
 /* Begin PBXContainerItemProxy section */
 		63CD62D726C9492400424C7A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 63CD62B826C9492100424C7A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 63CD62BF26C9492100424C7A;
-			remoteInfo = DylibExample;
-		};
-		63CD62E226C9492400424C7A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 63CD62B826C9492100424C7A /* Project object */;
 			proxyType = 1;
@@ -68,9 +60,6 @@
 		63CD62D626C9492400424C7A /* DylibExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DylibExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		63CD62DA26C9492400424C7A /* DylibExampleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DylibExampleTests.swift; sourceTree = "<group>"; };
 		63CD62DC26C9492400424C7A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		63CD62E126C9492400424C7A /* DylibExampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DylibExampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		63CD62E526C9492400424C7A /* DylibExampleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DylibExampleUITests.swift; sourceTree = "<group>"; };
-		63CD62E726C9492400424C7A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		63CD62F426C94D6000424C7A /* DylibExample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DylibExample-Bridging-Header.h"; sourceTree = "<group>"; };
 		63CD62F826C94EB600424C7A /* libwasmer.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libwasmer.a; path = ../../../../target/universal/release/libwasmer.a; sourceTree = "<group>"; };
 		63CD62FE26C952CC00424C7A /* sum.wasm */ = {isa = PBXFileReference; lastKnownFileType = text; path = sum.wasm; sourceTree = "<group>"; };
@@ -94,13 +83,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		63CD62DE26C9492400424C7A /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -111,7 +93,6 @@
 				63CD62F826C94EB600424C7A /* libwasmer.a */,
 				63CD62C226C9492100424C7A /* DylibExample */,
 				63CD62D926C9492400424C7A /* DylibExampleTests */,
-				63CD62E426C9492400424C7A /* DylibExampleUITests */,
 				63CD62C126C9492100424C7A /* Products */,
 				63CD62FA26C94F4700424C7A /* Frameworks */,
 			);
@@ -122,7 +103,6 @@
 			children = (
 				63CD62C026C9492100424C7A /* DylibExample.app */,
 				63CD62D626C9492400424C7A /* DylibExampleTests.xctest */,
-				63CD62E126C9492400424C7A /* DylibExampleUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -152,15 +132,6 @@
 				63CD62DC26C9492400424C7A /* Info.plist */,
 			);
 			path = DylibExampleTests;
-			sourceTree = "<group>";
-		};
-		63CD62E426C9492400424C7A /* DylibExampleUITests */ = {
-			isa = PBXGroup;
-			children = (
-				63CD62E526C9492400424C7A /* DylibExampleUITests.swift */,
-				63CD62E726C9492400424C7A /* Info.plist */,
-			);
-			path = DylibExampleUITests;
 			sourceTree = "<group>";
 		};
 		63CD62FA26C94F4700424C7A /* Frameworks */ = {
@@ -212,24 +183,6 @@
 			productReference = 63CD62D626C9492400424C7A /* DylibExampleTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		63CD62E026C9492400424C7A /* DylibExampleUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 63CD62F026C9492400424C7A /* Build configuration list for PBXNativeTarget "DylibExampleUITests" */;
-			buildPhases = (
-				63CD62DD26C9492400424C7A /* Sources */,
-				63CD62DE26C9492400424C7A /* Frameworks */,
-				63CD62DF26C9492400424C7A /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				63CD62E326C9492400424C7A /* PBXTargetDependency */,
-			);
-			name = DylibExampleUITests;
-			productName = DylibExampleUITests;
-			productReference = 63CD62E126C9492400424C7A /* DylibExampleUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -244,10 +197,6 @@
 						LastSwiftMigration = 1250;
 					};
 					63CD62D526C9492400424C7A = {
-						CreatedOnToolsVersion = 12.5;
-						TestTargetID = 63CD62BF26C9492100424C7A;
-					};
-					63CD62E026C9492400424C7A = {
 						CreatedOnToolsVersion = 12.5;
 						TestTargetID = 63CD62BF26C9492100424C7A;
 					};
@@ -268,7 +217,6 @@
 			targets = (
 				63CD62BF26C9492100424C7A /* DylibExample */,
 				63CD62D526C9492400424C7A /* DylibExampleTests */,
-				63CD62E026C9492400424C7A /* DylibExampleUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -286,13 +234,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		63CD62D426C9492400424C7A /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		63CD62DF26C9492400424C7A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -363,14 +304,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		63CD62DD26C9492400424C7A /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				63CD62E626C9492400424C7A /* DylibExampleUITests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -378,11 +311,6 @@
 			isa = PBXTargetDependency;
 			target = 63CD62BF26C9492100424C7A /* DylibExample */;
 			targetProxy = 63CD62D726C9492400424C7A /* PBXContainerItemProxy */;
-		};
-		63CD62E326C9492400424C7A /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 63CD62BF26C9492100424C7A /* DylibExample */;
-			targetProxy = 63CD62E226C9492400424C7A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -640,50 +568,6 @@
 			};
 			name = Release;
 		};
-		63CD62F126C9492400424C7A /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = "";
-				INFOPLIST_FILE = DylibExampleUITests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExampleUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = DylibExample;
-			};
-			name = Debug;
-		};
-		63CD62F226C9492400424C7A /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = "";
-				INFOPLIST_FILE = DylibExampleUITests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExampleUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = DylibExample;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -710,15 +594,6 @@
 			buildConfigurations = (
 				63CD62EE26C9492400424C7A /* Debug */,
 				63CD62EF26C9492400424C7A /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		63CD62F026C9492400424C7A /* Build configuration list for PBXNativeTarget "DylibExampleUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				63CD62F126C9492400424C7A /* Debug */,
-				63CD62F226C9492400424C7A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
