@@ -64,6 +64,7 @@ jobs:
             use_sccache: true
             run_test: false
             run_test_capi: false
+            run_integration_tests: true
           - build: windows-x64
             os: windows-latest
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
