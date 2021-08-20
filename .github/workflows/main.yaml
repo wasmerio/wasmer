@@ -57,6 +57,7 @@ jobs:
             run_test_capi: true
             use_sccache: true
             run_integration_tests: true
+            run_ios_tests: true
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
@@ -64,7 +65,7 @@ jobs:
             use_sccache: true
             run_test: false
             run_test_capi: false
-            run_integration_tests: true
+            run_ios_tests: true
           - build: windows-x64
             os: windows-latest
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
@@ -255,8 +256,10 @@ jobs:
         run: |
           export WASMER_DIR=`pwd`/package
           make test-integration
-          make test-integration-ios
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
+      - name: Run iOS integration tests
+        run: make test-integration-ios
+        if: matrix.run_ios_tests
       - name: Cross compile from Linux
         if: matrix.build == 'linux-x64'
         shell: bash

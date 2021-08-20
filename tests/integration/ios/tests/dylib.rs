@@ -24,7 +24,7 @@ mod tests {
             .arg("-scheme")
             .arg(scheme)
             .arg("-destination")
-            .arg("platform=iOS Simulator,name=ios-tester")
+            .arg("name=ios-tester") 
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()
