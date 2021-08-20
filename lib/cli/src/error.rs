@@ -90,7 +90,7 @@ where
                             write!(
                                 self.inner,
                                 "{}{: >2}: ",
-                                "╰─>".bold().blue(),
+                                "╰─▶".bold().blue(),
                                 format!("{}", number).bold().blue()
                             )?
                         }
