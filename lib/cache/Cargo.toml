@@ -14,7 +14,7 @@ edition = "2018"
 wasmer = { path = "../api", version = "2.0.0", default-features = false, features = ["sys"] }
 hex = "0.4"
 thiserror = "1"
-blake3 = "0.3"
+blake3 = "1.0"
 
 [dev-dependencies]
 criterion = "0.3"
@@ -23,6 +23,9 @@ rand = "0.8.3"
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "2.0.0" }
 wasmer-engine-universal = { path = "../engine-universal", version = "2.0.0" }
 wasmer-engine-dylib = { path = "../engine-dylib", version = "2.0.0" }
+
+[features]
+blake3-pure = ["blake3/pure"]
 
 [[bench]]
 name = "bench_filesystem_cache"
