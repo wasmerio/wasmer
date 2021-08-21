@@ -1,15 +1,10 @@
 #[cfg(test)]
 #[cfg(target_os = "macos")]
 mod tests {
-    use std::process::{Command, Output, Stdio};
+    use std::process::{Command, Stdio};
 
     #[test]
     fn test_runtime() {
-        // Create a unique iOS device
-        delete_existing_device();
-        create_ios_device();
-        list_devices();
-
         // Tets the 'DylibExample' scheme
         let success = run_ios_test("DylibExample/DylibExample.xcodeproj", "DylibExample");
         if !success {
@@ -25,7 +20,7 @@ mod tests {
             .arg("-scheme")
             .arg(scheme)
             .arg("-destination")
-            .arg("platform=iOS Simulator,name=ios-tester")
+            .arg("platform=iOS Simulator,name=iPhone 12 Pro")
             .arg("CODE_SIGNING_ALLOWED=NO")
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
@@ -45,39 +40,5 @@ mod tests {
         let success = command_success && test_success;
 
         return success;
-    }
-
-    fn list_devices() -> Output {
-        Command::new("xcrun")
-            .arg("simctl")
-            .arg("list")
-            .arg("devices")
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .expect("Could not list iOS devices")
-    }
-
-    fn create_ios_device() -> Output {
-        Command::new("xcrun")
-            .arg("simctl")
-            .arg("create")
-            .arg("ios-tester")
-            .arg("com.apple.CoreSimulator.SimDeviceType.iPhone-12")
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .expect("Could not run create a sim device")
-    }
-
-    fn delete_existing_device() -> Output {
-        Command::new("xcrun")
-            .arg("simctl")
-            .arg("delete")
-            .arg("ios-tester")
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .expect("Could not run delete the sim device")
     }
 }
