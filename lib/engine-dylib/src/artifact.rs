@@ -307,7 +307,7 @@ impl DylibArtifact {
             if ios_compile_target && ld_install.is_ok() {
                 ld_install.unwrap().into_os_string().into_string().unwrap()
             } else {
-                "ld".to_string()
+                "lld".to_string()
             }
         };
 
