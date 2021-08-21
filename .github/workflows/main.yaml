@@ -53,10 +53,11 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            run_test: true
-            run_test_capi: true
+            # TODO: Flip these back
+            run_test: false
+            run_test_capi: false
             use_sccache: true
-            run_integration_tests: true
+            run_integration_tests: false
             run_ios_tests: true
           - build: macos-arm64
             os: macos-11.0
@@ -258,7 +259,6 @@ jobs:
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Run iOS integration tests
         run: |
-          sudo xcode-select --switch "/Applications/Xcode_13.0.app/Contents/Developer"
           rustup target add aarch64-apple-ios x86_64-apple-ios
           cargo install cargo-lipo
           make test-integration-ios
