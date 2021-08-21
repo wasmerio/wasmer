@@ -566,7 +566,7 @@ test-integration:
 
 test-integration-ios:
 	rm -f tests/integration/ios/DylibExample/DylibExample/sum.dylib
-	xcodebuild test -project tests/integration/ios/DylibExample/DylibExample.xcodeproj -scheme DylibExample -destination 'platform=iOS Simulator,name=iPhone 12 Pro,OS=14.4'
+	xcodebuild test -project tests/integration/ios/DylibExample/DylibExample.xcodeproj -scheme DylibExample -destination 'platform=iOS Simulator,name=iPhone 12 Pro'
 	# cargo test -p wasmer-integration-tests-ios
 
 #####
