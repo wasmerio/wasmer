@@ -259,10 +259,9 @@ jobs:
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Run iOS integration tests
         run: |
-          ls /Applications | grep Xcode
-          sudo xcode-select --switch "$(find /Applications -mindepth 1 -maxdepth 1 ! -type l | grep "Xcode_[\.0-9]*app" | sort -V | tail -1)/Contents/Developer"
-          
+          sudo xcode-select --switch "/Applications/Xcode_13.0.app/Contents/Developer"
           rustup toolchain install nightly
+          rustup default nightly
           rustup target add --toolchain nightly aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
           cargo install cargo-lipo
           make test-integration-ios
