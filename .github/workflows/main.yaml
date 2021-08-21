@@ -261,6 +261,7 @@ jobs:
         run: |
           ls /Applications | grep Xcode
           sudo xcode-select --switch "$(find /Applications -mindepth 1 -maxdepth 1 ! -type l | grep "Xcode_[\.0-9]*app" | sort -V | tail -1)/Contents/Developer"
+          cargo install cargo-lipo
           make test-integration-ios
         if: matrix.run_ios_tests
       - name: Cross compile from Linux

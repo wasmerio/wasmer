@@ -59,7 +59,6 @@ members = [
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"
-cargo-lipo = "3.1.0"
 anyhow = "1.0"
 glob = "0.3"
 rustc_version = "0.4"
