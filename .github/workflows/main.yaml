@@ -65,7 +65,6 @@ jobs:
             use_sccache: true
             run_test: false
             run_test_capi: false
-            run_ios_tests: true
           - build: windows-x64
             os: windows-latest
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
@@ -260,9 +259,7 @@ jobs:
       - name: Run iOS integration tests
         run: |
           sudo xcode-select --switch "/Applications/Xcode_13.0.app/Contents/Developer"
-          rustup toolchain install nightly
-          rustup default nightly
-          rustup target add --toolchain nightly aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
+          rustup target add aarch64-apple-ios x86_64-apple-ios
           cargo install cargo-lipo
           make test-integration-ios
         if: matrix.run_ios_tests
