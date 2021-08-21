@@ -96,7 +96,6 @@ jobs:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
-      DEVELOPER_DIR: /Applications/Xcode_12.5.app/Contents/Developer
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v2
@@ -259,7 +258,9 @@ jobs:
           make test-integration
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Run iOS integration tests
-        run: make test-integration-ios
+        run: |
+          sudo xcode-select --switch "$(find /Applications -mindepth 1 -maxdepth 1 ! -type l | grep "Xcode_[\.0-9]*app" | sort -V | tail -1)/Contents/Developer"
+          make test-integration-ios
         if: matrix.run_ios_tests
       - name: Cross compile from Linux
         if: matrix.build == 'linux-x64'
