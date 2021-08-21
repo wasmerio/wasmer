@@ -53,11 +53,10 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            # TODO: Flip these back
-            run_test: false
-            run_test_capi: false
+            run_test: true
+            run_test_capi: true
             use_sccache: true
-            run_integration_tests: false
+            run_integration_tests: true
             run_ios_tests: true
           - build: macos-arm64
             os: macos-11.0

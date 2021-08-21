@@ -562,7 +562,7 @@ test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
 
 test-integration:
-	cargo test -p wasmer-integration-tests-cli  --verbose
+	cargo test -p wasmer-integration-tests-cli
 
 test-integration-ios:
 	rm -f tests/integration/ios/DylibExample/DylibExample/sum.dylib
