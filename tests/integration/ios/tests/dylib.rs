@@ -1,10 +1,13 @@
 #[cfg(test)]
 #[cfg(target_os = "macos")]
 mod tests {
-    use std::process::{Command, Stdio};
+    use std::process::{Command, Output, Stdio};
 
     #[test]
     fn test_runtime() {
+        // Remove anuthing left over from tests
+        remove_existing_artificats();
+
         // Tets the 'DylibExample' scheme
         let success = run_ios_test("DylibExample/DylibExample.xcodeproj", "DylibExample");
         if !success {
@@ -40,5 +43,13 @@ mod tests {
         let success = command_success && test_success;
 
         return success;
+    }
+
+    fn remove_existing_artificats() -> Output {
+        Command::new("rm")
+            .arg("-f")
+            .arg("DylibExample/DylibExample/sum.dylib")
+            .output()
+            .expect("Could not clear artificats")
     }
 }

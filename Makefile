@@ -565,7 +565,6 @@ test-integration:
 	cargo test -p wasmer-integration-tests-cli
 
 test-integration-ios:
-	rm -f tests/integration/ios/DylibExample/DylibExample/sum.dylib
 	cargo test -p wasmer-integration-tests-ios
 
 #####
