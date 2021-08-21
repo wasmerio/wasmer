@@ -462,7 +462,7 @@
 				ENABLE_BITCODE = NO;
 				EXCLUDED_ARCHS = "";
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
-				HEADER_SEARCH_PATHS = "../../../../lib/**";
+				HEADER_SEARCH_PATHS = "../../../../lib/c-api/";
 				INFOPLIST_FILE = DylibExample/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -495,7 +495,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
-				HEADER_SEARCH_PATHS = "../../../../lib/**";
+				HEADER_SEARCH_PATHS = "../../../../lib/c-api/";
 				INFOPLIST_FILE = DylibExample/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
