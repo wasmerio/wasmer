@@ -26,6 +26,7 @@ mod tests {
             .arg(scheme)
             .arg("-destination")
             .arg("platform=iOS Simulator,name=ios-tester")
+            .arg("CODE_SIGNING_ALLOWED=NO")
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()

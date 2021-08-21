@@ -96,6 +96,7 @@ jobs:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+      DEVELOPER_DIR: /Applications/Xcode_12.5.app/Contents/Developer
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v2
