@@ -330,7 +330,7 @@ jobs:
   test-cross-compile-on-mac:
     name: Test cross-compile on macos
     needs: [setup, test]
-    runs-on: macos-latest
+    runs-on: macos-11
     steps:
       - name: Download Wasmer
         uses: actions/download-artifact@v2
