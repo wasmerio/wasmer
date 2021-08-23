@@ -9,6 +9,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **[Unreleased]**
 
 ### Added
+- [#2535](https://github.com/wasmerio/wasmer/pull/2427) Added iOS support for Wasmer. This relies on the `dylib-engine`.
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Wasmer can now compile to Javascript via `wasm-bindgen`. Use the `js-default` (and no default features) feature to try it!.
 - [#2436](https://github.com/wasmerio/wasmer/pull/2436) Added the x86-32 bit variant support to LLVM compiler.
 
