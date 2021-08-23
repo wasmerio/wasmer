@@ -275,7 +275,7 @@ jobs:
           #cp qjs_win_from_linux.wjit cross
           cp target/release/wasmer cross
       - name: Cross compile from Mac
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-11'
         shell: bash
         run: |
           ls target/release
