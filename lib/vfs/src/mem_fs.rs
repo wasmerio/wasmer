@@ -323,7 +323,7 @@ impl fmt::Debug for FileSystem {
     }
 }
 
-pub struct FileSystemInner {
+struct FileSystemInner {
     storage: Slab<Node>,
 }
 
@@ -1162,8 +1162,22 @@ impl crate::FileOpener for FileOpener {
                     .get_mut(inode_of_file)
                     .ok_or(FsError::UnknownError)?;
 
-                // Update the accessed time.
-                node.metadata_mut().accessed = time();
+                match fs.storage.get_mut(inode_of_file) {
+                    Some(Node::File { metadata, file, .. }) => {
+                        // Update the accessed time.
+                        metadata.accessed = time();
+
+                        if truncate {
+                            file.truncate();
+                        }
+
+                        if append {
+                            file.seek(io::SeekFrom::End(0))?;
+                        }
+                    }
+
+                    _ => return Err(FsError::NotAFile),
+                }
 
                 inode_of_file
             }
@@ -1179,7 +1193,7 @@ impl crate::FileOpener for FileOpener {
                     .try_write()
                     .map_err(|_| FsError::Lock)?;
 
-                let file = File::new(Vec::new(), read, write, append, truncate);
+                let file = File::new();
 
                 // Creating the file in the storage.
                 let inode_of_file = fs.storage.vacant_entry().key();
@@ -1365,7 +1379,7 @@ mod test_file_opener {
 }
 
 #[derive(Clone)]
-pub struct FileHandle {
+struct FileHandle {
     inode: Inode,
     filesystem: FileSystem,
     read: bool,
@@ -1748,16 +1762,7 @@ impl Read for FileHandle {
             }
         };
 
-        let max_to_read = cmp::min(file.buffer.len() - file.cursor, buf.len());
-        let data_to_copy = &file.buffer[file.cursor..][..max_to_read];
-
-        // SAFETY: `buf[..max_to_read]` and `data_to_copy` have the same size, due to
-        // how `max_to_read` is computed.
-        buf[0..max_to_read].copy_from_slice(data_to_copy);
-
-        file.cursor += max_to_read;
-
-        Ok(max_to_read)
+        file.read(buf)
     }
 
     fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
@@ -1786,37 +1791,26 @@ impl Read for FileHandle {
             }
         };
 
-        let data_to_copy = &file.buffer[file.cursor..];
-        let max_to_read = data_to_copy.len();
-
-        // `buf` is too small to contain the data. Let's resize it.
-        if max_to_read > buf.len() {
-            // Let's resize the capacity if needed.
-            if max_to_read > buf.capacity() {
-                buf.reserve_exact(max_to_read - buf.capacity());
-            }
-
-            // SAFETY: The space is reserved, and it's going to be
-            // filled with `copy_from_slice` below.
-            unsafe { buf.set_len(max_to_read) }
-        }
-
-        // SAFETY: `buf` and `data_to_copy` have the same size, see
-        // above.
-        buf.copy_from_slice(data_to_copy);
-
-        file.cursor += max_to_read;
-
-        Ok(max_to_read)
+        file.read_to_end(buf)
     }
 
     fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
-        let mut bytes_buffer = Vec::new();
+        // SAFETY: `String::as_mut_vec` cannot check that modifcations
+        // of the `Vec` will produce a valid UTF-8 string. In our
+        // case, we use `str::from_utf8` to ensure that the UTF-8
+        // constraint still hold before returning.
+        let mut bytes_buffer = unsafe { buf.as_mut_vec() };
+        bytes_buffer.clear();
         let read = self.read_to_end(&mut bytes_buffer)?;
 
-        *buf = String::from_utf8(bytes_buffer).map_err(|_| io::ErrorKind::InvalidInput)?;
-
-        Ok(read)
+        if str::from_utf8(&bytes_buffer).is_err() {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "buffer did not contain valid UTF-8",
+            ))
+        } else {
+            Ok(read)
+        }
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
@@ -1845,25 +1839,7 @@ impl Read for FileHandle {
             }
         };
 
-        if buf.len() > (file.buffer.len() - file.cursor) {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                format!(
-                    "not enough data available in file represented by inode `{}`",
-                    self.inode
-                ),
-            ));
-        }
-
-        let max_to_read = cmp::min(buf.len(), file.buffer.len() - file.cursor);
-        let data_to_copy = &file.buffer[file.cursor..][..max_to_read];
-
-        // SAFETY: `buf` and `data_to_copy` have the same size.
-        buf.copy_from_slice(data_to_copy);
-
-        file.cursor += data_to_copy.len();
-
-        Ok(())
+        file.read_exact(buf)
     }
 }
 
@@ -1884,37 +1860,7 @@ impl Seek for FileHandle {
             }
         };
 
-        let to_err = |_| io::ErrorKind::InvalidInput;
-
-        // Calculate the next cursor.
-        let next_cursor: i64 = match position {
-            // Calculate from the beginning, so `0 + offset`.
-            io::SeekFrom::Start(offset) => offset.try_into().map_err(to_err)?,
-
-            // Calculate from the end, so `buffer.len() + offset`.
-            io::SeekFrom::End(offset) => {
-                TryInto::<i64>::try_into(file.buffer.len()).map_err(to_err)? + offset
-            }
-
-            // Calculate from the current cursor, so `cursor + offset`.
-            io::SeekFrom::Current(offset) => {
-                TryInto::<i64>::try_into(file.cursor).map_err(to_err)? + offset
-            }
-        };
-
-        // It's an error to seek before byte 0.
-        if next_cursor < 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "seeking before the byte 0",
-            ));
-        }
-
-        // In this implementation, it's an error to seek beyond the
-        // end of the buffer.
-        file.cursor = cmp::min(file.buffer.len(), next_cursor.try_into().map_err(to_err)?);
-
-        Ok(file.cursor.try_into().map_err(to_err)?)
+        file.seek(position)
     }
 }
 
@@ -1945,38 +1891,7 @@ impl Write for FileHandle {
             }
         };
 
-        match file.cursor {
-            // The cursor is at the end of the buffer: happy path!
-            position if position == file.buffer.len() => {
-                file.buffer.extend_from_slice(buf);
-                file.cursor += buf.len();
-            }
-
-            // The cursor is at the beginning of the buffer (and the
-            // buffer is not empty, otherwise it would have been
-            // caught by the previous arm): almost a happy path!
-            0 => {
-                let mut new_buffer = Vec::with_capacity(file.buffer.len() + buf.len());
-                new_buffer.extend_from_slice(buf);
-                new_buffer.append(&mut file.buffer);
-
-                file.buffer = new_buffer;
-                file.cursor += buf.len();
-            }
-
-            // The cursor is somewhere in the buffer: not the happy path.
-            position => {
-                file.buffer.reserve_exact(buf.len());
-
-                let mut remainder = file.buffer.split_off(position);
-                file.buffer.extend_from_slice(buf);
-                file.buffer.append(&mut remainder);
-
-                file.cursor += buf.len();
-            }
-        }
-
-        Ok(buf.len())
+        file.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -2226,42 +2141,158 @@ impl fmt::Debug for FileHandle {
 }
 
 #[derive(Debug)]
-pub struct File {
+struct File {
     buffer: Vec<u8>,
     cursor: usize,
-    flags: u16,
 }
 
 impl File {
-    const READ: u16 = 1;
-    const WRITE: u16 = 2;
-    const APPEND: u16 = 4;
-    const TRUNCATE: u16 = 8;
-
-    pub fn new(buffer: Vec<u8>, read: bool, write: bool, append: bool, truncate: bool) -> Self {
-        let mut flags = 0;
-
-        if read {
-            flags |= Self::READ;
-        }
-
-        if write {
-            flags |= Self::WRITE;
-        }
-
-        if append {
-            flags |= Self::APPEND;
-        }
-
-        if truncate {
-            flags |= Self::TRUNCATE;
-        }
-
+    fn new() -> Self {
         Self {
-            buffer,
+            buffer: Vec::new(),
             cursor: 0,
-            flags,
         }
+    }
+
+    fn truncate(&mut self) {
+        self.buffer.clear();
+        self.cursor = 0;
+    }
+}
+
+impl Read for File {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let max_to_read = cmp::min(self.buffer.len() - self.cursor, buf.len());
+        let data_to_copy = &self.buffer[self.cursor..][..max_to_read];
+
+        // SAFETY: `buf[..max_to_read]` and `data_to_copy` have the same size, due to
+        // how `max_to_read` is computed.
+        buf[..max_to_read].copy_from_slice(data_to_copy);
+
+        self.cursor += max_to_read;
+
+        Ok(max_to_read)
+    }
+
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
+        let data_to_copy = &self.buffer[self.cursor..];
+        let max_to_read = data_to_copy.len();
+
+        // `buf` is too small to contain the data. Let's resize it.
+        if max_to_read > buf.len() {
+            // Let's resize the capacity if needed.
+            if max_to_read > buf.capacity() {
+                buf.reserve_exact(max_to_read - buf.capacity());
+            }
+
+            // SAFETY: The space is reserved, and it's going to be
+            // filled with `copy_from_slice` below.
+            unsafe { buf.set_len(max_to_read) }
+        }
+
+        // SAFETY: `buf` and `data_to_copy` have the same size, see
+        // above.
+        buf.copy_from_slice(data_to_copy);
+
+        self.cursor += max_to_read;
+
+        Ok(max_to_read)
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
+        if buf.len() > (self.buffer.len() - self.cursor) {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "not enough data available in file",
+            ));
+        }
+
+        let max_to_read = cmp::min(buf.len(), self.buffer.len() - self.cursor);
+        let data_to_copy = &self.buffer[self.cursor..][..max_to_read];
+
+        // SAFETY: `buf` and `data_to_copy` have the same size.
+        buf.copy_from_slice(data_to_copy);
+
+        self.cursor += data_to_copy.len();
+
+        Ok(())
+    }
+}
+
+impl Seek for File {
+    fn seek(&mut self, position: io::SeekFrom) -> io::Result<u64> {
+        let to_err = |_| io::ErrorKind::InvalidInput;
+
+        // Calculate the next cursor.
+        let next_cursor: i64 = match position {
+            // Calculate from the beginning, so `0 + offset`.
+            io::SeekFrom::Start(offset) => offset.try_into().map_err(to_err)?,
+
+            // Calculate from the end, so `buffer.len() + offset`.
+            io::SeekFrom::End(offset) => {
+                TryInto::<i64>::try_into(self.buffer.len()).map_err(to_err)? + offset
+            }
+
+            // Calculate from the current cursor, so `cursor + offset`.
+            io::SeekFrom::Current(offset) => {
+                TryInto::<i64>::try_into(self.cursor).map_err(to_err)? + offset
+            }
+        };
+
+        // It's an error to seek before byte 0.
+        if next_cursor < 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "seeking before the byte 0",
+            ));
+        }
+
+        // In this implementation, it's an error to seek beyond the
+        // end of the buffer.
+        self.cursor = cmp::min(self.buffer.len(), next_cursor.try_into().map_err(to_err)?);
+
+        Ok(self.cursor.try_into().map_err(to_err)?)
+    }
+}
+
+impl Write for File {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self.cursor {
+            // The cursor is at the end of the buffer: happy path!
+            position if position == self.buffer.len() => {
+                self.buffer.extend_from_slice(buf);
+                self.cursor += buf.len();
+            }
+
+            // The cursor is at the beginning of the buffer (and the
+            // buffer is not empty, otherwise it would have been
+            // caught by the previous arm): almost a happy path!
+            0 => {
+                let mut new_buffer = Vec::with_capacity(self.buffer.len() + buf.len());
+                new_buffer.extend_from_slice(buf);
+                new_buffer.append(&mut self.buffer);
+
+                self.buffer = new_buffer;
+                self.cursor += buf.len();
+            }
+
+            // The cursor is somewhere in the buffer: not the happy path.
+            position => {
+                self.buffer.reserve_exact(buf.len());
+
+                let mut remainder = self.buffer.split_off(position);
+                self.buffer.extend_from_slice(buf);
+                self.buffer.append(&mut remainder);
+
+                self.cursor += buf.len();
+            }
+        }
+
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
