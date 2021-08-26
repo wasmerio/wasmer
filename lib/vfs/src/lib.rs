@@ -5,16 +5,17 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-#[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
-compile_error!("At least the `host_fs` or the `mem_fs` feature must be enabled. Please, pick one.");
+#[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
+compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.");
 
-#[cfg(feature = "host_fs")]
+#[cfg(feature = "host-fs")]
 pub mod host_fs;
-#[cfg(feature = "mem_fs")]
+#[cfg(feature = "mem-fs")]
 pub mod mem_fs;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct FileDescriptor(usize);
 
