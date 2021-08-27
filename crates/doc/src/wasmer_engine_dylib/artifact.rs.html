@@ -785,6 +785,65 @@
 <span id="782">782</span>
 <span id="783">783</span>
 <span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
@@ -853,7 +912,7 @@
 <span class="kw">const</span> <span class="ident">WASMER_METADATA_SYMBOL</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="string">b&quot;WASMER_METADATA&quot;</span>;
 
 <span class="kw">impl</span> <span class="ident">DylibArtifact</span> {
-    <span class="comment">// Mach-O header in Mac</span>
+    <span class="comment">// Mach-O header in iOS/Mac</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
     <span class="kw">const</span> <span class="ident">MAGIC_HEADER_MH_CIGAM_64</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="number">207</span>, <span class="number">250</span>, <span class="number">237</span>, <span class="number">254</span>];
 
@@ -875,7 +934,7 @@
     <span class="doccomment">/// system.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_deserializable</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="macro">cfg_if::cfg_if!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>, <span class="ident">target_os</span><span class="op">=</span><span class="string">&quot;macos&quot;</span>))]</span> {
+            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>, <span class="ident">target_vendor</span><span class="op">=</span><span class="string">&quot;apple&quot;</span>))]</span> {
                 <span class="ident">bytes</span>.<span class="ident">starts_with</span>(<span class="self">Self</span><span class="ident">::MAGIC_HEADER_MH_CIGAM_64</span>)
             }
             <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>, <span class="ident">target_os</span><span class="op">=</span><span class="string">&quot;linux&quot;</span>))]</span> {
@@ -1079,12 +1138,33 @@
             }
         };
 
+        <span class="comment">// Set &#39;isysroot&#39; clang flag if compiling to iOS target</span>
+        <span class="kw">let</span> <span class="ident">ios_compile_target</span> <span class="op">=</span> <span class="ident">target_triple</span>.<span class="ident">operating_system</span> <span class="op">=</span><span class="op">=</span> <span class="ident">OperatingSystem::Ios</span>;
+        <span class="kw">let</span> <span class="ident">ios_sdk_flag</span> <span class="op">=</span> {
+            <span class="kw">if</span> <span class="ident">ios_compile_target</span> {
+                <span class="string">&quot;-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk&quot;</span>
+            } <span class="kw">else</span> {
+                <span class="string">&quot;&quot;</span>
+            }
+        };
+
+        <span class="comment">// Get the location of the &#39;ld&#39; linker for clang</span>
+        <span class="kw">let</span> <span class="ident">fuse_linker</span> <span class="op">=</span> {
+            <span class="kw">let</span> <span class="ident">ld_install</span> <span class="op">=</span> <span class="ident">which::which</span>(<span class="string">&quot;ld&quot;</span>);
+            <span class="kw">if</span> <span class="ident">ios_compile_target</span> <span class="op">&amp;&amp;</span> <span class="ident">ld_install</span>.<span class="ident">is_ok</span>() {
+                <span class="ident">ld_install</span>.<span class="ident">unwrap</span>().<span class="ident">into_os_string</span>().<span class="ident">into_string</span>().<span class="ident">unwrap</span>()
+            } <span class="kw">else</span> {
+                <span class="string">&quot;lld&quot;</span>.<span class="ident">to_string</span>()
+            }
+        };
+
         <span class="kw">let</span> <span class="ident">cross_compiling_args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_cross_compiling</span> {
             <span class="macro">vec!</span>[
                 <span class="macro">format!</span>(<span class="string">&quot;--target={}&quot;</span>, <span class="ident">target_triple_str</span>),
-                <span class="string">&quot;-fuse-ld=lld&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="macro">format!</span>(<span class="string">&quot;-fuse-ld={}&quot;</span>, <span class="ident">fuse_linker</span>),
                 <span class="string">&quot;-nodefaultlibs&quot;</span>.<span class="ident">to_string</span>(),
                 <span class="string">&quot;-nostdlib&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="ident">ios_sdk_flag</span>.<span class="ident">to_string</span>(),
             ]
         } <span class="kw">else</span> {
             <span class="comment">// We are explicit on the target when the host system is</span>
@@ -1568,6 +1648,44 @@
     <span class="doccomment">/// Serialize a `DylibArtifact`.</span>
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">std::fs::read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">dylib_path</span>)<span class="question-mark">?</span>)
+    }
+
+    <span class="doccomment">/// Serialize a `DylibArtifact` to a portable file</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">serialize_to_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SerializeError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
+        <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>, <span class="ident">serialized</span>)<span class="question-mark">?</span>;
+
+        <span class="comment">/*
+        When you write the artifact to a new file it still has the &#39;Mach-O Identifier&#39;
+        of the original file, and so this can causes linker issues when adding
+        the new file to an XCode project.
+
+        The below code renames the ID of the file so that it references itself through
+        an @executable_path prefix. Basically it tells XCode to find this file
+        inside of the projects&#39; list of &#39;linked executables&#39;.
+
+        You need to be running MacOS for the following to actually work though.
+        */</span>
+        <span class="kw">let</span> <span class="ident">has_extension</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">extension</span>().<span class="ident">is_some</span>();
+        <span class="kw">if</span> <span class="ident">has_extension</span> <span class="op">&amp;&amp;</span> <span class="ident">path</span>.<span class="ident">extension</span>().<span class="ident">unwrap</span>() <span class="op">=</span><span class="op">=</span> <span class="string">&quot;dylib&quot;</span> {
+            <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">file_name</span>().<span class="ident">unwrap</span>().<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">parent_dir</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">parent</span>().<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">absolute_path</span> <span class="op">=</span> <span class="ident">std::fs::canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">parent_dir</span>)
+                .<span class="ident">unwrap</span>()
+                .<span class="ident">into_os_string</span>()
+                .<span class="ident">into_string</span>()
+                .<span class="ident">unwrap</span>();
+
+            <span class="ident">Command::new</span>(<span class="string">&quot;install_name_tool&quot;</span>)
+                .<span class="ident">arg</span>(<span class="string">&quot;-id&quot;</span>)
+                .<span class="ident">arg</span>(<span class="macro">format!</span>(<span class="string">&quot;@executable_path/{}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">filename</span>))
+                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>)
+                .<span class="ident">current_dir</span>(<span class="kw-2">&amp;</span><span class="ident">absolute_path</span>)
+                .<span class="ident">output</span>()<span class="question-mark">?</span>;
+        }
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 </pre></div>

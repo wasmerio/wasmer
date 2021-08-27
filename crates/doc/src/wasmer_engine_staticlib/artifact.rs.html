@@ -576,7 +576,7 @@
     <span class="doccomment">/// target system.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_deserializable</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="macro">cfg_if::cfg_if!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>, <span class="ident">target_os</span><span class="op">=</span><span class="string">&quot;macos&quot;</span>))]</span> {
+            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>, <span class="ident">target_vendor</span><span class="op">=</span><span class="string">&quot;apple&quot;</span>))]</span> {
                 <span class="ident">bytes</span>.<span class="ident">starts_with</span>(<span class="self">Self</span><span class="ident">::MAGIC_HEADER_MH_CIGAM_64</span>)
             }
             <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>, <span class="ident">target_os</span><span class="op">=</span><span class="string">&quot;linux&quot;</span>))]</span> {

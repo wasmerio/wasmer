@@ -495,11 +495,11 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
 <span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC_COARSE</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">6</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc::CLOCK_REALTIME</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
 <span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">1</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
 <span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC_COARSE</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">6</span>;
 
 <span class="comment">// some assumptions about the constants when targeting windows</span>

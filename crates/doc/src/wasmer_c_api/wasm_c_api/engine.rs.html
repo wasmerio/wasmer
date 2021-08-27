@@ -636,10 +636,12 @@
 <span id="635">635</span>
 <span id="636">636</span>
 <span id="637">637</span>
+<span id="638">638</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span><span class="ident">::unstable::engine::wasmer_is_compiler_available</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span><span class="ident">::unstable::engine</span>::{
-    <span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_compiler_available</span>,
-    <span class="ident">wasmer_is_engine_available</span>,
+    <span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_engine_available</span>,
 };
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::unstable::features::wasmer_features_t</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>

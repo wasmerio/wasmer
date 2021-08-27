@@ -271,11 +271,18 @@
 <span id="270">270</span>
 <span id="271">271</span>
 <span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Unstable non-standard Wasmer-specific types for the</span>
 <span class="doccomment">//! `wasm_engine_t` and siblings.</span>
 
-<span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span><span class="ident">::engine</span>::{<span class="ident">wasm_config_t</span>, <span class="ident">wasmer_compiler_t</span>, <span class="ident">wasmer_engine_t</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+<span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span><span class="ident">::engine::wasmer_compiler_t</span>;
+<span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span><span class="ident">::engine</span>::{<span class="ident">wasm_config_t</span>, <span class="ident">wasmer_engine_t</span>};
+
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::features::wasmer_features_t</span>;
 <span class="kw">use</span> <span class="kw">super</span><span class="ident">::target_lexicon::wasmer_target_t</span>;
 
@@ -411,6 +418,7 @@
 <span class="doccomment">/// Check whether the given compiler is available, i.e. part of this</span>
 <span class="doccomment">/// compiled library.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_compiler_available</span>(<span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">match</span> <span class="ident">compiler</span> {
         <span class="ident">wasmer_compiler_t::CRANELIFT</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">true</span>,

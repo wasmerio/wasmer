@@ -1095,12 +1095,12 @@
 
             <span class="comment">// On ARM, handle Unaligned Accesses.</span>
             <span class="comment">// On Darwin, guard page accesses are raised as SIGBUS.</span>
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;arm&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="macro">cfg!</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>) {
+            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;arm&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="macro">cfg!</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>) {
                 <span class="ident">register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">PREV_SIGBUS</span>, <span class="ident">libc::SIGBUS</span>);
             }
         }
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
         <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">thread_stack</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">usize</span>, <span class="ident">usize</span>) {
             <span class="kw">let</span> <span class="ident">this_thread</span> <span class="op">=</span> <span class="ident">libc::pthread_self</span>();
             <span class="kw">let</span> <span class="ident">stackaddr</span> <span class="op">=</span> <span class="ident">libc::pthread_get_stackaddr_np</span>(<span class="ident">this_thread</span>);
@@ -1108,7 +1108,7 @@
             (<span class="ident">stackaddr</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="ident">stacksize</span>, <span class="ident">stacksize</span>)
         }
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>))]</span>
         <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">thread_stack</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">usize</span>, <span class="ident">usize</span>) {
             <span class="kw">let</span> <span class="ident">this_thread</span> <span class="op">=</span> <span class="ident">libc::pthread_self</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">thread_attrs</span>: <span class="ident">libc::pthread_attr_t</span> <span class="op">=</span> <span class="ident">mem::zeroed</span>();
@@ -1232,10 +1232,10 @@
                 } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>))]</span> {
                     <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">cx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc::ucontext_t</span>);
                     <span class="ident">cx</span>.<span class="ident">uc_mcontext</span>.<span class="ident">pc</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span> {
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span> {
                     <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">cx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc::ucontext_t</span>);
                     (<span class="kw-2">*</span><span class="ident">cx</span>.<span class="ident">uc_mcontext</span>).<span class="ident">__ss</span>.<span class="ident">__rip</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>))]</span> {
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;aarch64&quot;</span>))]</span> {
                     <span class="kw">use</span> <span class="ident">std::mem</span>;
                     <span class="comment">// TODO: This should be integrated into rust/libc</span>
                     <span class="comment">// Related issue: https://github.com/rust-lang/libc/issues/1977</span>

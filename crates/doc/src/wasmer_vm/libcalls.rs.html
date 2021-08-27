@@ -1735,9 +1735,9 @@
             <span class="self">Self</span><span class="ident">::RaiseTrap</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_raise_trap&quot;</span>,
             <span class="comment">// We have to do this because macOS requires a leading `_` and it&#39;s not</span>
             <span class="comment">// a normal function, it&#39;s a static variable, so we have to do it manually.</span>
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>)]</span>
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
             <span class="self">Self</span><span class="ident">::Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;_wasmer_vm_probestack&quot;</span>,
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;macos&quot;</span>))]</span>
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>))]</span>
             <span class="self">Self</span><span class="ident">::Probestack</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;wasmer_vm_probestack&quot;</span>,
         }
     }
