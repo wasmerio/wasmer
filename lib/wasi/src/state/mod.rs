@@ -230,6 +230,9 @@ impl WasiFs {
     ) -> Result<Self, String> {
         let (mut wasi_fs, root_inode) = Self::new_init(fs_backing)?;
 
+        dbg!(&preopens);
+        dbg!(&vfs_preopens);
+
         for preopen_name in vfs_preopens {
             let kind = Kind::Dir {
                 parent: Some(root_inode),
@@ -350,7 +353,10 @@ impl WasiFs {
 
                 rights
             };
+            dbg!(&alias);
             let inode = if let Some(alias) = &alias {
+                dbg!(&kind);
+                dbg!(&alias);
                 wasi_fs.create_inode(kind, true, alias.clone())
             } else {
                 wasi_fs.create_inode(kind, true, path.to_string_lossy().into_owned())
@@ -1213,7 +1219,7 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Result<Inode, __wasi_errno_t> {
-        let stat = self.get_stat_for_kind(&kind).ok_or(__WASI_EIO)?;
+        let stat = dbg!(self.get_stat_for_kind(&kind)).ok_or(__WASI_EIO)?;
         Ok(self.create_inode_with_stat(kind, is_preopened, name, stat))
     }
 
@@ -1382,7 +1388,7 @@ impl WasiFs {
                 }
                 None => self.fs_backing.metadata(path).ok()?,
             },
-            Kind::Dir { path, .. } => self.fs_backing.metadata(path).ok()?,
+            Kind::Dir { path, .. } => dbg!(self.fs_backing.metadata(path)).ok()?,
             Kind::Symlink {
                 base_po_dir,
                 path_to_symlink,
