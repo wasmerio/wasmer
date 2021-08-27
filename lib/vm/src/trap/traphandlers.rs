@@ -82,12 +82,12 @@ cfg_if::cfg_if! {
 
             // On ARM, handle Unaligned Accesses.
             // On Darwin, guard page accesses are raised as SIGBUS.
-            if cfg!(target_arch = "arm") || cfg!(target_os = "macos") {
+            if cfg!(target_arch = "arm") || cfg!(target_vendor = "apple") {
                 register(&mut PREV_SIGBUS, libc::SIGBUS);
             }
         }
 
-        #[cfg(target_os = "macos")]
+        #[cfg(target_vendor = "apple")]
         unsafe fn thread_stack() -> (usize, usize) {
             let this_thread = libc::pthread_self();
             let stackaddr = libc::pthread_get_stackaddr_np(this_thread);
@@ -95,7 +95,7 @@ cfg_if::cfg_if! {
             (stackaddr as usize - stacksize, stacksize)
         }
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(target_vendor = "apple"))]
         unsafe fn thread_stack() -> (usize, usize) {
             let this_thread = libc::pthread_self();
             let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
@@ -219,10 +219,10 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "android", target_arch = "aarch64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.pc as *const u8
-                } else if #[cfg(all(target_os = "macos", target_arch = "x86_64"))] {
+                } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     (*cx.uc_mcontext).__ss.__rip as *const u8
-                } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
+                } else if #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))] {
                     use std::mem;
                     // TODO: This should be integrated into rust/libc
                     // Related issue: https://github.com/rust-lang/libc/issues/1977

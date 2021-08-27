@@ -401,7 +401,7 @@ dependencies = [
  "log",
  "regalloc",
  "smallvec",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
 ]
 
 [[package]]
@@ -436,7 +436,7 @@ dependencies = [
  "hashbrown 0.9.1",
  "log",
  "smallvec",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
 ]
 
 [[package]]
@@ -2010,9 +2010,9 @@ checksum = "422045212ea98508ae3d28025bc5aaa2bd4a9cdaecd442a08da2ee620ee9ea95"
 
 [[package]]
 name = "target-lexicon"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0652da4c4121005e9ed22b79f6c5f2d9e2752906b53a33e9490489ba421a6fb"
+checksum = "d9bffcddbc2458fa3e6058414599e3c838a022abae82e5c67b4f7f80298d5bff"
 
 [[package]]
 name = "tempfile"
@@ -2053,7 +2053,7 @@ name = "test-generator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
 ]
 
 [[package]]
@@ -2411,7 +2411,7 @@ dependencies = [
  "js-sys",
  "loupe",
  "more-asserts",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
  "tempfile",
  "thiserror",
  "wasm-bindgen",
@@ -2537,7 +2537,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "smallvec",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
  "thiserror",
  "wasmer-types",
  "wasmer-vm",
@@ -2558,7 +2558,7 @@ dependencies = [
  "more-asserts",
  "rayon",
  "smallvec",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
  "tracing",
  "wasmer-compiler",
  "wasmer-types",
@@ -2581,7 +2581,7 @@ dependencies = [
  "rustc_version 0.4.0",
  "semver 1.0.4",
  "smallvec",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
@@ -2601,7 +2601,7 @@ dependencies = [
  "more-asserts",
  "rayon",
  "smallvec",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
@@ -2644,7 +2644,7 @@ dependencies = [
  "rustc-demangle",
  "serde",
  "serde_bytes",
- "target-lexicon 0.12.1",
+ "target-lexicon 0.12.2",
  "thiserror",
  "wasmer-compiler",
  "wasmer-types",
@@ -2727,6 +2727,10 @@ dependencies = [
  "anyhow",
  "tempfile",
 ]
+
+[[package]]
+name = "wasmer-integration-tests-ios"
+version = "2.0.0"
 
 [[package]]
 name = "wasmer-middlewares"

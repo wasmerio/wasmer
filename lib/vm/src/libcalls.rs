@@ -858,9 +858,9 @@ impl LibCall {
             Self::RaiseTrap => "wasmer_vm_raise_trap",
             // We have to do this because macOS requires a leading `_` and it's not
             // a normal function, it's a static variable, so we have to do it manually.
-            #[cfg(target_os = "macos")]
+            #[cfg(target_vendor = "apple")]
             Self::Probestack => "_wasmer_vm_probestack",
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(target_vendor = "apple"))]
             Self::Probestack => "wasmer_vm_probestack",
         }
     }

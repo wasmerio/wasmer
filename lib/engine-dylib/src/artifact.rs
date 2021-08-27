@@ -65,7 +65,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
 impl DylibArtifact {
-    // Mach-O header in Mac
+    // Mach-O header in iOS/Mac
     #[allow(dead_code)]
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
 
@@ -87,7 +87,7 @@ impl DylibArtifact {
     /// system.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         cfg_if::cfg_if! {
-            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
+            if #[cfg(all(target_pointer_width = "64", target_vendor="apple"))] {
                 bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64)
             }
             else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
@@ -291,12 +291,33 @@ impl DylibArtifact {
             }
         };
 
+        // Set 'isysroot' clang flag if compiling to iOS target
+        let ios_compile_target = target_triple.operating_system == OperatingSystem::Ios;
+        let ios_sdk_flag = {
+            if ios_compile_target {
+                "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+            } else {
+                ""
+            }
+        };
+
+        // Get the location of the 'ld' linker for clang
+        let fuse_linker = {
+            let ld_install = which::which("ld");
+            if ios_compile_target && ld_install.is_ok() {
+                ld_install.unwrap().into_os_string().into_string().unwrap()
+            } else {
+                "lld".to_string()
+            }
+        };
+
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple_str),
-                "-fuse-ld=lld".to_string(),
+                format!("-fuse-ld={}", fuse_linker),
                 "-nodefaultlibs".to_string(),
                 "-nostdlib".to_string(),
+                ios_sdk_flag.to_string(),
             ]
         } else {
             // We are explicit on the target when the host system is
@@ -780,5 +801,43 @@ impl Artifact for DylibArtifact {
     /// Serialize a `DylibArtifact`.
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.dylib_path)?)
+    }
+
+    /// Serialize a `DylibArtifact` to a portable file
+    #[cfg(feature = "compiler")]
+    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        std::fs::write(&path, serialized)?;
+
+        /*
+        When you write the artifact to a new file it still has the 'Mach-O Identifier'
+        of the original file, and so this can causes linker issues when adding
+        the new file to an XCode project.
+
+        The below code renames the ID of the file so that it references itself through
+        an @executable_path prefix. Basically it tells XCode to find this file
+        inside of the projects' list of 'linked executables'.
+
+        You need to be running MacOS for the following to actually work though.
+        */
+        let has_extension = path.extension().is_some();
+        if has_extension && path.extension().unwrap() == "dylib" {
+            let filename = path.file_name().unwrap().to_str().unwrap();
+            let parent_dir = path.parent().unwrap();
+            let absolute_path = std::fs::canonicalize(&parent_dir)
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+
+            Command::new("install_name_tool")
+                .arg("-id")
+                .arg(format!("@executable_path/{}", &filename))
+                .arg(&filename)
+                .current_dir(&absolute_path)
+                .output()?;
+        }
+
+        Ok(())
     }
 }

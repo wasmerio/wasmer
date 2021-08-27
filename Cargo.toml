@@ -52,6 +52,7 @@ members = [
     "tests/lib/wast",
     "tests/lib/compiler-test-derive",
     "tests/integration/cli",
+    "tests/integration/ios",
     "fuzz",
 ]
 
@@ -174,6 +175,11 @@ required-features = ["cranelift"]
 [[example]]
 name = "engine-headless"
 path = "examples/engine_headless.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "platform-headless-ios"
+path = "examples/platform_ios_headless.rs"
 required-features = ["cranelift"]
 
 [[example]]

@@ -1,6 +1,7 @@
+#[cfg(feature = "compiler")]
+pub use super::unstable::engine::wasmer_is_compiler_available;
 pub use super::unstable::engine::{
-    wasm_config_set_features, wasm_config_set_target, wasmer_is_compiler_available,
-    wasmer_is_engine_available,
+    wasm_config_set_features, wasm_config_set_target, wasmer_is_engine_available,
 };
 use super::unstable::features::wasmer_features_t;
 #[cfg(feature = "middlewares")]

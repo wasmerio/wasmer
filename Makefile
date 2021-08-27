@@ -153,6 +153,7 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
+exclude_tests += --exclude wasmer-integration-tests-ios
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -483,6 +484,10 @@ build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
+build-capi-headless-ios: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features dylib,wasi
+
 #####
 #
 # Testing.
@@ -558,6 +563,9 @@ test-examples:
 
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
+
+test-integration-ios:
+	cargo test -p wasmer-integration-tests-ios
 
 #####
 #

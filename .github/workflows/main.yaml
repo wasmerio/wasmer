@@ -49,7 +49,7 @@ jobs:
             run_integration_tests: true
             use_sccache: true
           - build: macos-x64
-            os: macos-latest
+            os: macos-11
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
@@ -57,6 +57,7 @@ jobs:
             run_test_capi: true
             use_sccache: true
             run_integration_tests: true
+            run_ios_tests: true
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
@@ -255,6 +256,12 @@ jobs:
           export WASMER_DIR=`pwd`/package
           make test-integration
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
+      - name: Run iOS integration tests
+        run: |
+          rustup target add aarch64-apple-ios x86_64-apple-ios
+          cargo install cargo-lipo
+          make test-integration-ios
+        if: matrix.run_ios_tests
       - name: Cross compile from Linux
         if: matrix.build == 'linux-x64'
         shell: bash
@@ -268,7 +275,7 @@ jobs:
           #cp qjs_win_from_linux.wjit cross
           cp target/release/wasmer cross
       - name: Cross compile from Mac
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-11'
         shell: bash
         run: |
           ls target/release
@@ -323,7 +330,7 @@ jobs:
   test-cross-compile-on-mac:
     name: Test cross-compile on macos
     needs: [setup, test]
-    runs-on: macos-latest
+    runs-on: macos-11
     steps:
       - name: Download Wasmer
         uses: actions/download-artifact@v2
