@@ -253,8 +253,8 @@ impl WasiFs {
                 .create_inode(kind, true, preopen_name.clone())
                 .map_err(|e| {
                     format!(
-                        "Failed to create inode for preopened dir: WASI error code: {}",
-                        e
+                        "Failed to create inode for preopened dir (name `{}`): WASI error code: {}",
+                        preopen_name, e
                     )
                 })?;
             let fd_flags = Fd::READ;
