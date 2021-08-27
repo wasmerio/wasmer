@@ -54,11 +54,7 @@ where
     type Error = FsError;
 
     fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error> {
-        Ok(FileDescriptor(
-            self.as_raw_handle()
-                .try_into()
-                .map_err(|_| FsError::InvalidFd)?,
-        ))
+        Ok(FileDescriptor(self.as_raw_handle() as usize))
     }
 }
 
@@ -67,7 +63,7 @@ impl TryInto<RawHandle> for FileDescriptor {
     type Error = FsError;
 
     fn try_into(self) -> std::result::Result<RawHandle, Self::Error> {
-        self.0.try_into().map_err(|_| FsError::InvalidFd)
+        Ok(self.0 as RawHandle)
     }
 }
 
