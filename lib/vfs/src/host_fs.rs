@@ -53,7 +53,7 @@ where
 {
     type Error = FsError;
 
-    fn try_into_filedescriptor(&self) -> Result<FileDescriptor, Self::Error> {
+    fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error> {
         Ok(FileDescriptor(
             self.as_raw_handle()
                 .try_into()
