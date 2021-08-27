@@ -44,7 +44,7 @@ default = ["sys-default"]
 sys = ["wasmer/sys-default"]
 sys-default = ["sys", "logging", "host-fs"]
 
-js = ["wasmer/js-default", "mem-fs", "getrandom/js"]
+js = ["wasmer/js-default", "mem-fs", "wasmer-vfs/no-time", "getrandom/js"]
 js-default = ["js"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 

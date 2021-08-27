@@ -22,3 +22,4 @@ enable-serde = [
     "serde",
     "typetag"
 ]
+no-time = []

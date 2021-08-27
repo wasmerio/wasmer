@@ -10,7 +10,6 @@ pub use stdio::{Stderr, Stdin, Stdout};
 
 use crate::Metadata;
 use std::ffi::{OsStr, OsString};
-use std::time::SystemTime;
 
 type Inode = usize;
 const ROOT_INODE: Inode = 0;
@@ -69,12 +68,20 @@ impl Node {
 }
 
 fn time() -> u64 {
-    // SAFETY: It's very unlikely that the system returns a time that
-    // is before `UNIX_EPOCH` :-).
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
+    #[cfg(not(feature = "no-time"))]
+    {
+        // SAFETY: It's very unlikely that the system returns a time that
+        // is before `UNIX_EPOCH` :-).
+        std::time::SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
+
+    #[cfg(feature = "no-time")]
+    {
+        0
+    }
 }
 
 // If the `host-fs` feature is not enabled, let's write a
