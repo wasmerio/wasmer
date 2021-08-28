@@ -12,11 +12,9 @@
 //!
 //! Ready?
 
-use std::fs::File;
 use std::path::Path;
 use std::str::FromStr;
-use tempfile::NamedTempFile;
-use wasmer::{imports, wat2wasm, Instance, Module, RuntimeError, Store, Value};
+use wasmer::{wat2wasm, Module, RuntimeError, Store};
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_dylib::Dylib;
@@ -60,7 +58,7 @@ i32.add)
     // Here we go. Let's serialize the compiled Wasm module in a
     // file.
     println!("Serializing module...");
-    let mut dylib_file = Path::new("./sum.dylib");
+    let dylib_file = Path::new("./sum.dylib");
     module.serialize_to_file(dylib_file)?;
 
     Ok(())
