@@ -96,7 +96,7 @@ fn read_bytes<T: Read>(
         bytes_read += reader.read(&mut raw_bytes).map_err(|_| __WASI_EIO)? as u32;
         unsafe {
             memory
-                .view::<u8>()
+                .uint8view()
                 .subarray(
                     iov_inner.buf as u32,
                     iov_inner.buf as u32 + iov_inner.buf_len as u32,
@@ -2530,7 +2530,7 @@ pub fn random_get(env: &WasiEnv, buf: u32, buf_len: u32) -> __wasi_errno_t {
         Ok(()) => {
             unsafe {
                 memory
-                    .view::<u8>()
+                    .uint8view()
                     .subarray(buf as u32, (buf as u32 + buf_len as u32))
                     .copy_from(&u8_buffer);
             }
