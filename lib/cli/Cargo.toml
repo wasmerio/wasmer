@@ -40,7 +40,7 @@ wasmer-wasi-experimental-io-devices = { version = "2.0.0", path = "../wasi-exper
 wasmer-wast = { version = "2.0.0", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "2.0.0", path = "../cache", optional = true }
 wasmer-types = { version = "2.0.0", path = "../types" }
-wasmer-vfs  = { version = "2.0.0", path = "../vfs" }
+wasmer-vfs  = { version = "2.0.0", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
