@@ -508,7 +508,7 @@ test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
 test-js-wasi:
-	cd lib/wasi && wasm-pack test --node -- --no-default-features --features=test-js
+	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js
 
 #####
 #
