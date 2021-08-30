@@ -175,10 +175,10 @@ pub struct WasiFs {
 /// Returns the default filesystem backing
 pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "host_fs")] {
+        if #[cfg(feature = "host-fs")] {
             Box::new(wasmer_vfs::host_fs::FileSystem::default())
-        } else if #[cfg(feature = "mem_fs")] {
-            Box::new(wasmer_vfs::mem_fs::MemFileSystem::default())
+        } else if #[cfg(feature = "mem-fs")] {
+            Box::new(wasmer_vfs::mem_fs::FileSystem::default())
         } else {
             Box::new(FallbackFileSystem::default())
         }
@@ -190,7 +190,7 @@ pub struct FallbackFileSystem;
 
 impl FallbackFileSystem {
     fn fail() -> ! {
-        panic!("No filesystem set for wasmer-wasi, please enable either the `host_fs` or `mem_fs` feature or set your custom filesystem with `WasiStateBuilder::set_fs`");
+        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiStateBuilder::set_fs`");
     }
 }
 
@@ -253,8 +253,8 @@ impl WasiFs {
                 .create_inode(kind, true, preopen_name.clone())
                 .map_err(|e| {
                     format!(
-                        "Failed to create inode for preopened dir: WASI error code: {}",
-                        e
+                        "Failed to create inode for preopened dir (name `{}`): WASI error code: {}",
+                        preopen_name, e
                     )
                 })?;
             let fd_flags = Fd::READ;

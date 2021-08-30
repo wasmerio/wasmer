@@ -12,12 +12,14 @@ thiserror = "1"
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+slab = { version = "0.4", optional = true }
 
 [features]
-default = ["host_fs"]
-host_fs = ["libc"]
-mem_fs = []
+default = ["host-fs", "mem-fs"]
+host-fs = ["libc"]
+mem-fs = ["slab"]
 enable-serde = [
     "serde",
     "typetag"
 ]
+no-time = []

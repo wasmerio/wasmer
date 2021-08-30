@@ -5,16 +5,17 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-#[cfg(all(not(feature = "host_fs"), not(feature = "mem_fs")))]
-compile_error!("At least the `host_fs` or the `mem_fs` feature must be enabled. Please, pick one.");
+#[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
+compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.");
 
-#[cfg(feature = "host_fs")]
+#[cfg(feature = "host-fs")]
 pub mod host_fs;
-#[cfg(feature = "mem_fs")]
+#[cfg(feature = "mem-fs")]
 pub mod mem_fs;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct FileDescriptor(usize);
 
@@ -219,6 +220,9 @@ pub enum FsError {
     /// File exists
     #[error("file exists")]
     AlreadyExists,
+    /// The filesystem has failed to lock a resource.
+    #[error("lock error")]
+    Lock,
     /// Something failed when doing IO. These errors can generally not be handled.
     /// It may work if tried again.
     #[error("io error")]
@@ -351,7 +355,7 @@ impl DirEntry {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct Metadata {
     pub ft: FileType,
@@ -385,7 +389,7 @@ impl Metadata {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct FileType {
     pub dir: bool,

@@ -53,12 +53,8 @@ where
 {
     type Error = FsError;
 
-    fn try_into_filedescriptor(&self) -> Result<FileDescriptor, Self::Error> {
-        Ok(FileDescriptor(
-            self.as_raw_handle()
-                .try_into()
-                .map_err(|_| FsError::InvalidFd)?,
-        ))
+    fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error> {
+        Ok(FileDescriptor(self.as_raw_handle() as usize))
     }
 }
 
@@ -67,7 +63,7 @@ impl TryInto<RawHandle> for FileDescriptor {
     type Error = FsError;
 
     fn try_into(self) -> std::result::Result<RawHandle, Self::Error> {
-        self.0.try_into().map_err(|_| FsError::InvalidFd)
+        Ok(self.0 as RawHandle)
     }
 }
 
@@ -152,20 +148,26 @@ impl TryInto<Metadata> for fs::Metadata {
                 fifo,
             },
             accessed: self
-                .accessed()?
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos() as u64,
+                .accessed()
+                .and_then(|time| {
+                    time.duration_since(UNIX_EPOCH)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                })
+                .map_or(0, |time| time.as_nanos() as u64),
             created: self
-                .created()?
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos() as u64,
+                .created()
+                .and_then(|time| {
+                    time.duration_since(UNIX_EPOCH)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                })
+                .map_or(0, |time| time.as_nanos() as u64),
             modified: self
-                .modified()?
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos() as u64,
+                .modified()
+                .and_then(|time| {
+                    time.duration_since(UNIX_EPOCH)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                })
+                .map_or(0, |time| time.as_nanos() as u64),
             len: self.len(),
         })
     }

@@ -9,9 +9,9 @@ use std::{
     io::{self, Read, Seek, Write},
 };
 
-#[cfg(feature = "host_fs")]
+#[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
-#[cfg(feature = "mem_fs")]
+#[cfg(feature = "mem-fs")]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};
@@ -67,7 +67,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
         FsError::WouldBlock => __WASI_EAGAIN,
         FsError::WriteZero => __WASI_ENOSPC,
         FsError::DirectoryNotEmpty => __WASI_ENOTEMPTY,
-        FsError::UnknownError => __WASI_EIO,
+        FsError::Lock | FsError::UnknownError => __WASI_EIO,
     }
 }
 

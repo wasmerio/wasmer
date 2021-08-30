@@ -41,15 +41,15 @@ tracing-wasm = "0.2"
 [features]
 default = ["sys-default"]
 
-sys = ["wasmer/sys"]
-sys-default = ["sys", "logging", "host_fs"]
+sys = ["wasmer/sys-default"]
+sys-default = ["sys", "logging", "host-fs"]
 
-js = ["wasmer/js", "mem_fs", "getrandom/js"]
+js = ["wasmer/js-default", "mem-fs", "wasmer-vfs/no-time", "getrandom/js"]
 js-default = ["js"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
-host_fs = ["wasmer-vfs/host_fs"]
-mem_fs = ["wasmer-vfs/mem_fs"]
+host-fs = ["wasmer-vfs/host-fs"]
+mem-fs = ["wasmer-vfs/mem-fs"]
 
 logging = ["tracing/log"]
 disable-all-logging = [
