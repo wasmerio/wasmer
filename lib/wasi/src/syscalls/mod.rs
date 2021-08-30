@@ -2498,15 +2498,10 @@ pub fn poll_oneoff(
     __WASI_ESUCCESS
 }
 
-// pub fn proc_exit(env: &WasiEnv, code: __wasi_exitcode_t) -> Result<(), WasiError> {
-//     // panic!("Exit: {}", code);
-//     Err(WasiError::Exit(code))
-//     // RuntimeError::raise(Box::new(WasiError::Exit(code)));
-// }
 pub fn proc_exit(env: &WasiEnv, code: __wasi_exitcode_t) {
-    // panic!("Exit: {}", code);
-    // Err(WasiError::Exit(code))
-    // RuntimeError::raise(Box::new(WasiError::Exit(code)));
+    debug!("wasi::proc_exit, {}", code);
+    RuntimeError::raise(Box::new(WasiError::Exit(code)));
+    unreachable!();
 }
 
 pub fn proc_raise(env: &WasiEnv, sig: __wasi_signal_t) -> __wasi_errno_t {
