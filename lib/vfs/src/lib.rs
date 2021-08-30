@@ -8,6 +8,9 @@ use thiserror::Error;
 #[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
 compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.");
 
+#[cfg(all(feature = "mem-fs", feature = "enable-serde"))]
+compile_error!("`mem-fs` does not support `enable-serde` for the moment.");
+
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
 #[cfg(feature = "mem-fs")]

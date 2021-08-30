@@ -1,7 +1,5 @@
 use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use std::io::{self, Seek};
 use std::path::Path;
 

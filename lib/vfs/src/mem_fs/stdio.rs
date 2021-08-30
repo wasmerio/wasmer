@@ -2,8 +2,6 @@
 //! `stdin`, `stdout` and `stderr`.
 
 use crate::{FileDescriptor, FsError, Result, VirtualFile};
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Seek, Write};
 
 macro_rules! impl_virtualfile_on_std_streams {
@@ -11,7 +9,6 @@ macro_rules! impl_virtualfile_on_std_streams {
         /// A wrapper type around the standard I/O stream of the same
         /// name that implements `VirtualFile`.
         #[derive(Debug, Default)]
-        #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
         pub struct $name {
             pub buf: Vec<u8>,
         }
@@ -26,7 +23,6 @@ macro_rules! impl_virtualfile_on_std_streams {
             }
         }
 
-        #[cfg_attr(feature = "enable-serde", typetag::serde)]
         impl VirtualFile for $name {
             fn last_accessed(&self) -> u64 {
                 0

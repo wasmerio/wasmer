@@ -2,8 +2,6 @@
 
 use super::*;
 use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use slab::Slab;
 use std::convert::identity;
 use std::ffi::OsString;

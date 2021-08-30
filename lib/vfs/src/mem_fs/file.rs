@@ -4,8 +4,6 @@
 
 use super::*;
 use crate::{FileDescriptor, FsError, Result, VirtualFile};
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::convert::TryInto;
 use std::fmt;
