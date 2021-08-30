@@ -226,11 +226,6 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    /// A uint8view
-    pub fn uint8view(&self) -> MemoryView<u8> {
-        self.view()
-    }
-
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
         Self {
             store: store.clone(),
