@@ -1,7 +1,7 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use cranelift_codegen::machinst::buffer::MachSrcLoc;
+use cranelift_codegen::MachSrcLoc;
 use cranelift_codegen::{isa, Context};
 use wasmer_compiler::{wasmparser::Range, FunctionAddressMap, InstructionAddressMap, SourceLoc};
 

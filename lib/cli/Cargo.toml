@@ -82,6 +82,7 @@ staticlib = [
     "engine",
 ]
 cache = ["wasmer-cache"]
+cache-blake3-pure = ["wasmer-cache/blake3-pure"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]

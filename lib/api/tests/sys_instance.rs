@@ -39,4 +39,32 @@ mod sys {
 
         Ok(())
     }
+
+    #[test]
+    fn unit_native_function_env() -> Result<()> {
+        let store = Store::default();
+        #[derive(WasmerEnv, Clone)]
+        struct Env {
+            multiplier: u32,
+        }
+
+        fn imported_fn(env: &Env, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
+            let value = env.multiplier * args[0].unwrap_i32() as u32;
+            return Ok(vec![Val::I32(value as _)]);
+        }
+
+        let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
+        let imported = Function::new_with_env(
+            &store,
+            imported_signature,
+            Env { multiplier: 3 },
+            imported_fn,
+        );
+
+        let expected = vec![Val::I32(12)].into_boxed_slice();
+        let result = imported.call(&[Val::I32(4)])?;
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
 }

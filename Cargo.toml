@@ -53,6 +53,7 @@ members = [
     "tests/lib/wast",
     "tests/lib/compiler-test-derive",
     "tests/integration/cli",
+    "tests/integration/ios",
     "fuzz",
 ]
 resolver = "2"
@@ -62,11 +63,10 @@ test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"
 anyhow = "1.0"
 glob = "0.3"
-rustc_version = "0.3"
+rustc_version = "0.4"
 
 [dev-dependencies]
 anyhow = "1.0"
-blake3 = "0.3"
 criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
@@ -180,6 +180,11 @@ required-features = ["cranelift"]
 [[example]]
 name = "engine-headless"
 path = "examples/engine_headless.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "platform-headless-ios"
+path = "examples/platform_ios_headless.rs"
 required-features = ["cranelift"]
 
 [[example]]

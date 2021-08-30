@@ -26,6 +26,7 @@ _lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* 
 
 > _This document is also available in:
 [🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
+[🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • 
 [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
 [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
 [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
@@ -69,7 +70,7 @@ curl https://get.wasmer.io -sSfL | sh
     scoop install wasmer
     ```
 
-  * <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (windows)
+  * <a href="https://chocolatey.org/packages/wasmer">Chocolatey</a> (Windows)
 
     ```sh
     choco install wasmer
@@ -132,7 +133,7 @@ languages**, so you can use WebAssembly _anywhere_.
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Learn][postgres docs] |
 |  | [**Swift**][Swift integration] | *no published package* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
-| ![Dart logo] | [**Dart**][Dart integration] | *no published package* | |
+| ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -206,6 +207,7 @@ languages**, so you can use WebAssembly _anywhere_.
 
 [dart logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/dart.svg
 [dart integration]: https://github.com/dart-lang/wasm
+[`wasm` pub package]: https://pub.dev/packages/wasm
 
 ## Contribute
 

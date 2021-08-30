@@ -149,7 +149,7 @@ impl Wast {
         bail!("expected '{}', got '{}'", expected, actual)
     }
 
-    fn run_directive(&mut self, directive: wast::WastDirective) -> Result<()> {
+    fn run_directive(&mut self, test: &Path, directive: wast::WastDirective) -> Result<()> {
         use wast::WastDirective::*;
 
         match directive {
@@ -197,11 +197,14 @@ impl Wast {
             }
             AssertInvalid {
                 span: _,
-                mut module,
+                module,
                 message,
             } => {
-                let bytes = module.encode()?;
-                let err = match self.module(None, &bytes) {
+                let wasm = match module {
+                    wast::QuoteModule::Module(mut m) => m.encode()?,
+                    wast::QuoteModule::Quote(list) => self.parse_quote_module(test, &list)?,
+                };
+                let err = match self.module(None, &wasm) {
                     Ok(()) => bail!("expected module to fail to build"),
                     Err(e) => e,
                 };
@@ -216,6 +219,9 @@ impl Wast {
             }
             QuoteModule { .. } => {
                 // Do nothing
+            }
+            AssertUncaughtException { .. } => {
+                // Do nothing for now
             }
             AssertMalformed {
                 module,
@@ -258,9 +264,9 @@ impl Wast {
     }
 
     /// Run a wast script from a byte buffer.
-    pub fn run_buffer(&mut self, filename: &str, wast: &[u8]) -> Result<()> {
+    pub fn run_buffer(&mut self, test: &Path, wast: &[u8]) -> Result<()> {
         let wast = str::from_utf8(wast)?;
-
+        let filename = test.to_str().unwrap();
         let adjust_wast = |mut err: wast::Error| {
             err.set_path(filename.as_ref());
             err.set_text(wast);
@@ -272,7 +278,7 @@ impl Wast {
         let mut errors = Vec::with_capacity(ast.directives.len());
         for directive in ast.directives {
             let sp = directive.span();
-            if let Err(e) = self.run_directive(directive) {
+            if let Err(e) = self.run_directive(&test, directive) {
                 let message = format!("{}", e);
                 // If depends on an instance that doesn't exist
                 if message.contains("no previous instance found") {
@@ -304,10 +310,33 @@ impl Wast {
         Ok(())
     }
 
+    fn parse_quote_module(&self, test: &Path, source: &[&[u8]]) -> Result<Vec<u8>> {
+        let mut ret = String::new();
+        for src in source {
+            match str::from_utf8(src) {
+                Ok(s) => ret.push_str(s),
+                Err(_) => bail!("malformed UTF-8 encoding"),
+            }
+            ret.push_str(" ");
+        }
+        let buf = wast::parser::ParseBuffer::new(&ret)?;
+        let mut wat = wast::parser::parse::<wast::Wat>(&buf)?;
+
+        // TODO: when memory64 merges into the proper spec then this should be
+        // removed since it will presumably no longer be a text-format error but
+        // rather a validation error. Currently all non-memory64 proposals
+        // assert that this offset is a text-parser error, whereas with memory64
+        // support that error is deferred until later.
+        if ret.contains("offset=4294967296") && !test.iter().any(|t| t == "memory64") {
+            bail!("i32 constant out of bounds");
+        }
+        Ok(wat.module.encode()?)
+    }
+
     /// Run a wast script from a file.
     pub fn run_file(&mut self, path: &Path) -> Result<()> {
         let bytes = std::fs::read(path)?;
-        self.run_buffer(path.to_str().unwrap(), &bytes)
+        self.run_buffer(path, &bytes)
     }
 }
 

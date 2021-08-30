@@ -8,7 +8,7 @@ pub mod types {
     target_os = "freebsd",
     target_os = "linux",
     target_os = "android",
-    target_os = "macos"
+    target_vendor = "apple"
 ))]
 pub mod unix;
 #[cfg(any(target_arch = "wasm32"))]
@@ -39,7 +39,7 @@ use wasmer_vfs::{FsError, VirtualFile};
     target_os = "freebsd",
     target_os = "linux",
     target_os = "android",
-    target_os = "macos"
+    target_vendor = "apple"
 ))]
 pub use unix::*;
 
