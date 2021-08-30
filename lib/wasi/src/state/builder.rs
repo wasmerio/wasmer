@@ -80,7 +80,7 @@ pub enum WasiStateCreationError {
     #[error("wasi filesystem setup error: `{0}`")]
     WasiFsSetupError(String),
     #[error(transparent)]
-    FsError(FsError),
+    FileSystemError(FsError),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
@@ -398,17 +398,17 @@ impl WasiStateBuilder {
         if let Some(stdin_override) = self.stdin_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDIN_FILENO, stdin_override)
-                .map_err(WasiStateCreationError::FsError)?;
+                .map_err(WasiStateCreationError::FileSystemError)?;
         }
         if let Some(stdout_override) = self.stdout_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDOUT_FILENO, stdout_override)
-                .map_err(WasiStateCreationError::FsError)?;
+                .map_err(WasiStateCreationError::FileSystemError)?;
         }
         if let Some(stderr_override) = self.stderr_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDERR_FILENO, stderr_override)
-                .map_err(WasiStateCreationError::FsError)?;
+                .map_err(WasiStateCreationError::FileSystemError)?;
         }
         if let Some(f) = &self.setup_fs_fn {
             f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
