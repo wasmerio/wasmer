@@ -477,17 +477,12 @@ impl FileSystemInner {
     /// the path, which means that there is no guarantee that the path
     /// exists in the file system.
     pub(super) fn canonicalize_without_inode(&self, path: &Path) -> Result<PathBuf> {
-        if !path.has_root() {
-            return Err(FsError::InvalidInput);
-        }
-
         let mut components = path.components();
 
-        assert_eq!(
-            components.next(),
-            Some(Component::RootDir),
-            "the root component is expected to be present",
-        );
+        match components.next() {
+            Some(Component::RootDir) => {}
+            _ => return Err(FsError::InvalidInput),
+        }
 
         let mut new_path = PathBuf::with_capacity(path.as_os_str().len());
         new_path.push("/");
@@ -1243,11 +1238,6 @@ mod test_filesystem {
         );
         assert_eq!(
             fs_inner.canonicalize(path!("C:/foo/")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `C:/foo/`",
-        );
-        assert_eq!(
-            fs_inner.canonicalize(path!("\\foo")),
             Err(FsError::InvalidInput),
             "canonicalizing `C:/foo/`",
         );
