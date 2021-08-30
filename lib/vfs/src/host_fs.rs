@@ -148,20 +148,26 @@ impl TryInto<Metadata> for fs::Metadata {
                 fifo,
             },
             accessed: self
-                .accessed()?
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos() as u64,
+                .accessed()
+                .and_then(|time| {
+                    time.duration_since(UNIX_EPOCH)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                })
+                .map_or(0, |time| time.as_nanos() as u64),
             created: self
-                .created()?
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos() as u64,
+                .created()
+                .and_then(|time| {
+                    time.duration_since(UNIX_EPOCH)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                })
+                .map_or(0, |time| time.as_nanos() as u64),
             modified: self
-                .modified()?
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos() as u64,
+                .modified()
+                .and_then(|time| {
+                    time.duration_since(UNIX_EPOCH)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                })
+                .map_or(0, |time| time.as_nanos() as u64),
             len: self.len(),
         })
     }
