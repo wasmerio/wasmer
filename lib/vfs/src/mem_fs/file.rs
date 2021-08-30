@@ -94,7 +94,7 @@ impl VirtualFile for FileHandle {
 
         match fs.storage.get(self.inode) {
             Some(Node::File { file, .. }) => file.buffer.len().try_into().unwrap_or(0),
-            _ => return 0,
+            _ => 0,
         }
     }
 

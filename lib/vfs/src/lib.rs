@@ -355,6 +355,7 @@ impl DirEntry {
     }
 }
 
+#[allow(clippy::len_without_is_empty)] // Clippy thinks it's an iterator.
 #[derive(Clone, Debug, Default)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct Metadata {
@@ -369,21 +370,27 @@ impl Metadata {
     pub fn is_file(&self) -> bool {
         self.ft.is_file()
     }
+
     pub fn is_dir(&self) -> bool {
         self.ft.is_dir()
     }
+
     pub fn accessed(&self) -> u64 {
         self.accessed
     }
+
     pub fn created(&self) -> u64 {
         self.created
     }
+
     pub fn modified(&self) -> u64 {
         self.modified
     }
+
     pub fn file_type(&self) -> FileType {
         self.ft.clone()
     }
+
     pub fn len(&self) -> u64 {
         self.len
     }

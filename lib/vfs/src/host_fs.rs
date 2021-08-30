@@ -422,7 +422,7 @@ impl VirtualFile for File {
 
 #[cfg(unix)]
 fn host_file_bytes_available(host_fd: FileDescriptor) -> Result<usize> {
-    let mut bytes_found = 0 as libc::c_int;
+    let mut bytes_found: libc::c_int = 0;
     let result = unsafe { libc::ioctl(host_fd.try_into()?, libc::FIONREAD, &mut bytes_found) };
 
     match result {

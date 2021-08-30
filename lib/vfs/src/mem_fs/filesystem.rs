@@ -394,7 +394,7 @@ impl FileSystemInner {
 
                     _ => None,
                 })
-                .or_else(|| Some(None))
+                .or(Some(None))
                 .ok_or(FsError::InvalidInput),
 
             _ => Err(FsError::BaseNotDirectory),
@@ -519,12 +519,11 @@ impl FileSystemInner {
 
 impl fmt::Debug for FileSystemInner {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
+        writeln!(
             formatter,
-            "\n{inode:<8}    {ty:<4}    {name}\n",
+            "\n{inode:<8}    {ty:<4}    name",
             inode = "inode",
             ty = "type",
-            name = "name",
         )?;
 
         fn debug(
@@ -534,9 +533,9 @@ impl fmt::Debug for FileSystemInner {
             indentation: usize,
         ) -> fmt::Result {
             for node in nodes {
-                write!(
+                writeln!(
                     formatter,
-                    "{inode:<8}    {ty:<4}   {indentation_symbol:indentation_width$}{name}\n",
+                    "{inode:<8}    {ty:<4}   {indentation_symbol:indentation_width$}{name}",
                     inode = node.inode(),
                     ty = match node {
                         Node::File { .. } => "file",
