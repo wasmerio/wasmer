@@ -494,7 +494,6 @@ build-capi-headless-all: capi-setup
 test: test-compilers test-packages test-examples
 
 test-compilers:
-	cargo test --release --test compilers --features cranelift -- --nocapture unstable::fd_append
 	cargo test --release --tests $(compiler_features)
 
 test-packages:
