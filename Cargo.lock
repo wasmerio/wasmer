@@ -2919,6 +2919,7 @@ name = "wasmer-wast"
 version = "2.0.0"
 dependencies = [
  "anyhow",
+ "serde",
  "tempfile",
  "thiserror",
  "wasmer",

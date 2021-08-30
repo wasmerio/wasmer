@@ -1,4 +1,4 @@
-name: Runtime tests (`sys`)
+name: Runtime tests - JS
 
 env:
   RUST_BACKTRACE: 1
