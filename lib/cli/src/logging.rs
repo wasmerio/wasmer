@@ -18,7 +18,7 @@ pub fn set_up_logging(verbose: u8) -> Result<(), String> {
     let colors_level = colors_line.info(Color::Green);
     let level = match verbose {
         1 => DebugLevel::Debug,
-        2 | _ => DebugLevel::Trace,
+        _ => DebugLevel::Trace,
     };
     let dispatch = fern::Dispatch::new()
         .level(level)
