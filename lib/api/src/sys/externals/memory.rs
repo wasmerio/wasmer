@@ -226,7 +226,10 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    /// A uint8view
+    /// A shortcut to [`Self::view::<u8>`][self::view].
+    ///
+    /// This code is going to be refactored. Use it as your own risks.
+    #[doc(hidden)]
     pub fn uint8view(&self) -> MemoryView<u8> {
         self.view()
     }
