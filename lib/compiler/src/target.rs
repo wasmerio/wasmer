@@ -5,8 +5,8 @@ use crate::lib::std::string::{String, ToString};
 use enumset::{EnumSet, EnumSetType};
 use loupe::MemoryUsage;
 pub use target_lexicon::{
-    Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
-    Triple,
+    Architecture, BinaryFormat, CallingConvention, Endianness, Environment, OperatingSystem,
+    PointerWidth, Triple,
 };
 
 /// The nomenclature is inspired by the [`cpuid` crate].

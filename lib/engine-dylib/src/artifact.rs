@@ -16,7 +16,7 @@ use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasmer_compiler::{
-    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem, Symbol,
+    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem, Environment, Symbol,
     SymbolRegistry, Triple,
 };
 #[cfg(feature = "compiler")]
@@ -295,7 +295,12 @@ impl DylibArtifact {
         let ios_compile_target = target_triple.operating_system == OperatingSystem::Ios;
         let ios_sdk_flag = {
             if ios_compile_target {
-                "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+                if target_triple.environment == Environment::Sim {
+                    "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk"
+                }
+                else {
+                    "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+                }
             } else {
                 ""
             }
