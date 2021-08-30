@@ -15,7 +15,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"], opti
 slab = { version = "0.4", optional = true }
 
 [features]
-default = ["host-fs"]
+default = ["host-fs", "mem-fs"]
 host-fs = ["libc"]
 mem-fs = ["slab"]
 enable-serde = [

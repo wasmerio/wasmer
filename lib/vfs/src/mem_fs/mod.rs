@@ -73,7 +73,7 @@ fn time() -> u64 {
         // SAFETY: It's very unlikely that the system returns a time that
         // is before `UNIX_EPOCH` :-).
         std::time::SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs()
     }
