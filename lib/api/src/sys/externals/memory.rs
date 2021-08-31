@@ -226,6 +226,14 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
+    /// A shortcut to [`Self::view::<u8>`][self::view].
+    ///
+    /// This code is going to be refactored. Use it as your own risks.
+    #[doc(hidden)]
+    pub fn uint8view(&self) -> MemoryView<u8> {
+        self.view()
+    }
+
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
         Self {
             store: store.clone(),

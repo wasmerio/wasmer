@@ -1,4 +1,4 @@
-name: core tests
+name: Runtime tests
 
 env:
   RUST_BACKTRACE: 1

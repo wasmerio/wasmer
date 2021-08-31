@@ -318,10 +318,12 @@ ifneq (, $(LIBC))
 endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
 $(info Testing the following compilers & engines:)
-$(info   * API: $(bold)$(green)${compilers_engines}$(reset))
-$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset))
+$(info   * API: $(bold)$(green)${compilers_engines}$(reset),)
+$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset).)
 $(info Cargo features:)
-$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info Rust version: $(bold)$(green)$(shell rustc --version)$(reset).)
+$(info NodeJS version: $(bold)$(green)$(shell node --version)$(reset).)
 $(info )
 $(info )
 $(info --------------)
@@ -358,7 +360,7 @@ build-wasmer:
 	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
 
 bench:
 	cargo bench $(compiler_features)
@@ -505,9 +507,13 @@ test-packages:
 	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
-test-js:
+test-js: test-js-api test-js-wasi
+
+test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
+test-js-wasi:
+	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js
 
 #####
 #

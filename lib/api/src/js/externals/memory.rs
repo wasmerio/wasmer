@@ -288,7 +288,10 @@ impl Memory {
         unimplemented!("The view function is not yet implemented in Wasmer Javascript");
     }
 
-    /// example view
+    /// A theoretical alais to `Self::view::<u8>` but it returns a `js::Uint8Array` in this case.
+    ///
+    /// This code is going to be refactored. Use it as your own risks.
+    #[doc(hidden)]
     pub fn uint8view(&self) -> js_sys::Uint8Array {
         js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
     }

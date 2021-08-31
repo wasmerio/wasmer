@@ -18,7 +18,6 @@ wast = "37.0"
 serde = "1"
 tempfile = "3"
 thiserror = "1.0"
-typetag = "0.1"
 
 [features]
 default = ["wat"]
