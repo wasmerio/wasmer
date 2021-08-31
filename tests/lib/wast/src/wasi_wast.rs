@@ -95,7 +95,7 @@ impl<'a> WasiTest<'a> {
             out
         };
         let module = Module::new(&store, &wasm_bytes)?;
-        let (env, _tempdirs) = self.create_wasi_env()?;
+        let (env, _tempdirs) = self.create_wasi_env(filesystem_kind)?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
 
@@ -141,7 +141,10 @@ impl<'a> WasiTest<'a> {
     }
 
     /// Create the wasi env with the given metadata.
-    fn create_wasi_env(&self) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
+    fn create_wasi_env(
+        &self,
+        filesystem_kind: WasiFileSystemKind,
+    ) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
         let mut builder = WasiState::new(self.wasm_path);
 
         let stdin_pipe = Pipe::new();
@@ -168,6 +171,11 @@ impl<'a> WasiTest<'a> {
             builder.map_dir(alias, td.path())?;
             temp_dirs.push(td);
         }
+
+        builder.set_fs(match filesystem_kind {
+            WasiFileSystemKind::Host => Box::new(wasmer_vfs::host_fs::FileSystem::default()),
+            WasiFileSystemKind::InMemory => Box::new(wasmer_vfs::mem_fs::FileSystem::default()),
+        });
 
         let out = builder
             .args(&self.args)
