@@ -10,6 +10,16 @@ use wasmer_wasi::{
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
+/// The kind of filesystem `WasiTest` is going to use.
+#[derive(Debug)]
+pub enum WasiFileSystemKind {
+    /// Instruct the test runner to use `wasmer_vfs::host_fs`.
+    Host,
+
+    /// Instruct the test runner to use `wasmer_vfs::mem_fs`.
+    InMemory,
+}
+
 /// Crate holding metadata parsed from the WASI WAST about the test to be run.
 #[derive(Debug, Clone, Hash)]
 pub struct WasiTest<'a> {
@@ -70,7 +80,12 @@ impl<'a> WasiTest<'a> {
     }
 
     /// Execute the WASI test and assert.
-    pub fn run(&self, store: &Store, base_path: &str) -> anyhow::Result<bool> {
+    pub fn run(
+        &self,
+        store: &Store,
+        base_path: &str,
+        filesystem_kind: WasiFileSystemKind,
+    ) -> anyhow::Result<bool> {
         let mut pb = PathBuf::from(base_path);
         pb.push(self.wasm_path);
         let wasm_bytes = {
@@ -85,12 +100,14 @@ impl<'a> WasiTest<'a> {
         let instance = Instance::new(&module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;
+
         if let Some(stdin) = &self.stdin {
             let mut state = env.state();
             let wasi_stdin = state.fs.stdin_mut()?.as_mut().unwrap();
             // Then we can write to it!
             write!(wasi_stdin, "{}", stdin.stream)?;
         }
+
         // TODO: handle errors here when the error fix gets shipped
         match start.call(&[]) {
             Ok(_) => {}
@@ -114,6 +131,7 @@ impl<'a> WasiTest<'a> {
             let stdout_str = get_stdout_output(&wasi_state)?;
             assert_eq!(stdout_str, expected_stdout.expected);
         }
+
         if let Some(expected_stderr) = &self.assert_stderr {
             let stderr_str = get_stderr_output(&wasi_state)?;
             assert_eq!(stderr_str, expected_stderr.expected);

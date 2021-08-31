@@ -71,53 +71,82 @@ cranelift spec::simd::simd_int_to_int_extend
 ### These tests don't pass due to race conditions in the new way we run tests.
 ### It's not built to be run in parallel with itself, so we disable it for now.
 
-wasitests::snapshot1::writing
-wasitests::unstable::writing
+wasitests::snapshot1::host_fs::writing
+wasitests::unstable::host_fs::writing
+wasitests::snapshot1::mem_fs::writing
+wasitests::unstable::mem_fs::writing
 
 ### due to hard-coded direct calls into WASI for wasi unstable
 
-wasitests::snapshot1::fd_read
-wasitests::snapshot1::poll_oneoff
-wasitests::snapshot1::fd_pread
-wasitests::snapshot1::fd_close
-wasitests::snapshot1::fd_allocate
-wasitests::snapshot1::close_preopen_fd
-wasitests::snapshot1::envvar
+wasitests::snapshot1::host_fs::fd_read
+wasitests::snapshot1::host_fs::poll_oneoff
+wasitests::snapshot1::host_fs::fd_pread
+wasitests::snapshot1::host_fs::fd_close
+wasitests::snapshot1::host_fs::fd_allocate
+wasitests::snapshot1::host_fs::close_preopen_fd
+wasitests::snapshot1::host_fs::envvar
+wasitests::snapshot1::mem_fs::fd_read
+wasitests::snapshot1::mem_fs::poll_oneoff
+wasitests::snapshot1::mem_fs::fd_pread
+wasitests::snapshot1::mem_fs::fd_close
+wasitests::snapshot1::mem_fs::fd_allocate
+wasitests::snapshot1::mem_fs::close_preopen_fd
+wasitests::snapshot1::mem_fs::envvar
 
 ### TODO: resolve the disabled tests below. These are newly disabled tests from the migration:
 
 ### due to git clone not preserving symlinks:
-wasitests::snapshot1::readlink
-wasitests::unstable::readlink
+wasitests::snapshot1::host_fs::readlink
+wasitests::unstable::host_fs::readlink
+wasitests::snapshot1::mem_fs::readlink
+wasitests::unstable::mem_fs::readlink
 
 ### failing due to `remove_dir_all`. this test is also bad for parallelism
-wasitests::snapshot1::create_dir
-wasitests::unstable::create_dir
+wasitests::snapshot1::host_fs::create_dir
+wasitests::unstable::host_fs::create_dir
+wasitests::snapshot1::mem_fs::create_dir
+wasitests::unstable::mem_fs::create_dir
 
 ### failing because it closes `stdout` which breaks our testing system
-wasitests::unstable::fd_close
+wasitests::unstable::host_fs::fd_close
+wasitests::unstable::mem_fs::fd_close
 
 ### failing because we're operating on stdout which is now overridden.
 ### TODO: check WasiFile implementation
 ### Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
-wasitests::unstable::poll_oneoff
+wasitests::unstable::host_fs::poll_oneoff
+wasitests::unstable::mem_fs::poll_oneoff
 
 ## Failing due to different line endings on Windows
 ## we need a better solution to this problem:
 
-windows wasitests::snapshot1::file_metadata
-windows wasitests::snapshot1::fseek
-windows wasitests::snapshot1::path_link
-windows wasitests::snapshot1::path_symlink
-windows wasitests::snapshot1::mapdir_with_leading_slash
-windows wasitests::unstable::fd_pread
-windows wasitests::unstable::fd_read
-windows wasitests::unstable::file_metadata
-windows wasitests::unstable::fseek
-windows wasitests::unstable::path_link
-windows wasitests::unstable::path_symlink
-windows wasitests::unstable::mapdir_with_leading_slash
+windows wasitests::snapshot1::host_fs::file_metadata
+windows wasitests::snapshot1::host_fs::fseek
+windows wasitests::snapshot1::host_fs::path_link
+windows wasitests::snapshot1::host_fs::path_symlink
+windows wasitests::snapshot1::host_fs::mapdir_with_leading_slash
+windows wasitests::unstable::host_fs::fd_pread
+windows wasitests::unstable::host_fs::fd_read
+windows wasitests::unstable::host_fs::file_metadata
+windows wasitests::unstable::host_fs::fseek
+windows wasitests::unstable::host_fs::path_link
+windows wasitests::unstable::host_fs::path_symlink
+windows wasitests::unstable::host_fs::mapdir_with_leading_slash
+windows wasitests::snapshot1::mem_fs::file_metadata
+windows wasitests::snapshot1::mem_fs::fseek
+windows wasitests::snapshot1::mem_fs::path_link
+windows wasitests::snapshot1::mem_fs::path_symlink
+windows wasitests::snapshot1::mem_fs::mapdir_with_leading_slash
+windows wasitests::unstable::mem_fs::fd_pread
+windows wasitests::unstable::mem_fs::fd_read
+windows wasitests::unstable::mem_fs::file_metadata
+windows wasitests::unstable::mem_fs::fseek
+windows wasitests::unstable::mem_fs::path_link
+windows wasitests::unstable::mem_fs::path_symlink
+windows wasitests::unstable::mem_fs::mapdir_with_leading_slash
 
 # This tests are disabled for now
-wasitests::unstable::unix_open_special_files
-wasitests::snapshot1::unix_open_special_files
+wasitests::unstable::host_fs::unix_open_special_files
+wasitests::snapshot1::host_fs::unix_open_special_files
+wasitests::unstable::mem_fs::unix_open_special_files
+wasitests::snapshot1::mem_fs::unix_open_special_files
