@@ -23,6 +23,7 @@ pub(super) struct FileHandle {
     filesystem: FileSystem,
     readable: bool,
     writable: bool,
+    append_mode: bool,
 }
 
 impl FileHandle {
@@ -31,12 +32,14 @@ impl FileHandle {
         filesystem: FileSystem,
         readable: bool,
         writable: bool,
+        append_mode: bool,
     ) -> Self {
         Self {
             inode,
             filesystem,
             readable,
             writable,
+            append_mode,
         }
     }
 }
@@ -504,6 +507,24 @@ impl Read for FileHandle {
 
 impl Seek for FileHandle {
     fn seek(&mut self, position: io::SeekFrom) -> io::Result<u64> {
+        // In `append` mode, it's not possible to seek in the file. In
+        // [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html),
+        // the `O_APPEND` option describes this behavior well:
+        //
+        // > Before each write(2), the file offset is positioned at
+        // > the end of the file, as if with lseek(2).  The
+        // > modification of the file offset and the write operation
+        // > are performed as a single atomic step.
+        // >
+        // > O_APPEND may lead to corrupted files on NFS filesystems
+        // > if more than one process appends data to a file at once.
+        // > This is because NFS does not support appending to a file,
+        // > so the client kernel has to simulate it, which can't be
+        // > done without a race condition.
+        if self.append_mode {
+            return Ok(0);
+        }
+
         let mut fs =
             self.filesystem.inner.try_write().map_err(|_| {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
@@ -929,7 +950,6 @@ impl Write for File {
             // The cursor is at the end of the buffer: happy path!
             position if position == self.buffer.len() => {
                 self.buffer.extend_from_slice(buf);
-                self.cursor += buf.len();
             }
 
             // The cursor is at the beginning of the buffer (and the
@@ -941,7 +961,6 @@ impl Write for File {
                 new_buffer.append(&mut self.buffer);
 
                 self.buffer = new_buffer;
-                self.cursor += buf.len();
             }
 
             // The cursor is somewhere in the buffer: not the happy path.
@@ -951,10 +970,10 @@ impl Write for File {
                 let mut remainder = self.buffer.split_off(position);
                 self.buffer.extend_from_slice(buf);
                 self.buffer.append(&mut remainder);
-
-                self.cursor += buf.len();
             }
         }
+
+        self.cursor += buf.len();
 
         Ok(buf.len())
     }
