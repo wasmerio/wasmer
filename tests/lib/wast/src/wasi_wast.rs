@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Module, Store};
+use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
@@ -165,17 +166,37 @@ impl<'a> WasiTest<'a> {
             new_dir.push(dir);
             builder.map_dir(dir, new_dir)?;
         }
-        let mut temp_dirs = vec![];
-        for alias in &self.temp_dirs {
-            let td = tempfile::tempdir()?;
-            builder.map_dir(alias, td.path())?;
-            temp_dirs.push(td);
-        }
 
-        builder.set_fs(match filesystem_kind {
-            WasiFileSystemKind::Host => Box::new(wasmer_vfs::host_fs::FileSystem::default()),
-            WasiFileSystemKind::InMemory => Box::new(wasmer_vfs::mem_fs::FileSystem::default()),
-        });
+        let mut host_temp_dirs_to_not_drop = vec![];
+
+        match filesystem_kind {
+            WasiFileSystemKind::Host => {
+                let fs = host_fs::FileSystem::default();
+
+                for alias in &self.temp_dirs {
+                    let temp_dir = tempfile::tempdir()?;
+                    builder.map_dir(alias, temp_dir.path())?;
+                    host_temp_dirs_to_not_drop.push(temp_dir);
+                }
+
+                builder.set_fs(Box::new(fs));
+            }
+
+            WasiFileSystemKind::InMemory => {
+                let fs = mem_fs::FileSystem::default();
+                let mut temp_dir_index: usize = 0;
+
+                for alias in &self.temp_dirs {
+                    let temp_dir_name =
+                        PathBuf::from(format!("/.tmp_wasmer_wast_{}", temp_dir_index));
+                    fs.create_dir(temp_dir_name.as_path())?;
+                    builder.map_dir(alias, temp_dir_name)?;
+                    temp_dir_index += 1;
+                }
+
+                builder.set_fs(Box::new(fs));
+            }
+        }
 
         let out = builder
             .args(&self.args)
@@ -184,7 +205,8 @@ impl<'a> WasiTest<'a> {
             .stdout(Box::new(OutputCapturerer::new()))
             .stderr(Box::new(OutputCapturerer::new()))
             .finalize()?;
-        Ok((out, temp_dirs))
+
+        Ok((out, host_temp_dirs_to_not_drop))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
