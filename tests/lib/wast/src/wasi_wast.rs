@@ -1,5 +1,5 @@
 use anyhow::Context;
-use std::fs::File;
+use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Module, Store};
@@ -154,24 +154,25 @@ impl<'a> WasiTest<'a> {
         for (name, value) in &self.envs {
             builder.env(name, value);
         }
-        for (alias, real_dir) in &self.mapped_dirs {
-            let mut dir = PathBuf::from(BASE_TEST_DIR);
-            dir.push(real_dir);
-            builder.map_dir(alias, dir)?;
-        }
-
-        // due to the structure of our code, all preopen dirs must be mapped now
-        for dir in &self.dirs {
-            let mut new_dir = PathBuf::from(BASE_TEST_DIR);
-            new_dir.push(dir);
-            builder.map_dir(dir, new_dir)?;
-        }
 
         let mut host_temp_dirs_to_not_drop = vec![];
 
         match filesystem_kind {
             WasiFileSystemKind::Host => {
                 let fs = host_fs::FileSystem::default();
+
+                for (alias, real_dir) in &self.mapped_dirs {
+                    let mut dir = PathBuf::from(BASE_TEST_DIR);
+                    dir.push(real_dir);
+                    builder.map_dir(alias, dir)?;
+                }
+
+                // due to the structure of our code, all preopen dirs must be mapped now
+                for dir in &self.dirs {
+                    let mut new_dir = PathBuf::from(BASE_TEST_DIR);
+                    new_dir.push(dir);
+                    builder.map_dir(dir, new_dir)?;
+                }
 
                 for alias in &self.temp_dirs {
                     let temp_dir = tempfile::tempdir()?;
@@ -185,6 +186,16 @@ impl<'a> WasiTest<'a> {
             WasiFileSystemKind::InMemory => {
                 let fs = mem_fs::FileSystem::default();
                 let mut temp_dir_index: usize = 0;
+
+                let root = PathBuf::from("/");
+
+                map_host_fs_to_mem_fs(&fs, read_dir(BASE_TEST_DIR)?, &root)?;
+
+                for (alias, real_dir) in &self.mapped_dirs {
+                    let mut path = root.clone();
+                    path.push(real_dir);
+                    builder.map_dir(alias, path)?;
+                }
 
                 for alias in &self.temp_dirs {
                     let temp_dir_name =
@@ -599,4 +610,38 @@ impl VirtualFile for OutputCapturerer {
     fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(1024)
     }
+}
+
+fn map_host_fs_to_mem_fs(
+    fs: &mem_fs::FileSystem,
+    directory_reader: ReadDir,
+    path_prefix: &PathBuf,
+) -> anyhow::Result<()> {
+    for entry in directory_reader {
+        let entry = entry?;
+        let entry_type = entry.file_type()?;
+
+        let mut path = path_prefix.clone();
+        path.push(entry.path().file_name().unwrap());
+
+        if entry_type.is_dir() {
+            fs.create_dir(&path)?;
+
+            map_host_fs_to_mem_fs(fs, read_dir(entry.path())?, &path)?
+        } else if entry_type.is_file() {
+            let mut host_file = OpenOptions::new().read(true).open(entry.path())?;
+            let mut mem_file = fs
+                .new_open_options()
+                .create_new(true)
+                .write(true)
+                .open(path)?;
+            let mut buffer = Vec::new();
+            host_file.read_to_end(&mut buffer)?;
+            mem_file.write_all(&buffer)?;
+        } else if entry_type.is_symlink() {
+            //unimplemented!("`mem_fs` does not support symlink for the moment");
+        }
+    }
+
+    Ok(())
 }
