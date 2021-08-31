@@ -299,7 +299,16 @@ impl WasiStateBuilder {
         self
     }
 
-    /// Configure the WASI filesystem before running
+    /// Sets the FileSystem to be used with this WASI instance.
+    ///
+    /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
+    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem>) -> &mut Self {
+        self.fs_override = Some(fs);
+
+        self
+    }
+
+    /// Configure the WASI filesystem before running.
     // TODO: improve ergonomics on this function
     pub fn setup_fs(
         &mut self,
@@ -310,18 +319,25 @@ impl WasiStateBuilder {
         self
     }
 
-    /// Sets the FileSystem to be used with this WASI instance
-    ///
-    /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
-    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem>) -> &mut Self {
-        self.fs_override = Some(fs);
-
-        self
-    }
-
     /// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
+    ///
+    /// # Calling `build` multiple times
+    ///
+    /// Calling this method multiple times might not produce a
+    /// determinisic result. This method is changing the builder's
+    /// internal state. The values set with the following methods are
+    /// reset to their defaults:
+    ///
+    /// * [Self::set_fs],
+    /// * [Self::stdin],
+    /// * [Self::stdout],
+    /// * [Self::stderr].
+    ///
+    /// Ideally, the builder must be refactord to update `&mut self`
+    /// to `mut self` for every _builder method_, but it will break
+    /// existing code. It will be addressed in a next major release.
     pub fn build(&mut self) -> Result<WasiState, WasiStateCreationError> {
         for (i, arg) in self.args.iter().enumerate() {
             for b in arg.iter() {
@@ -385,7 +401,6 @@ impl WasiStateBuilder {
             }
         }
 
-        // using `take` here is a bit of a code smell
         let fs_backing = self
             .fs_override
             .take()
@@ -394,22 +409,26 @@ impl WasiStateBuilder {
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let mut wasi_fs = WasiFs::new_with_preopen(&self.preopens, &self.vfs_preopens, fs_backing)
             .map_err(WasiStateCreationError::WasiFsCreationError)?;
+
         // set up the file system, overriding base files and calling the setup function
         if let Some(stdin_override) = self.stdin_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDIN_FILENO, stdin_override)
                 .map_err(WasiStateCreationError::FileSystemError)?;
         }
+
         if let Some(stdout_override) = self.stdout_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDOUT_FILENO, stdout_override)
                 .map_err(WasiStateCreationError::FileSystemError)?;
         }
+
         if let Some(stderr_override) = self.stderr_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDERR_FILENO, stderr_override)
                 .map_err(WasiStateCreationError::FileSystemError)?;
         }
+
         if let Some(f) = &self.setup_fs_fn {
             f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
         }
@@ -434,9 +453,17 @@ impl WasiStateBuilder {
 
     /// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]
     ///
-    /// Returns the error from `WasiFs::new` if there's an error
+    /// Returns the error from `WasiFs::new` if there's an error.
+    ///
+    /// # Calling `finalize` multiple times
+    ///
+    /// Calling this method multiple times might not produce a
+    /// determinisic result. This method is calling [Self::build],
+    /// which is changing the builder's internal state. See
+    /// [Self::build]'s documentation to learn more.
     pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
         let state = self.build()?;
+
         Ok(WasiEnv::new(state))
     }
 }
