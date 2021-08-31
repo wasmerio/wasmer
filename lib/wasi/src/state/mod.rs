@@ -1571,15 +1571,15 @@ impl WasiState {
     }
 
     /// Turn the WasiState into bytes
+    #[cfg(feature = "enable-serde")]
     pub fn freeze(&self) -> Option<Vec<u8>> {
-        todo!("temporarily disabled")
-        //bincode::serialize(self).ok()
+        bincode::serialize(self).ok()
     }
 
     /// Get a WasiState from bytes
-    pub fn unfreeze(_bytes: &[u8]) -> Option<Self> {
-        todo!("temporarily disabled")
-        //bincode::deserialize(bytes).ok()
+    #[cfg(feature = "enable-serde")]
+    pub fn unfreeze(bytes: &[u8]) -> Option<Self> {
+        bincode::deserialize(bytes).ok()
     }
 }
 
