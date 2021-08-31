@@ -58,6 +58,12 @@ pub struct DylibArtifact {
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
 
+impl Drop for DylibArtifact {
+    fn drop(&mut self) {
+        std::fs::remove_file(&self.dylib_path).expect("cannot delete the temporary artifact");
+    }
+}
+
 fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(err.to_string())
 }
@@ -231,7 +237,7 @@ impl DylibArtifact {
 
                 // Re-open it.
                 let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-                file.write(&obj_bytes).map_err(to_compile_error)?;
+                file.write_all(&obj_bytes).map_err(to_compile_error)?;
                 filepath
             }
             None => {
@@ -261,7 +267,7 @@ impl DylibArtifact {
                 let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
                 let obj_bytes = obj.write().map_err(to_compile_error)?;
 
-                file.write(&obj_bytes).map_err(to_compile_error)?;
+                file.write_all(&obj_bytes).map_err(to_compile_error)?;
                 filepath
             }
         };
