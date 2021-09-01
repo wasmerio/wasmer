@@ -2,13 +2,11 @@
 
 use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
-use cranelift_codegen::ir::{self, ExternalName};
 #[cfg(target_arch = "x86_64")]
 use cranelift_codegen::ir::LibCall;
+use cranelift_codegen::ir::{self, ExternalName};
 use cranelift_entity::EntityRef as CraneliftEntityRef;
-use wasmer_compiler::{
-    JumpTable, Relocation, RelocationTarget, TrapInformation,
-};
+use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};
 #[cfg(target_arch = "x86_64")]
 use wasmer_compiler::{RelocationKind, SectionIndex};
 use wasmer_types::entity::EntityRef;
@@ -102,8 +100,7 @@ impl<'a> RelocSink<'a> {
     pub fn new(
         module: &'a ModuleInfo,
         func_index: FunctionIndex,
-        #[cfg(target_arch = "x86_64")]
-        probestack_trampoline_relocation_target: SectionIndex,
+        #[cfg(target_arch = "x86_64")] probestack_trampoline_relocation_target: SectionIndex,
     ) -> Self {
         let local_func_index = module
             .local_func_index(func_index)

@@ -25,14 +25,14 @@ use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
-    CompiledFunctionUnwindInfo, Compiler,Dwarf,
-    FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, SectionIndex,
+    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBinaryReader, FunctionBody,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
+    SectionIndex,
 };
 #[cfg(target_arch = "x86_64")]
 use wasmer_compiler::{
-    CustomSection, CustomSectionProtection,
-    Relocation, RelocationKind, RelocationTarget, SectionBody,
+    CustomSection, CustomSectionProtection, Relocation, RelocationKind, RelocationTarget,
+    SectionBody,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -163,11 +163,12 @@ impl Compiler for CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink =
-                    RelocSink::new(&module, func_index, 
-                        #[cfg(target_arch = "x86_64")]
-                        probestack_trampoline_relocation_target
-                    );
+                let mut reloc_sink = RelocSink::new(
+                    &module,
+                    func_index,
+                    #[cfg(target_arch = "x86_64")]
+                    probestack_trampoline_relocation_target,
+                );
                 let mut trap_sink = TrapSink::new();
                 let mut stackmap_sink = binemit::NullStackMapSink {};
                 context
