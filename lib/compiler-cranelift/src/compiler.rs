@@ -25,12 +25,13 @@ use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
-    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBinaryReader, FunctionBody,
-    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
-    SectionIndex,
+    CompiledFunctionUnwindInfo, Compiler, CustomSection, CustomSectionProtection, Dwarf,
+    FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
+    ModuleMiddlewareChain, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_vm::libcalls::LibCall;
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
@@ -102,6 +103,21 @@ impl Compiler for CraneliftCompiler {
             }
         };
 
+        let mut custom_sections = PrimaryMap::new();
+
+        let probestack_trampoline = CustomSection {
+            protection: CustomSectionProtection::ReadExecute,
+            bytes: SectionBody::new_with_vec(vec![0xff, 0x25, 0x00, 0x00, 0x00, 0x00]),
+            relocations: vec![Relocation {
+                kind: RelocationKind::Abs8,
+                reloc_target: RelocationTarget::LibCall(LibCall::Probestack),
+                offset: 6,
+                addend: 0,
+            }],
+        };
+        custom_sections.push(probestack_trampoline);
+        let probestack_trampoline_relocation_target = SectionIndex::new(custom_sections.len() - 1);
+
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -138,7 +154,8 @@ impl Compiler for CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink = RelocSink::new(&module, func_index);
+                let mut reloc_sink =
+                    RelocSink::new(&module, func_index, probestack_trampoline_relocation_target);
                 let mut trap_sink = TrapSink::new();
                 let mut stackmap_sink = binemit::NullStackMapSink {};
                 context
@@ -204,8 +221,7 @@ impl Compiler for CraneliftCompiler {
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         #[cfg(feature = "unwind")]
-        let (custom_sections, dwarf) = {
-            let mut custom_sections = PrimaryMap::new();
+        let dwarf = {
             let dwarf = if let Some((dwarf_frametable, _cie_id)) = dwarf_frametable {
                 let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
                 dwarf_frametable
@@ -216,14 +232,14 @@ impl Compiler for CraneliftCompiler {
 
                 let eh_frame_section = eh_frame.0.into_section();
                 custom_sections.push(eh_frame_section);
-                Some(Dwarf::new(SectionIndex::new(0)))
+                Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
             } else {
                 None
             };
-            (custom_sections, dwarf)
+            dwarf
         };
         #[cfg(not(feature = "unwind"))]
-        let (custom_sections, dwarf) = (PrimaryMap::new(), None);
+        let dwarf = None;
 
         // function call trampolines (only for local functions, by signature)
         let function_call_trampolines = module
