@@ -41,6 +41,12 @@ windows+cranelift spec::memory_grow
 # LLVM/Universal doesn't work in macOS M1. Skip all tests
 llvm+universal+macos+aarch64 *
 
+# TODO: We need to fix this. The issue is caused by libunwind overflowing
+# the stack while creating the stacktrace.
+# https://github.com/rust-lang/backtrace-rs/issues/356
+cranelift spec::skip_stack_guard_page
+llvm      spec::skip_stack_guard_page
+
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in dylib engine
 cranelift+dylib spec::linking
 cranelift+dylib spec::bulk
