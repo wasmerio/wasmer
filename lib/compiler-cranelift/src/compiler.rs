@@ -114,10 +114,15 @@ impl Compiler for CraneliftCompiler {
         #[cfg(target_arch = "x86_64")]
         let probestack_trampoline = CustomSection {
             protection: CustomSectionProtection::ReadExecute,
+            // We create a jump to an absolute 64bits address
+            // with an indrect jump immediatly followed but the absolute address
+            // JMP [IP+0]   FF 25 00 00 00 00
+            // 64bits ADDR
             bytes: SectionBody::new_with_vec(vec![0xff, 0x25, 0x00, 0x00, 0x00, 0x00]),
             relocations: vec![Relocation {
                 kind: RelocationKind::Abs8,
                 reloc_target: RelocationTarget::LibCall(LibCall::Probestack),
+                // 6 is the size of the jmp instruction. The relocated address must follow
                 offset: 6,
                 addend: 0,
             }],
