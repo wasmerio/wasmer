@@ -48,6 +48,7 @@ use wasmer_vm::{
 #[derive(MemoryUsage)]
 pub struct DylibArtifact {
     dylib_path: PathBuf,
+    is_temporary: bool,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     #[loupe(skip)]
@@ -60,7 +61,9 @@ pub struct DylibArtifact {
 
 impl Drop for DylibArtifact {
     fn drop(&mut self) {
-        std::fs::remove_file(&self.dylib_path).expect("cannot delete the temporary artifact");
+        if self.is_temporary {
+            std::fs::remove_file(&self.dylib_path).expect("cannot delete the temporary artifact");
+        }
     }
 }
 
@@ -374,12 +377,15 @@ impl DylibArtifact {
 
         trace!("gcc command result {:?}", output);
 
-        if is_cross_compiling {
+        let mut artifact = if is_cross_compiling {
             Self::from_parts_crosscompiled(metadata, output_filepath)
         } else {
             let lib = unsafe { Library::new(&output_filepath).map_err(to_compile_error)? };
             Self::from_parts(&mut engine_inner, metadata, output_filepath, lib)
-        }
+        }?;
+        artifact.is_temporary = true;
+
+        Ok(artifact)
     }
 
     /// Get the default extension when serializing this artifact
@@ -406,6 +412,7 @@ impl DylibArtifact {
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
             dylib_path,
+            is_temporary: false,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -511,6 +518,7 @@ impl DylibArtifact {
 
         Ok(Self {
             dylib_path,
+            is_temporary: false,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -552,7 +560,10 @@ impl DylibArtifact {
         file.write_all(&bytes)?;
         // We already checked for the header, so we don't need
         // to check again.
-        Self::deserialize_from_file_unchecked(&engine, &path)
+        let mut artifact = Self::deserialize_from_file_unchecked(&engine, &path)?;
+        artifact.is_temporary = true;
+
+        Ok(artifact)
     }
 
     /// Deserialize a `DylibArtifact` from a file path.
