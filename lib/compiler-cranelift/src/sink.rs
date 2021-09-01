@@ -43,6 +43,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
             )
         } else if let ExternalName::LibCall(libcall) = *name {
             match libcall {
+                #[cfg(target_arch = "x86_64")]
                 LibCall::Probestack => {
                     self.func_relocs.push(Relocation {
                         kind: RelocationKind::X86CallPCRel4,

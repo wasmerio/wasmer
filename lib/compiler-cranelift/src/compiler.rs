@@ -105,6 +105,7 @@ impl Compiler for CraneliftCompiler {
 
         let mut custom_sections = PrimaryMap::new();
 
+        #[cfg(target_arch = "x86_64")]
         let probestack_trampoline = CustomSection {
             protection: CustomSectionProtection::ReadExecute,
             bytes: SectionBody::new_with_vec(vec![0xff, 0x25, 0x00, 0x00, 0x00, 0x00]),
@@ -115,8 +116,12 @@ impl Compiler for CraneliftCompiler {
                 addend: 0,
             }],
         };
+        #[cfg(target_arch = "x86_64")]
         custom_sections.push(probestack_trampoline);
+        #[cfg(target_arch = "x86_64")]
         let probestack_trampoline_relocation_target = SectionIndex::new(custom_sections.len() - 1);
+        #[cfg(not(target_arch = "x86_64"))]
+        let probestack_trampoline_relocation_target = None;
 
         let functions = function_body_inputs
             .iter()
