@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
+use tracing::log::error;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasmer_compiler::{
@@ -62,7 +63,9 @@ pub struct DylibArtifact {
 impl Drop for DylibArtifact {
     fn drop(&mut self) {
         if self.is_temporary {
-            std::fs::remove_file(&self.dylib_path).expect("cannot delete the temporary artifact");
+            if let Err(err) = std::fs::remove_file(&self.dylib_path) {
+                error!("cannot delete the temporary dylib artifact: {}", err);
+            }
         }
     }
 }
