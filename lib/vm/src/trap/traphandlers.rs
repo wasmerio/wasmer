@@ -721,7 +721,8 @@ impl<'a> CallThreadState<'a> {
         }
 
         // If this fault wasn't in wasm code, then it's not our problem
-        if unsafe { !IS_WASM_PC(pc as _) } {
+        // except if it's a StackOverflow (see below)
+        if unsafe { !IS_WASM_PC(pc as _) } && signal_trap != Some(TrapCode::StackOverflow) {
             return ptr::null();
         }
 
