@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
+use tracing::log::error;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasmer_compiler::{
@@ -48,6 +49,7 @@ use wasmer_vm::{
 #[derive(MemoryUsage)]
 pub struct DylibArtifact {
     dylib_path: PathBuf,
+    is_temporary: bool,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     #[loupe(skip)]
@@ -56,6 +58,16 @@ pub struct DylibArtifact {
     func_data_registry: Arc<FuncDataRegistry>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
+}
+
+impl Drop for DylibArtifact {
+    fn drop(&mut self) {
+        if self.is_temporary {
+            if let Err(err) = std::fs::remove_file(&self.dylib_path) {
+                error!("cannot delete the temporary dylib artifact: {}", err);
+            }
+        }
+    }
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -231,7 +243,7 @@ impl DylibArtifact {
 
                 // Re-open it.
                 let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-                file.write(&obj_bytes).map_err(to_compile_error)?;
+                file.write_all(&obj_bytes).map_err(to_compile_error)?;
                 filepath
             }
             None => {
@@ -261,7 +273,7 @@ impl DylibArtifact {
                 let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
                 let obj_bytes = obj.write().map_err(to_compile_error)?;
 
-                file.write(&obj_bytes).map_err(to_compile_error)?;
+                file.write_all(&obj_bytes).map_err(to_compile_error)?;
                 filepath
             }
         };
@@ -368,12 +380,15 @@ impl DylibArtifact {
 
         trace!("gcc command result {:?}", output);
 
-        if is_cross_compiling {
+        let mut artifact = if is_cross_compiling {
             Self::from_parts_crosscompiled(metadata, output_filepath)
         } else {
             let lib = unsafe { Library::new(&output_filepath).map_err(to_compile_error)? };
             Self::from_parts(&mut engine_inner, metadata, output_filepath, lib)
-        }
+        }?;
+        artifact.is_temporary = true;
+
+        Ok(artifact)
     }
 
     /// Get the default extension when serializing this artifact
@@ -400,6 +415,7 @@ impl DylibArtifact {
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
             dylib_path,
+            is_temporary: false,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -505,6 +521,7 @@ impl DylibArtifact {
 
         Ok(Self {
             dylib_path,
+            is_temporary: false,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -546,7 +563,10 @@ impl DylibArtifact {
         file.write_all(&bytes)?;
         // We already checked for the header, so we don't need
         // to check again.
-        Self::deserialize_from_file_unchecked(&engine, &path)
+        let mut artifact = Self::deserialize_from_file_unchecked(&engine, &path)?;
+        artifact.is_temporary = true;
+
+        Ok(artifact)
     }
 
     /// Deserialize a `DylibArtifact` from a file path.
