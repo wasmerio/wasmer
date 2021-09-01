@@ -91,6 +91,10 @@ impl crate::FileOpener for FileOpener {
                         if append {
                             file.seek(io::SeekFrom::End(0))?;
                         }
+                        // Otherwise, move the cursor to the start.
+                        else {
+                            file.seek(io::SeekFrom::Start(0))?;
+                        }
                     }
 
                     _ => return Err(FsError::NotAFile),
@@ -153,6 +157,7 @@ impl crate::FileOpener for FileOpener {
             self.filesystem.clone(),
             read,
             write || append || truncate,
+            append,
         )))
     }
 }
@@ -333,18 +338,39 @@ mod test_file_opener {
 
         let mut file = fs
             .new_open_options()
-            .write(true)
             .append(true)
             .open(path!("/foo.txt"))
             .expect("failed to open `foo.txt`");
 
         assert!(
-            matches!(file.seek(io::SeekFrom::Current(0)), Ok(6)),
-            "checking the current position is 6",
+            matches!(file.seek(io::SeekFrom::Current(0)), Ok(0)),
+            "checking the current position in append-mode is 0",
         );
         assert!(
-            matches!(file.seek(io::SeekFrom::End(0)), Ok(6)),
-            "checking the size is 6",
+            matches!(file.seek(io::SeekFrom::Start(0)), Ok(0)),
+            "trying to rewind in append-mode",
+        );
+        assert!(matches!(file.write(b"baz"), Ok(3)), "writing `baz`");
+
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to open `foo.txt");
+
+        assert!(
+            matches!(file.seek(io::SeekFrom::Current(0)), Ok(0)),
+            "checking the current position is read-mode is 0",
+        );
+
+        let mut string = String::new();
+        assert!(
+            matches!(file.read_to_string(&mut string), Ok(9)),
+            "reading the entire `foo.txt` file",
+        );
+        assert_eq!(
+            string, "foobarbaz",
+            "checking append-mode is ignoring seek operations",
         );
     }
 
