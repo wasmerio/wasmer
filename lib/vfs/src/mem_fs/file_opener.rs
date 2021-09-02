@@ -85,6 +85,7 @@ impl crate::FileOpener for FileOpener {
                         // Truncate if needed.
                         if truncate {
                             file.truncate();
+                            metadata.len = 0;
                         }
 
                         // Move the cursor to the end if needed.
