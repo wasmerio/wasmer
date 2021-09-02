@@ -134,6 +134,7 @@ languages**, so you can use WebAssembly _anywhere_.
 |  | [**Swift**][Swift integration] | *no published package* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 | ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
+|  | [**Lisp**][Lisp integration] | *under heavy development - no published package* | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -208,6 +209,8 @@ languages**, so you can use WebAssembly _anywhere_.
 [dart logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/dart.svg
 [dart integration]: https://github.com/dart-lang/wasm
 [`wasm` pub package]: https://pub.dev/packages/wasm
+
+[lisp integration]: https://github.com/helmutkian/cl-wasm-runtime
 
 ## Contribute
 
