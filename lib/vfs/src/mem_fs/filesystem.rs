@@ -158,10 +158,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        let (
-            (position_of_from, inode, inode_of_from_parent),
-            (inode_of_to_parent, name_of_to_directory),
-        ) = {
+        let ((position_of_from, inode, inode_of_from_parent), (inode_of_to_parent, name_of_to)) = {
             // Read lock.
             let fs = self.inner.try_read().map_err(|_| FsError::Lock)?;
 
@@ -172,12 +169,12 @@ impl crate::FileSystem for FileSystem {
             let parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)?;
             let parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)?;
 
-            // Check the directory names.
-            let name_of_from_directory = from
+            // Check the names.
+            let name_of_from = from
                 .file_name()
                 .ok_or(FsError::InvalidInput)?
                 .to_os_string();
-            let name_of_to_directory = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
+            let name_of_to = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
 
             // Find the parent inodes.
             let inode_of_from_parent = fs.inode_of_parent(parent_of_from)?;
@@ -185,15 +182,13 @@ impl crate::FileSystem for FileSystem {
 
             // Get the child indexes to update in the parent nodes, in
             // addition to the inode of the directory to update.
-            let (position_of_from, inode) = fs.from_parent_get_position_and_inode_of_directory(
-                inode_of_from_parent,
-                &name_of_from_directory,
-                DirectoryMustBeEmpty::No,
-            )?;
+            let (position_of_from, inode) = fs
+                .from_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
+                .ok_or(FsError::NotAFile)?;
 
             (
                 (position_of_from, inode, inode_of_from_parent),
-                (inode_of_to_parent, name_of_to_directory),
+                (inode_of_to_parent, name_of_to),
             )
         };
 
@@ -203,14 +198,14 @@ impl crate::FileSystem for FileSystem {
 
             // Update the directory name, and update the modified
             // time.
-            fs.update_node_name(inode, name_of_to_directory)?;
+            fs.update_node_name(inode, name_of_to)?;
 
-            // Remove the directory from its parent, and update the
+            // Remove the file from its parent, and update the
             // modified time.
             fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
 
-            // Add the directory to its new parent, and update the
-            // modified time.
+            // Add the file to its new parent, and update the modified
+            // time.
             fs.add_child_to_node(inode_of_to_parent, inode)?;
         }
 
@@ -387,6 +382,35 @@ impl FileSystemInner {
                 .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
                 .find_map(|(nth, node)| match node {
                     Node::File { inode, name, .. } if name.as_os_str() == name_of_file => {
+                        Some(Some((nth, *inode)))
+                    }
+
+                    _ => None,
+                })
+                .or(Some(None))
+                .ok_or(FsError::InvalidInput),
+
+            _ => Err(FsError::BaseNotDirectory),
+        }
+    }
+
+    /// From the inode of a parent node (so, a directory), returns the
+    /// child index of `name_of` along with its inode, whatever the
+    /// type of inode is (directory or file).
+    fn from_parent_get_position_and_inode(
+        &self,
+        inode_of_parent: Inode,
+        name_of: &OsString,
+    ) -> Result<Option<(usize, Inode)>> {
+        match self.storage.get(inode_of_parent) {
+            Some(Node::Directory { children, .. }) => children
+                .iter()
+                .enumerate()
+                .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
+                .find_map(|(nth, node)| match node {
+                    Node::File { inode, name, .. } | Node::Directory { inode, name, .. }
+                        if name.as_os_str() == name_of =>
+                    {
                         Some(Some((nth, *inode)))
                     }
 
@@ -1248,6 +1272,7 @@ mod test_filesystem {
     }
 }
 
+#[allow(dead_code)] // The `No` variant.
 pub(super) enum DirectoryMustBeEmpty {
     Yes,
     No,
