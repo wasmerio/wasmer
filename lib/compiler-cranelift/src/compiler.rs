@@ -117,8 +117,10 @@ impl Compiler for CraneliftCompiler {
             // We create a jump to an absolute 64bits address
             // with an indrect jump immediatly followed but the absolute address
             // JMP [IP+0]   FF 25 00 00 00 00
-            // 64bits ADDR
-            bytes: SectionBody::new_with_vec(vec![0xff, 0x25, 0x00, 0x00, 0x00, 0x00]),
+            // 64bits ADDR  00 00 00 00 00 00 00 00 preset to 0 until the relocation takes place
+            bytes: SectionBody::new_with_vec(vec![
+                0xff, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ]),
             relocations: vec![Relocation {
                 kind: RelocationKind::Abs8,
                 reloc_target: RelocationTarget::LibCall(LibCall::Probestack),
