@@ -17,8 +17,8 @@ use tracing::log::error;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasmer_compiler::{
-    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem, Symbol,
-    SymbolRegistry, Triple,
+    Architecture, CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap,
+    OperatingSystem, Symbol, SymbolRegistry, Triple,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
@@ -351,6 +351,11 @@ impl DylibArtifact {
             Triple::host().to_string(),
         );
 
+        let notext = match (target_triple.operating_system, target_triple.architecture) {
+            (OperatingSystem::Linux, Architecture::X86_64) => "-Wl,-z,notext",
+            _ => "",
+        };
+
         let linker = engine_inner.linker().executable();
         let output = Command::new(linker)
             .arg(&filepath)
@@ -359,6 +364,7 @@ impl DylibArtifact {
             .args(&target_args)
             // .args(&wasmer_symbols)
             .arg("-shared")
+            .arg(&notext)
             .args(&cross_compiling_args)
             .arg("-v")
             .output()
