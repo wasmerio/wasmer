@@ -197,6 +197,13 @@ impl<'a> WasiTest<'a> {
                     builder.map_dir(alias, path)?;
                 }
 
+                for dir in &self.dirs {
+                    let mut new_dir = PathBuf::from("/");
+                    new_dir.push(dir);
+
+                    builder.map_dir(dir, new_dir)?;
+                }
+
                 for alias in &self.temp_dirs {
                     let temp_dir_name =
                         PathBuf::from(format!("/.tmp_wasmer_wast_{}", temp_dir_index));
