@@ -7,7 +7,7 @@ use cranelift_codegen::ir::LibCall;
 use cranelift_codegen::ir::{self, ExternalName};
 use cranelift_entity::EntityRef as CraneliftEntityRef;
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 use wasmer_compiler::{RelocationKind, SectionIndex};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo};
@@ -24,7 +24,7 @@ pub(crate) struct RelocSink<'a> {
     pub func_relocs: Vec<Relocation>,
 
     /// The section where the probestack trampoline call is located
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
     pub probestack_trampoline_relocation_target: SectionIndex,
 }
 
@@ -46,7 +46,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
             )
         } else if let ExternalName::LibCall(libcall) = *name {
             match libcall {
-                #[cfg(target_arch = "x86_64")]
+                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
                 LibCall::Probestack => {
                     self.func_relocs.push(Relocation {
                         kind: RelocationKind::X86CallPCRel4,
@@ -100,7 +100,8 @@ impl<'a> RelocSink<'a> {
     pub fn new(
         module: &'a ModuleInfo,
         func_index: FunctionIndex,
-        #[cfg(target_arch = "x86_64")] probestack_trampoline_relocation_target: SectionIndex,
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+        probestack_trampoline_relocation_target: SectionIndex,
     ) -> Self {
         let local_func_index = module
             .local_func_index(func_index)
@@ -109,7 +110,7 @@ impl<'a> RelocSink<'a> {
             module,
             local_func_index,
             func_relocs: Vec::new(),
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
             probestack_trampoline_relocation_target,
         }
     }

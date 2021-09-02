@@ -29,14 +29,14 @@ use wasmer_compiler::{
     FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
     SectionIndex,
 };
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 use wasmer_compiler::{
     CustomSection, CustomSectionProtection, Relocation, RelocationKind, RelocationTarget,
     SectionBody,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 use wasmer_vm::libcalls::LibCall;
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
@@ -111,7 +111,7 @@ impl Compiler for CraneliftCompiler {
 
         let mut custom_sections = PrimaryMap::new();
 
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
         let probestack_trampoline = CustomSection {
             protection: CustomSectionProtection::ReadExecute,
             // We create a jump to an absolute 64bits address
@@ -129,9 +129,9 @@ impl Compiler for CraneliftCompiler {
                 addend: 0,
             }],
         };
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
         custom_sections.push(probestack_trampoline);
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
         let probestack_trampoline_relocation_target = SectionIndex::new(custom_sections.len() - 1);
 
         let functions = function_body_inputs
@@ -173,7 +173,7 @@ impl Compiler for CraneliftCompiler {
                 let mut reloc_sink = RelocSink::new(
                     &module,
                     func_index,
-                    #[cfg(target_arch = "x86_64")]
+                    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
                     probestack_trampoline_relocation_target,
                 );
                 let mut trap_sink = TrapSink::new();
