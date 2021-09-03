@@ -10,9 +10,9 @@ use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
-use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError, is_wasm_pc};
 use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
-use wasmer_vm::InstanceHandle;
+use wasmer_vm::{InstanceHandle, init_traps};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -254,6 +254,9 @@ impl Module {
     }
 
     fn from_artifact(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
+        if !artifact.features().signal_less {
+            init_traps(is_wasm_pc);
+        }
         Self {
             store: store.clone(),
             artifact,

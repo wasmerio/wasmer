@@ -35,6 +35,8 @@ pub struct Features {
     pub memory64: bool,
     /// Wasm exceptions proposal should be enabled
     pub exceptions: bool,
+    /// If signalless mode is enabled.
+    pub signal_less: bool,
 }
 
 impl Features {
@@ -55,6 +57,7 @@ impl Features {
             multi_memory: false,
             memory64: false,
             exceptions: false,
+            signal_less: false
         }
     }
 
@@ -231,6 +234,13 @@ impl Features {
         self.memory64 = enable;
         self
     }
+
+    /// Configures whether the binary was compiled in signalless mode.
+    /// Currently only supported for Signlepass compiler.
+    pub fn signal_less(&mut self, enable: bool) -> &mut Self {
+        self.signal_less = enable;
+        self
+    }
 }
 
 impl Default for Features {
@@ -258,6 +268,7 @@ mod test_features {
                 multi_memory: false,
                 memory64: false,
                 exceptions: false,
+                signal_less: false,
             }
         );
     }
@@ -336,5 +347,12 @@ mod test_features {
         let mut features = Features::new();
         features.memory64(true);
         assert!(features.memory64);
+    }
+
+    #[test]
+    fn enable_signal_less() {
+        let mut features = Features::new();
+        features.signal_less(true);
+        assert!(features.signal_less);
     }
 }
