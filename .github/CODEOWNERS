@@ -1,24 +1,23 @@
 benches                            @syrusakbary
-examples                           @Hywan @jubianchi
+examples                           @Hywan
 fuzz                               @syrusakbary
-lib/api                            @syrusakbary @Hywan @MarkMcCaskey
-lib/c-api                          @Hywan @MarkMcCaskey @jubianchi
+lib/api                            @syrusakbary @Hywan
+lib/c-api                          @Hywan
 lib/cache                          @syrusakbary @Hywan
-lib/cli                            @syrusakbary @MarkMcCaskey
-lib/compiler                       @syrusakbary @nlewycky @losfair @Hywan @MarkMcCaskey
-lib/compiler-cranelift             @nlewycky @syrusakbary
-lib/compiler-llvm                  @nlewycky @losfair
-lib/compiler-singlepass            @losfair @nlewycky
-lib/deprecated                     @Hywan @MarkMcCaskey
-lib/emscripten                     @MarkMcCaskey
-lib/engine                         @syrusakbary @MarkMcCaskey @Hywan
-lib/engine-jit                     @syrusakbary @MarkMcCaskey @Hywan
-lib/engine-native                  @syrusakbary @MarkMcCaskey @Hywan
-lib/engine-object-file             @syrusakbary @MarkMcCaskey @Hywan
-lib/object                         @syrusakbary @nlewycky
-lib/vm                             @syrusakbary @nlewycky @MarkMcCaskey
-lib/wasi                           @MarkMcCaskey
-lib/wasi-experimental-io-devices   @MarkMcCaskey
+lib/cli                            @syrusakbary
+lib/compiler                       @syrusakbary @Hywan
+lib/compiler-cranelift             @syrusakbary
+lib/compiler-llvm                  @Hywan
+lib/compiler-singlepass            @syrusakbary
+lib/deprecated                     @Hywan
+lib/emscripten                     @Hywan
+lib/engine                         @syrusakbary @Hywan
+lib/engine-jit                     @syrusakbary @Hywan
+lib/engine-native                  @syrusakbary @Hywan
+lib/engine-object-file             @syrusakbary @Hywan
+lib/object                         @syrusakbary
+lib/vm                             @syrusakbary @Hywan
+lib/wasi                           @Hywan
 lib/wasmer-types                   @syrusakbary @Hywan
 scripts                            @syrusakbary
-tests                              @MarkMcCaskey
+tests                              @Hywan

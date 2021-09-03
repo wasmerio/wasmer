@@ -13,11 +13,12 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
+use tracing::log::error;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasmer_compiler::{
-    CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap, OperatingSystem, Symbol,
-    SymbolRegistry, Triple,
+    Architecture, CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap,
+    OperatingSystem, Symbol, SymbolRegistry, Triple,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
@@ -48,6 +49,7 @@ use wasmer_vm::{
 #[derive(MemoryUsage)]
 pub struct DylibArtifact {
     dylib_path: PathBuf,
+    is_temporary: bool,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     #[loupe(skip)]
@@ -58,6 +60,16 @@ pub struct DylibArtifact {
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
 
+impl Drop for DylibArtifact {
+    fn drop(&mut self) {
+        if self.is_temporary {
+            if let Err(err) = std::fs::remove_file(&self.dylib_path) {
+                error!("cannot delete the temporary dylib artifact: {}", err);
+            }
+        }
+    }
+}
+
 fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(err.to_string())
 }
@@ -65,7 +77,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
 impl DylibArtifact {
-    // Mach-O header in Mac
+    // Mach-O header in iOS/Mac
     #[allow(dead_code)]
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
 
@@ -87,7 +99,7 @@ impl DylibArtifact {
     /// system.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         cfg_if::cfg_if! {
-            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
+            if #[cfg(all(target_pointer_width = "64", target_vendor="apple"))] {
                 bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64)
             }
             else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {
@@ -231,7 +243,7 @@ impl DylibArtifact {
 
                 // Re-open it.
                 let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-                file.write(&obj_bytes).map_err(to_compile_error)?;
+                file.write_all(&obj_bytes).map_err(to_compile_error)?;
                 filepath
             }
             None => {
@@ -261,7 +273,7 @@ impl DylibArtifact {
                 let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
                 let obj_bytes = obj.write().map_err(to_compile_error)?;
 
-                file.write(&obj_bytes).map_err(to_compile_error)?;
+                file.write_all(&obj_bytes).map_err(to_compile_error)?;
                 filepath
             }
         };
@@ -291,12 +303,33 @@ impl DylibArtifact {
             }
         };
 
+        // Set 'isysroot' clang flag if compiling to iOS target
+        let ios_compile_target = target_triple.operating_system == OperatingSystem::Ios;
+        let ios_sdk_flag = {
+            if ios_compile_target {
+                "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+            } else {
+                ""
+            }
+        };
+
+        // Get the location of the 'ld' linker for clang
+        let fuse_linker = {
+            let ld_install = which::which("ld");
+            if ios_compile_target && ld_install.is_ok() {
+                ld_install.unwrap().into_os_string().into_string().unwrap()
+            } else {
+                "lld".to_string()
+            }
+        };
+
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple_str),
-                "-fuse-ld=lld".to_string(),
+                format!("-fuse-ld={}", fuse_linker),
                 "-nodefaultlibs".to_string(),
                 "-nostdlib".to_string(),
+                ios_sdk_flag.to_string(),
             ]
         } else {
             // We are explicit on the target when the host system is
@@ -318,6 +351,11 @@ impl DylibArtifact {
             Triple::host().to_string(),
         );
 
+        let notext = match (target_triple.operating_system, target_triple.architecture) {
+            (OperatingSystem::Linux, Architecture::X86_64) => vec!["-Wl,-z,notext"],
+            _ => vec![],
+        };
+
         let linker = engine_inner.linker().executable();
         let output = Command::new(linker)
             .arg(&filepath)
@@ -326,6 +364,7 @@ impl DylibArtifact {
             .args(&target_args)
             // .args(&wasmer_symbols)
             .arg("-shared")
+            .args(&notext)
             .args(&cross_compiling_args)
             .arg("-v")
             .output()
@@ -347,12 +386,15 @@ impl DylibArtifact {
 
         trace!("gcc command result {:?}", output);
 
-        if is_cross_compiling {
+        let mut artifact = if is_cross_compiling {
             Self::from_parts_crosscompiled(metadata, output_filepath)
         } else {
             let lib = unsafe { Library::new(&output_filepath).map_err(to_compile_error)? };
             Self::from_parts(&mut engine_inner, metadata, output_filepath, lib)
-        }
+        }?;
+        artifact.is_temporary = true;
+
+        Ok(artifact)
     }
 
     /// Get the default extension when serializing this artifact
@@ -379,6 +421,7 @@ impl DylibArtifact {
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
             dylib_path,
+            is_temporary: false,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -484,6 +527,7 @@ impl DylibArtifact {
 
         Ok(Self {
             dylib_path,
+            is_temporary: false,
             metadata,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
@@ -525,7 +569,10 @@ impl DylibArtifact {
         file.write_all(&bytes)?;
         // We already checked for the header, so we don't need
         // to check again.
-        Self::deserialize_from_file_unchecked(&engine, &path)
+        let mut artifact = Self::deserialize_from_file_unchecked(&engine, &path)?;
+        artifact.is_temporary = true;
+
+        Ok(artifact)
     }
 
     /// Deserialize a `DylibArtifact` from a file path.
@@ -780,5 +827,43 @@ impl Artifact for DylibArtifact {
     /// Serialize a `DylibArtifact`.
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.dylib_path)?)
+    }
+
+    /// Serialize a `DylibArtifact` to a portable file
+    #[cfg(feature = "compiler")]
+    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        std::fs::write(&path, serialized)?;
+
+        /*
+        When you write the artifact to a new file it still has the 'Mach-O Identifier'
+        of the original file, and so this can causes linker issues when adding
+        the new file to an XCode project.
+
+        The below code renames the ID of the file so that it references itself through
+        an @executable_path prefix. Basically it tells XCode to find this file
+        inside of the projects' list of 'linked executables'.
+
+        You need to be running MacOS for the following to actually work though.
+        */
+        let has_extension = path.extension().is_some();
+        if has_extension && path.extension().unwrap() == "dylib" {
+            let filename = path.file_name().unwrap().to_str().unwrap();
+            let parent_dir = path.parent().unwrap();
+            let absolute_path = std::fs::canonicalize(&parent_dir)
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+
+            Command::new("install_name_tool")
+                .arg("-id")
+                .arg(format!("@executable_path/{}", &filename))
+                .arg(&filename)
+                .current_dir(&absolute_path)
+                .output()?;
+        }
+
+        Ok(())
     }
 }

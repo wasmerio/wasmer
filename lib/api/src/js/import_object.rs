@@ -115,6 +115,23 @@ impl ImportObject {
     }
 }
 
+impl Into<js_sys::Object> for ImportObject {
+    fn into(self) -> js_sys::Object {
+        let guard = self.map.lock().unwrap();
+        let map = guard.borrow();
+
+        let imports = js_sys::Object::new();
+        for (module, ns) in map.iter() {
+            let import_namespace = js_sys::Object::new();
+            for (name, exp) in ns.get_namespace_exports() {
+                js_sys::Reflect::set(&import_namespace, &name.into(), exp.as_jsvalue()).unwrap();
+            }
+            js_sys::Reflect::set(&imports, &module.into(), &import_namespace.into()).unwrap();
+        }
+        imports
+    }
+}
+
 impl NamedResolver for ImportObject {
     fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
         self.get_export(module, name)

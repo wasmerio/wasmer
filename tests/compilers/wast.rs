@@ -4,11 +4,13 @@ use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:
 // #[cfg(test)]
-// mod singlepass {
-//     mod spec {
-//         #[test]
-//         fn address() -> anyhow::Result<()> {
-//             crate::run_wast("tests/spectests/address.wast", "singlepass")
+// mod [compiler] {
+//     mod [spec] {
+//         mod [vfs] {
+//             #[test]
+//             fn [test_name]() -> anyhow::Result<()> {
+//                 crate::run_wasi("tests/spectests/[test_name].wast", "[compiler]", WasiFileSystemKind::[vfs])
+//             }
 //         }
 //     }
 // }

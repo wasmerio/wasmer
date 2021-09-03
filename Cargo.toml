@@ -44,6 +44,7 @@ members = [
     "lib/engine-dylib",
     "lib/engine-staticlib",
     "lib/object",
+    "lib/vfs",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-types",
@@ -52,8 +53,10 @@ members = [
     "tests/lib/wast",
     "tests/lib/compiler-test-derive",
     "tests/integration/cli",
+    "tests/integration/ios",
     "fuzz",
 ]
+resolver = "2"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -71,6 +74,10 @@ wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.1"
 loupe = "0.1"
+# For logging tests using the `RUST_LOG=debug` when testing
+test-env-log = { version = "0.2", default-features = false, features = ["trace"] }
+tracing = { version = "0.1", default-features = false, features = ["log"] }
+tracing-subscriber = { version = "0.2", default-features = false, features = ["env-filter", "fmt"] }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
@@ -79,7 +86,6 @@ default = [
     "wat",
     "wast",
     "universal",
-    "dylib",
     "staticlib",
     "cache",
     "wasi",
@@ -174,6 +180,11 @@ required-features = ["cranelift"]
 [[example]]
 name = "engine-headless"
 path = "examples/engine_headless.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "platform-headless-ios"
+path = "examples/platform_ios_headless.rs"
 required-features = ["cranelift"]
 
 [[example]]
