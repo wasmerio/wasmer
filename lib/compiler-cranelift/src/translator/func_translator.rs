@@ -178,7 +178,7 @@ fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
 
 /// Declare `count` local variables of the same type, starting from `next_local`.
 ///
-/// Fail of too many locals are declared in the function, or if the type is not valid for a local.
+/// Fail if the type is not valid for a local.
 fn declare_locals<FE: FuncEnvironment + ?Sized>(
     builder: &mut FunctionBuilder,
     count: u32,
