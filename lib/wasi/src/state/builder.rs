@@ -554,9 +554,12 @@ impl PreopenDirBuilder {
         }
         let path = self.path.clone().unwrap();
 
+        /*
         if !path.exists() {
             return Err(WasiStateCreationError::PreopenedDirectoryNotFound(path));
         }
+        */
+
         if let Some(alias) = &self.alias {
             validate_mapped_dir_alias(alias)?;
         }

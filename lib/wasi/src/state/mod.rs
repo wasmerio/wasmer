@@ -287,7 +287,7 @@ impl WasiFs {
                 &path.to_string_lossy(),
                 &alias
             );
-            let cur_dir_metadata = path.metadata().map_err(|e| {
+            let cur_dir_metadata = wasi_fs.fs_backing.metadata(path).map_err(|e| {
                 format!(
                     "Could not get metadata for file {:?}: {}",
                     path,
