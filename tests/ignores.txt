@@ -49,7 +49,6 @@ cranelift+dylib spec::linking
 cranelift+dylib spec::bulk
 
 # Some SIMD opperations are not yet supported by Cranelift
-cranelift+aarch64 spec::simd::simd_boolean
 cranelift spec::simd::simd_conversions
 cranelift spec::simd::simd_i16x8_extadd_pairwise_i8x16
 cranelift spec::simd::simd_i16x8_extmul_i8x16
