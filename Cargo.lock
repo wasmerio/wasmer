@@ -2924,6 +2924,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "wasmer",
+ "wasmer-vfs",
  "wasmer-wasi",
  "wast",
 ]

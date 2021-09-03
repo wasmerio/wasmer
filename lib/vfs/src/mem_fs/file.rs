@@ -94,7 +94,7 @@ impl VirtualFile for FileHandle {
         };
 
         match fs.storage.get(self.inode) {
-            Some(Node::File { file, .. }) => file.buffer.len().try_into().unwrap_or(0),
+            Some(Node::File { file, .. }) => file.len().try_into().unwrap_or(0),
             _ => 0,
         }
     }
@@ -107,9 +107,11 @@ impl VirtualFile for FileHandle {
             .map_err(|_| FsError::Lock)?;
 
         match fs.storage.get_mut(self.inode) {
-            Some(Node::File { file, .. }) => file
-                .buffer
-                .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0),
+            Some(Node::File { file, metadata, .. }) => {
+                file.buffer
+                    .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
+                metadata.len = new_size;
+            }
             _ => return Err(FsError::NotAFile),
         }
 
@@ -561,8 +563,8 @@ impl Write for FileHandle {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
             })?;
 
-        let file = match fs.storage.get_mut(self.inode) {
-            Some(Node::File { file, .. }) => file,
+        let (file, metadata) = match fs.storage.get_mut(self.inode) {
+            Some(Node::File { file, metadata, .. }) => (file, metadata),
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
@@ -571,7 +573,11 @@ impl Write for FileHandle {
             }
         };
 
-        file.write(buf)
+        let bytes_written = file.write(buf)?;
+
+        metadata.len = file.len().try_into().unwrap();
+
+        Ok(bytes_written)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -688,6 +694,10 @@ mod test_read_write_seek {
             .expect("failed to create a new file");
 
         assert!(
+            matches!(fs.metadata(path!("/foo.txt")), Ok(Metadata { len: 0, .. })),
+            "checking the `metadata.len` is 0",
+        );
+        assert!(
             matches!(file.write(b"foobarbazqux"), Ok(12)),
             "writing `foobarbazqux`",
         );
@@ -715,6 +725,10 @@ mod test_read_write_seek {
             "reading more bytes than available",
         );
         assert_eq!(buffer[..12], b"foobarbazqux"[..], "checking the 12 bytes");
+        assert!(
+            matches!(fs.metadata(path!("/foo.txt")), Ok(Metadata { len: 12, .. })),
+            "checking the `metadata.len` is 0",
+        );
     }
 
     #[test]
@@ -846,6 +860,10 @@ impl File {
     pub(super) fn truncate(&mut self) {
         self.buffer.clear();
         self.cursor = 0;
+    }
+
+    pub(super) fn len(&self) -> usize {
+        self.buffer.len()
     }
 }
 

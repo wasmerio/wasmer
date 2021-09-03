@@ -158,10 +158,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        let (
-            (position_of_from, inode, inode_of_from_parent),
-            (inode_of_to_parent, name_of_to_directory),
-        ) = {
+        let ((position_of_from, inode, inode_of_from_parent), (inode_of_to_parent, name_of_to)) = {
             // Read lock.
             let fs = self.inner.try_read().map_err(|_| FsError::Lock)?;
 
@@ -172,12 +169,12 @@ impl crate::FileSystem for FileSystem {
             let parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)?;
             let parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)?;
 
-            // Check the directory names.
-            let name_of_from_directory = from
+            // Check the names.
+            let name_of_from = from
                 .file_name()
                 .ok_or(FsError::InvalidInput)?
                 .to_os_string();
-            let name_of_to_directory = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
+            let name_of_to = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
 
             // Find the parent inodes.
             let inode_of_from_parent = fs.inode_of_parent(parent_of_from)?;
@@ -185,15 +182,13 @@ impl crate::FileSystem for FileSystem {
 
             // Get the child indexes to update in the parent nodes, in
             // addition to the inode of the directory to update.
-            let (position_of_from, inode) = fs.from_parent_get_position_and_inode_of_directory(
-                inode_of_from_parent,
-                &name_of_from_directory,
-                DirectoryMustBeEmpty::No,
-            )?;
+            let (position_of_from, inode) = fs
+                .from_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
+                .ok_or(FsError::NotAFile)?;
 
             (
                 (position_of_from, inode, inode_of_from_parent),
-                (inode_of_to_parent, name_of_to_directory),
+                (inode_of_to_parent, name_of_to),
             )
         };
 
@@ -201,17 +196,29 @@ impl crate::FileSystem for FileSystem {
             // Write lock.
             let mut fs = self.inner.try_write().map_err(|_| FsError::Lock)?;
 
-            // Update the directory name, and update the modified
-            // time.
-            fs.update_node_name(inode, name_of_to_directory)?;
+            // Update the file name, and update the modified time.
+            fs.update_node_name(inode, name_of_to)?;
 
-            // Remove the directory from its parent, and update the
-            // modified time.
-            fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
+            // The parents are different. Let's update them.
+            if inode_of_from_parent != inode_of_to_parent {
+                // Remove the file from its parent, and update the
+                // modified time.
+                fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
 
-            // Add the directory to its new parent, and update the
-            // modified time.
-            fs.add_child_to_node(inode_of_to_parent, inode)?;
+                // Add the file to its new parent, and update the modified
+                // time.
+                fs.add_child_to_node(inode_of_to_parent, inode)?;
+            }
+            // Otherwise, we need to at least update the modified time of the parent.
+            else {
+                match fs.storage.get_mut(inode_of_from_parent) {
+                    Some(Node::Directory {
+                        metadata: Metadata { modified, .. },
+                        ..
+                    }) => *modified = time(),
+                    _ => return Err(FsError::UnknownError),
+                }
+            }
         }
 
         Ok(())
@@ -387,6 +394,35 @@ impl FileSystemInner {
                 .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
                 .find_map(|(nth, node)| match node {
                     Node::File { inode, name, .. } if name.as_os_str() == name_of_file => {
+                        Some(Some((nth, *inode)))
+                    }
+
+                    _ => None,
+                })
+                .or(Some(None))
+                .ok_or(FsError::InvalidInput),
+
+            _ => Err(FsError::BaseNotDirectory),
+        }
+    }
+
+    /// From the inode of a parent node (so, a directory), returns the
+    /// child index of `name_of` along with its inode, whatever the
+    /// type of inode is (directory or file).
+    fn from_parent_get_position_and_inode(
+        &self,
+        inode_of_parent: Inode,
+        name_of: &OsString,
+    ) -> Result<Option<(usize, Inode)>> {
+        match self.storage.get(inode_of_parent) {
+            Some(Node::Directory { children, .. }) => children
+                .iter()
+                .enumerate()
+                .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
+                .find_map(|(nth, node)| match node {
+                    Node::File { inode, name, .. } | Node::Directory { inode, name, .. }
+                        if name.as_os_str() == name_of =>
+                    {
                         Some(Some((nth, *inode)))
                     }
 
@@ -808,10 +844,31 @@ mod test_filesystem {
 
         assert_eq!(fs.create_dir(path!("/bar")), Ok(()));
 
+        assert!(
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/bar/hello1.txt")),
+                Ok(_),
+            ),
+            "creating a new file (`hello1.txt`)",
+        );
+        assert!(
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/bar/hello2.txt")),
+                Ok(_),
+            ),
+            "creating a new file (`hello2.txt`)",
+        );
+
         {
             let fs_inner = fs.inner.read().unwrap();
 
-            assert_eq!(fs_inner.storage.len(), 4, "storage has all directories");
+            assert_eq!(fs_inner.storage.len(), 6, "storage has all files");
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
@@ -856,11 +913,39 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    }) if name == "bar" && children.is_empty()
+                    }) if name == "bar" && children == &[4, 5]
                 ),
-                "`bar` is empty",
+                "`bar` is contains `hello.txt`",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(4),
+                    Some(Node::File {
+                        inode: 4,
+                        name,
+                        ..
+                    }) if name == "hello1.txt"
+                ),
+                "`hello1.txt` exists",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(5),
+                    Some(Node::File {
+                        inode: 5,
+                        name,
+                        ..
+                    }) if name == "hello2.txt"
+                ),
+                "`hello2.txt` exists",
             );
         }
+
+        assert_eq!(
+            fs.rename(path!("/bar/hello2.txt"), path!("/foo/world2.txt")),
+            Ok(()),
+            "renaming (and moving) a file",
+        );
 
         assert_eq!(
             fs.rename(path!("/foo"), path!("/bar/baz")),
@@ -868,12 +953,20 @@ mod test_filesystem {
             "renaming a directory",
         );
 
+        assert_eq!(
+            fs.rename(path!("/bar/hello1.txt"), path!("/bar/world1.txt")),
+            Ok(()),
+            "renaming a file (in the same directory)",
+        );
+
         {
             let fs_inner = fs.inner.read().unwrap();
 
+            dbg!(&fs_inner);
+
             assert_eq!(
                 fs_inner.storage.len(),
-                4,
+                6,
                 "storage has still all directories"
             );
             assert!(
@@ -896,9 +989,9 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    }) if name == "baz" && children == &[2]
+                    }) if name == "baz" && children == &[2, 5]
                 ),
-                "`foo` has been renamed to `baz` and contains `qux`",
+                "`foo` has been renamed to `baz` and contains `qux` and `world2.txt`",
             );
             assert!(
                 matches!(
@@ -920,9 +1013,31 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    }) if name == "bar" && children == &[1]
+                    }) if name == "bar" && children == &[4, 1]
                 ),
-                "`bar` contains `baz` (ex `foo`)",
+                "`bar` contains `bar` (ex `foo`)  and `world1.txt` (ex `hello1`)",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(4),
+                    Some(Node::File {
+                        inode: 4,
+                        name,
+                        ..
+                    }) if name == "world1.txt"
+                ),
+                "`hello1.txt` has been renamed to `world1.txt`",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(5),
+                    Some(Node::File {
+                        inode: 5,
+                        name,
+                        ..
+                    }) if name == "world2.txt"
+                ),
+                "`hello2.txt` has been renamed to `world2.txt`",
             );
         }
     }
@@ -1248,6 +1363,7 @@ mod test_filesystem {
     }
 }
 
+#[allow(dead_code)] // The `No` variant.
 pub(super) enum DirectoryMustBeEmpty {
     Yes,
     No,
