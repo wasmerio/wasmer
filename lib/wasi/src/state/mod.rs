@@ -207,6 +207,9 @@ impl FileSystem for FallbackFileSystem {
     fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
         Self::fail();
     }
+    fn rename_dir(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
+        Self::fail();
+    }
     fn metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
         Self::fail();
     }
@@ -1511,6 +1514,17 @@ impl WasiState {
         self.fs
             .fs_backing
             .rename(from.as_ref(), to.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_rename_dir<P: AsRef<Path>, Q: AsRef<Path>>(
+        &self,
+        from: P,
+        to: Q,
+    ) -> Result<(), __wasi_errno_t> {
+        self.fs
+            .fs_backing
+            .rename_dir(from.as_ref(), to.as_ref())
             .map_err(fs_error_into_wasi_err)
     }
 

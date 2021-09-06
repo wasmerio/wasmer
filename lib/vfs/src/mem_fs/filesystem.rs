@@ -224,6 +224,10 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
+    fn rename_dir(&self, from: &Path, to: &Path) -> Result<()> {
+        unimplemented!("not already implemented for mem_fs")
+    }
+
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         // Read lock.
         let fs = self.inner.try_read().map_err(|_| FsError::Lock)?;

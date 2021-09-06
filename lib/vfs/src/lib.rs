@@ -27,6 +27,7 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename(&self, from: &Path, to: &Path) -> Result<()>;
+    fn rename_dir(&self, from: &Path, to: &Path) -> Result<()>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
@@ -35,6 +36,7 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
         self.metadata(path)
     }
     fn remove_file(&self, path: &Path) -> Result<()>;
+
     fn new_open_options(&self) -> OpenOptions;
 }
 

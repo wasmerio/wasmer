@@ -2029,6 +2029,7 @@ pub fn path_rename(
     new_path: WasmPtr<u8, Array>,
     new_path_len: u32,
 ) -> __wasi_errno_t {
+    println!("!!!!!!!");
     debug!(
         "wasi::path_rename: old_fd = {}, new_fd = {}",
         old_fd, new_fd
@@ -2040,6 +2041,7 @@ pub fn path_rename(
     let target_path = std::path::Path::new(&target_str);
     debug!("=> rename from {} to {}", &source_str, &target_str);
 
+    println!("check rights");
     {
         let source_fd = wasi_try!(state.fs.get_fd(old_fd));
         if !has_rights(source_fd.rights, __WASI_RIGHT_PATH_RENAME_SOURCE) {
@@ -2053,6 +2055,7 @@ pub fn path_rename(
 
     let (source_parent_inode, source_entry_name) =
         wasi_try!(state.fs.get_parent_inode_at_path(old_fd, source_path, true));
+    println!("rights checked --- {:?}", source_entry_name);
     let (target_parent_inode, target_entry_name) =
         wasi_try!(state.fs.get_parent_inode_at_path(new_fd, target_path, true));
 
@@ -2070,56 +2073,128 @@ pub fn path_rename(
             unreachable!("Fatal internal logic error: parent of inode is not a directory")
         }
     };
-    let source_entry = match &mut state.fs.inodes[source_parent_inode].kind {
-        Kind::Dir { entries, .. } => wasi_try!(entries.remove(&source_entry_name), __WASI_EINVAL),
+    println!(
+        "host_adjusted_target_path = {:?}",
+        host_adjusted_target_path
+    );
+    // let source_entry =
+    match &mut state.fs.inodes[source_parent_inode].kind {
+        Kind::Dir { entries, .. } => {
+            println!("it's a dir -- entries --- {:#?}", entries);
+            // if entries.contains_key(&source_entry_name).is_some() {
+            match entries.remove(&source_entry_name) {
+                Some(source_entry) => {
+                    match &mut state.fs.inodes[source_entry].kind {
+                        Kind::File {
+                            handle, ref path, ..
+                        } => {
+                            // TODO: investigate why handle is not always there, it probably should be.
+                            // My best guess is the fact that a handle means currently open and a path
+                            // just means reference to host file on disk. But ideally those concepts
+                            // could just be unified even if there's a `Box<dyn VirtualFile>` which just
+                            // implements the logic of "I'm not actually a file, I'll try to be as needed".
+                            let result = if let Some(h) = handle {
+                                state.fs_rename(&source_path, &host_adjusted_target_path)
+                            } else {
+                                let path_clone = path.clone();
+                                let out = state.fs_rename(&path_clone, &host_adjusted_target_path);
+                                if let Kind::File { ref mut path, .. } =
+                                    &mut state.fs.inodes[source_entry].kind
+                                {
+                                    *path = host_adjusted_target_path;
+                                } else {
+                                    unreachable!()
+                                }
+                                out
+                            };
+                            // if the above operation failed we have to revert the previous change and then fail
+                            if let Err(e) = result {
+                                if let Kind::Dir { entries, .. } =
+                                    &mut state.fs.inodes[source_parent_inode].kind
+                                {
+                                    entries.insert(source_entry_name, source_entry);
+                                    return e;
+                                }
+                            }
+                        }
+                        Kind::Dir { ref path, .. } => {
+                            // path seems to be sourcepath
+                            println!("source_path {:?}", path);
+                            println!("target_path {:?}", host_adjusted_target_path);
+                            let cloned_path = path.clone();
+                            // wasi_try!(
+                            state
+                                .fs_rename_dir(cloned_path, &host_adjusted_target_path)
+                                .expect("cannot rename the directory");
+                            // __WASI_EINVAL
+                            // );
+                            // if let Err(e) = out {
+                            //     // Will see
+                            //     println!("ERROR {}", e);
+                            // }
+                            unreachable!()
+                        }
+                        Kind::Buffer { .. } => {}
+                        Kind::Symlink { .. } => {}
+                        Kind::Root { .. } => unreachable!("The root can not be moved"),
+                    }
+
+                    if let Kind::Dir { entries, .. } =
+                        &mut state.fs.inodes[target_parent_inode].kind
+                    {
+                        let result = entries.insert(target_entry_name, source_entry);
+                        assert!(
+            result.is_none(),
+            "Fatal error: race condition on filesystem detected or internal logic error"
+        );
+                    }
+                }
+                None => {
+                    // QUICK and VERY dirty
+                    let source_path = match &state.fs.inodes[source_parent_inode].kind {
+                        Kind::Dir { entries, path, .. } => {
+                            if entries.contains_key(&source_entry_name) {
+                                return __WASI_EEXIST;
+                            }
+                            let mut out_path = path.clone();
+                            out_path.push(std::path::Path::new(&source_entry_name));
+                            out_path
+                        }
+                        Kind::Root { .. } => return __WASI_ENOTCAPABLE,
+                        Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
+                            unreachable!(
+                                "Fatal internal logic error: parent of inode is not a directory"
+                            )
+                        }
+                    };
+                    //  Should be a directory
+                    // path seems to be sourcepath
+                    println!("source_path {:?}", source_path);
+                    println!("target_path {:?}", host_adjusted_target_path);
+                    // let cloned_path = path.clone();
+                    // wasi_try!(
+                    state
+                        .fs_rename_dir(&source_path, &host_adjusted_target_path)
+                        .expect("cannot rename the directory");
+                    // __WASI_EINVAL
+                    // );
+                    // if let Err(e) = out {
+                    //     // Will see
+                    //     println!("ERROR {}", e);
+                    // }
+                }
+            }
+            // } else {
+            //     wasi_try!(entries.remove(&source_entry_name), __WASI_EINVAL)
+            // }
+        }
         Kind::Root { .. } => return __WASI_ENOTCAPABLE,
         Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
             unreachable!("Fatal internal logic error: parent of inode is not a directory")
         }
-    };
-
-    match &mut state.fs.inodes[source_entry].kind {
-        Kind::File {
-            handle, ref path, ..
-        } => {
-            // TODO: investigate why handle is not always there, it probably should be.
-            // My best guess is the fact that a handle means currently open and a path
-            // just means reference to host file on disk. But ideally those concepts
-            // could just be unified even if there's a `Box<dyn VirtualFile>` which just
-            // implements the logic of "I'm not actually a file, I'll try to be as needed".
-            let result = if let Some(h) = handle {
-                state.fs_rename(&source_path, &host_adjusted_target_path)
-            } else {
-                let path_clone = path.clone();
-                let out = state.fs_rename(&path_clone, &host_adjusted_target_path);
-                if let Kind::File { ref mut path, .. } = &mut state.fs.inodes[source_entry].kind {
-                    *path = host_adjusted_target_path;
-                } else {
-                    unreachable!()
-                }
-                out
-            };
-            // if the above operation failed we have to revert the previous change and then fail
-            if let Err(e) = result {
-                if let Kind::Dir { entries, .. } = &mut state.fs.inodes[source_parent_inode].kind {
-                    entries.insert(source_entry_name, source_entry);
-                    return e;
-                }
-            }
-        }
-        Kind::Dir { path, .. } => unimplemented!("wasi::path_rename on Directories"),
-        Kind::Buffer { .. } => {}
-        Kind::Symlink { .. } => {}
-        Kind::Root { .. } => unreachable!("The root can not be moved"),
     }
 
-    if let Kind::Dir { entries, .. } = &mut state.fs.inodes[target_parent_inode].kind {
-        let result = entries.insert(target_entry_name, source_entry);
-        assert!(
-            result.is_none(),
-            "Fatal error: race condition on filesystem detected or internal logic error"
-        );
-    }
+    println!("OKKKKK");
 
     __WASI_ESUCCESS
 }
