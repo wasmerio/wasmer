@@ -147,7 +147,7 @@ fn compile_wasm_for_version(
             .create(true)
             .open(&temp_wasi_rs_file_name)
             .unwrap();
-        actual_file.write_all(b"#![feature(wasi_ext)]\n").unwrap();
+        // actual_file.write_all(b"#![feature(wasi_ext)]\n").unwrap();
         actual_file.write_all(file_contents.as_bytes()).unwrap();
     }
 

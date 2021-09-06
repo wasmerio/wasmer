@@ -573,6 +573,10 @@ test-integration:
 test-integration-ios:
 	cargo test -p wasmer-integration-tests-ios
 
+generate-wasi-tests:
+# Uncomment the following for installing the toolchain
+#   cargo run -p wasi-test-generator -- -s
+	cargo run -p wasi-test-generator -- -g
 #####
 #
 # Packaging.
