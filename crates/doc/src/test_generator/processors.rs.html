@@ -92,6 +92,10 @@
 <span id="89">89</span>
 <span id="90">90</span>
 <span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Here we define the processors usable for each test genrator</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">extract_name</span>, <span class="ident">Test</span>, <span class="ident">Testsuite</span>};
@@ -158,7 +162,11 @@
 
 <span class="doccomment">/// Given a Testsuite and a path, process the path in case is a WASI</span>
 <span class="doccomment">/// wasm file.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasi_processor</span>(<span class="ident">_out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Testsuite</span>, <span class="ident">p</span>: <span class="ident">PathBuf</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Test</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasi_processor</span>(
+    <span class="ident">_out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Testsuite</span>,
+    <span class="ident">p</span>: <span class="ident">PathBuf</span>,
+    <span class="ident">wasi_filesystem_kind</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Test</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">ext</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">extension</span>()<span class="question-mark">?</span>;
     <span class="comment">// Only look at wast files.</span>
     <span class="kw">if</span> <span class="ident">ext</span> <span class="op">!</span><span class="op">=</span> <span class="string">&quot;wast&quot;</span> {
@@ -172,11 +180,11 @@
     };
     <span class="kw">let</span> <span class="ident">testname</span> <span class="op">=</span> <span class="ident">extract_name</span>(<span class="kw-2">&amp;</span><span class="ident">p</span>);
 
-    <span class="comment">// The implementation of `run_wasi` lives in /tests/wasitest.rs</span>
     <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="macro">format!</span>(
-        <span class="string">&quot;crate::run_wasi(config, r#\&quot;{}\&quot;#, \&quot;{}\&quot;)&quot;</span>,
+        <span class="string">&quot;crate::run_wasi(config, r#\&quot;{}\&quot;#, \&quot;{}\&quot;, crate::{})&quot;</span>,
         <span class="ident">p</span>.<span class="ident">display</span>(),
         <span class="ident">wasm_dir</span>.<span class="ident">display</span>(),
+        <span class="ident">wasi_filesystem_kind</span>,
     );
 
     <span class="prelude-val">Some</span>(<span class="ident">Test</span> {

@@ -399,7 +399,7 @@
 }
 
 <span class="comment">// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .</span>
-<span class="doccomment">/// Trait needed to get downcasting from `WasiFile` to work.</span>
+<span class="doccomment">/// Trait needed to get downcasting of `Engine`s to work.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Upcastable</span> {
     <span class="kw">fn</span> <span class="ident">upcast_any_ref</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw">dyn</span> <span class="ident">Any</span>;
     <span class="kw">fn</span> <span class="ident">upcast_any_mut</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">Any</span>;

@@ -525,7 +525,7 @@
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">SeekFrom</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">tracing::debug</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasi::types</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">Fd</span>, <span class="ident">WasiFile</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiFsError</span>, <span class="ident">ALL_RIGHTS</span>, <span class="ident">VIRTUAL_ROOT_FD</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">Fd</span>, <span class="ident">VirtualFile</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiFsError</span>, <span class="ident">ALL_RIGHTS</span>, <span class="ident">VIRTUAL_ROOT_FD</span>};
 
 <span class="kw">use</span> <span class="ident">minifb</span>::{<span class="ident">Key</span>, <span class="ident">KeyRepeat</span>, <span class="ident">MouseButton</span>, <span class="ident">Scale</span>, <span class="ident">Window</span>, <span class="ident">WindowOptions</span>};
 
@@ -924,8 +924,8 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">typetag::serde</span>]</span>
-<span class="kw">impl</span> <span class="ident">WasiFile</span> <span class="kw">for</span> <span class="ident">FrameBuffer</span> {
+<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">typetag::serde</span>)]</span>
+<span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">FrameBuffer</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>
     }

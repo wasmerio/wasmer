@@ -294,6 +294,14 @@
 <span id="293">293</span>
 <span id="294">294</span>
 <span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys::externals::Extern</span>;
@@ -521,6 +529,14 @@
         <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> <span class="op">/</span> <span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
 
         <span class="kw">unsafe</span> { <span class="ident">MemoryView::new</span>(<span class="ident">base</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">length</span> <span class="kw">as</span> <span class="ident">u32</span>) }
+    }
+
+    <span class="doccomment">/// A shortcut to [`Self::view::&lt;u8&gt;`][self::view].</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This code is going to be refactored. Use it as your own risks.</span>
+    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">uint8view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MemoryView</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">view</span>()
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_export</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">vm_memory</span>: <span class="ident">VMMemory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {

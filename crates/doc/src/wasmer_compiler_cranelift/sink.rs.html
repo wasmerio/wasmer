@@ -133,14 +133,48 @@
 <span id="130">130</span>
 <span id="131">131</span>
 <span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Cranelift.</span>
 
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::translator</span>::{<span class="ident">irlibcall_to_libcall</span>, <span class="ident">irreloc_to_relocationkind</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen::binemit</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">cranelift_codegen::ir::LibCall</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>::{<span class="self">self</span>, <span class="ident">ExternalName</span>};
 <span class="kw">use</span> <span class="ident">cranelift_entity::EntityRef</span> <span class="kw">as</span> <span class="ident">CraneliftEntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">JumpTable</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">TrapInformation</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">RelocationKind</span>, <span class="ident">SectionIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::TrapCode</span>;
@@ -154,6 +188,10 @@
 
     <span class="doccomment">/// Relocations recorded for the function.</span>
     <span class="kw">pub</span> <span class="ident">func_relocs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// The section where the probestack trampoline call is located</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+    <span class="kw">pub</span> <span class="ident">probestack_trampoline_relocation_target</span>: <span class="ident">SectionIndex</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">binemit::RelocSink</span> <span class="kw">for</span> <span class="ident">RelocSink</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
@@ -173,7 +211,22 @@
                     .<span class="ident">expect</span>(<span class="string">&quot;The provided function should be local&quot;</span>),
             )
         } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExternalName::LibCall</span>(<span class="ident">libcall</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">name</span> {
-            <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">irlibcall_to_libcall</span>(<span class="ident">libcall</span>))
+            <span class="kw">match</span> <span class="ident">libcall</span> {
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+                <span class="ident">LibCall::Probestack</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="self">self</span>.<span class="ident">func_relocs</span>.<span class="ident">push</span>(<span class="ident">Relocation</span> {
+                        <span class="ident">kind</span>: <span class="ident">RelocationKind::X86CallPCRel4</span>,
+                        <span class="ident">reloc_target</span>: <span class="ident">RelocationTarget::CustomSection</span>(
+                            <span class="self">self</span>.<span class="ident">probestack_trampoline_relocation_target</span>,
+                        ),
+                        <span class="ident">offset</span>: <span class="ident">offset</span>,
+                        <span class="ident">addend</span>: <span class="ident">addend</span>,
+                    });
+                    <span class="comment">// Skip the default path</span>
+                    <span class="kw">return</span>;
+                }
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">irlibcall_to_libcall</span>(<span class="ident">libcall</span>)),
+            }
         } <span class="kw">else</span> {
             <span class="macro">panic!</span>(<span class="string">&quot;unrecognized external name&quot;</span>)
         };
@@ -210,7 +263,12 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">RelocSink</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Return a new `RelocSink` instance.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ModuleInfo</span>, <span class="ident">func_index</span>: <span class="ident">FunctionIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
+        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ModuleInfo</span>,
+        <span class="ident">func_index</span>: <span class="ident">FunctionIndex</span>,
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+        <span class="ident">probestack_trampoline_relocation_target</span>: <span class="ident">SectionIndex</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">local_func_index</span> <span class="op">=</span> <span class="ident">module</span>
             .<span class="ident">local_func_index</span>(<span class="ident">func_index</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;The provided function should be local&quot;</span>);
@@ -218,6 +276,8 @@
             <span class="ident">module</span>,
             <span class="ident">local_func_index</span>,
             <span class="ident">func_relocs</span>: <span class="ident">Vec::new</span>(),
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+            <span class="ident">probestack_trampoline_relocation_target</span>,
         }
     }
 }

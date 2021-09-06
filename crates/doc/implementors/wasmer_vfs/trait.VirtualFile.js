@@ -1,0 +1,5 @@
+(function() {var implementors = {};
+implementors["wasmer_vfs"] = [];
+implementors["wasmer_wasi_experimental_io_devices"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_vfs/trait.VirtualFile.html\" title=\"trait wasmer_vfs::VirtualFile\">VirtualFile</a> for <a class=\"struct\" href=\"wasmer_wasi_experimental_io_devices/struct.FrameBuffer.html\" title=\"struct wasmer_wasi_experimental_io_devices::FrameBuffer\">FrameBuffer</a>","synthetic":false,"types":["wasmer_wasi_experimental_io_devices::FrameBuffer"]}];
+implementors["wasmer_wast"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_vfs/trait.VirtualFile.html\" title=\"trait wasmer_vfs::VirtualFile\">VirtualFile</a> for <a class=\"struct\" href=\"wasmer_wast/wasi_wast/struct.OutputCapturerer.html\" title=\"struct wasmer_wast::wasi_wast::OutputCapturerer\">OutputCapturerer</a>","synthetic":false,"types":["wasmer_wast::wasi_wast::OutputCapturerer"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

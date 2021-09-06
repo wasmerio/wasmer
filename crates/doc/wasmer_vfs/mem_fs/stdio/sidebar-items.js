@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Stderr","A wrapper type around the standard I/O stream of the same name that implements `VirtualFile`."],["Stdin","A wrapper type around the standard I/O stream of the same name that implements `VirtualFile`."],["Stdout","A wrapper type around the standard I/O stream of the same name that implements `VirtualFile`."]]});

@@ -92,18 +92,15 @@
 <span id="91">91</span>
 <span id="92">92</span>
 <span id="93">93</span>
-<span id="94">94</span>
-<span id="95">95</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Default implementations for capturing the stdout/stderr output of a WASI program.</span>
 
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std::collections::VecDeque</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">WasiFile</span>, <span class="ident">WasiFsError</span>};
 
 <span class="doccomment">/// For capturing stdout/stderr. Stores all output in a string.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OutputCapturer</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">buffer</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 }
@@ -116,7 +113,6 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">typetag::serde</span>]</span>
 <span class="kw">impl</span> <span class="ident">WasiFile</span> <span class="kw">for</span> <span class="ident">OutputCapturer</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
         <span class="number">0</span>

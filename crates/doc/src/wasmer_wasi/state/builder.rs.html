@@ -572,14 +572,77 @@
 <span id="571">571</span>
 <span id="572">572</span>
 <span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::state</span>::{<span class="ident">WasiFile</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiFsError</span>, <span class="ident">WasiState</span>};
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::state</span>::{<span class="ident">default_fs_backing</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiState</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::syscalls::types</span>::{<span class="ident">__WASI_STDERR_FILENO</span>, <span class="ident">__WASI_STDIN_FILENO</span>, <span class="ident">__WASI_STDOUT_FILENO</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::WasiEnv</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+<span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">FsError</span>, <span class="ident">VirtualFile</span>};
 
 <span class="doccomment">/// Creates an empty [`WasiStateBuilder`].</span>
 <span class="doccomment">///</span>
@@ -612,15 +675,18 @@
     <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
     <span class="ident">preopens</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PreopenedDir</span><span class="op">&gt;</span>,
+    <span class="ident">vfs_preopens</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
     <span class="ident">setup_fs_fn</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">WasiFs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">stdout_override</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">stderr_override</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">stdin_override</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">stdout_override</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">stderr_override</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">stdin_override</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">fs_override</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">wasmer_vfs::FileSystem</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">WasiStateBuilder</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std::fmt::Result</span> {
+        <span class="comment">// TODO: update this when stable</span>
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;WasiStateBuilder&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>)
             .<span class="ident">field</span>(<span class="string">&quot;envs&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">envs</span>)
@@ -651,7 +717,7 @@
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;wasi filesystem setup error: `{0}`&quot;</span>)]</span>
     <span class="ident">WasiFsSetupError</span>(<span class="ident">String</span>),
     <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
-    <span class="ident">WasiFsError</span>(<span class="ident">WasiFsError</span>),
+    <span class="ident">FileSystemError</span>(<span class="ident">FsError</span>),
 }
 
 <span class="kw">fn</span> <span class="ident">validate_mapped_dir_alias</span>(<span class="ident">alias</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiStateCreationError</span><span class="op">&gt;</span> {
@@ -794,6 +860,19 @@
         <span class="prelude-val">Ok</span>(<span class="self">self</span>)
     }
 
+    <span class="doccomment">/// Preopen the given directories from the</span>
+    <span class="doccomment">/// Virtual FS.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">preopen_vfs_dirs</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">po_dirs</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span>, <span class="ident">WasiStateCreationError</span><span class="op">&gt;</span>
+    <span class="kw">where</span>
+        <span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">String</span><span class="op">&gt;</span>,
+    {
+        <span class="kw">for</span> <span class="ident">po_dir</span> <span class="kw">in</span> <span class="ident">po_dirs</span> {
+            <span class="self">self</span>.<span class="ident">vfs_preopens</span>.<span class="ident">push</span>(<span class="ident">po_dir</span>);
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>)
+    }
+
     <span class="doccomment">/// Preopen a directory with a different name exposed to the WASI.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map_dir</span><span class="op">&lt;</span><span class="ident">FilePath</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -835,7 +914,7 @@
 
     <span class="doccomment">/// Overwrite the default WASI `stdout`, if you want to hold on to the</span>
     <span class="doccomment">/// original `stdout` use [`WasiFs::swap_file`] after building.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdout</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdout</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">stdout_override</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">new_file</span>);
 
         <span class="self">self</span>
@@ -843,7 +922,7 @@
 
     <span class="doccomment">/// Overwrite the default WASI `stderr`, if you want to hold on to the</span>
     <span class="doccomment">/// original `stderr` use [`WasiFs::swap_file`] after building.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stderr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stderr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">stderr_override</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">new_file</span>);
 
         <span class="self">self</span>
@@ -851,13 +930,22 @@
 
     <span class="doccomment">/// Overwrite the default WASI `stdin`, if you want to hold on to the</span>
     <span class="doccomment">/// original `stdin` use [`WasiFs::swap_file`] after building.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdin</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdin</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">new_file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">stdin_override</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">new_file</span>);
 
         <span class="self">self</span>
     }
 
-    <span class="doccomment">/// Setup the WASI filesystem before running</span>
+    <span class="doccomment">/// Sets the FileSystem to be used with this WASI instance.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_fs</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">fs</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">wasmer_vfs::FileSystem</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">fs_override</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">fs</span>);
+
+        <span class="self">self</span>
+    }
+
+    <span class="doccomment">/// Configure the WASI filesystem before running.</span>
     <span class="comment">// TODO: improve ergonomics on this function</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">setup_fs</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -871,6 +959,22 @@
     <span class="doccomment">/// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns the error from `WasiFs::new` if there&#39;s an error</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Calling `build` multiple times</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Calling this method multiple times might not produce a</span>
+    <span class="doccomment">/// determinisic result. This method is changing the builder&#39;s</span>
+    <span class="doccomment">/// internal state. The values set with the following methods are</span>
+    <span class="doccomment">/// reset to their defaults:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// * [Self::set_fs],</span>
+    <span class="doccomment">/// * [Self::stdin],</span>
+    <span class="doccomment">/// * [Self::stdout],</span>
+    <span class="doccomment">/// * [Self::stderr].</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Ideally, the builder must be refactord to update `&amp;mut self`</span>
+    <span class="doccomment">/// to `mut self` for every _builder method_, but it will break</span>
+    <span class="doccomment">/// existing code. It will be addressed in a next major release.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiState</span>, <span class="ident">WasiStateCreationError</span><span class="op">&gt;</span> {
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">arg</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">for</span> <span class="ident">b</span> <span class="kw">in</span> <span class="ident">arg</span>.<span class="ident">iter</span>() {
@@ -934,29 +1038,38 @@
             }
         }
 
-        <span class="comment">// self.preopens are checked in [`PreopenDirBuilder::build`]</span>
+        <span class="kw">let</span> <span class="ident">fs_backing</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">fs_override</span>
+            .<span class="ident">take</span>()
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">default_fs_backing</span>());
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_fs</span> <span class="op">=</span> <span class="ident">WasiFs::new_with_preopen</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">preopens</span>)
+        <span class="comment">// self.preopens are checked in [`PreopenDirBuilder::build`]</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_fs</span> <span class="op">=</span> <span class="ident">WasiFs::new_with_preopen</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">preopens</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">vfs_preopens</span>, <span class="ident">fs_backing</span>)
             .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::WasiFsCreationError</span>)<span class="question-mark">?</span>;
+
         <span class="comment">// set up the file system, overriding base files and calling the setup function</span>
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stdin_override</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdin_override</span>.<span class="ident">take</span>() {
             <span class="ident">wasi_fs</span>
                 .<span class="ident">swap_file</span>(<span class="ident">__WASI_STDIN_FILENO</span>, <span class="ident">stdin_override</span>)
-                .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::WasiFsError</span>)<span class="question-mark">?</span>;
+                .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::FileSystemError</span>)<span class="question-mark">?</span>;
         }
+
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stdout_override</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdout_override</span>.<span class="ident">take</span>() {
             <span class="ident">wasi_fs</span>
                 .<span class="ident">swap_file</span>(<span class="ident">__WASI_STDOUT_FILENO</span>, <span class="ident">stdout_override</span>)
-                .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::WasiFsError</span>)<span class="question-mark">?</span>;
+                .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::FileSystemError</span>)<span class="question-mark">?</span>;
         }
+
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stderr_override</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">stderr_override</span>.<span class="ident">take</span>() {
             <span class="ident">wasi_fs</span>
                 .<span class="ident">swap_file</span>(<span class="ident">__WASI_STDERR_FILENO</span>, <span class="ident">stderr_override</span>)
-                .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::WasiFsError</span>)<span class="question-mark">?</span>;
+                .<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::FileSystemError</span>)<span class="question-mark">?</span>;
         }
+
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">f</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">setup_fs_fn</span> {
             <span class="ident">f</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasi_fs</span>).<span class="ident">map_err</span>(<span class="ident">WasiStateCreationError::WasiFsSetupError</span>)<span class="question-mark">?</span>;
         }
+
         <span class="prelude-val">Ok</span>(<span class="ident">WasiState</span> {
             <span class="ident">fs</span>: <span class="ident">wasi_fs</span>,
             <span class="ident">args</span>: <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">clone</span>(),
@@ -977,9 +1090,17 @@
 
     <span class="doccomment">/// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns the error from `WasiFs::new` if there&#39;s an error</span>
+    <span class="doccomment">/// Returns the error from `WasiFs::new` if there&#39;s an error.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Calling `finalize` multiple times</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Calling this method multiple times might not produce a</span>
+    <span class="doccomment">/// determinisic result. This method is calling [Self::build],</span>
+    <span class="doccomment">/// which is changing the builder&#39;s internal state. See</span>
+    <span class="doccomment">/// [Self::build]&#39;s documentation to learn more.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiEnv</span>, <span class="ident">WasiStateCreationError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">build</span>()<span class="question-mark">?</span>;
+
         <span class="prelude-val">Ok</span>(<span class="ident">WasiEnv::new</span>(<span class="ident">state</span>))
     }
 }
@@ -1070,9 +1191,12 @@
         }
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>().<span class="ident">unwrap</span>();
 
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">path</span>.<span class="ident">exists</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasiStateCreationError::PreopenedDirectoryNotFound</span>(<span class="ident">path</span>));
+        <span class="comment">/*
+        if !path.exists() {
+            return Err(WasiStateCreationError::PreopenedDirectoryNotFound(path));
         }
+        */</span>
+
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">alias</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">alias</span> {
             <span class="ident">validate_mapped_dir_alias</span>(<span class="ident">alias</span>)<span class="question-mark">?</span>;
         }

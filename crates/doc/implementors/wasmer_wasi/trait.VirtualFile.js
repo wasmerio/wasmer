@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_wasi"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_wasi/trait.VirtualFile.html\" title=\"trait wasmer_wasi::VirtualFile\">VirtualFile</a> for <a class=\"struct\" href=\"wasmer_wasi/state/types/struct.Pipe.html\" title=\"struct wasmer_wasi::state::types::Pipe\">Pipe</a>","synthetic":false,"types":["wasmer_wasi::state::types::Pipe"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

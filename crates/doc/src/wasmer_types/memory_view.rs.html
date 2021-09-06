@@ -133,20 +133,11 @@
 <span id="130">130</span>
 <span id="131">131</span>
 <span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
-<span id="136">136</span>
-<span id="137">137</span>
-<span id="138">138</span>
-<span id="139">139</span>
-<span id="140">140</span>
-<span id="141">141</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::cell::Cell</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::marker::PhantomData</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::ops::Deref</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::ops</span>::{<span class="ident">Bound</span>, <span class="ident">RangeBounds</span>};
+<span class="comment">// use crate::lib::std::ops::{Bound, RangeBounds};</span>
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::slice</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::sync::atomic</span>::{
     <span class="ident">AtomicI16</span>, <span class="ident">AtomicI32</span>, <span class="ident">AtomicI64</span>, <span class="ident">AtomicI8</span>, <span class="ident">AtomicU16</span>, <span class="ident">AtomicU32</span>, <span class="ident">AtomicU64</span>, <span class="ident">AtomicU8</span>,
@@ -213,29 +204,20 @@
         }
     }
 
-    <span class="doccomment">/// Creates a subarray view from this MemoryView.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">subarray</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">range</span>: <span class="kw">impl</span> <span class="ident">RangeBounds</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">start</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">range</span>.<span class="ident">start_bound</span>() {
-            <span class="ident">Bound::Unbounded</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
-            <span class="ident">Bound::Included</span>(<span class="ident">start</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">start</span>,
-            <span class="ident">Bound::Excluded</span>(<span class="ident">start</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">start</span> <span class="op">+</span> <span class="number">1</span>,
-        };
-        <span class="kw">let</span> <span class="ident">end</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">range</span>.<span class="ident">end_bound</span>() {
-            <span class="ident">Bound::Unbounded</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">length</span>,
-            <span class="ident">Bound::Included</span>(<span class="ident">end</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">end</span>,
-            <span class="ident">Bound::Excluded</span>(<span class="ident">end</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">end</span> <span class="op">-</span> <span class="number">1</span>,
-        };
+    <span class="doccomment">/// Creates a subarray view from this `MemoryView`.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">subarray</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">start</span>: <span class="ident">u32</span>, <span class="ident">end</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="macro">assert!</span>(
-            <span class="ident">start</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">length</span>,
+            (<span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">length</span>,
             <span class="string">&quot;The range start is bigger than current length&quot;</span>
         );
         <span class="macro">assert!</span>(
-            <span class="ident">end</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">length</span>,
+            (<span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">length</span>,
             <span class="string">&quot;The range end is bigger than current length&quot;</span>
         );
+
         <span class="self">Self</span> {
-            <span class="ident">ptr</span>: <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">start</span>) },
-            <span class="ident">length</span>: (<span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>),
+            <span class="ident">ptr</span>: <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>) },
+            <span class="ident">length</span>: (<span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>) <span class="kw">as</span> <span class="ident">usize</span>,
             <span class="ident">_phantom</span>: <span class="ident">PhantomData</span>,
         }
     }

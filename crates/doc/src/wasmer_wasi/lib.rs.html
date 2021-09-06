@@ -243,6 +243,32 @@
 <span id="242">242</span>
 <span id="243">243</span>
 <span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]</span>
@@ -258,6 +284,27 @@
 <span class="doccomment">//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)</span>
 <span class="doccomment">//! for an example of how to extend WASI using the WASI FS API.</span>
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>), <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)))]</span>
+<span class="macro">compile_error!</span>(<span class="string">&quot;At least the `sys` or the `js` feature must be enabled. Please, pick one.&quot;</span>);
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>))]</span>
+<span class="macro">compile_error!</span>(
+    <span class="string">&quot;Cannot have both `sys` and `js` features enabled at the same time. Please, pick one.&quot;</span>
+);
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
+<span class="macro">compile_error!</span>(<span class="string">&quot;The `sys` feature must be enabled only for non-`wasm32` target.&quot;</span>);
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>, <span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>)))]</span>
+<span class="macro">compile_error!</span>(
+    <span class="string">&quot;The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`).&quot;</span>
+);
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-fs&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;mem-fs&quot;</span>))]</span>
+<span class="macro">compile_error!</span>(
+    <span class="string">&quot;Cannot have both `host-fs` and `mem-fs` features enabled at the same time. Please, pick one.&quot;</span>
+);
+
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
 <span class="kw">mod</span> <span class="ident">macros</span>;
 <span class="kw">mod</span> <span class="ident">ptr</span>;
@@ -268,11 +315,16 @@
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::syscalls</span>::<span class="kw-2">*</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::state</span>::{
-    <span class="ident">Fd</span>, <span class="ident">Pipe</span>, <span class="ident">Stderr</span>, <span class="ident">Stdin</span>, <span class="ident">Stdout</span>, <span class="ident">WasiFile</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiFsError</span>, <span class="ident">WasiState</span>, <span class="ident">WasiStateBuilder</span>,
-    <span class="ident">WasiStateCreationError</span>, <span class="ident">ALL_RIGHTS</span>, <span class="ident">VIRTUAL_ROOT_FD</span>,
+    <span class="ident">Fd</span>, <span class="ident">Pipe</span>, <span class="ident">Stderr</span>, <span class="ident">Stdin</span>, <span class="ident">Stdout</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiState</span>, <span class="ident">WasiStateBuilder</span>, <span class="ident">WasiStateCreationError</span>,
+    <span class="ident">ALL_RIGHTS</span>, <span class="ident">VIRTUAL_ROOT_FD</span>,
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::syscalls::types</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::utils</span>::{<span class="ident">get_wasi_version</span>, <span class="ident">get_wasi_versions</span>, <span class="ident">is_wasi_module</span>, <span class="ident">WasiVersion</span>};
+<span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.0&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use `wasmer_vfs::FsError`&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs::FsError</span> <span class="kw">as</span> <span class="ident">WasiFsError</span>;
+<span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.0&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use `wasmer_vfs::VirtualFile`&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs::VirtualFile</span> <span class="kw">as</span> <span class="ident">WasiFile</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">FsError</span>, <span class="ident">VirtualFile</span>};
 
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::{

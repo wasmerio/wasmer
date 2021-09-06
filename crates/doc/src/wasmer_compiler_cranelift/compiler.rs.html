@@ -264,6 +264,42 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Cranelift.</span>
 
@@ -296,8 +332,15 @@
     <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>,
     <span class="ident">SectionIndex</span>,
 };
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
+    <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>,
+    <span class="ident">SectionBody</span>,
+};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">SignatureIndex</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+<span class="kw">use</span> <span class="ident">wasmer_vm::libcalls::LibCall</span>;
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,</span>
 <span class="doccomment">/// optimizing it and then translating to assembly.</span>
@@ -369,6 +412,31 @@
             }
         };
 
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
+
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+        <span class="kw">let</span> <span class="ident">probestack_trampoline</span> <span class="op">=</span> <span class="ident">CustomSection</span> {
+            <span class="ident">protection</span>: <span class="ident">CustomSectionProtection::ReadExecute</span>,
+            <span class="comment">// We create a jump to an absolute 64bits address</span>
+            <span class="comment">// with an indrect jump immediatly followed but the absolute address</span>
+            <span class="comment">// JMP [IP+0]   FF 25 00 00 00 00</span>
+            <span class="comment">// 64bits ADDR  00 00 00 00 00 00 00 00 preset to 0 until the relocation takes place</span>
+            <span class="ident">bytes</span>: <span class="ident">SectionBody::new_with_vec</span>(<span class="macro">vec!</span>[
+                <span class="number">0xff</span>, <span class="number">0x25</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>,
+            ]),
+            <span class="ident">relocations</span>: <span class="macro">vec!</span>[<span class="ident">Relocation</span> {
+                <span class="ident">kind</span>: <span class="ident">RelocationKind::Abs8</span>,
+                <span class="ident">reloc_target</span>: <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">LibCall::Probestack</span>),
+                <span class="comment">// 6 is the size of the jmp instruction. The relocated address must follow</span>
+                <span class="ident">offset</span>: <span class="number">6</span>,
+                <span class="ident">addend</span>: <span class="number">0</span>,
+            }],
+        };
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+        <span class="ident">custom_sections</span>.<span class="ident">push</span>(<span class="ident">probestack_trampoline</span>);
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+        <span class="kw">let</span> <span class="ident">probestack_trampoline_relocation_target</span> <span class="op">=</span> <span class="ident">SectionIndex::new</span>(<span class="ident">custom_sections</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>);
+
         <span class="kw">let</span> <span class="ident">functions</span> <span class="op">=</span> <span class="ident">function_body_inputs</span>
             .<span class="ident">iter</span>()
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">LocalFunctionIndex</span>, <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>)<span class="op">&gt;</span><span class="op">&gt;</span>()
@@ -405,7 +473,12 @@
                 )<span class="question-mark">?</span>;
 
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code_buf</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reloc_sink</span> <span class="op">=</span> <span class="ident">RelocSink::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="ident">func_index</span>);
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reloc_sink</span> <span class="op">=</span> <span class="ident">RelocSink::new</span>(
+                    <span class="kw-2">&amp;</span><span class="ident">module</span>,
+                    <span class="ident">func_index</span>,
+                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
+                    <span class="ident">probestack_trampoline_relocation_target</span>,
+                );
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">trap_sink</span> <span class="op">=</span> <span class="ident">TrapSink::new</span>();
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stackmap_sink</span> <span class="op">=</span> <span class="ident">binemit::NullStackMapSink</span> {};
                 <span class="ident">context</span>
@@ -471,8 +544,7 @@
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-        <span class="kw">let</span> (<span class="ident">custom_sections</span>, <span class="ident">dwarf</span>) <span class="op">=</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
+        <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">dwarf_frametable</span>, <span class="ident">_cie_id</span>)) <span class="op">=</span> <span class="ident">dwarf_frametable</span> {
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">eh_frame</span> <span class="op">=</span> <span class="ident">EhFrame</span>(<span class="ident">WriterRelocate::new</span>(<span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">endianness</span>().<span class="ident">ok</span>()));
                 <span class="ident">dwarf_frametable</span>
@@ -483,14 +555,14 @@
 
                 <span class="kw">let</span> <span class="ident">eh_frame_section</span> <span class="op">=</span> <span class="ident">eh_frame</span>.<span class="number">0</span>.<span class="ident">into_section</span>();
                 <span class="ident">custom_sections</span>.<span class="ident">push</span>(<span class="ident">eh_frame_section</span>);
-                <span class="prelude-val">Some</span>(<span class="ident">Dwarf::new</span>(<span class="ident">SectionIndex::new</span>(<span class="number">0</span>)))
+                <span class="prelude-val">Some</span>(<span class="ident">Dwarf::new</span>(<span class="ident">SectionIndex::new</span>(<span class="ident">custom_sections</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>)))
             } <span class="kw">else</span> {
                 <span class="prelude-val">None</span>
             };
-            (<span class="ident">custom_sections</span>, <span class="ident">dwarf</span>)
+            <span class="ident">dwarf</span>
         };
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
-        <span class="kw">let</span> (<span class="ident">custom_sections</span>, <span class="ident">dwarf</span>) <span class="op">=</span> (<span class="ident">PrimaryMap::new</span>(), <span class="prelude-val">None</span>);
+        <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="prelude-val">None</span>;
 
         <span class="comment">// function call trampolines (only for local functions, by signature)</span>
         <span class="kw">let</span> <span class="ident">function_call_trampolines</span> <span class="op">=</span> <span class="ident">module</span>

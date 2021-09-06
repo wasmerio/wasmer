@@ -194,6 +194,12 @@
 <span id="193">193</span>
 <span id="194">194</span>
 <span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys</span>::{<span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">TableType</span>};
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
@@ -249,13 +255,19 @@
 
         <span class="comment">// Allocate a small guard to optimize common cases but without</span>
         <span class="comment">// wasting too much memory.</span>
+        <span class="comment">// The Windows memory manager seems more laxed than the other ones</span>
+        <span class="comment">// And a guard of just 1 page may not be enough is some borderline cases</span>
+        <span class="comment">// So using 2 pages for guard on this platform</span>
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
+        <span class="kw">let</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0x2_0000</span>;
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
         <span class="kw">let</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0x1_0000</span>;
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="ident">OperatingSystem::Windows</span> <span class="op">=</span> <span class="ident">triple</span>.<span class="ident">operating_system</span> {
             <span class="comment">// For now, use a smaller footprint on Windows so that we don&#39;t</span>
             <span class="comment">// outstrip the paging file.</span>
             <span class="ident">static_memory_bound</span> <span class="op">=</span> <span class="ident">min</span>(<span class="ident">static_memory_bound</span>, <span class="number">0x100</span>.<span class="ident">into</span>());
-            <span class="ident">static_memory_offset_guard_size</span> <span class="op">=</span> <span class="ident">min</span>(<span class="ident">static_memory_offset_guard_size</span>, <span class="number">0x10000</span>);
+            <span class="ident">static_memory_offset_guard_size</span> <span class="op">=</span> <span class="ident">min</span>(<span class="ident">static_memory_offset_guard_size</span>, <span class="number">0x20000</span>);
         }
 
         <span class="self">Self</span> {

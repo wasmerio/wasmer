@@ -478,7 +478,7 @@
 
 <span class="doccomment">/// Declare `count` local variables of the same type, starting from `next_local`.</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// Fail of too many locals are declared in the function, or if the type is not valid for a local.</span>
+<span class="doccomment">/// Fail if the type is not valid for a local.</span>
 <span class="kw">fn</span> <span class="ident">declare_locals</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">count</span>: <span class="ident">u32</span>,

@@ -242,7 +242,7 @@
         <span class="ident">new_sig</span>.<span class="ident">ident</span> <span class="op">=</span> <span class="ident">test_name</span>;
         <span class="ident">new_sig</span>.<span class="ident">inputs</span> <span class="op">=</span> <span class="ident">::syn::punctuated::Punctuated::new</span>();
         <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="macro">quote!</span> {
-            <span class="attribute">#[<span class="ident">test</span>]</span>
+            <span class="attribute">#[<span class="ident">test_env_log::test</span>]</span>
             #<span class="ident">attrs</span>
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> #<span class="ident">engine_feature_name</span>)]</span>
             #<span class="ident">new_sig</span> {

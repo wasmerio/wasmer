@@ -844,6 +844,32 @@
 <span id="841">841</span>
 <span id="842">842</span>
 <span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
@@ -860,11 +886,12 @@
 <span class="kw">use</span> <span class="ident">std::process::Command</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">tempfile::NamedTempFile</span>;
+<span class="kw">use</span> <span class="ident">tracing::log::error</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">tracing::trace</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">CompileError</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">Features</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">OperatingSystem</span>, <span class="ident">Symbol</span>,
-    <span class="ident">SymbolRegistry</span>, <span class="ident">Triple</span>,
+    <span class="ident">Architecture</span>, <span class="ident">CompileError</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">Features</span>, <span class="ident">FunctionAddressMap</span>,
+    <span class="ident">OperatingSystem</span>, <span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>, <span class="ident">Triple</span>,
 };
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
@@ -895,6 +922,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DylibArtifact</span> {
     <span class="ident">dylib_path</span>: <span class="ident">PathBuf</span>,
+    <span class="ident">is_temporary</span>: <span class="ident">bool</span>,
     <span class="ident">metadata</span>: <span class="ident">ModuleMetadata</span>,
     <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
@@ -903,6 +931,16 @@
     <span class="ident">func_data_registry</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">FuncDataRegistry</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
     <span class="ident">frame_info_registration</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">DylibArtifact</span> {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_temporary</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">dylib_path</span>) {
+                <span class="macro">error!</span>(<span class="string">&quot;cannot delete the temporary dylib artifact: {}&quot;</span>, <span class="ident">err</span>);
+            }
+        }
+    }
 }
 
 <span class="kw">fn</span> <span class="ident">to_compile_error</span>(<span class="ident">err</span>: <span class="kw">impl</span> <span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CompileError</span> {
@@ -1078,7 +1116,7 @@
 
                 <span class="comment">// Re-open it.</span>
                 <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">file</span>, <span class="ident">filepath</span>) <span class="op">=</span> <span class="ident">file</span>.<span class="ident">keep</span>().<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
-                <span class="ident">file</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">obj_bytes</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+                <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">obj_bytes</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                 <span class="ident">filepath</span>
             }
             <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {
@@ -1108,7 +1146,7 @@
                 <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">file</span>, <span class="ident">filepath</span>) <span class="op">=</span> <span class="ident">file</span>.<span class="ident">keep</span>().<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">obj_bytes</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">write</span>().<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
 
-                <span class="ident">file</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">obj_bytes</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+                <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">obj_bytes</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                 <span class="ident">filepath</span>
             }
         };
@@ -1186,6 +1224,11 @@
             <span class="ident">Triple::host</span>().<span class="ident">to_string</span>(),
         );
 
+        <span class="kw">let</span> <span class="ident">notext</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">target_triple</span>.<span class="ident">operating_system</span>, <span class="ident">target_triple</span>.<span class="ident">architecture</span>) {
+            (<span class="ident">OperatingSystem::Linux</span>, <span class="ident">Architecture::X86_64</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">vec!</span>[<span class="string">&quot;-Wl,-z,notext&quot;</span>],
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">vec!</span>[],
+        };
+
         <span class="kw">let</span> <span class="ident">linker</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">linker</span>().<span class="ident">executable</span>();
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">linker</span>)
             .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">filepath</span>)
@@ -1194,6 +1237,7 @@
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">target_args</span>)
             <span class="comment">// .args(&amp;wasmer_symbols)</span>
             .<span class="ident">arg</span>(<span class="string">&quot;-shared&quot;</span>)
+            .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">notext</span>)
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">cross_compiling_args</span>)
             .<span class="ident">arg</span>(<span class="string">&quot;-v&quot;</span>)
             .<span class="ident">output</span>()
@@ -1215,12 +1259,15 @@
 
         <span class="macro">trace!</span>(<span class="string">&quot;gcc command result {:?}&quot;</span>, <span class="ident">output</span>);
 
-        <span class="kw">if</span> <span class="ident">is_cross_compiling</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_cross_compiling</span> {
             <span class="self">Self</span><span class="ident">::from_parts_crosscompiled</span>(<span class="ident">metadata</span>, <span class="ident">output_filepath</span>)
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">lib</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Library::new</span>(<span class="kw-2">&amp;</span><span class="ident">output_filepath</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span> };
             <span class="self">Self</span><span class="ident">::from_parts</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">engine_inner</span>, <span class="ident">metadata</span>, <span class="ident">output_filepath</span>, <span class="ident">lib</span>)
-        }
+        }<span class="question-mark">?</span>;
+        <span class="ident">artifact</span>.<span class="ident">is_temporary</span> <span class="op">=</span> <span class="bool-val">true</span>;
+
+        <span class="prelude-val">Ok</span>(<span class="ident">artifact</span>)
     }
 
     <span class="doccomment">/// Get the default extension when serializing this artifact</span>
@@ -1247,6 +1294,7 @@
         <span class="kw">let</span> <span class="ident">signatures</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">dylib_path</span>,
+            <span class="ident">is_temporary</span>: <span class="bool-val">false</span>,
             <span class="ident">metadata</span>,
             <span class="ident">finished_functions</span>: <span class="ident">finished_functions</span>.<span class="ident">into_boxed_slice</span>(),
             <span class="ident">finished_function_call_trampolines</span>: <span class="ident">finished_function_call_trampolines</span>
@@ -1352,6 +1400,7 @@
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">dylib_path</span>,
+            <span class="ident">is_temporary</span>: <span class="bool-val">false</span>,
             <span class="ident">metadata</span>,
             <span class="ident">finished_functions</span>: <span class="ident">finished_functions</span>.<span class="ident">into_boxed_slice</span>(),
             <span class="ident">finished_function_call_trampolines</span>: <span class="ident">finished_function_call_trampolines</span>
@@ -1393,7 +1442,10 @@
         <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>)<span class="question-mark">?</span>;
         <span class="comment">// We already checked for the header, so we don&#39;t need</span>
         <span class="comment">// to check again.</span>
-        <span class="self">Self</span><span class="ident">::deserialize_from_file_unchecked</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>)
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="self">Self</span><span class="ident">::deserialize_from_file_unchecked</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
+        <span class="ident">artifact</span>.<span class="ident">is_temporary</span> <span class="op">=</span> <span class="bool-val">true</span>;
+
+        <span class="prelude-val">Ok</span>(<span class="ident">artifact</span>)
     }
 
     <span class="doccomment">/// Deserialize a `DylibArtifact` from a file path.</span>

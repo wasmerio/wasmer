@@ -420,6 +420,9 @@
 <span id="419">419</span>
 <span id="420">420</span>
 <span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
@@ -487,6 +490,9 @@
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;d&quot;</span>)]</span>
     <span class="ident">debug</span>: <span class="ident">bool</span>,
 
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span>, <span class="ident">long</span>, <span class="ident">parse</span>(<span class="ident">from_occurrences</span>))]</span>
+    <span class="ident">verbose</span>: <span class="ident">u8</span>,
+
     <span class="doccomment">/// Application arguments</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;--&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
     <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
@@ -497,7 +503,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">debug</span> {
-            <span class="ident">logging::set_up_logging</span>().<span class="ident">unwrap</span>();
+            <span class="ident">logging::set_up_logging</span>(<span class="self">self</span>.<span class="ident">verbose</span>).<span class="ident">unwrap</span>();
         }
         <span class="self">self</span>.<span class="ident">inner_execute</span>().<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="macro">format!</span>(

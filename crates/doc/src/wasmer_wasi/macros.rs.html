@@ -69,7 +69,7 @@
 <span class="doccomment">/// corrupted.</span>
 <span class="macro">macro_rules!</span> <span class="ident">get_input_str</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
-        <span class="macro">wasi_try!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>.<span class="ident">get_utf8_str</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>), <span class="ident">__WASI_EINVAL</span>)
+        <span class="macro">wasi_try!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">data</span>.<span class="ident">get_utf8_string</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">memory</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">len</span>), <span class="ident">__WASI_EINVAL</span>)
     }};
 }
 </pre></div>
