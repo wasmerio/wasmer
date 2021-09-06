@@ -403,7 +403,7 @@ impl Write for FrameBuffer {
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
 impl VirtualFile for FrameBuffer {
     fn last_accessed(&self) -> u64 {
         0

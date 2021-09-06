@@ -57,4 +57,9 @@ disable-all-logging = [
     "tracing/release_max_level_off",
     "tracing/max_level_off"
 ]
-enable-serde = ["typetag", "serde", "bincode"]
+enable-serde = [
+    "typetag",
+    "serde",
+    "bincode",
+    "wasmer-vfs/enable-serde"
+]
