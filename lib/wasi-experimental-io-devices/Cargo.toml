@@ -20,3 +20,8 @@ minifb = "0.19"
 ref_thread_local = "0.1"
 serde = "1"
 typetag = "0.1"
+
+[features]
+enable-serde = [
+    "wasmer-wasi/enable-serde"
+]

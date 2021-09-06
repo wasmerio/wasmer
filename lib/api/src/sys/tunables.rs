@@ -54,7 +54,7 @@ impl BaseTunables {
         // wasting too much memory.
         // The Windows memory manager seems more laxed than the other ones
         // And a guard of just 1 page may not be enough is some borderline cases
-        // So using 2 pages for guard on this plateform
+        // So using 2 pages for guard on this platform
         #[cfg(target_os = "windows")]
         let dynamic_memory_offset_guard_size: u64 = 0x2_0000;
         #[cfg(not(target_os = "windows"))]
