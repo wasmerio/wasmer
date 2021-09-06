@@ -564,6 +564,9 @@ test-capi-integration-%:
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
+test-wasi:
+	cargo test --release --tests $(compiler_features) -- wasi::wasitests::snapshot1
+
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
 
