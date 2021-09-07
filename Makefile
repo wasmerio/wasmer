@@ -565,7 +565,7 @@ test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 test-wasi:
-	cargo test --release --tests $(compiler_features) -- wasi::wasitests::snapshot1
+	cargo test --release --tests $(compiler_features) -- wasi::wasitests
 
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
