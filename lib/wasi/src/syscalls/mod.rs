@@ -1990,7 +1990,7 @@ pub fn path_remove_directory(
         ),
     }
 
-    if state.fs_remove_dir(path_str).is_err() {
+    if state.fs_remove_dir(host_path_to_remove).is_err() {
         // reinsert to prevent FS from being in bad state
         if let Kind::Dir {
             ref mut entries, ..

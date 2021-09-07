@@ -100,15 +100,6 @@ impl crate::FileSystem for FileSystem {
         fs::rename(from, to).map_err(Into::into)
     }
 
-    fn rename_dir(&self, from: &Path, to: &Path) -> Result<()> {
-        let metadata = self.metadata(from)?;
-        if metadata.is_dir() {
-            fs::rename(from, to).map_err(Into::into)
-        } else {
-            Err(FsError::BaseNotDirectory)
-        }
-    }
-
     fn remove_file(&self, path: &Path) -> Result<()> {
         fs::remove_file(path).map_err(Into::into)
     }
