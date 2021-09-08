@@ -86,6 +86,7 @@ default = [
     "wat",
     "wast",
     "universal",
+    "dylib",
     "staticlib",
     "cache",
     "wasi",
