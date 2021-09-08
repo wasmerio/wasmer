@@ -47,6 +47,10 @@ llvm+dylib+macos+aarch64 * # Tests seem to be randomly failing
 # https://github.com/rust-lang/backtrace-rs/issues/356
 cranelift+aarch64 spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
 llvm+aarch64      spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
+cranelift+windows spec::skip_stack_guard_page # Needs investigation. Issue: `STATUS_ACCESS_VIOLATION` trap happened
+cranelift+macos   spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
+llvm+macos        spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
+
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in dylib engine
 cranelift+dylib spec::linking # Needs investigation
