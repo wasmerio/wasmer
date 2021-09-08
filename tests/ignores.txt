@@ -1,19 +1,22 @@
 # Compilers
-singlepass spec::multi_value
-singlepass spec::simd
+singlepass spec::multi_value # Singlepass has not implemented multivalue (functions that returns "structs"/"tuples")
+singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 
-singlepass+windows *
-singlepass+dylib *
-windows+dylib *
+singlepass+windows * # We might need to add support for Windows calling convention from host to wasm (Company showed interest to sponsor)
+singlepass+dylib * # It needs to add support for PIC in Singlepass. Not implemented at the moment
+windows+dylib * # This might be trivial to fix?
 musl+dylib * # Dynamic loading not supported in Musl
 
 # Traps
+## Traps. Tracing doesn't work properly in Singlepass
+## Unwinding is not properly implemented in Singlepass
+# Needs investigation
 singlepass traps::test_trap_trace
 dylib     traps::test_trap_trace
 aarch64    traps::test_trap_trace
-singlepass traps::test_trap_stack_overflow
-dylib     traps::test_trap_stack_overflow
-aarch64    traps::test_trap_stack_overflow
+singlepass traps::test_trap_stack_overflow # Need to investigate
+dylib     traps::test_trap_stack_overflow # Need to investigate
+aarch64    traps::test_trap_stack_overflow # Need to investigate
 singlepass traps::trap_display_pretty
 llvm       traps::trap_display_pretty
 dylib     traps::trap_display_pretty
@@ -31,24 +34,26 @@ llvm       traps::start_trap_pretty
 dylib     traps::start_trap_pretty
 aarch64    traps::start_trap_pretty
 
-cranelift  multi_value_imports::dylib
-singlepass multi_value_imports::dylib
-singlepass multi_value_imports::dynamic
+cranelift  multi_value_imports::dylib # Needs investigation
+singlepass multi_value_imports::dylib # Singlepass doesn't support multivalue
+singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
 
-# LLVM/Universal doesn't work in macOS M1. Skip all tests
-llvm+universal+macos+aarch64 *
+# LLVM doesn't fully work in macOS M1
+llvm+universal+macos+aarch64 * # We are using the object crate, it was not fully supporting aarch64 relocations emitted by LLVM. Needs reassesment
+llvm+dylib+macos+aarch64 * # Tests seem to be randomly failing
 
-# TODO: We need to fix this. The issue is caused by libunwind overflowing
+# TODO: We need to fix this in ARM. The issue is caused by libunwind overflowing
 # the stack while creating the stacktrace.
 # https://github.com/rust-lang/backtrace-rs/issues/356
-cranelift spec::skip_stack_guard_page
-llvm      spec::skip_stack_guard_page
+cranelift+aarch64 spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
+llvm+aarch64      spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in dylib engine
-cranelift+dylib spec::linking
-cranelift+dylib spec::bulk
+cranelift+dylib spec::linking # Needs investigation
+cranelift+dylib spec::bulk # Needs investigation
 
 # Some SIMD opperations are not yet supported by Cranelift
+# Cranelift just added support for most of those recently, it might be easy to update
 cranelift spec::simd::simd_conversions
 cranelift spec::simd::simd_i16x8_extadd_pairwise_i8x16
 cranelift spec::simd::simd_i16x8_extmul_i8x16
