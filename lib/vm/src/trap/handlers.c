@@ -18,6 +18,8 @@
 #define platform_longjmp(buf, arg) longjmp(buf, arg)
 #define platform_jmp_buf jmp_buf
 #elif defined(CFG_TARGET_OS_MACOS)
+// TODO: This is not the most performant, since it adds overhead when calling functions
+// https://github.com/wasmerio/wasmer/issues/2562
 #define platform_setjmp(buf) sigsetjmp(buf, 1)
 #define platform_longjmp(buf, arg) siglongjmp(buf, arg)
 #define platform_jmp_buf sigjmp_buf
