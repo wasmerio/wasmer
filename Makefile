@@ -564,6 +564,9 @@ test-capi-integration-%:
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
+test-wasi:
+	cargo test --release --tests $(compiler_features) -- wasi::wasitests
+
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
 
@@ -573,6 +576,10 @@ test-integration:
 test-integration-ios:
 	cargo test -p wasmer-integration-tests-ios
 
+generate-wasi-tests:
+# Uncomment the following for installing the toolchain
+#   cargo run -p wasi-test-generator -- -s
+	cargo run -p wasi-test-generator -- -g
 #####
 #
 # Packaging.
