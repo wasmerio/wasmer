@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["install_toolchain",""],["install_toolchains",""]]});
