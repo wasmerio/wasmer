@@ -141,12 +141,12 @@ languages**, so you can use WebAssembly _anywhere_.
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
-[rust docs]: https://docs.rs/wasmer/2.0.0/wasmer/
+[rust docs]: https://docs.rs/wasmer/
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
 [`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/wasmer.h
-[c docs]: https://docs.rs/wasmer-c-api/2.0.0/wasmer_c_api/wasm_c_api/index.html
+[c docs]: https://docs.rs/wasmer-c-api/*/wasmer_c_api/wasm_c_api/index.html
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
