@@ -289,7 +289,7 @@
                 <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-universal&quot;</span>)]</span> {
                     <span class="ident">wasmer_engine_universal::Universal::new</span>(<span class="ident">config</span>)
                         .<span class="ident">engine</span>()
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-native&quot;</span>)]</span> {
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-dylib&quot;</span>)]</span> {
                     <span class="ident">wasmer_engine_dylib::Dylib::new</span>(<span class="ident">config</span>)
                         .<span class="ident">engine</span>()
                 } <span class="kw">else</span> {
