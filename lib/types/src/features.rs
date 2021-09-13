@@ -57,7 +57,7 @@ impl Features {
             multi_memory: false,
             memory64: false,
             exceptions: false,
-            signal_less: false
+            signal_less: false,
         }
     }
 
