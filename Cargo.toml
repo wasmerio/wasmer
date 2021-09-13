@@ -22,6 +22,7 @@ wasmer-engine-dylib = { version = "2.0.0", path = "lib/engine-dylib", optional =
 wasmer-engine-staticlib = { version = "2.0.0", path = "lib/engine-staticlib", optional = true }
 wasmer-wasi = { version = "2.0.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "2.0.0", path = "tests/lib/wast", optional = true }
+wasi-test-generator = { version = "2.0.0", path = "tests/wasi-wast", optional = true }
 wasmer-cache = { version = "2.0.0", path = "lib/cache", optional = true }
 wasmer-types = { version = "2.0.0", path = "lib/types" }
 wasmer-middlewares = { version = "2.0.0", path = "lib/middlewares", optional = true }
@@ -50,6 +51,7 @@ members = [
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
     "lib/types",
+    "tests/wasi-wast",
     "tests/lib/wast",
     "tests/lib/compiler-test-derive",
     "tests/integration/cli",

@@ -1990,7 +1990,7 @@ pub fn path_remove_directory(
         ),
     }
 
-    if state.fs_remove_dir(path_str).is_err() {
+    if state.fs_remove_dir(host_path_to_remove).is_err() {
         // reinsert to prevent FS from being in bad state
         if let Kind::Dir {
             ref mut entries, ..
@@ -2070,8 +2070,11 @@ pub fn path_rename(
             unreachable!("Fatal internal logic error: parent of inode is not a directory")
         }
     };
+
     let source_entry = match &mut state.fs.inodes[source_parent_inode].kind {
-        Kind::Dir { entries, .. } => wasi_try!(entries.remove(&source_entry_name), __WASI_EINVAL),
+        Kind::Dir { entries, .. } => {
+            wasi_try!(entries.remove(&source_entry_name), __WASI_EINVAL)
+        }
         Kind::Root { .. } => return __WASI_ENOTCAPABLE,
         Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
             unreachable!("Fatal internal logic error: parent of inode is not a directory")
@@ -2107,7 +2110,15 @@ pub fn path_rename(
                 }
             }
         }
-        Kind::Dir { path, .. } => unimplemented!("wasi::path_rename on Directories"),
+        Kind::Dir { ref path, .. } => {
+            let cloned_path = path.clone();
+            if let Err(e) = state.fs_rename(cloned_path, &host_adjusted_target_path) {
+                return e;
+            }
+            if let Kind::Dir { path, .. } = &mut state.fs.inodes[source_entry].kind {
+                *path = host_adjusted_target_path;
+            }
+        }
         Kind::Buffer { .. } => {}
         Kind::Symlink { .. } => {}
         Kind::Root { .. } => unreachable!("The root can not be moved"),
