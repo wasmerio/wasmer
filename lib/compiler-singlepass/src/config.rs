@@ -2,11 +2,13 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::compiler::SinglepassCompiler;
+use crate::x64_decl::create_cie;
 use loupe::MemoryUsage;
 use std::sync::Arc;
-use wasmer_compiler::{Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target, Triple};
+use wasmer_compiler::{
+    Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target, Triple,
+};
 use wasmer_types::Features;
-use crate::x64_decl::create_cie;
 
 #[derive(Debug, Clone, MemoryUsage)]
 pub struct Singlepass {

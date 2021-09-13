@@ -63,10 +63,10 @@ mod unwind;
 #[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
-mod section;
-mod sourceloc;
 #[cfg(feature = "unwind")]
 mod dwarf;
+mod section;
+mod sourceloc;
 
 #[cfg(feature = "unwind")]
 pub use crate::dwarf::WriterRelocate;

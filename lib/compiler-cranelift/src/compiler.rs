@@ -2,8 +2,6 @@
 
 use crate::address_map::get_function_address_map;
 use crate::config::Cranelift;
-#[cfg(feature = "unwind")]
-use wasmer_compiler::WriterRelocate;
 use crate::func_environ::{get_function_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
 use crate::trampoline::{
@@ -22,6 +20,8 @@ use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::CompileError;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::WriterRelocate;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,

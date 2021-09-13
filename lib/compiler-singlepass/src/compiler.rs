@@ -8,21 +8,21 @@ use crate::codegen_x64::{
 };
 use crate::config::Singlepass;
 #[cfg(feature = "unwind")]
-use wasmer_compiler::WriterRelocate;
-use loupe::MemoryUsage;
-#[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
+use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
-use wasmer_compiler::{
-    Architecture, Compilation, CompileError, CompileModuleInfo, CompiledFunction, Compiler,
-    CompilerConfig, Dwarf, FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, SectionIndex,
-    Target, TrapInformation,
-};
 #[cfg(feature = "unwind")]
 use wasmer_compiler::CallingConvention;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::WriterRelocate;
+use wasmer_compiler::{
+    Architecture, Compilation, CompileError, CompileModuleInfo, CompiledFunction, Compiler,
+    CompilerConfig, Dwarf, FunctionBinaryReader, FunctionBody, FunctionBodyData,
+    MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    OperatingSystem, SectionIndex, Target, TrapInformation,
+};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex,
@@ -79,7 +79,7 @@ impl Compiler for SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
-        
+
         // Generate the frametable
         #[cfg(feature = "unwind")]
         let dwarf_frametable = if function_body_inputs.is_empty() {
@@ -104,7 +104,7 @@ impl Compiler for SinglepassCompiler {
                 _ => None,
             }
         };
-        
+
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
@@ -180,7 +180,6 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
-        
         let mut custom_sections = import_trampolines;
 
         #[cfg(feature = "unwind")]
@@ -203,7 +202,7 @@ impl Compiler for SinglepassCompiler {
         };
         #[cfg(not(feature = "unwind"))]
         let dwarf = None;
-            
+
         Ok(Compilation::new(
             functions,
             custom_sections,
