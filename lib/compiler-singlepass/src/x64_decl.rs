@@ -1,6 +1,7 @@
 //! X64 structures.
 
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
+use gimli::{write::CommonInformationEntry, Encoding, Format, X86_64};
 use std::collections::BTreeMap;
 use wasmer_types::Type;
 
@@ -219,4 +220,29 @@ pub fn new_machine_state() -> MachineState {
         wasm_stack: vec![],
         wasm_inst_offset: std::usize::MAX,
     }
+}
+
+/// Creates a new x86-64 common information entry (CIE).
+pub fn create_cie() -> CommonInformationEntry {
+    use gimli::write::CallFrameInstruction;
+
+    let mut entry = CommonInformationEntry::new(
+        Encoding {
+            address_size: 8,
+            format: Format::Dwarf32,
+            version: 1,
+        },
+        1,  // Code alignment factor
+        -8, // Data alignment factor
+        X86_64::RA,
+    );
+
+    // Every frame will start with the call frame address (CFA) at RSP+8
+    // It is +8 to account for the push of the return address by the call instruction
+    entry.add_instruction(CallFrameInstruction::Cfa(X86_64::RSP, 8));
+
+    // Every frame will start with the return address at RSP (CFA-8 = RSP+8-8 = RSP)
+    entry.add_instruction(CallFrameInstruction::Offset(X86_64::RA, -8));
+
+    entry
 }

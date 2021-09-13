@@ -3,7 +3,7 @@
 use crate::address_map::get_function_address_map;
 use crate::config::Cranelift;
 #[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
+use wasmer_compiler::WriterRelocate;
 use crate::func_environ::{get_function_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
 use crate::trampoline::{

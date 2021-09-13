@@ -4,8 +4,9 @@
 use crate::compiler::SinglepassCompiler;
 use loupe::MemoryUsage;
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
+use wasmer_compiler::{Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target, Triple};
 use wasmer_types::Features;
+use crate::x64_decl::create_cie;
 
 #[derive(Debug, Clone, MemoryUsage)]
 pub struct Singlepass {
@@ -45,6 +46,11 @@ impl Singlepass {
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
         self
+    }
+
+    pub fn create_systemv_cie(&self) -> Option<gimli::write::CommonInformationEntry> {
+        Some(create_cie())
+        //None
     }
 }
 

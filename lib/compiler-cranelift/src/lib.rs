@@ -48,8 +48,6 @@ mod address_map;
 mod compiler;
 mod config;
 mod debug;
-#[cfg(feature = "unwind")]
-mod dwarf;
 mod func_environ;
 mod sink;
 mod trampoline;

@@ -36,6 +36,6 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["std", "unwind"]
-unwind = ["cranelift-codegen/unwind", "gimli"]
+unwind = ["cranelift-codegen/unwind", "gimli", "wasmer-compiler/unwind"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]

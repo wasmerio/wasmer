@@ -16,6 +16,7 @@ wasmer-types = { path = "../types", version = "2.0.0", default-features = false 
 wasmparser = { version = "0.78", optional = true, default-features = false }
 target-lexicon = { version = "0.12.2", default-features = false }
 enumset = "1.0"
+gimli = { version = "0.25", optional = true }
 hashbrown = { version = "0.11", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
@@ -25,13 +26,14 @@ rkyv = { version = "0.6.1", optional = true }
 loupe = "0.1"
 
 [features]
-default = ["std", "enable-serde", "enable-rkyv"]
+default = ["std", "enable-serde", "enable-rkyv", "unwind"]
 # This feature is for compiler implementors, it enables using `Compiler` and
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
+unwind = ["gimli"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
 enable-rkyv = ["rkyv", "wasmer-vm/enable-rkyv", "wasmer-types/enable-rkyv"]
 

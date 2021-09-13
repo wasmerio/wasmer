@@ -1,7 +1,9 @@
+#![allow(missing_docs)]
+
 use gimli::write::{Address, EndianVec, Result, Writer};
 use gimli::{RunTimeEndian, SectionId};
-use wasmer_compiler::{CustomSection, CustomSectionProtection, SectionBody};
-use wasmer_compiler::{Endianness, Relocation, RelocationKind, RelocationTarget};
+use crate::{CustomSection, CustomSectionProtection, SectionBody};
+use crate::{Endianness, Relocation, RelocationKind, RelocationTarget};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::LocalFunctionIndex;
 

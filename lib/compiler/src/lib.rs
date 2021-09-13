@@ -65,6 +65,11 @@ mod unwind;
 mod translator;
 mod section;
 mod sourceloc;
+#[cfg(feature = "unwind")]
+mod dwarf;
+
+#[cfg(feature = "unwind")]
+pub use crate::dwarf::WriterRelocate;
 
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 #[cfg(feature = "translator")]

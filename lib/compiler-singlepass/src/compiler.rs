@@ -7,16 +7,22 @@ use crate::codegen_x64::{
     CodegenError, FuncGen,
 };
 use crate::config::Singlepass;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::WriterRelocate;
 use loupe::MemoryUsage;
+#[cfg(feature = "unwind")]
+use gimli::write::{Address, EhFrame, FrameTable};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     Architecture, Compilation, CompileError, CompileModuleInfo, CompiledFunction, Compiler,
-    CompilerConfig, FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader,
+    CompilerConfig, Dwarf, FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, SectionIndex,
     Target, TrapInformation,
 };
+#[cfg(feature = "unwind")]
+use wasmer_compiler::CallingConvention;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex,
@@ -68,10 +74,37 @@ impl Compiler for SinglepassCompiler {
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
+        let config = self.config();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
+        
+        // Generate the frametable
+        #[cfg(feature = "unwind")]
+        let dwarf_frametable = if function_body_inputs.is_empty() {
+            // If we have no function body inputs, we don't need to
+            // construct the `FrameTable`. Constructing it, with empty
+            // FDEs will cause some issues in Linux.
+            None
+        } else {
+            use std::sync::Mutex;
+            match target.triple().default_calling_convention() {
+                Ok(CallingConvention::SystemV) => {
+                    match config.create_systemv_cie() {
+                        Some(cie) => {
+                            let mut dwarf_frametable = FrameTable::default();
+                            let cie_id = dwarf_frametable.add_cie(cie);
+                            Some((Arc::new(Mutex::new(dwarf_frametable)), cie_id))
+                        }
+                        // Even though we are in a SystemV system, Cranelift doesn't support it
+                        None => None,
+                    }
+                }
+                _ => None,
+            }
+        };
+        
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
@@ -147,12 +180,36 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
+        
+        let mut custom_sections = import_trampolines;
+
+        #[cfg(feature = "unwind")]
+        let dwarf = {
+            let dwarf = if let Some((dwarf_frametable, _cie_id)) = dwarf_frametable {
+                let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+                dwarf_frametable
+                    .lock()
+                    .unwrap()
+                    .write_eh_frame(&mut eh_frame)
+                    .unwrap();
+
+                let eh_frame_section = eh_frame.0.into_section();
+                custom_sections.push(eh_frame_section);
+                Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
+            } else {
+                None
+            };
+            dwarf
+        };
+        #[cfg(not(feature = "unwind"))]
+        let dwarf = None;
+            
         Ok(Compilation::new(
             functions,
-            import_trampolines,
+            custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            None,
+            dwarf,
         ))
     }
 }
