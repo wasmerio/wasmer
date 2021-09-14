@@ -35,7 +35,6 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
         self.metadata(path)
     }
     fn remove_file(&self, path: &Path) -> Result<()>;
-
     fn new_open_options(&self) -> OpenOptions;
 }
 
