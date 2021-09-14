@@ -93,10 +93,24 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
-        let store = module.store();
-        let (instance, functions) = module
+        let (instance, imports) = module
             .instantiate(resolver)
             .map_err(|e| InstantiationError::Start(e))?;
+
+        let self_instance = Self::from_module_and_instance(module, instance);
+        self_instance.init_envs(&imports)?;
+        Ok(self_instance)
+    }
+
+    /// Creates a Wasmer `Instance` from a Wasmer `Module` and a WebAssembly Instance
+    ///
+    /// # Important
+    ///
+    /// Is expected that the function [`Instance::init_envs`] is run manually
+    /// by the user in case the instance has any Wasmer imports, so the function
+    /// environments are properly initiated.
+    pub fn from_module_and_instance(module: &Module, instance: WebAssembly::Instance) -> Self {
+        let store = module.store();
         let instance_exports = instance.exports();
         let exports = module
             .exports()
@@ -110,16 +124,22 @@ impl Instance {
             })
             .collect::<Exports>();
 
-        let self_instance = Self {
-            module: module.clone(),
+        Self {
             instance,
+            module: module.clone(),
             exports,
-        };
-        for func in functions {
-            func.init_envs(&self_instance)
-                .map_err(|e| InstantiationError::HostEnvInitialization(e))?;
         }
-        Ok(self_instance)
+    }
+
+    /// Initialize the given extern imports with the Instance
+    pub fn init_envs(&self, imports: &[Export]) -> Result<(), InstantiationError> {
+        for import in imports {
+            if let Export::Function(func) = import {
+                func.init_envs(&self)
+                    .map_err(|e| InstantiationError::HostEnvInitialization(e))?;
+            }
+        }
+        Ok(())
     }
 
     /// Gets the [`Module`] associated with this instance.
