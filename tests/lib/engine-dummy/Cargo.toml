@@ -8,10 +8,10 @@ edition = "2018"
 publish = false
 
 [dependencies]
-wasmer-types = { path = "../../../lib/types", version = "2.0.0" }
-wasmer-compiler = { path = "../../../lib/compiler", version = "2.0.0" }
-wasmer-vm = { path = "../../../lib/vm", version = "2.0.0" }
-wasmer-engine = { path = "../../../lib/engine", version = "2.0.0" }
+wasmer-types = { path = "../../../lib/types", package = "wasmer-types-near", version = "2.0.0" }
+wasmer-compiler = { path = "../../../lib/compiler", package = "wasmer-compiler-near", version = "2.0.0" }
+wasmer-vm = { path = "../../../lib/vm", package = "wasmer-vm-near", version = "2.0.0" }
+wasmer-engine = { path = "../../../lib/engine", package = "wasmer-engine-near", version = "2.0.0" }
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 serde_bytes = { version = "0.11", optional = true }
 bincode = { version = "1.2", optional = true }

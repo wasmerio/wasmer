@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-vm"
+name = "wasmer-vm-near"
 version = "2.0.0"
 description = "Runtime library support for Wasmer"
 categories = ["wasm"]
@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "2.0.0" }
+wasmer-types = { path = "../types", package = "wasmer-types-near", version = "2.0.0" }
 region = "3.0"
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"

@@ -10,9 +10,9 @@ use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
-use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError, is_wasm_pc};
+use wasmer_engine::{is_wasm_pc, Artifact, DeserializeError, Resolver, SerializeError};
 use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
-use wasmer_vm::{InstanceHandle, init_traps};
+use wasmer_vm::{init_traps, InstanceHandle};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
