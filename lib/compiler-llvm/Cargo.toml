@@ -12,9 +12,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "2.0.0", features = ["translator"] }
-wasmer-vm = { path = "../vm", version = "2.0.0" }
-wasmer-types = { path = "../types", version = "2.0.0" }
+wasmer-compiler = { path = "../compiler", version = "2.0.0", package = "wasmer-compiler-near", features = ["translator"] }
+wasmer-vm = { path = "../vm", version = "2.0.0", package = "wasmer-vm-near" }
+wasmer-types = { path = "../types", version = "2.0.0", package = "wasmer-types-near" }
 target-lexicon = { version = "0.12.2", default-features = false }
 smallvec = "1.6"
 object = { version = "0.26", default-features = false, features = ["read"] }

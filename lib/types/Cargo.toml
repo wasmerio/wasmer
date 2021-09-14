@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-types"
+name = "wasmer-types-near"
 version = "2.0.0"
 description = "Wasmer Common Types"
 categories = ["wasm", "no-std", "data-structures"]

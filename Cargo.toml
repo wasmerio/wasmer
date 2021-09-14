@@ -10,21 +10,21 @@ publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { version = "2.0.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "2.0.0", path = "lib/compiler" }
+wasmer = { version = "2.0.0", path = "lib/api", default-features = false, package = "wasmer-near" }
+wasmer-compiler = { version = "2.0.0", path = "lib/compiler", package = "wasmer-compiler-near" }
 wasmer-compiler-cranelift = { version = "2.0.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "2.0.0", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-singlepass = { version = "2.0.0", path = "lib/compiler-singlepass", optional = true, package = "wasmer-compiler-singlepass-near" }
 wasmer-compiler-llvm = { version = "2.0.0", path = "lib/compiler-llvm", optional = true }
 wasmer-emscripten = { version = "2.0.0", path = "lib/emscripten", optional = true }
-wasmer-engine = { version = "2.0.0", path = "lib/engine" }
-wasmer-engine-universal = { version = "2.0.0", path = "lib/engine-universal", optional = true }
+wasmer-engine = { version = "2.0.0", path = "lib/engine", package = "wasmer-engine-near"  }
+wasmer-engine-universal = { version = "2.0.0", path = "lib/engine-universal", optional = true, package = "wasmer-engine-universal-near" }
 wasmer-engine-dylib = { version = "2.0.0", path = "lib/engine-dylib", optional = true }
 wasmer-engine-staticlib = { version = "2.0.0", path = "lib/engine-staticlib", optional = true }
 wasmer-wasi = { version = "2.0.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "2.0.0", path = "tests/lib/wast", optional = true }
 wasi-test-generator = { version = "2.0.0", path = "tests/wasi-wast", optional = true }
 wasmer-cache = { version = "2.0.0", path = "lib/cache", optional = true }
-wasmer-types = { version = "2.0.0", path = "lib/types" }
+wasmer-types = { version = "2.0.0", path = "lib/types", package = "wasmer-types-near" }
 wasmer-middlewares = { version = "2.0.0", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
 
