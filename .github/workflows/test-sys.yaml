@@ -6,9 +6,11 @@ env:
 on:
   push:
     branches:
-      - 'master'
+      - 'near-main'
       - 'staging'
       - 'trying'
+    pull_request:
+      branches: [ 'near-main' ]
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'

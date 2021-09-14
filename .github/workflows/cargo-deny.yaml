@@ -1,8 +1,7 @@
 on:
   push:
     branches:
-      - '**'
-      - '!master'
+      - master
 
 name: cargo-deny
 

@@ -1,8 +1,9 @@
 on:
   push:
     branches:
-      - '**'
-      - '!master'
+      - 'near-main'
+  pull_request:
+    branches: [ 'near-main' ]
 
 name: lint
 
