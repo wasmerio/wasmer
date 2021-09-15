@@ -9050,7 +9050,7 @@ pub fn gen_import_call_trampoline(
                     static PARAM_REGS: &[GPR] = &[GPR::RDX, GPR::R8, GPR::R9];
                     Location::GPR(PARAM_REGS[i])
                 }
-                _ => Location::Memory(GPR::RSP, 32 + 8 + ((i-3) * 8) as i32),   // will not be used anyway
+                _ => Location::Memory(GPR::RSP, 32 + 8 + ((i - 3) * 8) as i32), // will not be used anyway
             };
             param_locations.push(loc);
         }
