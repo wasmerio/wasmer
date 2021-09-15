@@ -950,13 +950,13 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    /// Emits a System V call sequence.
+    /// Emits a System V / Windows call sequence.
     ///
     /// This function will not use RAX before `cb` is called.
     ///
     /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
     /// this function.
-    fn emit_call_sysv<I: Iterator<Item = Location>, F: FnOnce(&mut Self)>(
+    fn emit_call_native<I: Iterator<Item = Location>, F: FnOnce(&mut Self)>(
         &mut self,
         cb: F,
         params: I,
@@ -977,7 +977,7 @@ impl<'a> FuncGen<'a> {
                 self.machine.state.register_values[X64Register::GPR(*r).to_index().0].clone();
             if content == MachineValue::Undefined {
                 return Err(CodegenError {
-                    message: "emit_call_sysv: Undefined used_gprs content".to_string(),
+                    message: "emit_call_native: Undefined used_gprs content".to_string(),
                 });
             }
             self.machine.state.stack_values.push(content);
@@ -1004,12 +1004,17 @@ impl<'a> FuncGen<'a> {
                     self.machine.state.register_values[X64Register::XMM(*r).to_index().0].clone();
                 if content == MachineValue::Undefined {
                     return Err(CodegenError {
-                        message: "emit_call_sysv: Undefined used_xmms content".to_string(),
+                        message: "emit_call_native: Undefined used_xmms content".to_string(),
                     });
                 }
                 self.machine.state.stack_values.push(content);
             }
         }
+
+        #[cfg(target_os = "windows")]
+        let stack_padding: usize = 32;
+        #[cfg(not(target_os = "windows"))]
+        let stack_padding: usize = 0;
 
         let mut stack_offset: usize = 0;
 
@@ -1052,7 +1057,7 @@ impl<'a> FuncGen<'a> {
                             let content = self.machine.state.register_values
                                 [X64Register::GPR(x).to_index().0]
                                 .clone();
-                            // FIXME: There might be some corner cases (release -> emit_call_sysv -> acquire?) that cause this assertion to fail.
+                            // FIXME: There might be some corner cases (release -> emit_call_native -> acquire?) that cause this assertion to fail.
                             // Hopefully nothing would be incorrect at runtime.
 
                             //assert!(content != MachineValue::Undefined);
@@ -1068,7 +1073,7 @@ impl<'a> FuncGen<'a> {
                         Location::Memory(reg, offset) => {
                             if reg != GPR::RBP {
                                 return Err(CodegenError {
-                                    message: "emit_call_sysv loc param: unreachable code"
+                                    message: "emit_call_native loc param: unreachable code"
                                         .to_string(),
                                 });
                             }
@@ -1090,18 +1095,18 @@ impl<'a> FuncGen<'a> {
                             // Dummy value slot to be filled with `mov`.
                             self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
 
-                            // Use RCX as the temporary register here, since:
+                            // Use R9 as the temporary register here, since:
                             // - It is a temporary register that is not used for any persistent value.
                             // - This register as an argument location is only written to after `sort_call_movs`.'
-                            self.machine.reserve_unused_temp_gpr(GPR::RCX);
+                            self.machine.reserve_unused_temp_gpr(GPR::R9);
                             self.assembler
-                                .emit_mov(Size::S64, *param, Location::GPR(GPR::RCX));
+                                .emit_mov(Size::S64, *param, Location::GPR(GPR::R9));
                             self.assembler.emit_mov(
                                 Size::S64,
-                                Location::GPR(GPR::RCX),
+                                Location::GPR(GPR::R9),
                                 Location::Memory(GPR::RSP, 0),
                             );
-                            self.machine.release_temp_gpr(GPR::RCX);
+                            self.machine.release_temp_gpr(GPR::R9);
                         }
                         Location::XMM(_) => {
                             // Dummy value slot to be filled with `mov`.
@@ -1119,7 +1124,7 @@ impl<'a> FuncGen<'a> {
                 }
                 _ => {
                     return Err(CodegenError {
-                        message: "emit_call_sysv loc: unreachable code".to_string(),
+                        message: "emit_call_native loc: unreachable code".to_string(),
                     })
                 }
             }
@@ -1144,8 +1149,16 @@ impl<'a> FuncGen<'a> {
 
         if (self.machine.state.stack_values.len() % 2) != 1 {
             return Err(CodegenError {
-                message: "emit_call_sysv: explicit shadow takes one slot".to_string(),
+                message: "emit_call_native: explicit shadow takes one slot".to_string(),
             });
+        }
+
+        if stack_padding > 0 {
+            self.assembler.emit_sub(
+                Size::S64,
+                Location::Imm32(stack_padding as u32),
+                Location::GPR(GPR::RSP),
+            );
         }
 
         cb(self);
@@ -1170,15 +1183,15 @@ impl<'a> FuncGen<'a> {
         }
 
         // Restore stack.
-        if stack_offset > 0 {
+        if stack_offset + stack_padding > 0 {
             self.assembler.emit_add(
                 Size::S64,
-                Location::Imm32(stack_offset as u32),
+                Location::Imm32((stack_offset + stack_padding) as u32),
                 Location::GPR(GPR::RSP),
             );
             if (stack_offset % 8) != 0 {
                 return Err(CodegenError {
-                    message: "emit_call_sysv: Bad restoring stack alignement".to_string(),
+                    message: "emit_call_native: Bad restoring stack alignement".to_string(),
                 });
             }
             for _ in 0..stack_offset / 8 {
@@ -1213,19 +1226,19 @@ impl<'a> FuncGen<'a> {
 
         if self.machine.state.stack_values.pop().unwrap() != MachineValue::ExplicitShadow {
             return Err(CodegenError {
-                message: "emit_call_sysv: Popped value is not ExplicitShadow".to_string(),
+                message: "emit_call_native: Popped value is not ExplicitShadow".to_string(),
             });
         }
         Ok(())
     }
 
     /// Emits a System V call sequence, specialized for labels as the call target.
-    fn _emit_call_sysv_label<I: Iterator<Item = Location>>(
+    fn _emit_call_native_label<I: Iterator<Item = Location>>(
         &mut self,
         label: DynamicLabel,
         params: I,
     ) -> Result<(), CodegenError> {
-        self.emit_call_sysv(|this| this.assembler.emit_call_label(label), params)?;
+        self.emit_call_native(|this| this.assembler.emit_call_label(label), params)?;
         Ok(())
     }
 
@@ -5196,7 +5209,7 @@ impl<'a> FuncGen<'a> {
                     addend: 0,
                 });
 
-                // RAX is preserved on entry to `emit_call_sysv` callback.
+                // RAX is preserved on entry to `emit_call_native` callback.
                 // The Imm64 value is relocated by the JIT linker.
                 self.assembler.emit_mov(
                     Size::S64,
@@ -5204,7 +5217,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RAX),
                 );
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         let offset = this.assembler.get_offset().0;
                         this.trap_table
@@ -5391,7 +5404,7 @@ impl<'a> FuncGen<'a> {
                 let vmcaller_checked_anyfunc_vmctx =
                     self.vmoffsets.vmcaller_checked_anyfunc_vmctx() as usize;
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         if this.assembler.arch_requires_indirect_call_trampoline() {
                             this.assembler.arch_emit_indirect_call_with_trampoline(
@@ -5673,7 +5686,7 @@ impl<'a> FuncGen<'a> {
                     ),
                     Location::GPR(GPR::RAX),
                 );
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -5709,7 +5722,7 @@ impl<'a> FuncGen<'a> {
                 // TODO: should this be 3?
                 self.machine.release_locations_only_osr_state(1);
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -5739,7 +5752,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RAX),
                 );
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -5782,7 +5795,7 @@ impl<'a> FuncGen<'a> {
                 // TODO: should this be 3?
                 self.machine.release_locations_only_osr_state(1);
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -5831,7 +5844,7 @@ impl<'a> FuncGen<'a> {
                 // TODO: should this be 3?
                 self.machine.release_locations_only_osr_state(1);
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -5866,7 +5879,7 @@ impl<'a> FuncGen<'a> {
 
                 self.machine.release_locations_only_osr_state(1);
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8338,7 +8351,7 @@ impl<'a> FuncGen<'a> {
 
                 // TODO: unclear if we need this? check other new insts with no stack ops
                 // self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8385,7 +8398,7 @@ impl<'a> FuncGen<'a> {
 
                 // TODO: should this be 2?
                 self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8419,7 +8432,7 @@ impl<'a> FuncGen<'a> {
                 );
 
                 self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8462,7 +8475,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(GPR::RAX),
                 );
 
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8503,7 +8516,7 @@ impl<'a> FuncGen<'a> {
 
                 // TODO: should this be 2?
                 self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8551,7 +8564,7 @@ impl<'a> FuncGen<'a> {
 
                 // TODO: should this be 3?
                 self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8590,7 +8603,7 @@ impl<'a> FuncGen<'a> {
 
                 // TODO: should this be 3?
                 self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8620,7 +8633,7 @@ impl<'a> FuncGen<'a> {
 
                 // TODO: should this be 3?
                 self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8653,7 +8666,7 @@ impl<'a> FuncGen<'a> {
 
                 // TODO: do we need this?
                 //self.machine.release_locations_only_osr_state(1);
-                self.emit_call_sysv(
+                self.emit_call_native(
                     |this| {
                         this.assembler.emit_call_register(GPR::RAX);
                     },
@@ -8799,6 +8812,10 @@ pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
             stack_offset += 8;
         }
     }
+    #[cfg(target_os = "windows")]
+    let stack_padding: u32 = 32;
+    #[cfg(not(target_os = "windows"))]
+    let stack_padding: u32 = 0;
 
     // Align to 16 bytes. We push two 8-byte registers below, so here we need to ensure stack_offset % 16 == 8.
     if stack_offset % 16 != 8 {
@@ -8812,7 +8829,7 @@ pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
     // Prepare stack space.
     a.emit_sub(
         Size::S64,
-        Location::Imm32(stack_offset),
+        Location::Imm32(stack_offset + stack_padding),
         Location::GPR(GPR::RSP),
     );
 
@@ -8847,7 +8864,10 @@ pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
                     a.emit_mov(
                         Size::S64,
                         Location::GPR(GPR::RAX),
-                        Location::Memory(GPR::RSP, (n_stack_args * 8) as _),
+                        Location::Memory(
+                            GPR::RSP,
+                            (stack_padding as usize + n_stack_args * 8) as _,
+                        ),
                     );
                     n_stack_args += 1;
                 }
@@ -8862,7 +8882,7 @@ pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
     // Restore stack.
     a.emit_add(
         Size::S64,
-        Location::Imm32(stack_offset),
+        Location::Imm32(stack_offset + stack_padding),
         Location::GPR(GPR::RSP),
     );
 
@@ -8896,9 +8916,13 @@ pub fn gen_std_dynamic_import_trampoline(
 
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
+    #[cfg(target_os = "windows")]
+    let stack_padding: usize = 32;
+    #[cfg(not(target_os = "windows"))]
+    let stack_padding: usize = 0;
     a.emit_sub(
         Size::S64,
-        Location::Imm32(stack_offset as _),
+        Location::Imm32((stack_offset + stack_padding) as _),
         Location::GPR(GPR::RSP),
     );
 
@@ -8916,7 +8940,10 @@ pub fn gen_std_dynamic_import_trampoline(
                 None => {
                     a.emit_mov(
                         Size::S64,
-                        Location::Memory(GPR::RSP, (stack_offset + 8 + stack_param_count * 8) as _),
+                        Location::Memory(
+                            GPR::RSP,
+                            (stack_padding * 2 + stack_offset + 8 + stack_param_count * 8) as _,
+                        ),
                         Location::GPR(GPR::RAX),
                     );
                     stack_param_count += 1;
@@ -8926,19 +8953,29 @@ pub fn gen_std_dynamic_import_trampoline(
             a.emit_mov(
                 Size::S64,
                 source_loc,
-                Location::Memory(GPR::RSP, (i * 16) as _),
+                Location::Memory(GPR::RSP, (stack_padding + i * 16) as _),
             );
 
             // Zero upper 64 bits.
             a.emit_mov(
                 Size::S64,
                 Location::Imm32(0),
-                Location::Memory(GPR::RSP, (i * 16 + 8) as _),
+                Location::Memory(GPR::RSP, (stack_padding + i * 16 + 8) as _),
             );
         }
     }
 
     // Load target address.
+    #[cfg(target_os = "windows")]
+    a.emit_mov(
+        Size::S64,
+        Location::Memory(
+            GPR::RCX,
+            vmoffsets.vmdynamicfunction_import_context_address() as i32,
+        ),
+        Location::GPR(GPR::RAX),
+    );
+    #[cfg(target_os = "linux")]
     a.emit_mov(
         Size::S64,
         Location::Memory(
@@ -8949,6 +8986,13 @@ pub fn gen_std_dynamic_import_trampoline(
     );
 
     // Load values array.
+    #[cfg(target_os = "windows")]
+    a.emit_lea(
+        Size::S64,
+        Location::Memory(GPR::RSP, stack_padding as i32),
+        Location::GPR(GPR::RDX),
+    );
+    #[cfg(target_os = "linux")]
     a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RSI));
 
     // Call target.
@@ -8959,7 +9003,7 @@ pub fn gen_std_dynamic_import_trampoline(
         assert_eq!(sig.results().len(), 1);
         a.emit_mov(
             Size::S64,
-            Location::Memory(GPR::RSP, 0),
+            Location::Memory(GPR::RSP, stack_padding as i32),
             Location::GPR(GPR::RAX),
         );
     }
@@ -8967,7 +9011,7 @@ pub fn gen_std_dynamic_import_trampoline(
     // Release values array.
     a.emit_add(
         Size::S64,
-        Location::Imm32(stack_offset as _),
+        Location::Imm32((stack_offset + stack_padding) as _),
         Location::GPR(GPR::RSP),
     );
 
@@ -8990,12 +9034,45 @@ pub fn gen_import_call_trampoline(
 
     // TODO: ARM entry trampoline is not emitted.
 
+    // Singlepass internally treats all arguments as integers, but the standard Windows calling convention requires
+    // floating point arguments to be passed in XMM registers for the 4 first arguments only
+    // That's the only change to do, other arguments are not to be changed
+    #[cfg(target_os = "windows")]
+    if sig
+        .params()
+        .iter()
+        .any(|&x| x == Type::F32 || x == Type::F64)
+    {
+        let mut param_locations: Vec<Location> = vec![];
+        for i in 0..sig.params().len() {
+            let loc = match i {
+                0..=2 => {
+                    static PARAM_REGS: &[GPR] = &[GPR::RDX, GPR::R8, GPR::R9];
+                    Location::GPR(PARAM_REGS[i])
+                }
+                _ => Location::Memory(GPR::RSP, 32 + 8 + ((i-3) * 8) as i32),   // will not be used anyway
+            };
+            param_locations.push(loc);
+        }
+        // Copy Float arguments to XMM from GPR.
+        let mut argalloc = ArgumentRegisterAllocator::default();
+        for (i, ty) in sig.params().iter().enumerate() {
+            let prev_loc = param_locations[i];
+            match argalloc.next(*ty) {
+                Some(X64Register::GPR(_gpr)) => continue,
+                Some(X64Register::XMM(xmm)) => a.emit_mov(Size::S64, prev_loc, Location::XMM(xmm)),
+                None => continue,
+            };
+        }
+    }
+
     // Singlepass internally treats all arguments as integers, but the standard System V calling convention requires
     // floating point arguments to be passed in XMM registers.
     //
     // FIXME: This is only a workaround. We should fix singlepass to use the standard CC.
 
     // Translation is expensive, so only do it if needed.
+    #[cfg(not(target_os = "windows"))]
     if sig
         .params()
         .iter()
@@ -9074,16 +9151,32 @@ pub fn gen_import_call_trampoline(
 
     let offset = vmoffsets.vmctx_vmfunction_import(index);
 
-    a.emit_mov(
-        Size::S64,
-        Location::Memory(GPR::RDI, offset as i32), // function pointer
-        Location::GPR(GPR::RAX),
-    );
-    a.emit_mov(
-        Size::S64,
-        Location::Memory(GPR::RDI, offset as i32 + 8), // target vmctx
-        Location::GPR(GPR::RDI),
-    );
+    #[cfg(target_os = "windows")]
+    {
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RCX, offset as i32), // function pointer
+            Location::GPR(GPR::RAX),
+        );
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RCX, offset as i32 + 8), // target vmctx
+            Location::GPR(GPR::RCX),
+        );
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RDI, offset as i32), // function pointer
+            Location::GPR(GPR::RAX),
+        );
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RDI, offset as i32 + 8), // target vmctx
+            Location::GPR(GPR::RDI),
+        );
+    }
     a.emit_host_redirection(GPR::RAX);
 
     let section_body = SectionBody::new_with_vec(a.finalize().unwrap().to_vec());

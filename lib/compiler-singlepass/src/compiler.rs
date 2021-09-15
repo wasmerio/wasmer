@@ -57,11 +57,11 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        if target.triple().operating_system == OperatingSystem::Windows {
+        /*if target.triple().operating_system == OperatingSystem::Windows {
             return Err(CompileError::UnsupportedTarget(
                 OperatingSystem::Windows.to_string(),
             ));
-        }
+        }*/
         if let Architecture::X86_32(arch) = target.triple().architecture {
             return Err(CompileError::UnsupportedTarget(arch.to_string()));
         }
@@ -219,13 +219,13 @@ mod tests {
         let compiler = SinglepassCompiler::new(Singlepass::default());
 
         // Compile for win64
-        let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
+        /*let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
         let (mut info, translation, inputs) = dummy_compilation_ingredients();
         let result = compiler.compile_module(&win64, &mut info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"),
             error => panic!("Unexpected error: {:?}", error),
-        };
+        };*/
 
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());

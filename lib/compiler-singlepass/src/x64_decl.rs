@@ -170,6 +170,37 @@ pub struct ArgumentRegisterAllocator {
 
 impl ArgumentRegisterAllocator {
     /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
+    #[cfg(target_os = "windows")]
+    pub fn next(&mut self, ty: Type) -> Option<X64Register> {
+        static GPR_SEQ: &'static [GPR] = &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9];
+        static XMM_SEQ: &'static [XMM] = &[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
+        let idx = self.n_gprs + self.n_xmms;
+        match ty {
+            Type::I32 | Type::I64 => {
+                if idx < 4 {
+                    let gpr = GPR_SEQ[idx];
+                    self.n_gprs += 1;
+                    Some(X64Register::GPR(gpr))
+                } else {
+                    None
+                }
+            }
+            Type::F32 | Type::F64 => {
+                if idx < 4 {
+                    let xmm = XMM_SEQ[idx];
+                    self.n_xmms += 1;
+                    Some(X64Register::XMM(xmm))
+                } else {
+                    None
+                }
+            }
+            _ => todo!(
+                "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
+                ty
+            ),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
     pub fn next(&mut self, ty: Type) -> Option<X64Register> {
         static GPR_SEQ: &'static [GPR] =
             &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];

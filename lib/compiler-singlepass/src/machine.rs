@@ -521,6 +521,17 @@ impl Machine {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn get_param_location(idx: usize) -> Location {
+        match idx {
+            0 => Location::GPR(GPR::RCX),
+            1 => Location::GPR(GPR::RDX),
+            2 => Location::GPR(GPR::R8),
+            3 => Location::GPR(GPR::R9),
+            _ => Location::Memory(GPR::RBP, (16 + 32 + (idx - 4) * 8) as i32),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
     pub fn get_param_location(idx: usize) -> Location {
         match idx {
             0 => Location::GPR(GPR::RDI),
