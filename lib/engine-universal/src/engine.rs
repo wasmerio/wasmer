@@ -203,10 +203,13 @@ impl UniversalEngineInner {
 
     /// If need to install signal handlers.
     pub fn use_signals(&self) -> bool {
+        #[cfg(feature = "compiler")]
         match self.compiler() {
             Ok(compiler) => compiler.use_signals(),
             _ => true,
         }
+        #[cfg(not(feature = "compiler"))]
+        true
     }
 
     /// Allocate compiled functions into memory
