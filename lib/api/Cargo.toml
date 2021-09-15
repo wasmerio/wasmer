@@ -87,7 +87,7 @@ core = ["hashbrown"]
 
 # Features for `sys`.
 sys = []
-sys-default = ["sys", "wat", "default-cranelift", "default-universal"]
+sys-default = ["sys", "wat", "default-singlepass", "default-universal"]
 # - Compilers.
 compiler = [
     "sys",
