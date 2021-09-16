@@ -2,7 +2,7 @@
 
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use std::collections::BTreeMap;
-use wasmer_compiler::{CallingConvention, Target};
+use wasmer_compiler::CallingConvention;
 use wasmer_types::Type;
 
 /// General-purpose registers.

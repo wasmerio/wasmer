@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 use std::cmp;
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::{CallingConvention, Target};
+use wasmer_compiler::CallingConvention;
 
 const NATIVE_PAGE_SIZE: usize = 4096;
 
