@@ -12,10 +12,10 @@ use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Architecture, Compilation, CompileError, CompileModuleInfo, CompiledFunction, Compiler,
-    CompilerConfig, FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, SectionIndex,
-    Target, TrapInformation,
+    Architecture, CallingConvention, Compilation, CompileError, CompileModuleInfo,
+    CompiledFunction, Compiler, CompilerConfig, FunctionBinaryReader, FunctionBody,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
+    ModuleTranslationState, OperatingSystem, SectionIndex, Target, TrapInformation,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -68,6 +68,13 @@ impl Compiler for SinglepassCompiler {
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
+        let calling_convention = match target.triple().default_calling_convention() {
+            Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
+            Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
+            //Ok(CallingConvention::AppleAarch64) => AppleAarch64,
+            _ => panic!("Unsupported Calling convention for Singlepass compiler"),
+        };
+
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
@@ -77,7 +84,12 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
             .map(|i| {
-                gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]])
+                gen_import_call_trampoline(
+                    &vmoffsets,
+                    i,
+                    &module.signatures[module.functions[i]],
+                    calling_convention,
+                )
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -133,7 +145,7 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(gen_std_trampoline)
+            .map(|func_type| gen_std_trampoline(&func_type, calling_convention))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -142,7 +154,9 @@ impl Compiler for SinglepassCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
+            .map(|func_type| {
+                gen_std_dynamic_import_trampoline(&vmoffsets, &func_type, calling_convention)
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
