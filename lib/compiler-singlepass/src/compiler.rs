@@ -255,7 +255,7 @@ mod tests {
         let (mut info, translation, inputs) = dummy_compilation_ingredients();
         let result = compiler.compile_module(&win32, &mut info, &translation, inputs);
         match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"), // Windows should be checked before architecture
+            CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {:?}", error),
         };
     }
