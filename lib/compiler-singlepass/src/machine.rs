@@ -529,7 +529,12 @@ impl Machine {
         locations
     }
 
-    pub fn finalize_locals<E: Emitter>(&mut self, a: &mut E, locations: &[Location], calling_convention: CallingConvention) {
+    pub fn finalize_locals<E: Emitter>(
+        &mut self,
+        a: &mut E,
+        locations: &[Location],
+        calling_convention: CallingConvention,
+    ) {
         // Unwind stack to the "save area".
         a.emit_lea(
             Size::S64,
