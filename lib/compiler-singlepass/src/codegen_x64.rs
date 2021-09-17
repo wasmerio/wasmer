@@ -6696,7 +6696,7 @@ impl<'a> FuncGen<'a> {
                 if self.control_stack.is_empty() {
                     self.assembler.emit_label(frame.label);
                     self.machine
-                        .finalize_locals(&mut self.assembler, &self.locals);
+                    .finalize_locals(&mut self.assembler, &self.locals, self.config.calling_convention);
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::GPR(GPR::RBP),

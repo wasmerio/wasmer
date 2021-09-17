@@ -369,6 +369,11 @@ impl Machine {
         // Callee-saved R15 for vmctx.
         static_area_size += 8;
 
+        // For Windows ABI, save RDI and RSI
+        if calling_convention == CallingConvention::WindowsFastcall {
+            static_area_size += 8 * 2;
+        }
+
         // Total size of callee saved registers.
         let callee_saved_regs_size = static_area_size;
 
@@ -412,6 +417,29 @@ impl Machine {
         self.state.stack_values.push(MachineValue::PreserveRegister(
             X64Register::GPR(GPR::R15).to_index(),
         ));
+
+        if calling_convention == CallingConvention::WindowsFastcall {
+            // Save RDI
+            self.stack_offset.0 += 8;
+            a.emit_mov(
+                Size::S64,
+                Location::GPR(GPR::RDI),
+                Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
+            );
+            self.state.stack_values.push(MachineValue::PreserveRegister(
+                X64Register::GPR(GPR::RDI).to_index(),
+            ));
+            // Save RSI
+            self.stack_offset.0 += 8;
+            a.emit_mov(
+                Size::S64,
+                Location::GPR(GPR::RSI),
+                Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
+            );
+            self.state.stack_values.push(MachineValue::PreserveRegister(
+                X64Register::GPR(GPR::RSI).to_index(),
+            ));
+        }
 
         // Save the offset of register save area.
         self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
@@ -501,7 +529,7 @@ impl Machine {
         locations
     }
 
-    pub fn finalize_locals<E: Emitter>(&mut self, a: &mut E, locations: &[Location]) {
+    pub fn finalize_locals<E: Emitter>(&mut self, a: &mut E, locations: &[Location], calling_convention: CallingConvention) {
         // Unwind stack to the "save area".
         a.emit_lea(
             Size::S64,
@@ -512,6 +540,11 @@ impl Machine {
             Location::GPR(GPR::RSP),
         );
 
+        if calling_convention == CallingConvention::WindowsFastcall {
+            // Restore RSI and RDI
+            a.emit_pop(Size::S64, Location::GPR(GPR::RSI));
+            a.emit_pop(Size::S64, Location::GPR(GPR::RDI));
+        }
         // Restore R15 used by vmctx.
         a.emit_pop(Size::S64, Location::GPR(GPR::R15));
 
