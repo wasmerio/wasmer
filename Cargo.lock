@@ -2533,7 +2533,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -2563,7 +2563,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "blake3",
  "criterion",
@@ -2656,7 +2656,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "enumset",
  "hashbrown 0.11.2",
@@ -2674,7 +2674,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2693,7 +2693,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -2752,7 +2752,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -2790,7 +2790,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-universal-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "cfg-if 1.0.0",
  "leb128",
@@ -2828,7 +2828,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
@@ -2869,7 +2869,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "indexmap",
  "loupe",
@@ -2892,7 +2892,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm-near"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "backtrace",
  "cc",

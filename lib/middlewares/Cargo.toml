@@ -11,13 +11,13 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../api", version = "2.0.0", package = "wasmer-near", default-features = false, features = ["compiler"] }
-wasmer-types = { path = "../types", version = "2.0.0", package = "wasmer-types-near" }
-wasmer-vm = { path = "../vm", version = "2.0.0", package = "wasmer-vm-near" }
+wasmer = { path = "../api", version = "2.0.1", package = "wasmer-near", default-features = false, features = ["compiler"] }
+wasmer-types = { path = "../types", version = "2.0.1", package = "wasmer-types-near" }
+wasmer-vm = { path = "../vm", version = "2.0.1", package = "wasmer-vm-near" }
 loupe = "0.1"
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "2.0.0", package = "wasmer-near", features = ["compiler"] }
+wasmer = { path = "../api", version = "2.0.1", package = "wasmer-near", features = ["compiler"] }
 
 [badges]
 maintenance = { status = "actively-developed" }
