@@ -897,7 +897,7 @@ mod tls {
 }
 
 /// Per-thread initialization, unneeded on Windows.
-#[cfg(not(unix))]
+#[cfg(any(not(unix), feature = "avoid-tls-signals"))]
 pub fn lazy_per_thread_init() -> Result<(), Trap> {
     // Unused on Windows
     Ok(())
@@ -909,7 +909,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 /// always large enough for our signal handling code. Override it by creating
 /// and registering our own alternate stack that is large enough and has a guard
 /// page.
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "avoid-tls-signals")))]
 pub fn lazy_per_thread_init() -> Result<(), Trap> {
     use std::cell::RefCell;
     use std::ptr::null_mut;
