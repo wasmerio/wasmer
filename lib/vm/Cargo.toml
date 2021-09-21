@@ -36,3 +36,4 @@ maintenance = { status = "actively-developed" }
 [features]
 default = []
 enable-rkyv = ["rkyv"]
+avoid-tls-signals = []

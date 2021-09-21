@@ -170,11 +170,11 @@ endif
 ifneq ($(ENABLE_SINGLEPASS), 0)
 	# … then maybe the user forced to enable the Singlepass compiler.
 	ifeq ($(ENABLE_SINGLEPASS), 1)
-		compilers += singlepass-near
+		compilers += singlepass
 	# … otherwise, we try to check whether Singlepass works on this host.
 	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
-			compilers += singlepass-near
+			compilers += singlepass
 		endif
 	endif
 endif
