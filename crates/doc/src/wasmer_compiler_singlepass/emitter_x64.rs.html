@@ -2817,7 +2817,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">emit_bkpt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">int</span> <span class="number">0x3</span>);
+        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">int3</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">emit_host_redirection</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">target</span>: <span class="ident">GPR</span>) {

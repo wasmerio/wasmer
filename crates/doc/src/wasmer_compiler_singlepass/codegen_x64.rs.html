@@ -9136,6 +9136,110 @@
 <span id="9133">9133</span>
 <span id="9134">9134</span>
 <span id="9135">9135</span>
+<span id="9136">9136</span>
+<span id="9137">9137</span>
+<span id="9138">9138</span>
+<span id="9139">9139</span>
+<span id="9140">9140</span>
+<span id="9141">9141</span>
+<span id="9142">9142</span>
+<span id="9143">9143</span>
+<span id="9144">9144</span>
+<span id="9145">9145</span>
+<span id="9146">9146</span>
+<span id="9147">9147</span>
+<span id="9148">9148</span>
+<span id="9149">9149</span>
+<span id="9150">9150</span>
+<span id="9151">9151</span>
+<span id="9152">9152</span>
+<span id="9153">9153</span>
+<span id="9154">9154</span>
+<span id="9155">9155</span>
+<span id="9156">9156</span>
+<span id="9157">9157</span>
+<span id="9158">9158</span>
+<span id="9159">9159</span>
+<span id="9160">9160</span>
+<span id="9161">9161</span>
+<span id="9162">9162</span>
+<span id="9163">9163</span>
+<span id="9164">9164</span>
+<span id="9165">9165</span>
+<span id="9166">9166</span>
+<span id="9167">9167</span>
+<span id="9168">9168</span>
+<span id="9169">9169</span>
+<span id="9170">9170</span>
+<span id="9171">9171</span>
+<span id="9172">9172</span>
+<span id="9173">9173</span>
+<span id="9174">9174</span>
+<span id="9175">9175</span>
+<span id="9176">9176</span>
+<span id="9177">9177</span>
+<span id="9178">9178</span>
+<span id="9179">9179</span>
+<span id="9180">9180</span>
+<span id="9181">9181</span>
+<span id="9182">9182</span>
+<span id="9183">9183</span>
+<span id="9184">9184</span>
+<span id="9185">9185</span>
+<span id="9186">9186</span>
+<span id="9187">9187</span>
+<span id="9188">9188</span>
+<span id="9189">9189</span>
+<span id="9190">9190</span>
+<span id="9191">9191</span>
+<span id="9192">9192</span>
+<span id="9193">9193</span>
+<span id="9194">9194</span>
+<span id="9195">9195</span>
+<span id="9196">9196</span>
+<span id="9197">9197</span>
+<span id="9198">9198</span>
+<span id="9199">9199</span>
+<span id="9200">9200</span>
+<span id="9201">9201</span>
+<span id="9202">9202</span>
+<span id="9203">9203</span>
+<span id="9204">9204</span>
+<span id="9205">9205</span>
+<span id="9206">9206</span>
+<span id="9207">9207</span>
+<span id="9208">9208</span>
+<span id="9209">9209</span>
+<span id="9210">9210</span>
+<span id="9211">9211</span>
+<span id="9212">9212</span>
+<span id="9213">9213</span>
+<span id="9214">9214</span>
+<span id="9215">9215</span>
+<span id="9216">9216</span>
+<span id="9217">9217</span>
+<span id="9218">9218</span>
+<span id="9219">9219</span>
+<span id="9220">9220</span>
+<span id="9221">9221</span>
+<span id="9222">9222</span>
+<span id="9223">9223</span>
+<span id="9224">9224</span>
+<span id="9225">9225</span>
+<span id="9226">9226</span>
+<span id="9227">9227</span>
+<span id="9228">9228</span>
+<span id="9229">9229</span>
+<span id="9230">9230</span>
+<span id="9231">9231</span>
+<span id="9232">9232</span>
+<span id="9233">9233</span>
+<span id="9234">9234</span>
+<span id="9235">9235</span>
+<span id="9236">9236</span>
+<span id="9237">9237</span>
+<span id="9238">9238</span>
+<span id="9239">9239</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::address_map::get_function_address_map</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common_decl</span>::<span class="kw-2">*</span>, <span class="ident">config::Singlepass</span>, <span class="ident">emitter_x64</span>::<span class="kw-2">*</span>, <span class="ident">machine::Machine</span>, <span class="ident">x64_decl</span>::<span class="kw-2">*</span>};
@@ -9147,9 +9251,9 @@
     <span class="ident">MemoryImmediate</span>, <span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">CompiledFunction</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>,
-    <span class="ident">FunctionBody</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>,
-    <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">SectionIndex</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>,
+    <span class="ident">CallingConvention</span>, <span class="ident">CompiledFunction</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>,
+    <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>,
+    <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">SectionIndex</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>, <span class="ident">SecondaryMap</span>},
@@ -10089,13 +10193,13 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Emits a System V call sequence.</span>
+    <span class="doccomment">/// Emits a System V / Windows call sequence.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function will not use RAX before `cb` is called.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling</span>
     <span class="doccomment">/// this function.</span>
-    <span class="kw">fn</span> <span class="ident">emit_call_sysv</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Location</span><span class="op">&gt;</span>, <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span>)<span class="op">&gt;</span>(
+    <span class="kw">fn</span> <span class="ident">emit_call_native</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Location</span><span class="op">&gt;</span>, <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span>)<span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">cb</span>: <span class="ident">F</span>,
         <span class="ident">params</span>: <span class="ident">I</span>,
@@ -10116,7 +10220,7 @@
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::GPR</span>(<span class="kw-2">*</span><span class="ident">r</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">clone</span>();
             <span class="kw">if</span> <span class="ident">content</span> <span class="op">=</span><span class="op">=</span> <span class="ident">MachineValue::Undefined</span> {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                    <span class="ident">message</span>: <span class="string">&quot;emit_call_sysv: Undefined used_gprs content&quot;</span>.<span class="ident">to_string</span>(),
+                    <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Undefined used_gprs content&quot;</span>.<span class="ident">to_string</span>(),
                 });
             }
             <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">content</span>);
@@ -10143,18 +10247,24 @@
                     <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">X64Register::XMM</span>(<span class="kw-2">*</span><span class="ident">r</span>).<span class="ident">to_index</span>().<span class="number">0</span>].<span class="ident">clone</span>();
                 <span class="kw">if</span> <span class="ident">content</span> <span class="op">=</span><span class="op">=</span> <span class="ident">MachineValue::Undefined</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                        <span class="ident">message</span>: <span class="string">&quot;emit_call_sysv: Undefined used_xmms content&quot;</span>.<span class="ident">to_string</span>(),
+                        <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Undefined used_xmms content&quot;</span>.<span class="ident">to_string</span>(),
                     });
                 }
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">content</span>);
             }
         }
+        <span class="kw">let</span> <span class="ident">calling_convention</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">calling_convention</span>;
+
+        <span class="kw">let</span> <span class="ident">stack_padding</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">calling_convention</span> {
+            <span class="ident">CallingConvention::WindowsFastcall</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">32</span>,
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
+        };
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="comment">// Calculate stack offset.</span>
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">_param</span>) <span class="kw">in</span> <span class="ident">params</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>) {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>, <span class="ident">calling_convention</span>) {
                 <span class="ident">stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
             }
         }
@@ -10177,10 +10287,9 @@
         }
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">call_movs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Location</span>, <span class="ident">GPR</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-
         <span class="comment">// Prepare register &amp; stack parameters.</span>
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">param</span>) <span class="kw">in</span> <span class="ident">params</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">rev</span>() {
-            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>);
+            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>, <span class="ident">calling_convention</span>);
             <span class="kw">match</span> <span class="ident">loc</span> {
                 <span class="ident">Location::GPR</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">call_movs</span>.<span class="ident">push</span>((<span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">x</span>));
@@ -10191,7 +10300,7 @@
                             <span class="kw">let</span> <span class="ident">content</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">register_values</span>
                                 [<span class="ident">X64Register::GPR</span>(<span class="ident">x</span>).<span class="ident">to_index</span>().<span class="number">0</span>]
                                 .<span class="ident">clone</span>();
-                            <span class="comment">// FIXME: There might be some corner cases (release -&gt; emit_call_sysv -&gt; acquire?) that cause this assertion to fail.</span>
+                            <span class="comment">// FIXME: There might be some corner cases (release -&gt; emit_call_native -&gt; acquire?) that cause this assertion to fail.</span>
                             <span class="comment">// Hopefully nothing would be incorrect at runtime.</span>
 
                             <span class="comment">//assert!(content != MachineValue::Undefined);</span>
@@ -10207,7 +10316,7 @@
                         <span class="ident">Location::Memory</span>(<span class="ident">reg</span>, <span class="ident">offset</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="kw">if</span> <span class="ident">reg</span> <span class="op">!</span><span class="op">=</span> <span class="ident">GPR::RBP</span> {
                                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                    <span class="ident">message</span>: <span class="string">&quot;emit_call_sysv loc param: unreachable code&quot;</span>
+                                    <span class="ident">message</span>: <span class="string">&quot;emit_call_native loc param: unreachable code&quot;</span>
                                         .<span class="ident">to_string</span>(),
                                 });
                             }
@@ -10229,18 +10338,18 @@
                             <span class="comment">// Dummy value slot to be filled with `mov`.</span>
                             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_push</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
 
-                            <span class="comment">// Use RCX as the temporary register here, since:</span>
+                            <span class="comment">// Use R9 as the temporary register here, since:</span>
                             <span class="comment">// - It is a temporary register that is not used for any persistent value.</span>
                             <span class="comment">// - This register as an argument location is only written to after `sort_call_movs`.&#39;</span>
-                            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">reserve_unused_temp_gpr</span>(<span class="ident">GPR::RCX</span>);
+                            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">reserve_unused_temp_gpr</span>(<span class="ident">GPR::R9</span>);
                             <span class="self">self</span>.<span class="ident">assembler</span>
-                                .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>));
+                                .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>));
                             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(
                                 <span class="ident">Size::S64</span>,
-                                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>),
+                                <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>),
                                 <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">0</span>),
                             );
-                            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_temp_gpr</span>(<span class="ident">GPR::RCX</span>);
+                            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_temp_gpr</span>(<span class="ident">GPR::R9</span>);
                         }
                         <span class="ident">Location::XMM</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
                             <span class="comment">// Dummy value slot to be filled with `mov`.</span>
@@ -10258,7 +10367,7 @@
                 }
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                        <span class="ident">message</span>: <span class="string">&quot;emit_call_sysv loc: unreachable code&quot;</span>.<span class="ident">to_string</span>(),
+                        <span class="ident">message</span>: <span class="string">&quot;emit_call_native loc: unreachable code&quot;</span>.<span class="ident">to_string</span>(),
                     })
                 }
             }
@@ -10278,13 +10387,21 @@
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(
             <span class="ident">Size::S64</span>,
             <span class="ident">Location::GPR</span>(<span class="ident">Machine::get_vmctx_reg</span>()),
-            <span class="ident">Machine::get_param_location</span>(<span class="number">0</span>),
+            <span class="ident">Machine::get_param_location</span>(<span class="number">0</span>, <span class="ident">calling_convention</span>),
         ); <span class="comment">// vmctx</span>
 
         <span class="kw">if</span> (<span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">len</span>() <span class="op">%</span> <span class="number">2</span>) <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;emit_call_sysv: explicit shadow takes one slot&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="ident">message</span>: <span class="string">&quot;emit_call_native: explicit shadow takes one slot&quot;</span>.<span class="ident">to_string</span>(),
             });
+        }
+
+        <span class="kw">if</span> <span class="ident">stack_padding</span> <span class="op">&gt;</span> <span class="number">0</span> {
+            <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_sub</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Imm32</span>(<span class="ident">stack_padding</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
+            );
         }
 
         <span class="ident">cb</span>(<span class="self">self</span>);
@@ -10309,15 +10426,15 @@
         }
 
         <span class="comment">// Restore stack.</span>
-        <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">stack_padding</span> <span class="op">&gt;</span> <span class="number">0</span> {
             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_add</span>(
                 <span class="ident">Size::S64</span>,
-                <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                <span class="ident">Location::Imm32</span>((<span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">stack_padding</span>) <span class="kw">as</span> <span class="ident">u32</span>),
                 <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
             );
             <span class="kw">if</span> (<span class="ident">stack_offset</span> <span class="op">%</span> <span class="number">8</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                    <span class="ident">message</span>: <span class="string">&quot;emit_call_sysv: Bad restoring stack alignement&quot;</span>.<span class="ident">to_string</span>(),
+                    <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Bad restoring stack alignement&quot;</span>.<span class="ident">to_string</span>(),
                 });
             }
             <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">stack_offset</span> <span class="op">/</span> <span class="number">8</span> {
@@ -10352,19 +10469,19 @@
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">MachineValue::ExplicitShadow</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;emit_call_sysv: Popped value is not ExplicitShadow&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Popped value is not ExplicitShadow&quot;</span>.<span class="ident">to_string</span>(),
             });
         }
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Emits a System V call sequence, specialized for labels as the call target.</span>
-    <span class="kw">fn</span> <span class="ident">_emit_call_sysv_label</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Location</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+    <span class="kw">fn</span> <span class="ident">_emit_call_native_label</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Location</span><span class="op">&gt;</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">label</span>: <span class="ident">DynamicLabel</span>,
         <span class="ident">params</span>: <span class="ident">I</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(<span class="op">|</span><span class="ident">this</span><span class="op">|</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_label</span>(<span class="ident">label</span>), <span class="ident">params</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.<span class="ident">emit_call_native</span>(<span class="op">|</span><span class="ident">this</span><span class="op">|</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_label</span>(<span class="ident">label</span>), <span class="ident">params</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -10882,6 +10999,7 @@
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">assembler</span>,
             <span class="self">self</span>.<span class="ident">local_types</span>.<span class="ident">len</span>(),
             <span class="self">self</span>.<span class="ident">signature</span>.<span class="ident">params</span>().<span class="ident">len</span>(),
+            <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">calling_convention</span>,
         );
 
         <span class="comment">// Mark vmctx register. The actual loading of the vmctx value is handled by init_local.</span>
@@ -14335,7 +14453,7 @@
                     <span class="ident">addend</span>: <span class="number">0</span>,
                 });
 
-                <span class="comment">// RAX is preserved on entry to `emit_call_sysv` callback.</span>
+                <span class="comment">// RAX is preserved on entry to `emit_call_native` callback.</span>
                 <span class="comment">// The Imm64 value is relocated by the JIT linker.</span>
                 <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(
                     <span class="ident">Size::S64</span>,
@@ -14343,7 +14461,7 @@
                     <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
                 );
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
                         <span class="ident">this</span>.<span class="ident">trap_table</span>
@@ -14529,8 +14647,9 @@
                     <span class="self">self</span>.<span class="ident">vmoffsets</span>.<span class="ident">vmcaller_checked_anyfunc_func_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span>;
                 <span class="kw">let</span> <span class="ident">vmcaller_checked_anyfunc_vmctx</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">vmoffsets</span>.<span class="ident">vmcaller_checked_anyfunc_vmctx</span>() <span class="kw">as</span> <span class="ident">usize</span>;
+                <span class="kw">let</span> <span class="ident">calling_convention</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">calling_convention</span>;
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="kw">if</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">arch_requires_indirect_call_trampoline</span>() {
                             <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">arch_emit_indirect_call_with_trampoline</span>(
@@ -14549,7 +14668,7 @@
                             <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(
                                 <span class="ident">Size::S64</span>,
                                 <span class="ident">Location::Memory</span>(<span class="ident">GPR::RAX</span>, <span class="ident">vmcaller_checked_anyfunc_vmctx</span> <span class="kw">as</span> <span class="ident">i32</span>),
-                                <span class="ident">Machine::get_param_location</span>(<span class="number">0</span>),
+                                <span class="ident">Machine::get_param_location</span>(<span class="number">0</span>, <span class="ident">calling_convention</span>),
                             );
 
                             <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_location</span>(<span class="ident">Location::Memory</span>(
@@ -14812,7 +14931,7 @@
                     ),
                     <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
                 );
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -14848,7 +14967,7 @@
                 <span class="comment">// TODO: should this be 3?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -14878,7 +14997,7 @@
                     <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
                 );
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -14921,7 +15040,7 @@
                 <span class="comment">// TODO: should this be 3?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -14970,7 +15089,7 @@
                 <span class="comment">// TODO: should this be 3?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -15005,7 +15124,7 @@
 
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -15819,8 +15938,11 @@
 
                 <span class="kw">if</span> <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">is_empty</span>() {
                     <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_label</span>(<span class="ident">frame</span>.<span class="ident">label</span>);
-                    <span class="self">self</span>.<span class="ident">machine</span>
-                        .<span class="ident">finalize_locals</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">assembler</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">locals</span>);
+                    <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">finalize_locals</span>(
+                        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">assembler</span>,
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">locals</span>,
+                        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">calling_convention</span>,
+                    );
                     <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(
                         <span class="ident">Size::S64</span>,
                         <span class="ident">Location::GPR</span>(<span class="ident">GPR::RBP</span>),
@@ -17477,7 +17599,7 @@
 
                 <span class="comment">// TODO: unclear if we need this? check other new insts with no stack ops</span>
                 <span class="comment">// self.machine.release_locations_only_osr_state(1);</span>
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17524,7 +17646,7 @@
 
                 <span class="comment">// TODO: should this be 2?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17558,7 +17680,7 @@
                 );
 
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17601,7 +17723,7 @@
                     <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
                 );
 
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17642,7 +17764,7 @@
 
                 <span class="comment">// TODO: should this be 2?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17690,7 +17812,7 @@
 
                 <span class="comment">// TODO: should this be 3?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17729,7 +17851,7 @@
 
                 <span class="comment">// TODO: should this be 3?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17759,7 +17881,7 @@
 
                 <span class="comment">// TODO: should this be 3?</span>
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">release_locations_only_osr_state</span>(<span class="number">1</span>);
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17792,7 +17914,7 @@
 
                 <span class="comment">// TODO: do we need this?</span>
                 <span class="comment">//self.machine.release_locations_only_osr_state(1);</span>
-                <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
+                <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR::RAX</span>);
                     },
@@ -17928,16 +18050,23 @@
 }
 
 <span class="comment">// Standard entry trampoline.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_std_trampoline</span>(<span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionBody</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_std_trampoline</span>(
+    <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
+    <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionBody</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>().<span class="ident">unwrap</span>();
 
     <span class="comment">// Calculate stack offset.</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_offset</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">_param</span>) <span class="kw">in</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>) {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>, <span class="ident">calling_convention</span>) {
             <span class="ident">stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
         }
     }
+    <span class="kw">let</span> <span class="ident">stack_padding</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">calling_convention</span> {
+        <span class="ident">CallingConvention::WindowsFastcall</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">32</span>,
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
+    };
 
     <span class="comment">// Align to 16 bytes. We push two 8-byte registers below, so here we need to ensure stack_offset % 16 == 8.</span>
     <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">%</span> <span class="number">16</span> <span class="op">!</span><span class="op">=</span> <span class="number">8</span> {
@@ -17951,19 +18080,19 @@
     <span class="comment">// Prepare stack space.</span>
     <span class="ident">a</span>.<span class="ident">emit_sub</span>(
         <span class="ident">Size::S64</span>,
-        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span>),
+        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">stack_padding</span>),
         <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
     );
 
     <span class="comment">// Arguments</span>
     <span class="ident">a</span>.<span class="ident">emit_mov</span>(
         <span class="ident">Size::S64</span>,
-        <span class="ident">Machine::get_param_location</span>(<span class="number">1</span>),
+        <span class="ident">Machine::get_param_location</span>(<span class="number">1</span>, <span class="ident">calling_convention</span>),
         <span class="ident">Location::GPR</span>(<span class="ident">GPR::R15</span>),
     ); <span class="comment">// func_ptr</span>
     <span class="ident">a</span>.<span class="ident">emit_mov</span>(
         <span class="ident">Size::S64</span>,
-        <span class="ident">Machine::get_param_location</span>(<span class="number">2</span>),
+        <span class="ident">Machine::get_param_location</span>(<span class="number">2</span>, <span class="ident">calling_convention</span>),
         <span class="ident">Location::GPR</span>(<span class="ident">GPR::R14</span>),
     ); <span class="comment">// args_rets</span>
 
@@ -17973,7 +18102,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">n_stack_args</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">_param</span>) <span class="kw">in</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">let</span> <span class="ident">src_loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::R14</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">16</span>) <span class="kw">as</span> <span class="kw">_</span>); <span class="comment">// args_rets[i]</span>
-            <span class="kw">let</span> <span class="ident">dst_loc</span> <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>);
+            <span class="kw">let</span> <span class="ident">dst_loc</span> <span class="op">=</span> <span class="ident">Machine::get_param_location</span>(<span class="number">1</span> <span class="op">+</span> <span class="ident">i</span>, <span class="ident">calling_convention</span>);
 
             <span class="kw">match</span> <span class="ident">dst_loc</span> {
                 <span class="ident">Location::GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
@@ -17986,7 +18115,10 @@
                     <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                         <span class="ident">Size::S64</span>,
                         <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
-                        <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">n_stack_args</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw">_</span>),
+                        <span class="ident">Location::Memory</span>(
+                            <span class="ident">GPR::RSP</span>,
+                            (<span class="ident">stack_padding</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">n_stack_args</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw">_</span>,
+                        ),
                     );
                     <span class="ident">n_stack_args</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                 }
@@ -18001,7 +18133,7 @@
     <span class="comment">// Restore stack.</span>
     <span class="ident">a</span>.<span class="ident">emit_add</span>(
         <span class="ident">Size::S64</span>,
-        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span>),
+        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">stack_padding</span>),
         <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
     );
 
@@ -18030,32 +18162,40 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_std_dynamic_import_trampoline</span>(
     <span class="ident">vmoffsets</span>: <span class="kw-2">&amp;</span><span class="ident">VMOffsets</span>,
     <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
+    <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionBody</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>().<span class="ident">unwrap</span>();
 
     <span class="comment">// Allocate argument array.</span>
     <span class="kw">let</span> <span class="ident">stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span> <span class="op">*</span> <span class="ident">std::cmp::max</span>(<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>(), <span class="ident">sig</span>.<span class="ident">results</span>().<span class="ident">len</span>()) <span class="op">+</span> <span class="number">8</span>; <span class="comment">// 16 bytes each + 8 bytes sysv call padding</span>
+    <span class="kw">let</span> <span class="ident">stack_padding</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">calling_convention</span> {
+        <span class="ident">CallingConvention::WindowsFastcall</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">32</span>,
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
+    };
     <span class="ident">a</span>.<span class="ident">emit_sub</span>(
         <span class="ident">Size::S64</span>,
-        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="kw">_</span>),
+        <span class="ident">Location::Imm32</span>((<span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">stack_padding</span>) <span class="kw">as</span> <span class="kw">_</span>),
         <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
     );
 
     <span class="comment">// Copy arguments.</span>
     <span class="kw">if</span> <span class="op">!</span><span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">is_empty</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argalloc</span> <span class="op">=</span> <span class="ident">ArgumentRegisterAllocator::default</span>();
-        <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="ident">Type::I64</span>).<span class="ident">unwrap</span>(); <span class="comment">// skip VMContext</span>
+        <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="ident">Type::I64</span>, <span class="ident">calling_convention</span>).<span class="ident">unwrap</span>(); <span class="comment">// skip VMContext</span>
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_param_count</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ty</span>) <span class="kw">in</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-            <span class="kw">let</span> <span class="ident">source_loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="kw-2">*</span><span class="ident">ty</span>) {
+            <span class="kw">let</span> <span class="ident">source_loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="kw-2">*</span><span class="ident">ty</span>, <span class="ident">calling_convention</span>) {
                 <span class="prelude-val">Some</span>(<span class="ident">X64Register::GPR</span>(<span class="ident">gpr</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">gpr</span>),
                 <span class="prelude-val">Some</span>(<span class="ident">X64Register::XMM</span>(<span class="ident">xmm</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::XMM</span>(<span class="ident">xmm</span>),
                 <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                         <span class="ident">Size::S64</span>,
-                        <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">stack_param_count</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw">_</span>),
+                        <span class="ident">Location::Memory</span>(
+                            <span class="ident">GPR::RSP</span>,
+                            (<span class="ident">stack_padding</span> <span class="op">*</span> <span class="number">2</span> <span class="op">+</span> <span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">stack_param_count</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw">_</span>,
+                        ),
                         <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
                     );
                     <span class="ident">stack_param_count</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
@@ -18065,30 +18205,50 @@
             <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                 <span class="ident">Size::S64</span>,
                 <span class="ident">source_loc</span>,
-                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">16</span>) <span class="kw">as</span> <span class="kw">_</span>),
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">stack_padding</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">16</span>) <span class="kw">as</span> <span class="kw">_</span>),
             );
 
             <span class="comment">// Zero upper 64 bits.</span>
             <span class="ident">a</span>.<span class="ident">emit_mov</span>(
                 <span class="ident">Size::S64</span>,
                 <span class="ident">Location::Imm32</span>(<span class="number">0</span>),
-                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">16</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw">_</span>),
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">stack_padding</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">16</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw">_</span>),
             );
         }
     }
 
-    <span class="comment">// Load target address.</span>
-    <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-        <span class="ident">Size::S64</span>,
-        <span class="ident">Location::Memory</span>(
-            <span class="ident">GPR::RDI</span>,
-            <span class="ident">vmoffsets</span>.<span class="ident">vmdynamicfunction_import_context_address</span>() <span class="kw">as</span> <span class="ident">i32</span>,
-        ),
-        <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
-    );
-
-    <span class="comment">// Load values array.</span>
-    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSI</span>));
+    <span class="kw">match</span> <span class="ident">calling_convention</span> {
+        <span class="ident">CallingConvention::WindowsFastcall</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="comment">// Load target address.</span>
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(
+                    <span class="ident">GPR::RCX</span>,
+                    <span class="ident">vmoffsets</span>.<span class="ident">vmdynamicfunction_import_context_address</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                ),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
+            );
+            <span class="comment">// Load values array.</span>
+            <span class="ident">a</span>.<span class="ident">emit_lea</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_padding</span> <span class="kw">as</span> <span class="ident">i32</span>),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>),
+            );
+        }
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="comment">// Load target address.</span>
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(
+                    <span class="ident">GPR::RDI</span>,
+                    <span class="ident">vmoffsets</span>.<span class="ident">vmdynamicfunction_import_context_address</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                ),
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
+            );
+            <span class="comment">// Load values array.</span>
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSI</span>));
+        }
+    };
 
     <span class="comment">// Call target.</span>
     <span class="ident">a</span>.<span class="ident">emit_call_location</span>(<span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
@@ -18098,7 +18258,7 @@
         <span class="macro">assert_eq!</span>(<span class="ident">sig</span>.<span class="ident">results</span>().<span class="ident">len</span>(), <span class="number">1</span>);
         <span class="ident">a</span>.<span class="ident">emit_mov</span>(
             <span class="ident">Size::S64</span>,
-            <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">0</span>),
+            <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_padding</span> <span class="kw">as</span> <span class="ident">i32</span>),
             <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
         );
     }
@@ -18106,7 +18266,7 @@
     <span class="comment">// Release values array.</span>
     <span class="ident">a</span>.<span class="ident">emit_add</span>(
         <span class="ident">Size::S64</span>,
-        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="kw">_</span>),
+        <span class="ident">Location::Imm32</span>((<span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">stack_padding</span>) <span class="kw">as</span> <span class="kw">_</span>),
         <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
     );
 
@@ -18124,87 +18284,119 @@
     <span class="ident">vmoffsets</span>: <span class="kw-2">&amp;</span><span class="ident">VMOffsets</span>,
     <span class="ident">index</span>: <span class="ident">FunctionIndex</span>,
     <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
+    <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CustomSection</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>().<span class="ident">unwrap</span>();
 
     <span class="comment">// TODO: ARM entry trampoline is not emitted.</span>
 
-    <span class="comment">// Singlepass internally treats all arguments as integers, but the standard System V calling convention requires</span>
-    <span class="comment">// floating point arguments to be passed in XMM registers.</span>
-    <span class="comment">//</span>
-    <span class="comment">// FIXME: This is only a workaround. We should fix singlepass to use the standard CC.</span>
-
-    <span class="comment">// Translation is expensive, so only do it if needed.</span>
+    <span class="comment">// Singlepass internally treats all arguments as integers</span>
+    <span class="comment">// For the standard Windows calling convention requires</span>
+    <span class="comment">//  floating point arguments to be passed in XMM registers for the 4 first arguments only</span>
+    <span class="comment">//  That&#39;s the only change to do, other arguments are not to be changed</span>
+    <span class="comment">// For the standard System V calling convention requires</span>
+    <span class="comment">//  floating point arguments to be passed in XMM registers.</span>
+    <span class="comment">//  Translation is expensive, so only do it if needed.</span>
     <span class="kw">if</span> <span class="ident">sig</span>
         .<span class="ident">params</span>()
         .<span class="ident">iter</span>()
         .<span class="ident">any</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type::F32</span> <span class="op">|</span><span class="op">|</span> <span class="ident">x</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type::F64</span>)
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-
-        <span class="comment">// Allocate stack space for arguments.</span>
-        <span class="kw">let</span> <span class="ident">stack_offset</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">5</span> {
-            <span class="number">5</span> <span class="op">*</span> <span class="number">8</span>
-        } <span class="kw">else</span> {
-            (<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>) <span class="op">*</span> <span class="number">8</span>
-        };
-        <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> {
-            <span class="ident">a</span>.<span class="ident">emit_sub</span>(
-                <span class="ident">Size::S64</span>,
-                <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
-                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
-            );
-        }
-
-        <span class="comment">// Store all arguments to the stack to prevent overwrite.</span>
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() {
-            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span>..<span class="op">=</span><span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">static</span> <span class="ident">PARAM_REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">GPR::RSI</span>, <span class="ident">GPR::RDX</span>, <span class="ident">GPR::RCX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
-                    <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>);
-                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">PARAM_REGS</span>[<span class="ident">i</span>]), <span class="ident">loc</span>);
-                    <span class="ident">loc</span>
+        <span class="kw">match</span> <span class="ident">calling_convention</span> {
+            <span class="ident">CallingConvention::WindowsFastcall</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() {
+                    <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">i</span> {
+                        <span class="number">0</span>..<span class="op">=</span><span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="kw">static</span> <span class="ident">PARAM_REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">GPR::RDX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
+                            <span class="ident">Location::GPR</span>(<span class="ident">PARAM_REGS</span>[<span class="ident">i</span>])
+                        }
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">32</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> ((<span class="ident">i</span> <span class="op">-</span> <span class="number">3</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>), <span class="comment">// will not be used anyway</span>
+                    };
+                    <span class="ident">param_locations</span>.<span class="ident">push</span>(<span class="ident">loc</span>);
                 }
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> ((<span class="ident">i</span> <span class="op">-</span> <span class="number">5</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
-            };
-            <span class="ident">param_locations</span>.<span class="ident">push</span>(<span class="ident">loc</span>);
-        }
+                <span class="comment">// Copy Float arguments to XMM from GPR.</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argalloc</span> <span class="op">=</span> <span class="ident">ArgumentRegisterAllocator::default</span>();
+                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ty</span>) <span class="kw">in</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
+                    <span class="kw">let</span> <span class="ident">prev_loc</span> <span class="op">=</span> <span class="ident">param_locations</span>[<span class="ident">i</span>];
+                    <span class="kw">match</span> <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="kw-2">*</span><span class="ident">ty</span>, <span class="ident">calling_convention</span>) {
+                        <span class="prelude-val">Some</span>(<span class="ident">X64Register::GPR</span>(<span class="ident">_gpr</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">continue</span>,
+                        <span class="prelude-val">Some</span>(<span class="ident">X64Register::XMM</span>(<span class="ident">xmm</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">prev_loc</span>, <span class="ident">Location::XMM</span>(<span class="ident">xmm</span>))
+                        }
+                        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">continue</span>,
+                    };
+                }
+            }
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">param_locations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
-        <span class="comment">// Copy arguments.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argalloc</span> <span class="op">=</span> <span class="ident">ArgumentRegisterAllocator::default</span>();
-        <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="ident">Type::I64</span>).<span class="ident">unwrap</span>(); <span class="comment">// skip VMContext</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">caller_stack_offset</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ty</span>) <span class="kw">in</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-            <span class="kw">let</span> <span class="ident">prev_loc</span> <span class="op">=</span> <span class="ident">param_locations</span>[<span class="ident">i</span>];
-            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="kw-2">*</span><span class="ident">ty</span>) {
-                <span class="prelude-val">Some</span>(<span class="ident">X64Register::GPR</span>(<span class="ident">gpr</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">gpr</span>),
-                <span class="prelude-val">Some</span>(<span class="ident">X64Register::XMM</span>(<span class="ident">xmm</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::XMM</span>(<span class="ident">xmm</span>),
-                <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="comment">// No register can be allocated. Put this argument on the stack.</span>
-                    <span class="comment">//</span>
-                    <span class="comment">// Since here we never use fewer registers than by the original call, on the caller&#39;s frame</span>
-                    <span class="comment">// we always have enough space to store the rearranged arguments, and the copy &quot;backward&quot; between different</span>
-                    <span class="comment">// slots in the caller argument region will always work.</span>
-                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">prev_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
-                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="comment">// Allocate stack space for arguments.</span>
+                <span class="kw">let</span> <span class="ident">stack_offset</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">5</span> {
+                    <span class="number">5</span> <span class="op">*</span> <span class="number">8</span>
+                } <span class="kw">else</span> {
+                    (<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>) <span class="op">*</span> <span class="number">8</span>
+                };
+                <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> {
+                    <span class="ident">a</span>.<span class="ident">emit_sub</span>(
                         <span class="ident">Size::S64</span>,
-                        <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
-                        <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">caller_stack_offset</span>),
+                        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                        <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
                     );
-                    <span class="ident">caller_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
-                    <span class="kw">continue</span>;
                 }
-            };
-            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">prev_loc</span>, <span class="ident">target</span>);
-        }
 
-        <span class="comment">// Restore stack pointer.</span>
-        <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> {
-            <span class="ident">a</span>.<span class="ident">emit_add</span>(
-                <span class="ident">Size::S64</span>,
-                <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
-                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
-            );
+                <span class="comment">// Store all arguments to the stack to prevent overwrite.</span>
+                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>() {
+                    <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">i</span> {
+                        <span class="number">0</span>..<span class="op">=</span><span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="kw">static</span> <span class="ident">PARAM_REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span>
+                                <span class="kw-2">&amp;</span>[<span class="ident">GPR::RSI</span>, <span class="ident">GPR::RDX</span>, <span class="ident">GPR::RCX</span>, <span class="ident">GPR::R8</span>, <span class="ident">GPR::R9</span>];
+                            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>);
+                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">PARAM_REGS</span>[<span class="ident">i</span>]), <span class="ident">loc</span>);
+                            <span class="ident">loc</span>
+                        }
+                        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> ((<span class="ident">i</span> <span class="op">-</span> <span class="number">5</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
+                    };
+                    <span class="ident">param_locations</span>.<span class="ident">push</span>(<span class="ident">loc</span>);
+                }
+
+                <span class="comment">// Copy arguments.</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">argalloc</span> <span class="op">=</span> <span class="ident">ArgumentRegisterAllocator::default</span>();
+                <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="ident">Type::I64</span>, <span class="ident">calling_convention</span>).<span class="ident">unwrap</span>(); <span class="comment">// skip VMContext</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">caller_stack_offset</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">0</span>;
+                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ty</span>) <span class="kw">in</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
+                    <span class="kw">let</span> <span class="ident">prev_loc</span> <span class="op">=</span> <span class="ident">param_locations</span>[<span class="ident">i</span>];
+                    <span class="kw">let</span> <span class="ident">targ</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">argalloc</span>.<span class="ident">next</span>(<span class="kw-2">*</span><span class="ident">ty</span>, <span class="ident">calling_convention</span>) {
+                        <span class="prelude-val">Some</span>(<span class="ident">X64Register::GPR</span>(<span class="ident">gpr</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">gpr</span>),
+                        <span class="prelude-val">Some</span>(<span class="ident">X64Register::XMM</span>(<span class="ident">xmm</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::XMM</span>(<span class="ident">xmm</span>),
+                        <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> {
+                            <span class="comment">// No register can be allocated. Put this argument on the stack.</span>
+                            <span class="comment">//</span>
+                            <span class="comment">// Since here we never use fewer registers than by the original call, on the caller&#39;s frame</span>
+                            <span class="comment">// we always have enough space to store the rearranged arguments, and the copy &quot;backward&quot; between different</span>
+                            <span class="comment">// slots in the caller argument region will always work.</span>
+                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">prev_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
+                            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                                <span class="ident">Size::S64</span>,
+                                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
+                                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="ident">stack_offset</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">caller_stack_offset</span>),
+                            );
+                            <span class="ident">caller_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
+                            <span class="kw">continue</span>;
+                        }
+                    };
+                    <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">prev_loc</span>, <span class="ident">targ</span>);
+                }
+
+                <span class="comment">// Restore stack pointer.</span>
+                <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">&gt;</span> <span class="number">0</span> {
+                    <span class="ident">a</span>.<span class="ident">emit_add</span>(
+                        <span class="ident">Size::S64</span>,
+                        <span class="ident">Location::Imm32</span>(<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
+                        <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
+                    );
+                }
+            }
         }
     }
 
@@ -18213,16 +18405,32 @@
 
     <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">vmoffsets</span>.<span class="ident">vmctx_vmfunction_import</span>(<span class="ident">index</span>);
 
-    <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-        <span class="ident">Size::S64</span>,
-        <span class="ident">Location::Memory</span>(<span class="ident">GPR::RDI</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i32</span>), <span class="comment">// function pointer</span>
-        <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
-    );
-    <span class="ident">a</span>.<span class="ident">emit_mov</span>(
-        <span class="ident">Size::S64</span>,
-        <span class="ident">Location::Memory</span>(<span class="ident">GPR::RDI</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="op">+</span> <span class="number">8</span>), <span class="comment">// target vmctx</span>
-        <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>),
-    );
+    <span class="kw">match</span> <span class="ident">calling_convention</span> {
+        <span class="ident">CallingConvention::WindowsFastcall</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RCX</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i32</span>), <span class="comment">// function pointer</span>
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
+            );
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RCX</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="op">+</span> <span class="number">8</span>), <span class="comment">// target vmctx</span>
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>),
+            );
+        }
+        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RDI</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i32</span>), <span class="comment">// function pointer</span>
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
+            );
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RDI</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="op">+</span> <span class="number">8</span>), <span class="comment">// target vmctx</span>
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>),
+            );
+        }
+    }
     <span class="ident">a</span>.<span class="ident">emit_host_redirection</span>(<span class="ident">GPR::RAX</span>);
 
     <span class="kw">let</span> <span class="ident">section_body</span> <span class="op">=</span> <span class="ident">SectionBody::new_with_vec</span>(<span class="ident">a</span>.<span class="ident">finalize</span>().<span class="ident">unwrap</span>().<span class="ident">to_vec</span>());

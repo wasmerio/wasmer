@@ -557,6 +557,55 @@
 <span id="554">554</span>
 <span id="555">555</span>
 <span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::emitter_x64</span>::<span class="kw-2">*</span>;
@@ -566,6 +615,7 @@
 <span class="kw">use</span> <span class="ident">std::cmp</span>;
 <span class="kw">use</span> <span class="ident">std::collections::HashSet</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler::CallingConvention</span>;
 
 <span class="kw">const</span> <span class="ident">NATIVE_PAGE_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">4096</span>;
 
@@ -890,6 +940,7 @@
         <span class="ident">a</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">E</span>,
         <span class="ident">n</span>: <span class="ident">usize</span>,
         <span class="ident">n_params</span>: <span class="ident">usize</span>,
+        <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&gt;</span> {
         <span class="comment">// Determine whether a local should be allocated on the stack.</span>
         <span class="kw">fn</span> <span class="ident">is_local_on_stack</span>(<span class="ident">idx</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -926,6 +977,11 @@
 
         <span class="comment">// Callee-saved R15 for vmctx.</span>
         <span class="ident">static_area_size</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
+
+        <span class="comment">// For Windows ABI, save RDI and RSI</span>
+        <span class="kw">if</span> <span class="ident">calling_convention</span> <span class="op">=</span><span class="op">=</span> <span class="ident">CallingConvention::WindowsFastcall</span> {
+            <span class="ident">static_area_size</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span> <span class="op">*</span> <span class="number">2</span>;
+        }
 
         <span class="comment">// Total size of callee saved registers.</span>
         <span class="kw">let</span> <span class="ident">callee_saved_regs_size</span> <span class="op">=</span> <span class="ident">static_area_size</span>;
@@ -971,6 +1027,29 @@
             <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R15</span>).<span class="ident">to_index</span>(),
         ));
 
+        <span class="kw">if</span> <span class="ident">calling_convention</span> <span class="op">=</span><span class="op">=</span> <span class="ident">CallingConvention::WindowsFastcall</span> {
+            <span class="comment">// Save RDI</span>
+            <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>),
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>)),
+            );
+            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue::PreserveRegister</span>(
+                <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RDI</span>).<span class="ident">to_index</span>(),
+            ));
+            <span class="comment">// Save RSI</span>
+            <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
+            <span class="ident">a</span>.<span class="ident">emit_mov</span>(
+                <span class="ident">Size::S64</span>,
+                <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSI</span>),
+                <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="op">-</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>)),
+            );
+            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue::PreserveRegister</span>(
+                <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RSI</span>).<span class="ident">to_index</span>(),
+            ));
+        }
+
         <span class="comment">// Save the offset of register save area.</span>
         <span class="self">self</span>.<span class="ident">save_area_offset</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">MachineStackOffset</span>(<span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span>));
 
@@ -992,7 +1071,7 @@
         <span class="comment">// Locals are allocated on the stack from higher address to lower address,</span>
         <span class="comment">// so we won&#39;t skip the stack guard page here.</span>
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">n_params</span> {
-            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="self">Self</span><span class="ident">::get_param_location</span>(<span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>);
+            <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="self">Self</span><span class="ident">::get_param_location</span>(<span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>, <span class="ident">calling_convention</span>);
             <span class="kw">match</span> <span class="ident">loc</span> {
                 <span class="ident">Location::GPR</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">a</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">locations</span>[<span class="ident">i</span>]);
@@ -1014,7 +1093,7 @@
         <span class="comment">// Load vmctx into R15.</span>
         <span class="ident">a</span>.<span class="ident">emit_mov</span>(
             <span class="ident">Size::S64</span>,
-            <span class="self">Self</span><span class="ident">::get_param_location</span>(<span class="number">0</span>),
+            <span class="self">Self</span><span class="ident">::get_param_location</span>(<span class="number">0</span>, <span class="ident">calling_convention</span>),
             <span class="ident">Location::GPR</span>(<span class="ident">GPR::R15</span>),
         );
 
@@ -1059,7 +1138,12 @@
         <span class="ident">locations</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize_locals</span><span class="op">&lt;</span><span class="ident">E</span>: <span class="ident">Emitter</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">a</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">E</span>, <span class="ident">locations</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span>]) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize_locals</span><span class="op">&lt;</span><span class="ident">E</span>: <span class="ident">Emitter</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">a</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">E</span>,
+        <span class="ident">locations</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span>],
+        <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
+    ) {
         <span class="comment">// Unwind stack to the &quot;save area&quot;.</span>
         <span class="ident">a</span>.<span class="ident">emit_lea</span>(
             <span class="ident">Size::S64</span>,
@@ -1070,6 +1154,11 @@
             <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>),
         );
 
+        <span class="kw">if</span> <span class="ident">calling_convention</span> <span class="op">=</span><span class="op">=</span> <span class="ident">CallingConvention::WindowsFastcall</span> {
+            <span class="comment">// Restore RSI and RDI</span>
+            <span class="ident">a</span>.<span class="ident">emit_pop</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSI</span>));
+            <span class="ident">a</span>.<span class="ident">emit_pop</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>));
+        }
         <span class="comment">// Restore R15 used by vmctx.</span>
         <span class="ident">a</span>.<span class="ident">emit_pop</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::R15</span>));
 
@@ -1081,15 +1170,24 @@
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_param_location</span>(<span class="ident">idx</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Location</span> {
-        <span class="kw">match</span> <span class="ident">idx</span> {
-            <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>),
-            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSI</span>),
-            <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>),
-            <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>),
-            <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R8</span>),
-            <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, (<span class="number">16</span> <span class="op">+</span> (<span class="ident">idx</span> <span class="op">-</span> <span class="number">6</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_param_location</span>(<span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Location</span> {
+        <span class="kw">match</span> <span class="ident">calling_convention</span> {
+            <span class="ident">CallingConvention::WindowsFastcall</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">idx</span> {
+                <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>),
+                <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>),
+                <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R8</span>),
+                <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, (<span class="number">16</span> <span class="op">+</span> <span class="number">32</span> <span class="op">+</span> (<span class="ident">idx</span> <span class="op">-</span> <span class="number">4</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
+            },
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">idx</span> {
+                <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDI</span>),
+                <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSI</span>),
+                <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>),
+                <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::RCX</span>),
+                <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R8</span>),
+                <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, (<span class="number">16</span> <span class="op">+</span> (<span class="ident">idx</span> <span class="op">-</span> <span class="number">6</span>) <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">i32</span>),
+            },
         }
     }
 }

@@ -80,6 +80,16 @@
 <span id="77">77</span>
 <span id="78">78</span>
 <span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// Allow unused imports while developing</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -87,7 +97,9 @@
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::compiler::SinglepassCompiler</span>;
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">CpuFeature</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Target</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
+    <span class="ident">CallingConvention</span>, <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">CpuFeature</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Target</span>,
+};
 <span class="kw">use</span> <span class="ident">wasmer_types::Features</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
@@ -96,6 +108,8 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_stack_check</span>: <span class="ident">bool</span>,
     <span class="doccomment">/// The middleware chain.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">middlewares</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Singlepass</span> {
@@ -106,6 +120,12 @@
             <span class="ident">enable_nan_canonicalization</span>: <span class="bool-val">true</span>,
             <span class="ident">enable_stack_check</span>: <span class="bool-val">false</span>,
             <span class="ident">middlewares</span>: <span class="macro">vec!</span>[],
+            <span class="ident">calling_convention</span>: <span class="kw">match</span> <span class="ident">Target::default</span>().<span class="ident">triple</span>().<span class="ident">default_calling_convention</span>() {
+                <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::WindowsFastcall</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">CallingConvention::WindowsFastcall</span>,
+                <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::SystemV</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">CallingConvention::SystemV</span>,
+                <span class="comment">//Ok(CallingConvention::AppleAarch64) =&gt; AppleAarch64,</span>
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unsupported Calling convention for Singlepass&quot;</span>),
+            },
         }
     }
 
