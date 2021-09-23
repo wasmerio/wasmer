@@ -892,6 +892,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
+name = "gumdrop"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46571f5d540478cf70d2a42dd0d6d8e9f4b9cc7531544b93311e657b86568a0b"
+dependencies = [
+ "gumdrop_derive",
+]
+
+[[package]]
+name = "gumdrop_derive"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "915ef07c710d84733522461de2a734d4d62a3fd39a4d4f404c2f385ef8618d05"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "half"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2365,6 +2385,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
+name = "wasi-test-generator"
+version = "2.0.0"
+dependencies = [
+ "glob",
+ "gumdrop",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "wast 24.0.0",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2926,7 +2958,7 @@ dependencies = [
  "wasmer",
  "wasmer-vfs",
  "wasmer-wasi",
- "wast",
+ "wast 37.0.0",
 ]
 
 [[package]]
@@ -2948,6 +2980,7 @@ dependencies = [
  "test-generator",
  "tracing",
  "tracing-subscriber",
+ "wasi-test-generator",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
@@ -3005,6 +3038,15 @@ dependencies = [
 
 [[package]]
 name = "wast"
+version = "24.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ff1e3bd3ad0b2ee7784add89c30dc96b89a54b43e5d6d95d774eda1863b3500"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
+name = "wast"
 version = "37.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9bc7b9a76845047ded00e031754ff410afee0d50fbdf62b55bdeecd245063d68"
@@ -3018,7 +3060,7 @@ version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ab2cc8d9a69d1ab28a41d9149bb06bb927aba8fc9d56625f8b597a564c83f50"
 dependencies = [
- "wast",
+ "wast 37.0.0",
 ]
 
 [[package]]

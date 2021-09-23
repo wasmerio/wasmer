@@ -14,6 +14,9 @@ use gumdrop::Options;
 
 #[derive(Debug, Options)]
 pub struct TestGenOptions {
+    /// if you want to specify specific tests to generate
+    #[options(free)]
+    free: Vec<String>,
     /// Whether or not to do operations for all versions of WASI or just the latest.
     all_versions: bool,
     /// Whether or not the Wasm will be generated.
@@ -48,6 +51,7 @@ fn main() {
 
     // Generate the WASI Wasm files
     if generate_wasm {
-        build(wasi_versions);
+        let specific_tests: Vec<&str> = opts.free.iter().map(|st| st.as_str()).collect();
+        build(wasi_versions, &specific_tests);
     }
 }
