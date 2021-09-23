@@ -1400,7 +1400,7 @@ impl Emitter for Assembler {
     }
 
     fn emit_bkpt(&mut self) {
-        dynasm!(self ; int 0x3);
+        dynasm!(self ; int3);
     }
 
     fn emit_host_redirection(&mut self, target: GPR) {
