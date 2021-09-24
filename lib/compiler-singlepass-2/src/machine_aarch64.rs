@@ -544,7 +544,8 @@ impl Machine for Aarch64Machine {
 
     fn do_return(&mut self, ty: Option<WpType>, ret_val: Option<Local<Location>>, end_label: DynamicLabel) {
         match ty {
-            Some(WpType::F32|WpType::F64) => { unimplemented!(); }
+            Some(WpType::F32) => { unimplemented!(); }
+            Some(WpType::F64) => { unimplemented!(); }
             _ => {}
         }
         

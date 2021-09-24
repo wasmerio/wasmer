@@ -3,12 +3,6 @@
 version = 3
 
 [[package]]
-name = "abort_on_panic"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "955f37ac58af2416bac687c8ab66a4ccba282229bd7422a28d2281a5e66a6116"
-
-[[package]]
 name = "addr2line"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1216,16 +1210,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b16bd47d9e329435e309c58469fe0791c2d0d1ba96ec0954152a5ae2b04387dc"
 
 [[package]]
-name = "memmap"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6585fd95e7bb50d6cc31e20d4cf9afb4e2ba16c5846fc76793f11218da9c475b"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "memmap2"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2181,6 +2165,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "thread_local"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8018d24e04c95ac8790716a5987d0fec4f8b27249ffa0f7d33f1369bdfb88cbd"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "time"
 version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2732,37 +2725,18 @@ dependencies = [
 name = "wasmer-compiler-singlepass-2"
 version = "0.0.1"
 dependencies = [
- "byteorder",
- "dynasm",
- "dynasmrt",
- "hashbrown 0.9.1",
- "lazy_static",
- "more-asserts",
- "rayon",
- "serde",
- "smallvec",
- "target-lexicon",
- "wasmer-compiler",
- "wasmer-types",
- "wasmer-vm",
-]
-
-[[package]]
-name = "wasmer-compiler-singlepass-2"
-version = "0.0.1"
-dependencies = [
  "array-init",
  "byteorder",
  "dynasm",
  "dynasmrt",
  "hashbrown 0.9.1",
  "lazy_static",
+ "loupe",
  "more-asserts",
  "rayon",
  "regex",
- "serde",
  "smallvec",
- "target-lexicon",
+ "target-lexicon 0.12.2",
  "wasmer",
  "wasmer-compiler",
  "wasmer-types",
@@ -3041,6 +3015,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-compiler-singlepass-2",
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",

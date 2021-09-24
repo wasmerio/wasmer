@@ -4,12 +4,13 @@
 
 use crate::codegen::{CodegenError, FuncGen};
 use crate::config::Singlepass;
+use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
-    Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, OperatingSystem, Target,
+    Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader, 
+    ModuleMiddlewareChain, ModuleMiddleware, ModuleTranslationState, OperatingSystem, Target,
 };
 use wasmer_compiler::{
     Compilation, CompileError, CompiledFunction, Compiler, SectionIndex,
@@ -24,6 +25,7 @@ use crate::machine_x64::X64Machine;
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
+#[derive(MemoryUsage)]
 pub struct SinglepassCompiler {
     config: Singlepass,
 }
@@ -112,12 +114,17 @@ impl Generator {
 }
 
 impl Compiler for SinglepassCompiler {
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
     /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &mut CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
@@ -155,9 +162,6 @@ impl Compiler for SinglepassCompiler {
             },
         };
 
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
@@ -171,7 +175,7 @@ impl Compiler for SinglepassCompiler {
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .iter()// .par_iter()
+            .iter()// .into_par_iter_if_rayon()
             .map(|(i, input)| gen.gen_function(&self, input, &vmoffsets, &compile_info, *i))
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()
@@ -180,8 +184,7 @@ impl Compiler for SinglepassCompiler {
             .signatures
             .values()
             .collect::<Vec<_>>()
-            .par_iter()
-            .cloned()
+            .into_par_iter_if_rayon()
             .map(|sig| gen.gen_std_trampoline(sig))
             .collect::<Vec<_>>()
             .into_iter()
@@ -189,8 +192,8 @@ impl Compiler for SinglepassCompiler {
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
-            .par_iter()
-            .map(|func_type| gen.gen_std_dynamic_import_trampoline(&vmoffsets, func_type))
+            .into_par_iter_if_rayon()
+            .map(|func_type| gen.gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
@@ -217,6 +220,25 @@ impl ToCompileError for CodegenError {
 
 fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
     x.to_compile_error()
+}
+
+trait IntoParIterIfRayon {
+    type Output;
+    fn into_par_iter_if_rayon(self) -> Self::Output;
+}
+
+impl<T: Send> IntoParIterIfRayon for Vec<T> {
+    #[cfg(not(feature = "rayon"))]
+    type Output = std::vec::IntoIter<T>;
+    #[cfg(feature = "rayon")]
+    type Output = rayon::vec::IntoIter<T>;
+
+    fn into_par_iter_if_rayon(self) -> Self::Output {
+        #[cfg(not(feature = "rayon"))]
+        return self.into_iter();
+        #[cfg(feature = "rayon")]
+        return self.into_par_iter();
+    }
 }
 
 #[cfg(test)]

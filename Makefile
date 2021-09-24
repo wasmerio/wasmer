@@ -104,6 +104,7 @@ endif
 ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
 ENABLE_SINGLEPASS ?=
+ENABLE_SINGLEPASS_2 ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers := 
@@ -181,6 +182,21 @@ endif
 
 ifneq (, $(findstring singlepass,$(compilers)))
 	ENABLE_SINGLEPASS := 1
+endif
+
+# If the user didn't disable the Singlepass-2 compiler…
+ifneq ($(ENABLE_SINGLEPASS_2), 0)
+	# … then maybe the user forced to enable the Singlepass-2 compiler.
+	ifeq ($(ENABLE_SINGLEPASS_2), 1)
+		compilers += singlepass-2
+	# … otherwise, we try to check whether Singlepass-2 works on this host.
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+			compilers += singlepass-2
+	endif
+endif
+
+ifneq (, $(findstring singlepass-2,$(compilers)))
+	ENABLE_SINGLEPASS_2 := 1
 endif
 
 ##
@@ -531,6 +547,9 @@ test-singlepass-2-native:
 
 test-singlepass-universal:
 	cargo test --release --tests $(compiler_features) -- singlepass::universal
+
+test-singlepass-2-universal:
+	cargo test --release --tests $(compiler_features) -- singlepass-2::universal
 
 test-cranelift-dylib:
 	cargo test --release --tests $(compiler_features) -- cranelift::dylib
