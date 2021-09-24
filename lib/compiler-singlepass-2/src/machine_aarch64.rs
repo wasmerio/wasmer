@@ -1,10 +1,10 @@
+use crate::codegen::Local;
+use crate::common_decl::Size;
 use crate::machine::*;
-use crate::codegen::{Local};
-use crate::common_decl::{Size};
 
 use dynasmrt::aarch64::Assembler;
 use dynasmrt::{dynasm, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_types::{FunctionType, FunctionIndex, Type};
+use wasmer_types::{FunctionIndex, FunctionType, Type};
 use wasmer_vm::VMOffsets;
 
 use wasmer_compiler::wasmparser::Type as WpType;
@@ -12,35 +12,62 @@ use wasmer_compiler::wasmparser::Type as WpType;
 use std::cmp::min;
 use std::fmt::Debug;
 
-use wasmer_compiler::{Relocation, RelocationTarget, RelocationKind};
+use wasmer_compiler::{Relocation, RelocationKind, RelocationTarget};
 
 use crate::machine_utils::{
-    LocalManager,
-    Emitter,
-    In2Out1 as AbstractIn2Out1,
-    In2Out0 as AbstractIn2Out0,
-    In1Out1 as AbstractIn1Out1,
-    In1Out0 as AbstractIn1Out0,
-    In0Out1 as AbstractIn0Out1,
-    Reg as AbstractReg,
-    Location as AbstractLocation,
-    Descriptor as AbstractDescriptor,
+    Descriptor as AbstractDescriptor, Emitter, In0Out1 as AbstractIn0Out1,
+    In1Out0 as AbstractIn1Out0, In1Out1 as AbstractIn1Out1, In2Out0 as AbstractIn2Out0,
+    In2Out1 as AbstractIn2Out1, LocalManager, Location as AbstractLocation, Reg as AbstractReg,
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Reg {
-    X0  = 0,  X1  = 1,  X2  = 2,  X3  = 3,  X4  = 4,
-    X5  = 5,  X6  = 6,  X7  = 7,  X8  = 8,  X9  = 9,
-    X10 = 10, X11 = 11, X12 = 12, X13 = 13, X14 = 14,
-    X15 = 15, X16 = 16, X17 = 17, X18 = 18, X19 = 19,
-    X20 = 20, X21 = 21, X22 = 22, X23 = 23, X24 = 24,
-    X25 = 25, X26 = 26, X27 = 27, X28 = 28, X29 = 29,
-    X30 = 30, XZR = 31, SP  = 32,
+    X0 = 0,
+    X1 = 1,
+    X2 = 2,
+    X3 = 3,
+    X4 = 4,
+    X5 = 5,
+    X6 = 6,
+    X7 = 7,
+    X8 = 8,
+    X9 = 9,
+    X10 = 10,
+    X11 = 11,
+    X12 = 12,
+    X13 = 13,
+    X14 = 14,
+    X15 = 15,
+    X16 = 16,
+    X17 = 17,
+    X18 = 18,
+    X19 = 19,
+    X20 = 20,
+    X21 = 21,
+    X22 = 22,
+    X23 = 23,
+    X24 = 24,
+    X25 = 25,
+    X26 = 26,
+    X27 = 27,
+    X28 = 28,
+    X29 = 29,
+    X30 = 30,
+    XZR = 31,
+    SP = 32,
 }
 
 const FREE_REGS: [Reg; 10] = [
-    Reg::X8,  Reg::X9,  Reg::X10, Reg::X11, Reg::X12,
-    Reg::X13, Reg::X14, Reg::X15, Reg::X16, Reg::X17,
+    Reg::X8,
+    Reg::X9,
+    Reg::X10,
+    Reg::X11,
+    Reg::X12,
+    Reg::X13,
+    Reg::X14,
+    Reg::X15,
+    Reg::X16,
+    Reg::X17,
     // Reg::X19, Reg::X20, Reg::X21, Reg::X22, Reg::X23,
     // Reg::X24, Reg::X25, Reg::X26, Reg::X27,
 ];
@@ -51,28 +78,52 @@ impl AbstractReg for Reg {
     }
     fn is_reserved(self) -> bool {
         match self.into_index() {
-            0..=17|19..=27 => false,
+            0..=17 | 19..=27 => false,
             _ => true,
         }
     }
     fn into_index(self) -> usize {
         min(self as usize, 31) // xzr and sp have the same index; hence this slightly hacky workaround
     }
-    fn from_index(n: usize) -> Result<Reg, ()>
-    {
+    fn from_index(n: usize) -> Result<Reg, ()> {
         const REGS: [Reg; 33] = [
-            Reg::X0, Reg::X1, Reg::X2, Reg::X3, Reg::X4, Reg::X5, Reg::X6,
-            Reg::X7, Reg::X8, Reg::X9, Reg::X10,Reg::X11,Reg::X12,Reg::X13,
-            Reg::X14,Reg::X15,Reg::X16,Reg::X17,Reg::X18,Reg::X19,Reg::X20,
-            Reg::X21,Reg::X22,Reg::X23,Reg::X24,Reg::X25,Reg::X26,Reg::X27,
-            Reg::X28,Reg::X29,Reg::X30,Reg::XZR,Reg::SP];
+            Reg::X0,
+            Reg::X1,
+            Reg::X2,
+            Reg::X3,
+            Reg::X4,
+            Reg::X5,
+            Reg::X6,
+            Reg::X7,
+            Reg::X8,
+            Reg::X9,
+            Reg::X10,
+            Reg::X11,
+            Reg::X12,
+            Reg::X13,
+            Reg::X14,
+            Reg::X15,
+            Reg::X16,
+            Reg::X17,
+            Reg::X18,
+            Reg::X19,
+            Reg::X20,
+            Reg::X21,
+            Reg::X22,
+            Reg::X23,
+            Reg::X24,
+            Reg::X25,
+            Reg::X26,
+            Reg::X27,
+            Reg::X28,
+            Reg::X29,
+            Reg::X30,
+            Reg::XZR,
+            Reg::SP,
+        ];
         match n {
-            0..=32 => {
-                Ok(REGS[n])
-            },
-            _ => {
-                Err(())
-            }
+            0..=32 => Ok(REGS[n]),
+            _ => Err(()),
         }
     }
 }
@@ -149,29 +200,53 @@ impl AbstractDescriptor<Reg> for Descriptor {
     const ARG_REG_COUNT: usize = 8;
     fn callee_save_regs() -> Vec<Reg> {
         vec![
-            Reg::X19, Reg::X20, Reg::X21, Reg::X22, Reg::X23,
-            Reg::X24, Reg::X25, Reg::X26, Reg::X27, Reg::X28,
-            Reg::X29, Reg::X30
+            Reg::X19,
+            Reg::X20,
+            Reg::X21,
+            Reg::X22,
+            Reg::X23,
+            Reg::X24,
+            Reg::X25,
+            Reg::X26,
+            Reg::X27,
+            Reg::X28,
+            Reg::X29,
+            Reg::X30,
         ]
     }
     fn caller_save_regs() -> Vec<Reg> {
         vec![
-            Reg::X0,  Reg::X1,  Reg::X2,  Reg::X3,  Reg::X4,
-            Reg::X5,  Reg::X6,  Reg::X7,  Reg::X8,  Reg::X9,
-            Reg::X10, Reg::X11, Reg::X12, Reg::X13, Reg::X14,
-            Reg::X15, Reg::X16, Reg::X17, Reg::X18
+            Reg::X0,
+            Reg::X1,
+            Reg::X2,
+            Reg::X3,
+            Reg::X4,
+            Reg::X5,
+            Reg::X6,
+            Reg::X7,
+            Reg::X8,
+            Reg::X9,
+            Reg::X10,
+            Reg::X11,
+            Reg::X12,
+            Reg::X13,
+            Reg::X14,
+            Reg::X15,
+            Reg::X16,
+            Reg::X17,
+            Reg::X18,
         ]
     }
     fn callee_param_location(n: usize) -> Location {
         match n {
             0..=7 => Location::Reg(Reg::from_index(n).unwrap()),
-            _ => Location::Memory(Self::FP, 32 + (n-8) as i32 * 8),
+            _ => Location::Memory(Self::FP, 32 + (n - 8) as i32 * 8),
         }
     }
     fn caller_arg_location(n: usize) -> Location {
         match n {
             0..=7 => Location::Reg(Reg::from_index(n).unwrap()),
-            _ => Location::Memory(Reg::SP, (n-7) as i32  * 8),
+            _ => Location::Memory(Reg::SP, (n - 7) as i32 * 8),
         }
     }
     fn return_location() -> Location {
@@ -203,7 +278,7 @@ impl Machine for Aarch64Machine {
     fn new() -> Self {
         Aarch64Machine::new()
     }
-    
+
     fn get_assembly_offset(&mut self) -> usize {
         self.assembler.offset().0
     }
@@ -226,7 +301,7 @@ impl Machine for Aarch64Machine {
             ; str x28, [sp, 16]
             ; mov x29, sp
             ; mov x28, x0);
-        
+
         let mut free_regs = vec![Reg::X0];
         for r in (n_params + 1)..=7 {
             free_regs.push(Reg::from_index(r).unwrap());
@@ -238,10 +313,10 @@ impl Machine for Aarch64Machine {
 
     fn func_end(&mut self, end_label: DynamicLabel) -> Vec<Relocation> {
         dynasm!(self.assembler ; .arch aarch64 ; =>end_label);
-        
+
         // restore SP
         self.manager.restore_stack_offset(&mut self.assembler, 0);
-        
+
         // restore LR, FP, and VMCTX regs
         dynasm!(self.assembler
             ; .arch aarch64
@@ -249,7 +324,7 @@ impl Machine for Aarch64Machine {
             ; ldr x28, [sp, 16]
             ; add sp, sp, 32
             ; ret);
-        
+
         // reserve space for relocated function pointers
         let mut relocations = vec![];
         for (reloc_target, fn_addr_label) in self.relocation_info.iter().copied() {
@@ -280,175 +355,176 @@ impl Machine for Aarch64Machine {
     }
 
     fn do_restore_local(&mut self, local: Local<Location>, location: Location) -> Local<Location> {
-        self.manager.restore_local(&mut self.assembler, local, location)
+        self.manager
+            .restore_local(&mut self.assembler, local, location)
     }
 
     fn do_add_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .commutative(true)
-        .max_imm_width(12)
-        .reg_imm_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; add W(dst), W(src1), src2);
-        })
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; add W(dst), W(src1), W(src2));
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .commutative(true)
+            .max_imm_width(12)
+            .reg_imm_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; add W(dst), W(src1), src2);
+            })
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; add W(dst), W(src1), W(src2));
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_add_p(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .commutative(true)
-        .size(Size::S64)
-        .max_imm_width(12)
-        .reg_imm_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; add X(dst), X(src1), src2);
-        })
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; add X(dst), X(src1), X(src2));
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .commutative(true)
+            .size(Size::S64)
+            .max_imm_width(12)
+            .reg_imm_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; add X(dst), X(src1), src2);
+            })
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; add X(dst), X(src1), X(src2));
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_sub_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .max_imm_width(12)
-        .reg_imm_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; sub W(dst), W(src1), src2);
-        })
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; sub W(dst), W(src1), W(src2));
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .max_imm_width(12)
+            .reg_imm_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; sub W(dst), W(src1), src2);
+            })
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; sub W(dst), W(src1), W(src2));
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_mul_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .commutative(true)
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; mul W(dst), W(src1), W(src2));
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .commutative(true)
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; mul W(dst), W(src1), W(src2));
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_and_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; .arch aarch64 ; and W(dst), W(src1), W(src2));
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; .arch aarch64 ; and W(dst), W(src1), W(src2));
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_le_u_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .max_imm_width(12)
-        .reg_imm_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp W(src1), src2 ; cset X(dst), ls);
-        })
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp W(src1), W(src2) ; cset X(dst), ls);
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .max_imm_width(12)
+            .reg_imm_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp W(src1), src2 ; cset X(dst), ls);
+            })
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp W(src1), W(src2) ; cset X(dst), ls);
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_lt_u_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .max_imm_width(12)
-        .reg_imm_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp W(src1), src2 ; cset X(dst), lo);
-        })
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp W(src1), W(src2) ; cset X(dst), lo);
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .max_imm_width(12)
+            .reg_imm_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp W(src1), src2 ; cset X(dst), lo);
+            })
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp W(src1), W(src2) ; cset X(dst), lo);
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_ge_u_i32(&mut self, src1: Local<Location>, src2: Local<Location>) -> Local<Location> {
         In2Out1::new()
-        .max_imm_width(12)
-        .reg_imm_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp W(src1), src2 ; cset X(dst), hs);
-        })
-        .reg_reg_reg(|e, src1, src2, dst| {
-            let src1 = src1.into_index() as u32;
-            let src2 = src2.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp W(src1), W(src2) ; cset X(dst), hs);
-        })
-        .execute(&mut self.manager, &mut self.assembler, src1, src2)
+            .max_imm_width(12)
+            .reg_imm_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp W(src1), src2 ; cset X(dst), hs);
+            })
+            .reg_reg_reg(|e, src1, src2, dst| {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp W(src1), W(src2) ; cset X(dst), hs);
+            })
+            .execute(&mut self.manager, &mut self.assembler, src1, src2)
     }
 
     fn do_eqz_i32(&mut self, src: Local<Location>) -> Local<Location> {
         In1Out1::new()
-        .reg_reg(|e, src, dst| {
-            let src = src.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp W(src), wzr ; cset X(dst), eq);
-        })
-        .execute(&mut self.manager, &mut self.assembler, src)
+            .reg_reg(|e, src, dst| {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp W(src), wzr ; cset X(dst), eq);
+            })
+            .execute(&mut self.manager, &mut self.assembler, src)
     }
 
     fn do_br_cond_label(&mut self, cond: Local<Location>, label: DynamicLabel, depth: u32) {
         self.manager.br_depth(&mut self.assembler, depth);
         In1Out0::new()
-        .reg(|e, src| {
-            let src = src.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp X(src), xzr ; b.ne =>label);
-        })
-        .execute(&mut self.manager, &mut self.assembler, cond);
+            .reg(|e, src| {
+                let src = src.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp X(src), xzr ; b.ne =>label);
+            })
+            .execute(&mut self.manager, &mut self.assembler, cond);
     }
 
     fn do_br_not_cond_label(&mut self, cond: Local<Location>, label: DynamicLabel, depth: u32) {
         self.manager.br_depth(&mut self.assembler, depth);
         In1Out0::new()
-        .reg(|e, src| {
-            let src = src.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; cmp X(src), xzr ; b.eq =>label);
-        })
-        .execute(&mut self.manager, &mut self.assembler, cond);
+            .reg(|e, src| {
+                let src = src.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; cmp X(src), xzr ; b.eq =>label);
+            })
+            .execute(&mut self.manager, &mut self.assembler, cond);
     }
 
     fn do_br_location(&mut self, loc: Local<Location>, depth: u32) {
         self.manager.br_depth(&mut self.assembler, depth);
         In1Out0::new()
-        .reg(|e, src| {
-            let src = src.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; br X(src));
-        })
-        .execute(&mut self.manager, &mut self.assembler, loc);
+            .reg(|e, src| {
+                let src = src.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; br X(src));
+            })
+            .execute(&mut self.manager, &mut self.assembler, loc);
     }
 
     fn do_br_label(&mut self, label: DynamicLabel, depth: u32) {
@@ -458,11 +534,11 @@ impl Machine for Aarch64Machine {
 
     fn do_load_label(&mut self, label: DynamicLabel) -> Local<Location> {
         In0Out1::new()
-        .reg(|e, dst| {
-            let dst = dst.into_index() as u32;
-            dynasm!(e ; .arch aarch64 ; adr X(dst), =>label);
-        })
-        .execute(&mut self.manager, &mut self.assembler)
+            .reg(|e, dst| {
+                let dst = dst.into_index() as u32;
+                dynasm!(e ; .arch aarch64 ; adr X(dst), =>label);
+            })
+            .execute(&mut self.manager, &mut self.assembler)
     }
 
     fn do_emit_label(&mut self, label: DynamicLabel) {
@@ -471,48 +547,72 @@ impl Machine for Aarch64Machine {
 
     fn do_load_from_vmctx(&mut self, sz: Size, offset: u32) -> Local<Location> {
         In0Out1::new()
-        .reg(|e, reg| {
-            let reg = reg.into_index() as u32;
-            match sz {
-                Size::S64 => { dynasm!(e ; .arch aarch64 ; ldr X(reg), [x28, offset]); },
-                _ => { unimplemented!(); },
-            }
-        })
-        .execute(&mut self.manager, &mut self.assembler)
+            .reg(|e, reg| {
+                let reg = reg.into_index() as u32;
+                match sz {
+                    Size::S64 => {
+                        dynasm!(e ; .arch aarch64 ; ldr X(reg), [x28, offset]);
+                    }
+                    _ => {
+                        unimplemented!();
+                    }
+                }
+            })
+            .execute(&mut self.manager, &mut self.assembler)
     }
 
     fn do_deref(&mut self, sz: Size, loc: Local<Location>) -> Local<Location> {
-        assert!(if let Location::Reg(_) = loc.location() { true } else { false });
+        assert!(if let Location::Reg(_) = loc.location() {
+            true
+        } else {
+            false
+        });
         In1Out1::new()
-        .reg_reg(|e, src, dst| {
-            let src = src.into_index() as u32;
-            let dst = dst.into_index() as u32;
-            match sz {
-                Size::S32 => { dynasm!(e ; .arch aarch64 ; ldr W(dst), [X(src)]); },
-                Size::S64 => { dynasm!(e ; .arch aarch64 ; ldr X(dst), [X(src)]); },
-                _ => { unimplemented!(); },
-            }
-        })
-        .execute(&mut self.manager, &mut self.assembler, loc)
+            .reg_reg(|e, src, dst| {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                match sz {
+                    Size::S32 => {
+                        dynasm!(e ; .arch aarch64 ; ldr W(dst), [X(src)]);
+                    }
+                    Size::S64 => {
+                        dynasm!(e ; .arch aarch64 ; ldr X(dst), [X(src)]);
+                    }
+                    _ => {
+                        unimplemented!();
+                    }
+                }
+            })
+            .execute(&mut self.manager, &mut self.assembler, loc)
     }
 
     fn do_deref_write(&mut self, sz: Size, ptr: Local<Location>, val: Local<Location>) {
         In2Out0::new()
-        .reg_reg(|e, ptr, val| {
-            let ptr = ptr.into_index() as u32;
-            let val = val.into_index() as u32;
-            
-            match sz {
-                Size::S32 => { dynasm!(e ; .arch aarch64 ; str W(val), [X(ptr)]); },
-                _ => { unimplemented!(); },
-            }
-        })
-        .execute(&mut self.manager, &mut self.assembler, ptr, val);
+            .reg_reg(|e, ptr, val| {
+                let ptr = ptr.into_index() as u32;
+                let val = val.into_index() as u32;
+
+                match sz {
+                    Size::S32 => {
+                        dynasm!(e ; .arch aarch64 ; str W(val), [X(ptr)]);
+                    }
+                    _ => {
+                        unimplemented!();
+                    }
+                }
+            })
+            .execute(&mut self.manager, &mut self.assembler, ptr, val);
     }
 
     fn do_ptr_offset(&mut self, sz: Size, ptr: Local<Location>, offset: i32) -> Local<Location> {
-        In1Out0::new().reg(|_, _|{}).execute(&mut self.manager, &mut self.assembler, ptr.clone());
-        let reg = if let Location::Reg(reg) = ptr.location() {reg} else {unreachable!()};
+        In1Out0::new()
+            .reg(|_, _| {})
+            .execute(&mut self.manager, &mut self.assembler, ptr.clone());
+        let reg = if let Location::Reg(reg) = ptr.location() {
+            reg
+        } else {
+            unreachable!()
+        };
         Local::new(Location::Memory(reg, offset), sz)
     }
 
@@ -520,9 +620,12 @@ impl Machine for Aarch64Machine {
         Local::new(Location::Memory(Descriptor::VMCTX, offset), sz)
     }
 
-    fn do_call(&mut self, reloc_target: RelocationTarget,
-        args: &[Local<Location>], return_types: &[WpType]) -> CallInfo<Location> {
-
+    fn do_call(
+        &mut self,
+        reloc_target: RelocationTarget,
+        args: &[Local<Location>],
+        return_types: &[WpType],
+    ) -> CallInfo<Location> {
         self.manager.before_call(&mut self.assembler, args);
 
         let fn_addr = self.new_label();
@@ -534,23 +637,37 @@ impl Machine for Aarch64Machine {
         let before_call = self.assembler.offset().0;
         dynasm!(self.assembler ; .arch aarch64 ; blr x18);
         let after_call = self.assembler.offset().0;
-        
+
         let returns = self.manager.after_call(&mut self.assembler, return_types);
 
         self.relocation_info.push((reloc_target, fn_addr));
 
-        CallInfo::<Location> { returns, before_call, after_call }
+        CallInfo::<Location> {
+            returns,
+            before_call,
+            after_call,
+        }
     }
 
-    fn do_return(&mut self, ty: Option<WpType>, ret_val: Option<Local<Location>>, end_label: DynamicLabel) {
+    fn do_return(
+        &mut self,
+        ty: Option<WpType>,
+        ret_val: Option<Local<Location>>,
+        end_label: DynamicLabel,
+    ) {
         match ty {
-            Some(WpType::F32) => { unimplemented!(); }
-            Some(WpType::F64) => { unimplemented!(); }
+            Some(WpType::F32) => {
+                unimplemented!();
+            }
+            Some(WpType::F64) => {
+                unimplemented!();
+            }
             _ => {}
         }
-        
+
         if let Some(ret_val) = ret_val {
-            self.manager.set_return_values(&mut self.assembler, &[ret_val]);
+            self.manager
+                .set_return_values(&mut self.assembler, &[ret_val]);
         }
 
         dynasm!(self.assembler ; .arch aarch64 ; b =>end_label);
@@ -559,11 +676,11 @@ impl Machine for Aarch64Machine {
     fn release_location(&mut self, local: Local<Location>) {
         self.manager.release_location(local);
     }
-    
+
     fn finalize(self) -> Vec<u8> {
         self.assembler.finalize().unwrap().to_vec()
     }
-    
+
     fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
         let mut m = Self::new();
 
@@ -600,11 +717,22 @@ impl Machine for Aarch64Machine {
             };
             match i {
                 0..=6 => {
-                    m.assembler.move_mem_to_reg(sz, args, (i * 16) as i32, Reg::from_index(i + 1).unwrap());
-                },
+                    m.assembler.move_mem_to_reg(
+                        sz,
+                        args,
+                        (i * 16) as i32,
+                        Reg::from_index(i + 1).unwrap(),
+                    );
+                }
                 _ => {
-                    m.assembler.move_mem_to_mem(sz, args, (i * 16) as i32, Reg::SP, (i as i32 - 7) * 8);
-                },
+                    m.assembler.move_mem_to_mem(
+                        sz,
+                        args,
+                        (i * 16) as i32,
+                        Reg::SP,
+                        (i as i32 - 7) * 8,
+                    );
+                }
             }
         }
 
@@ -623,22 +751,21 @@ impl Machine for Aarch64Machine {
             ; add sp, sp, 32 + stack_offset as u32
             ; ret
         );
-        
+
         m.assembler.finalize().unwrap().to_vec()
     }
 
-    fn gen_std_dynamic_import_trampoline(
-        _vmoffsets: &VMOffsets,
-        _sig: &FunctionType) -> Vec<u8> {
+    fn gen_std_dynamic_import_trampoline(_vmoffsets: &VMOffsets, _sig: &FunctionType) -> Vec<u8> {
         let mut a = Assembler::new().unwrap();
         dynasm!(a ; .arch aarch64 ; ret);
         a.finalize().unwrap().to_vec()
     }
-    
+
     fn gen_import_call_trampoline(
         _vmoffsets: &VMOffsets,
         _index: FunctionIndex,
-        _sig: &FunctionType) -> Vec<u8> {
+        _sig: &FunctionType,
+    ) -> Vec<u8> {
         let mut a = Assembler::new().unwrap();
         dynasm!(a ; .arch aarch64 ; ret);
         a.finalize().unwrap().to_vec()

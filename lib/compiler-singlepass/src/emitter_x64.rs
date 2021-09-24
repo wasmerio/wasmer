@@ -846,7 +846,9 @@ impl Emitter for Assembler {
     fn emit_jmp_location(&mut self, loc: Location) {
         match loc {
             Location::GPR(x) => dynasm!(self ; .arch x64 ; jmp Rq(x as u8)),
-            Location::Memory(base, disp) => dynasm!(self ; .arch x64 ; jmp QWORD [Rq(base as u8) + disp]),
+            Location::Memory(base, disp) => {
+                dynasm!(self ; .arch x64 ; jmp QWORD [Rq(base as u8) + disp])
+            }
             _ => panic!("singlepass can't emit JMP {:?}", loc),
         }
     }
@@ -1391,7 +1393,9 @@ impl Emitter for Assembler {
     fn emit_call_location(&mut self, loc: Location) {
         match loc {
             Location::GPR(x) => dynasm!(self ; .arch x64 ; call Rq(x as u8)),
-            Location::Memory(base, disp) => dynasm!(self ; .arch x64 ; call QWORD [Rq(base as u8) + disp]),
+            Location::Memory(base, disp) => {
+                dynasm!(self ; .arch x64 ; call QWORD [Rq(base as u8) + disp])
+            }
             _ => panic!("singlepass can't emit CALL {:?}", loc),
         }
     }

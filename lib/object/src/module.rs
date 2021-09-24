@@ -263,11 +263,7 @@ pub fn emit_compilation(
             RelocationEncoding::X86Branch,
         ),
         // Object doesn't fully support it yet
-        Architecture::Aarch64(_) => (
-            32,
-            RelocationKind::PltRelative,
-            RelocationEncoding::Generic,
-        ),
+        Architecture::Aarch64(_) => (32, RelocationKind::PltRelative, RelocationEncoding::Generic),
         architecture => {
             return Err(ObjectError::UnsupportedArchitecture(
                 architecture.to_string(),

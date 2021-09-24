@@ -1,9 +1,8 @@
 #[allow(unused_imports)]
-
 use crate::address_map::get_function_address_map;
-use crate::{common_decl::*, config::Singlepass};
 use crate::machine::*;
-use dynasmrt::{DynamicLabel};
+use crate::{common_decl::*, config::Singlepass};
+use dynasmrt::DynamicLabel;
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
@@ -19,15 +18,14 @@ use wasmer_types::{
     FunctionType,
 };
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
-    TableIndex, Type,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMOffsets};
 
 use wasmer::Value;
 
-use std::rc::{Rc, Weak};
 use std::cell::Cell;
+use std::rc::{Rc, Weak};
 
 #[derive(Debug)]
 struct LocalImpl<T: Copy> {
@@ -92,7 +90,7 @@ impl<T: Copy> WeakLocal<T> {
     pub fn new() -> Self {
         Self(Weak::new())
     }
-    
+
     pub fn upgrade(&self) -> Option<Local<T>> {
         self.0.upgrade().map(|rc| Local(rc))
     }
@@ -328,7 +326,6 @@ pub struct ControlFrame<M: Machine> {
     pub fp_stack_depth: usize,
     // pub state: MachineState,
     // pub state_diff_id: usize,
-
     pub local_locations: Vec<M::Location>,
     pub stack_locations: Vec<M::Location>,
 }
@@ -353,7 +350,7 @@ pub struct CodegenError {
 //     ret: Location,
 // }
 
-impl <'a, M: Machine> FuncGen<'a, M> {
+impl<'a, M: Machine> FuncGen<'a, M> {
     pub fn new(
         machine: M,
         module: &'a ModuleInfo,
@@ -462,11 +459,11 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         } else {
             was_unreachable = false;
         }
-        
+
         match op {
             Operator::Call { function_index } => {
                 let function_index = function_index as usize;
-            
+
                 let sig_index = *self
                     .module
                     .functions
@@ -477,12 +474,12 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     sig.params().iter().cloned().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
                     sig.results().iter().cloned().map(type_to_wp_type).collect();
-            
+
                 let params: SmallVec<[_; 8]> = self
                     .stack
                     .drain(self.stack.len() - param_types.len()..)
                     .collect();
-                
+
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
@@ -492,7 +489,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         let index = fp.depth - self.stack.len();
                         if false //self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some() {
+                            && fp.canonicalization.is_some()
+                        {
                             let size = fp.canonicalization.unwrap().to_size();
                             // self.canonicalize_nan(size, params[index], params[index]);
                         }
@@ -501,7 +499,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         break;
                     }
                 }
-                
+
                 // Imported functions are called through trampolines placed as custom sections.
                 let reloc_target = if function_index < self.module.num_imported_functions {
                     RelocationTarget::CustomSection(SectionIndex::new(function_index))
@@ -510,9 +508,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         function_index - self.module.num_imported_functions,
                     ))
                 };
-                
+
                 let info = self.machine.do_call(reloc_target, &params, &return_types);
-                
+
                 self.trap_table
                     .offset_to_code
                     .insert(info.before_call, TrapCode::StackOverflow);
@@ -529,12 +527,12 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     // self.fp_stack
                     //     .push(FloatValue::new(self.stack.len() - 1));
                 }
-            },
+            }
             Operator::I32Const { value } => {
                 let imm = self.machine.do_const_i32(value);
                 imm.inc_ref();
                 self.push_stack(imm);
-            },
+            }
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
 
@@ -543,10 +541,13 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 //     self.fp_stack.push(FloatValue::new(self.value_stack.len()));
                 // }
 
-                let offset = if let Some(local_global_index) = self.module.local_global_index(global_index) {
+                let offset = if let Some(local_global_index) =
+                    self.module.local_global_index(global_index)
+                {
                     self.vmoffsets.vmctx_vmglobal_definition(local_global_index)
                 } else {
-                    self.vmoffsets.vmctx_vmglobal_import_definition(global_index)
+                    self.vmoffsets
+                        .vmctx_vmglobal_import_definition(global_index)
                 };
 
                 let ptr = self.machine.do_load_from_vmctx(Size::S64, offset);
@@ -554,19 +555,23 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
                 self.push_stack(local);
                 self.maybe_release(ptr);
-            },
+            }
             Operator::GlobalSet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
-                let offset = if let Some(local_global_index) = self.module.local_global_index(global_index) {
+                let offset = if let Some(local_global_index) =
+                    self.module.local_global_index(global_index)
+                {
                     self.vmoffsets.vmctx_vmglobal_definition(local_global_index)
                 } else {
-                    self.vmoffsets.vmctx_vmglobal_import_definition(global_index)
+                    self.vmoffsets
+                        .vmctx_vmglobal_import_definition(global_index)
                 };
 
                 let local = self.pop_stack();
 
                 let ptr = self.machine.do_load_from_vmctx(Size::S64, offset);
-                self.machine.do_deref_write(Size::S32, ptr.clone(), local.clone());
+                self.machine
+                    .do_deref_write(Size::S32, ptr.clone(), local.clone());
 
                 // let ty = type_to_wp_type(self.module.globals[global_index].ty);
                 // if ty.is_float() {
@@ -590,21 +595,21 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 // } else {
                 //     self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, dst);
                 // }
-                
+
                 self.maybe_release(ptr);
                 self.maybe_release(local);
-            },
+            }
             Operator::LocalGet { local_index } => {
                 let local = self.locals[local_index as usize].clone();
                 self.push_stack(local);
-            },
+            }
             Operator::LocalSet { local_index } => {
                 let from_stack = self.stack.pop().unwrap();
 
                 let local = self.locals[local_index as usize].clone();
                 local.dec_ref();
                 self.maybe_release(local);
-                
+
                 self.locals[local_index as usize] = from_stack;
 
                 // if self.local_types[local_index].is_float() {
@@ -633,43 +638,43 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 // } else {
                 //    self.assembler.emit_move(Size::S64, loc, self.locals[local_index]);
                 // }
-            },
+            }
             Operator::I32Add => {
                 self.do_bin_op_i32(
-                    | this, l, r| this.machine.do_add_i32(l.clone(), r.clone()),
+                    |this, l, r| this.machine.do_add_i32(l.clone(), r.clone()),
                     |_this, l, r| l.wrapping_add(r),
                 );
-            },
+            }
             Operator::I32Sub => {
                 self.do_bin_op_i32(
-                    | this, l, r| this.machine.do_sub_i32(l.clone(), r.clone()),
+                    |this, l, r| this.machine.do_sub_i32(l.clone(), r.clone()),
                     |_this, l, r| l.wrapping_sub(r),
                 );
-            },
+            }
             Operator::I32LeU => {
                 self.do_bin_op_i32(
-                    | this, l, r| this.machine.do_le_u_i32(l.clone(), r.clone()),
+                    |this, l, r| this.machine.do_le_u_i32(l.clone(), r.clone()),
                     |_this, l, r| (l <= r) as i32,
                 );
-            },
+            }
             Operator::I32LtU => {
                 self.do_bin_op_i32(
-                    | this, l, r| this.machine.do_lt_u_i32(l.clone(), r.clone()),
+                    |this, l, r| this.machine.do_lt_u_i32(l.clone(), r.clone()),
                     |_this, l, r| (l < r) as i32,
                 );
-            },
+            }
             Operator::I32And => {
                 self.do_bin_op_i32(
-                    | this, l, r| this.machine.do_and_i32(l.clone(), r.clone()),
+                    |this, l, r| this.machine.do_and_i32(l.clone(), r.clone()),
                     |_this, l, r| (l != 0 && r != 0) as i32,
                 );
-            },
+            }
             Operator::I32Eqz => {
                 self.do_unary_op_i32(
-                    | this, l| this.machine.do_eqz_i32(l.clone()),
+                    |this, l| this.machine.do_eqz_i32(l.clone()),
                     |_this, l| (l == 0) as i32,
                 );
-            },
+            }
             Operator::I32Load { memarg } => {
                 let addr = self.pop_stack();
                 let val = self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
@@ -678,18 +683,18 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
                 self.maybe_release(addr);
                 self.push_stack(val);
-            },
+            }
             Operator::I32Store { memarg } => {
                 let val = self.pop_stack();
                 let addr = self.pop_stack();
-                
+
                 self.do_memory_op(addr.clone(), memarg, false, 4, |this, addr| {
                     this.machine.do_deref_write(Size::S32, addr, val.clone());
                 });
 
                 self.maybe_release(val);
                 self.maybe_release(addr);
-            },
+            }
             Operator::Block { ty } => {
                 // println!("{:?}\n\n\n{:?}", self.locals, self.stack);
                 let (local_locations, stack_locations) = self.normalize_locations();
@@ -708,15 +713,15 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     fp_stack_depth: self.fp_stack.len(),
                     // state: self.machine.get_state().clone(),
                     // state_diff_id: 0,
-                    
                     local_locations,
                     stack_locations,
                 };
                 self.control_stack.push(frame);
                 self.machine.block_begin();
-            },
+            }
             Operator::Br { relative_depth } => {
-                let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
+                let frame =
+                    &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && !frame.returns.is_empty() {
                     unimplemented!();
                     // if frame.returns.len() != 1 {
@@ -763,14 +768,15 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 let frame = &self.control_stack[frame_index];
                 self.machine.do_br_label(frame.label, relative_depth + 1);
                 self.unreachable_depth = 1;
-            },
+            }
             Operator::BrIf { relative_depth } => {
                 let after = self.machine.new_label();
                 let val = self.pop_stack();
 
                 self.machine.do_br_not_cond_label(val, after, 0);
-            
-                let frame = &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
+
+                let frame =
+                    &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && !frame.returns.is_empty() {
                     unimplemented!();
                     // if frame.returns.len() != 1 {
@@ -778,7 +784,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     //         message: "BrIf: incorrect frame.returns".to_string(),
                     //     });
                     // }
-            
+
                     // let first_return = frame.returns[0];
                     // let loc = *self.value_stack.last().unwrap();
                     // if first_return.is_float() {
@@ -814,7 +820,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 // self.machine.release_locations_keep_state(&mut self.assembler, released);
                 self.machine.do_br_label(frame.label, relative_depth + 1);
                 self.machine.do_emit_label(after);
-            },
+            }
             Operator::BrTable { table } => {
                 let mut targets = table
                     .targets()
@@ -823,45 +829,52 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         message: format!("BrTable read_table: {:?}", e),
                     })?;
                 let default_target = targets.pop().unwrap().0;
-                
+
                 let val = self.pop_stack();
                 // we can't let it get overwritten yet
-                val.inc_ref(); val.inc_ref();
+                val.inc_ref();
+                val.inc_ref();
 
                 let table_label = self.machine.new_label();
                 let default_br = self.machine.new_label();
-                
+
                 let lim = self.machine.do_const_i32(targets.len() as i32);
                 let cond = self.machine.do_ge_u_i32(val.clone(), lim.clone());
                 self.maybe_release(lim);
-                self.machine.do_br_cond_label(cond.clone(), default_br, default_target + 1);
+                self.machine
+                    .do_br_cond_label(cond.clone(), default_br, default_target + 1);
                 self.maybe_release(cond); // TODO: is this OK?
-                
+
                 // now we won't need it any more after this
-                val.dec_ref(); val.dec_ref();
-                
+                val.dec_ref();
+                val.dec_ref();
+
                 let br_size = self.machine.do_const_i32(M::BR_INSTR_SIZE as i32);
                 let val_scaled = self.machine.do_mul_i32(val.clone(), br_size.clone());
                 let table_label_stored = self.machine.do_load_label(table_label);
-                let jmp_target = self.machine.do_add_p(val_scaled.clone(), table_label_stored.clone());
+                let jmp_target = self
+                    .machine
+                    .do_add_p(val_scaled.clone(), table_label_stored.clone());
                 self.maybe_release(val);
                 self.maybe_release(br_size);
                 self.maybe_release(val_scaled);
                 self.maybe_release(table_label_stored);
-                
+
                 self.machine.do_br_location(jmp_target.clone(), 0);
                 self.maybe_release(jmp_target);
-                
+
                 let labels: Vec<_> = targets.iter().map(|_| self.machine.new_label()).collect();
 
-                let it = targets.iter()
+                let it = targets
+                    .iter()
                     .map(|t| t.0)
                     .zip(labels.iter().cloned())
                     .chain(iter::once((default_target, default_br)));
-                
+
                 for (target, label) in it {
                     self.machine.do_emit_label(label);
-                    let frame = &self.control_stack[self.control_stack.len() - 1 - (target as usize)];
+                    let frame =
+                        &self.control_stack[self.control_stack.len() - 1 - (target as usize)];
                     if !frame.loop_like && !frame.returns.is_empty() {
                         unimplemented!();
                         // if frame.returns.len() != 1 {
@@ -872,7 +885,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         //         ),
                         //     });
                         // }
-            
+
                         // let first_return = frame.returns[0];
                         // let loc = *self.value_stack.last().unwrap();
                         // if first_return.is_float() {
@@ -914,10 +927,10 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     self.machine.do_br_label(label, 0);
                 }
                 self.unreachable_depth = 1;
-            },
+            }
             Operator::Return => {
                 self.do_return();
-            },
+            }
             Operator::End => {
                 // if /* !was_unreachable &&*/ !frame.returns.is_empty() {
                 //     assert!(frame.returns.len() == 1);
@@ -968,9 +981,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     }
 
                     // self.fp_stack.truncate(frame.fp_stack_depth);
-                    
+
                     self.restore_locations(self.control_stack.len() - 1);
-                    
+
                     let frame = self.control_stack.pop().unwrap();
                     if !frame.loop_like {
                         self.machine.block_end(frame.label);
@@ -1006,16 +1019,18 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                         // }
                     }
                 }
-            },
+            }
             _ => {
                 println!("{:?}", op);
-            },
+            }
         }
         Ok(())
     }
 
     pub fn begin(&mut self) -> Result<(), CodegenError> {
-        self.locals = self.machine.func_begin(self.local_types.len(), self.signature.params().len());
+        self.locals = self
+            .machine
+            .func_begin(self.local_types.len(), self.signature.params().len());
         for local in self.locals.iter().cloned() {
             local.inc_ref();
         }
@@ -1046,7 +1061,6 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             fp_stack_depth: 0,
             // state: self.machine.get_state().clone(),
             // state_diff_id,
-
             local_locations: vec![],
             stack_locations: vec![],
         });
@@ -1149,9 +1163,10 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn do_bin_op_i32<F, FImm>(&mut self, f: F, f_imm: FImm)
-        where 
-            F: FnOnce(&mut Self, Local<M::Location>, Local<M::Location>) -> Local<M::Location>,
-            FImm: FnOnce(&mut Self, i32, i32) -> i32 {
+    where
+        F: FnOnce(&mut Self, Local<M::Location>, Local<M::Location>) -> Local<M::Location>,
+        FImm: FnOnce(&mut Self, i32, i32) -> i32,
+    {
         let r = self.pop_stack();
         let l = self.pop_stack();
 
@@ -1159,13 +1174,11 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             (Some(Value::I32(l)), Some(Value::I32(r))) => {
                 let result = f_imm(self, l, r);
                 Some(self.machine.do_const_i32(result))
-            },
+            }
             (Some(_), Some(_)) => {
                 unreachable!();
-            },
-            _ => {
-                None
             }
+            _ => None,
         };
 
         if let Some(imm_result) = imm_result {
@@ -1182,22 +1195,21 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn do_unary_op_i32<F, FImm>(&mut self, f: F, f_imm: FImm)
-        where 
-            F: FnOnce(&mut Self, Local<M::Location>) -> Local<M::Location>,
-            FImm: FnOnce(&mut Self, i32) -> i32 {
+    where
+        F: FnOnce(&mut Self, Local<M::Location>) -> Local<M::Location>,
+        FImm: FnOnce(&mut Self, i32) -> i32,
+    {
         let l = self.pop_stack();
 
         let imm_result = match l.location().imm_value() {
             Some(Value::I32(l)) => {
                 let result = f_imm(self, l);
                 Some(self.machine.do_const_i32(result))
-            },
+            }
             Some(_) => {
                 unreachable!();
-            },
-            _ => {
-                None
             }
+            _ => None,
         };
 
         if let Some(imm_result) = imm_result {
@@ -1213,8 +1225,13 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn do_memory_op<F: FnOnce(&mut Self, Local<M::Location>) -> T, T>(
-        &mut self, addr: Local<M::Location>, memarg: MemoryImmediate,
-        check_alignment: bool, value_size: usize, cb: F) -> T {
+        &mut self,
+        addr: Local<M::Location>,
+        memarg: MemoryImmediate,
+        check_alignment: bool,
+        value_size: usize,
+        cb: F,
+    ) -> T {
         let need_check = match self.memory_styles[MemoryIndex::new(0)] {
             MemoryStyle::Static { .. } => false,
             MemoryStyle::Dynamic { .. } => true,
@@ -1223,29 +1240,39 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         let (base_ptr, bound_ptr) = if self.module.num_imported_memories != 0 {
             // Imported memories require one level of indirection.
             // TODO: I have not tested to see if imported memories actually work
-            let offset = self.vmoffsets.vmctx_vmmemory_import_definition(MemoryIndex::new(0));
+            let offset = self
+                .vmoffsets
+                .vmctx_vmmemory_import_definition(MemoryIndex::new(0));
             let vmctx_field = self.machine.do_load_from_vmctx(Size::S64, offset);
             vmctx_field.inc_ref();
-            let ptrs = (self.machine.do_ptr_offset(Size::S64, vmctx_field.clone(), 0), 
-                self.machine.do_ptr_offset(Size::S64, vmctx_field.clone(), 8));
+            let ptrs = (
+                self.machine
+                    .do_ptr_offset(Size::S64, vmctx_field.clone(), 0),
+                self.machine
+                    .do_ptr_offset(Size::S64, vmctx_field.clone(), 8),
+            );
             vmctx_field.dec_ref();
             self.maybe_release(vmctx_field);
             ptrs
         } else {
-            let offset = self.vmoffsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(0)) as i32;
-            (self.machine.do_vmctx_ptr_offset(Size::S64, offset),
-            self.machine.do_vmctx_ptr_offset(Size::S64, offset + 8))
+            let offset =
+                self.vmoffsets
+                    .vmctx_vmmemory_definition(LocalMemoryIndex::new(0)) as i32;
+            (
+                self.machine.do_vmctx_ptr_offset(Size::S64, offset),
+                self.machine.do_vmctx_ptr_offset(Size::S64, offset + 8),
+            )
         };
 
         // Load bound into temporary register, if needed.
         if need_check {
             unimplemented!();
             // self.assembler.emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
-    
+
             // // Wasm -> Effective.
             // // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
             // // since the first page from 0x0 to 0x1000 is not accepted by mmap.
-    
+
             // // This `lea` calculates the upper bound allowed for the beginning of the word.
             // // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
             // // the maximum allowed beginning of word is (inclusively)
@@ -1256,7 +1283,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             //     Location::GPR(tmp_bound),
             // );
         }
-            
+
         let mut addr = addr;
 
         // Add offset to memory address.
@@ -1274,12 +1301,11 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                 new_addr
             };
 
-            
             // // Trap if offset calculation overflowed.
             // self.assembler
             //     .emit_jmp(Condition::Carry, self.special_labels.heap_access_oob);
         }
-        
+
         {
             // Wasm linear memory -> real memory
             let new_addr = self.machine.do_add_p(base_ptr.clone(), addr.clone());
@@ -1294,12 +1320,12 @@ impl <'a, M: Machine> FuncGen<'a, M> {
         //     // Trap if the end address of the requested area is above that of the linear memory.
         //     self.assembler
         //         .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
-    
+
         //     // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
         //     self.assembler
         //         .emit_jmp(Condition::Above, self.special_labels.heap_access_oob);
         // }
-    
+
         let align = memarg.align;
         if check_alignment && align != 1 {
             unimplemented!();
@@ -1318,9 +1344,10 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             //     .emit_jmp(Condition::NotEqual, self.special_labels.heap_access_oob);
             // self.machine.release_temp_gpr(tmp_aligncheck);
         }
-    
-        let result = self.mark_range_with_trap_code(
-            TrapCode::HeapAccessOutOfBounds, |this| cb(this, addr.clone()));
+
+        let result = self.mark_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, |this| {
+            cb(this, addr.clone())
+        });
         self.maybe_release(addr);
 
         return result;
@@ -1344,21 +1371,21 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
     fn normalize_locations(&mut self) -> (Vec<M::Location>, Vec<M::Location>) {
         macro_rules! normalize_locations_from_vec {
-            ($vec:expr) => {
-                {
-                    for i in 0..$vec.len() {
-                        let normalized = self.machine.do_normalize_local($vec[i].clone());
-                        if $vec[i].ref_ct() > 1 {
-                            $vec[i].dec_ref();
-                        }
-                        if normalized.ref_ct() < 1 {
-                            normalized.inc_ref();
-                        }
-                        $vec[i] = normalized;
+            ($vec:expr) => {{
+                for i in 0..$vec.len() {
+                    let normalized = self.machine.do_normalize_local($vec[i].clone());
+                    if $vec[i].ref_ct() > 1 {
+                        $vec[i].dec_ref();
                     }
-                    $vec.iter().map(|local| local.location()).collect::<Vec<_>>()
+                    if normalized.ref_ct() < 1 {
+                        normalized.inc_ref();
+                    }
+                    $vec[i] = normalized;
                 }
-            }
+                $vec.iter()
+                    .map(|local| local.location())
+                    .collect::<Vec<_>>()
+            }};
         }
 
         // for l in self.locals.iter().cloned() {
@@ -1368,7 +1395,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
         let local_locations = normalize_locations_from_vec!(self.locals);
         let stack_locations = normalize_locations_from_vec!(self.stack);
-        
+
         // for l in self.locals.iter().cloned() {
         //     println!("{:?}", l.location());
         // }
@@ -1379,35 +1406,40 @@ impl <'a, M: Machine> FuncGen<'a, M> {
 
     fn restore_locations(&mut self, frame_index: usize) {
         macro_rules! restore_locations_from_vecs {
-            ($locals:expr, $locations:ident) => {
-                {
-                    assert!($locals.len() == self.control_stack[frame_index].$locations.len());
+            ($locals:expr, $locations:ident) => {{
+                assert!($locals.len() == self.control_stack[frame_index].$locations.len());
 
-                    for i in 0..$locals.len() {
-                        let restored = self.machine.do_restore_local($locals[i].clone(), self.control_stack[frame_index].$locations[i]);
-                        if $locals[i].ref_ct() > 1 {
-                            $locals[i].dec_ref();
-                            self.maybe_release($locals[i].clone());
-                        }
-                        if restored.ref_ct() < 1 {
-                            restored.inc_ref();
-                        } else {
-                            assert!(restored.ref_ct() == 1);
-                        }
-                        $locals[i] = restored;
+                for i in 0..$locals.len() {
+                    let restored = self.machine.do_restore_local(
+                        $locals[i].clone(),
+                        self.control_stack[frame_index].$locations[i],
+                    );
+                    if $locals[i].ref_ct() > 1 {
+                        $locals[i].dec_ref();
+                        self.maybe_release($locals[i].clone());
                     }
-                    
-                    // debug assertion
-                    for (local, location) in $locals.iter().cloned().zip(&self.control_stack[frame_index].$locations) {
-                        if local.location() != *location {
-                            println!("assertion failed: {:?} != {:?}", local.location(), location);
-                            assert!(false);
-                        }
+                    if restored.ref_ct() < 1 {
+                        restored.inc_ref();
+                    } else {
+                        assert!(restored.ref_ct() == 1);
+                    }
+                    $locals[i] = restored;
+                }
+
+                // debug assertion
+                for (local, location) in $locals
+                    .iter()
+                    .cloned()
+                    .zip(&self.control_stack[frame_index].$locations)
+                {
+                    if local.location() != *location {
+                        println!("assertion failed: {:?} != {:?}", local.location(), location);
+                        assert!(false);
                     }
                 }
-            }
+            }};
         }
-        
+
         restore_locations_from_vecs!(self.locals, local_locations);
         restore_locations_from_vecs!(self.stack, stack_locations);
     }
@@ -1420,7 +1452,8 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             }
             let loc = self.stack.pop().unwrap();
             loc.dec_ref();
-            self.machine.do_return(Some(frame.returns[0]), Some(loc.clone()), frame.label);
+            self.machine
+                .do_return(Some(frame.returns[0]), Some(loc.clone()), frame.label);
             self.maybe_release(loc);
             // if first_return.is_float() {
             //     let fp = self.fp_stack.peek1()?;

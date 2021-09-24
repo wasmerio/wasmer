@@ -9,12 +9,13 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
-    Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader, 
-    ModuleMiddlewareChain, ModuleMiddleware, ModuleTranslationState, OperatingSystem, Target,
+    Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, Target,
 };
 use wasmer_compiler::{
-    Compilation, CompileError, CompiledFunction, Compiler, SectionIndex,
-    FunctionBody, FunctionBodyData, CustomSection, CustomSectionProtection, SectionBody};
+    Compilation, CompileError, CompiledFunction, Compiler, CustomSection, CustomSectionProtection,
+    FunctionBody, FunctionBodyData, SectionBody, SectionIndex,
+};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
@@ -40,11 +41,14 @@ impl SinglepassCompiler {
     fn config(&self) -> &Singlepass {
         &self.config
     }
-    
-    fn gen_function<M: Machine>(&self, input: &FunctionBodyData,
-        vmoffsets: &VMOffsets, compile_info: &CompileModuleInfo, i: LocalFunctionIndex)
-        -> Result<CompiledFunction, CompileError> {
-        
+
+    fn gen_function<M: Machine>(
+        &self,
+        input: &FunctionBodyData,
+        vmoffsets: &VMOffsets,
+        compile_info: &CompileModuleInfo,
+        i: LocalFunctionIndex,
+    ) -> Result<CompiledFunction, CompileError> {
         let middleware_chain = self
             .config
             .middlewares
@@ -61,35 +65,53 @@ impl SinglepassCompiler {
                 locals.push(ty);
             }
         }
-        
+
         let machine = M::new();
         let mut generator = FuncGen::new(
-            machine, &compile_info.module, &self.config, &vmoffsets,
-            &compile_info.memory_styles, &compile_info.table_styles, i, &locals,
-        ).map_err(to_compile_error)?;
-        
+            machine,
+            &compile_info.module,
+            &self.config,
+            &vmoffsets,
+            &compile_info.memory_styles,
+            &compile_info.table_styles,
+            i,
+            &locals,
+        )
+        .map_err(to_compile_error)?;
+
         while generator.has_control_frames() {
             generator.set_srcloc(reader.original_position() as u32);
             let op = reader.read_operator()?;
             generator.feed_operator(op).map_err(to_compile_error)?;
         }
-    
+
         Ok(generator.finalize(&input))
     }
 }
 
 struct Generator {
-    function: fn(&SinglepassCompiler, &FunctionBodyData, &VMOffsets, &CompileModuleInfo, LocalFunctionIndex)
-        -> Result<CompiledFunction, CompileError>,
+    function: fn(
+        &SinglepassCompiler,
+        &FunctionBodyData,
+        &VMOffsets,
+        &CompileModuleInfo,
+        LocalFunctionIndex,
+    ) -> Result<CompiledFunction, CompileError>,
     std_trampoline: fn(sig: &FunctionType) -> Vec<u8>,
     std_dynamic_import_trampoline: fn(vmoffsets: &VMOffsets, sig: &FunctionType) -> Vec<u8>,
-    import_call_trampoline: fn(vmoffsets: &VMOffsets, index: FunctionIndex, sig: &FunctionType) -> Vec<u8>
+    import_call_trampoline:
+        fn(vmoffsets: &VMOffsets, index: FunctionIndex, sig: &FunctionType) -> Vec<u8>,
 }
 
 impl Generator {
-    fn gen_function(&self, compiler: &SinglepassCompiler, input: &FunctionBodyData,
-        vmoffsets: &VMOffsets, compile_info: &CompileModuleInfo, i: LocalFunctionIndex)
-        -> Result<CompiledFunction, CompileError> {
+    fn gen_function(
+        &self,
+        compiler: &SinglepassCompiler,
+        input: &FunctionBodyData,
+        vmoffsets: &VMOffsets,
+        compile_info: &CompileModuleInfo,
+        i: LocalFunctionIndex,
+    ) -> Result<CompiledFunction, CompileError> {
         (self.function)(compiler, input, vmoffsets, compile_info, i)
     }
     fn gen_std_trampoline(&self, sig: &FunctionType) -> FunctionBody {
@@ -98,13 +120,22 @@ impl Generator {
             unwind_info: None,
         }
     }
-    fn gen_std_dynamic_import_trampoline(&self, vmoffsets: &VMOffsets, sig: &FunctionType) -> FunctionBody {
+    fn gen_std_dynamic_import_trampoline(
+        &self,
+        vmoffsets: &VMOffsets,
+        sig: &FunctionType,
+    ) -> FunctionBody {
         FunctionBody {
             body: (self.std_dynamic_import_trampoline)(vmoffsets, sig),
             unwind_info: None,
         }
     }
-    fn gen_import_call_trampoline(&self, vmoffsets: &VMOffsets, index: FunctionIndex, sig: &FunctionType) -> CustomSection {
+    fn gen_import_call_trampoline(
+        &self,
+        vmoffsets: &VMOffsets,
+        index: FunctionIndex,
+        sig: &FunctionType,
+    ) -> CustomSection {
         CustomSection {
             protection: CustomSectionProtection::ReadExecute,
             bytes: SectionBody::new_with_vec((self.import_call_trampoline)(vmoffsets, index, sig)),
@@ -141,25 +172,21 @@ impl Compiler for SinglepassCompiler {
         }
 
         let gen = match target.triple().architecture {
-            Architecture::Aarch64(_) => {
-                Generator {
-                    function: Self::gen_function::<Aarch64Machine>,
-                    std_trampoline: Aarch64Machine::gen_std_trampoline,
-                    import_call_trampoline: Aarch64Machine::gen_import_call_trampoline,
-                    std_dynamic_import_trampoline: Aarch64Machine::gen_std_dynamic_import_trampoline,
-                }
+            Architecture::Aarch64(_) => Generator {
+                function: Self::gen_function::<Aarch64Machine>,
+                std_trampoline: Aarch64Machine::gen_std_trampoline,
+                import_call_trampoline: Aarch64Machine::gen_import_call_trampoline,
+                std_dynamic_import_trampoline: Aarch64Machine::gen_std_dynamic_import_trampoline,
             },
-            Architecture::X86_64 => {
-                Generator {
-                    function: Self::gen_function::<X64Machine>,
-                    std_trampoline: X64Machine::gen_std_trampoline,
-                    import_call_trampoline: X64Machine::gen_import_call_trampoline,
-                    std_dynamic_import_trampoline: X64Machine::gen_std_dynamic_import_trampoline,
-                }
+            Architecture::X86_64 => Generator {
+                function: Self::gen_function::<X64Machine>,
+                std_trampoline: X64Machine::gen_std_trampoline,
+                import_call_trampoline: X64Machine::gen_import_call_trampoline,
+                std_dynamic_import_trampoline: X64Machine::gen_std_dynamic_import_trampoline,
             },
             arch => {
                 return Err(CompileError::UnsupportedTarget(arch.to_string()));
-            },
+            }
         };
 
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
@@ -168,14 +195,20 @@ impl Compiler for SinglepassCompiler {
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|i| gen.gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]]))
+            .map(|i| {
+                gen.gen_import_call_trampoline(
+                    &vmoffsets,
+                    i,
+                    &module.signatures[module.functions[i]],
+                )
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect();
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .iter()// .into_par_iter_if_rayon()
+            .iter() // .into_par_iter_if_rayon()
             .map(|(i, input)| gen.gen_function(&self, input, &vmoffsets, &compile_info, *i))
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()
