@@ -18,7 +18,13 @@
 // it's fine most of the time, but not for JIT'd code that may not respect stack ordring
 // Using a special setjmp here, with NULL as second parameter to disable that behaviour
 // and have a regular simple setjmp/longjmp sequence
+#ifdef __MINGW32__
+// MINGW64 doesn't expose the __intrinsic_setjmp function, so using regular setjump
+// that seems to do the same thing as MSVC __intrinsic_setjmp(buf, NULL)
+#define platform_setjmp(buf) setjmp(buf)
+#else
 #define platform_setjmp(buf) __intrinsic_setjmp(buf, NULL)
+#endif
 #define platform_longjmp(buf, arg) longjmp(buf, arg)
 #define platform_jmp_buf jmp_buf
 #elif defined(CFG_TARGET_OS_MACOS)
