@@ -127,22 +127,30 @@ endif
 ifneq ($(ENABLE_LLVM), 0)
 	# … then maybe the user forced to enable the LLVM compiler.
 	ifeq ($(ENABLE_LLVM), 1)
+		LLVM_VERSION := $(shell llvm-config --version)
 		compilers += llvm
 	# … otherwise, we try to autodetect LLVM from `llvm-config`
 	else ifneq (, $(shell which llvm-config 2>/dev/null))
 		LLVM_VERSION := $(shell llvm-config --version)
 
 		# If findstring is not empty, then it have found the value
-		ifneq (, $(findstring 11,$(LLVM_VERSION)))
+		ifneq (, $(findstring 12,$(LLVM_VERSION)))
+			compilers += llvm
+		else ifneq (, $(findstring 11,$(LLVM_VERSION)))
 			compilers += llvm
 		else ifneq (, $(findstring 10,$(LLVM_VERSION)))
 			compilers += llvm
 		endif
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
 	else
-		ifneq (, $(shell which llvm-config-11 2>/dev/null))
+		ifneq (, $(shell which llvm-config-12 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-12 --version)
+			compilers += llvm
+		else ifneq (, $(shell which llvm-config-11 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-11 --version)
 			compilers += llvm
 		else ifneq (, $(shell which llvm-config-10 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-10 --version)
 			compilers += llvm
 		endif
 	endif
@@ -232,6 +240,7 @@ ifeq ($(ENABLE_LLVM), 1)
 			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		endif
 	endif
@@ -324,6 +333,9 @@ $(info Cargo features:)
 $(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
 $(info Rust version: $(bold)$(green)$(shell rustc --version)$(reset).)
 $(info NodeJS version: $(bold)$(green)$(shell node --version)$(reset).)
+ifeq ($(ENABLE_LLVM), 1)
+        $(info LLVM version: $(bold)$(green)${LLVM_VERSION}$(reset).)
+endif
 $(info )
 $(info )
 $(info --------------)
