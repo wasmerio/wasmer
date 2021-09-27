@@ -19,9 +19,8 @@
 // Using a special setjmp here, with NULL as second parameter to disable that behaviour
 // and have a regular simple setjmp/longjmp sequence
 #ifdef __MINGW32__
-// MINGW64 doesn't expose the __intrinsic_setjmp function, so using regular setjump
-// that seems to do the same thing as MSVC __intrinsic_setjmp(buf, NULL)
-#define platform_setjmp(buf) setjmp(buf)
+// MINGW64 doesn't expose the __intrinsic_setjmp function, but a similar _setjump instead
+#define platform_setjmp(buf) _setjmp(buf, NULL)
 #else
 #define platform_setjmp(buf) __intrinsic_setjmp(buf, NULL)
 #endif
