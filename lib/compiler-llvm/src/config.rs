@@ -117,7 +117,11 @@ impl LLVM {
             // MachO, they check whether the OS is set to Darwin.
             //
             // Since both linux and darwin use SysV ABI, this should work.
-            wasmer_compiler::OperatingSystem::Linux
+            //  but not in the case of Aarch64, there the ABI is slightly different
+            match target.triple().architecture {
+                Architecture::Aarch64(_) => target.triple().operating_system,
+                _ => wasmer_compiler::OperatingSystem::Linux,
+            }
         } else {
             target.triple().operating_system
         };
