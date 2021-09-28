@@ -55,7 +55,8 @@ fn apply_relocation(
         RelocationKind::X86PCRelRodata4 => {}
         RelocationKind::Arm64Call => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            let reloc_delta = (reloc_delta / 4) as u32 | read_unaligned(reloc_address as *mut u32);
+            let reloc_delta = (((reloc_delta / 4) as u32) & 0x3ff_ffff)
+                | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
         kind => panic!(
