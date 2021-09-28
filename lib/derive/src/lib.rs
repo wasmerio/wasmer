@@ -43,7 +43,7 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
 
     set_dummy(quote! {
         impl ::wasmer::WasmerEnv for #struct_name {
-            fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
+            fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> ::core::result::Result<(), ::wasmer::HostEnvInitError> {
                 Ok(())
             }
         }
@@ -205,7 +205,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     }
 
     let trait_methods = quote! {
-        fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
+        fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> ::core::result::Result<(), ::wasmer::HostEnvInitError> {
             #(#finish)*
             Ok(())
         }
