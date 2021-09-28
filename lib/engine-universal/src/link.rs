@@ -1,6 +1,6 @@
 //! Linking for Universal-compiled code.
 
-use std::ptr::write_unaligned;
+use std::ptr::{write_unaligned, read_unaligned};
 use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
     SectionIndex,
@@ -53,6 +53,11 @@ fn apply_relocation(
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
         RelocationKind::X86PCRelRodata4 => {}
+        RelocationKind::Arm64Call => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let reloc_delta = reloc_delta as u32 | read_unaligned(reloc_address as *mut u32);
+            write_unaligned(reloc_address as *mut u32, reloc_delta);
+        },
         kind => panic!(
             "Relocation kind unsupported in the current architecture {}",
             kind

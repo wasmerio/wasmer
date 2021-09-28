@@ -168,6 +168,7 @@ where
                 (object::RelocationKind::Elf(object::elf::R_X86_64_PC64), 0) => {
                     RelocationKind::X86PCRel8
                 }
+                (object::RelocationKind::PltRelative, 26) => RelocationKind::Arm64Call,
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",

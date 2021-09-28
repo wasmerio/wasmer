@@ -155,6 +155,14 @@ impl Relocation {
                     .wrapping_add(reloc_addend as u32);
                 (reloc_address, reloc_delta_u32 as u64)
             }
+            RelocationKind::Arm64Call => {
+                let reloc_address = start + self.offset as usize;
+                let reloc_addend = self.addend as isize;
+                let reloc_delta_u32 = (target_func_address as u32)
+                    .wrapping_sub(reloc_address as u32)
+                    .wrapping_add(reloc_addend as u32);
+                (reloc_address, reloc_delta_u32 as u64)
+            }
             // RelocationKind::X86PCRelRodata4 => {
             //     (start, target_func_address)
             // }
