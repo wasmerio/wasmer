@@ -6,15 +6,12 @@ use std::path::PathBuf;
 
 fn main() {
     let mut idx = 0;
-    let old_path = {
-        let mut old_path;
-        while {
-            old_path = PathBuf::from(format!("test_fs/wasitests/dirtorename-{}", idx));
-            fs::read_dir(old_path.clone()).ok().is_some()
-        } {
-            idx+=1;
+    let old_path = loop {
+        let old_path = PathBuf::from(format!("test_fs/wasitests/dirtorename-{}", idx));
+        if ! fs::read_dir(old_path.clone()).ok().is_some() {
+            break old_path;
         }
-        old_path
+        idx+=1;
     };
 
     let new_path = PathBuf::from(format!("test_fs/wasitests/dirrenamed-{}", idx));
