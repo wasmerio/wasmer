@@ -10,10 +10,7 @@ fn main() {
         let mut old_path;
         while {
             old_path = PathBuf::from(format!("test_fs/wasitests/dirtorename-{}", idx));
-            match fs::read_dir(old_path.clone()).ok() {
-                Some(_) => true,
-                None => false,
-            }
+            fs::read_dir(old_path.clone()).ok().is_some()
         } {
             idx+=1;
         }
