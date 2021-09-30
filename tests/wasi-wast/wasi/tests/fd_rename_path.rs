@@ -3,13 +3,25 @@
 
 use std::fs;
 use std::path::PathBuf;
-use std::time::Instant;
 
 fn main() {
-    let start = Instant::now();
-    // Use some time to get a pseudo random number to make name unique and avoid race condition during test
-    let old_path = PathBuf::from(format!("test_fs/wasitests/dirtorename-{}", start.elapsed().as_nanos()));
-    let new_path = PathBuf::from(format!("test_fs/wasitests/dirrenamed-{}", start.elapsed().as_nanos()));
+    let mut idx = 0;
+    let old_path = {
+        let mut old_path;
+        while {
+            old_path = PathBuf::from(format!("test_fs/wasitests/dirtorename-{}", idx));
+            match fs::read_dir(old_path.clone()).ok() {
+                Some(_) => true,
+                None => false,
+            }
+        } {
+            idx+=1;
+        }
+        old_path
+    };
+
+    let new_path = PathBuf::from(format!("test_fs/wasitests/dirrenamed-{}", idx));
+
     // Clean the test environment
     let _ = fs::remove_dir(&old_path);
     let _ = fs::remove_dir(&new_path);
