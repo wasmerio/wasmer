@@ -10,13 +10,12 @@ fn main() {
 
     let old_path = loop {
         let old_path = PathBuf::from(format!("test_fs/wasitests/dirtorename-{}", idx));
-        let created = fs::create_dir(old_path.clone());
-        if created.ok().is_some() {
+        if fs::create_dir(old_path.clone()).ok().is_some() {
             break old_path;
         }
         idx+=1;
         if idx > 10 {
-            panic!("too many try ay creating the folder");
+            panic!("too many try at creating the folder");
         }
     };
 
