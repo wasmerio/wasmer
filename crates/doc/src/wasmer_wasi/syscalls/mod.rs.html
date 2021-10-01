@@ -2582,6 +2582,18 @@
 <span id="2581">2581</span>
 <span id="2582">2582</span>
 <span id="2583">2583</span>
+<span id="2584">2584</span>
+<span id="2585">2585</span>
+<span id="2586">2586</span>
+<span id="2587">2587</span>
+<span id="2588">2588</span>
+<span id="2589">2589</span>
+<span id="2590">2590</span>
+<span id="2591">2591</span>
+<span id="2592">2592</span>
+<span id="2593">2593</span>
+<span id="2594">2594</span>
+<span id="2595">2595</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
@@ -4907,6 +4919,7 @@
 <span class="doccomment">/// Output:</span>
 <span class="doccomment">/// - `u32 nevents`</span>
 <span class="doccomment">///     The number of events seen</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_oneoff</span>(
     <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_subscription_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
@@ -5092,6 +5105,17 @@
     }
     <span class="ident">out_ptr</span>.<span class="ident">set</span>(<span class="ident">events_seen</span> <span class="kw">as</span> <span class="ident">u32</span>);
     <span class="ident">__WASI_ESUCCESS</span>
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_oneoff</span>(
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
+    <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_subscription_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
+    <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_event_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
+    <span class="ident">nsubscriptions</span>: <span class="ident">u32</span>,
+    <span class="ident">nevents</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+    <span class="macro">unimplemented!</span>();
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_exit</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">code</span>: <span class="ident">__wasi_exitcode_t</span>) {
