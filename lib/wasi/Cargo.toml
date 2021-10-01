@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 cfg-if = "1.0"
 thiserror = "1"
-generational-arena = { version = "0.2", features = ["serde"] }
+generational-arena = { version = "0.2" }
 tracing = "0.1"
 getrandom = "0.2"
 wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0" }
@@ -45,8 +45,8 @@ default = ["sys-default"]
 sys = ["wasmer/sys-default"]
 sys-default = ["sys", "logging", "host-fs"]
 
-js = ["wasmer/js-default", "mem-fs", "wasmer-vfs/no-time", "getrandom/js"]
-js-default = ["js"]
+js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js"]
+js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
 host-fs = ["wasmer-vfs/host-fs"]
@@ -61,5 +61,7 @@ enable-serde = [
     "typetag",
     "serde",
     "bincode",
-    "wasmer-vfs/enable-serde"
+    "wasmer-vfs/enable-serde",
+    "generational-arena/serde",
+    "wasmer-wasi-types/enable-serde",
 ]
