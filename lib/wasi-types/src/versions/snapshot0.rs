@@ -1,4 +1,5 @@
 use crate::*;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer_types::ValueType;
@@ -37,7 +38,8 @@ pub const __WASI_WHENCE_CUR: u8 = 0;
 pub const __WASI_WHENCE_END: u8 = 1;
 pub const __WASI_WHENCE_SET: u8 = 2;
 
-#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct __wasi_filestat_t {
     pub st_dev: __wasi_device_t,
