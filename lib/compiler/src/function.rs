@@ -4,6 +4,7 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
+use crate::lib::std::collections::HashMap;
 use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
@@ -109,6 +110,60 @@ impl Dwarf {
     }
 }
 
+/// Trampolines section used by ARM short jump (26bits)
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
+#[derive(Debug, PartialEq, Eq, Clone, MemoryUsage)]
+pub struct Trampolines {
+    /// SectionIndex for the actual Trampolines code
+    pub trampolines: SectionIndex,
+    /// Number of jump slots in the section
+    slots: usize,
+    /// Slot size
+    size: usize,
+    /// Map containing already done jump
+    map: HashMap<usize, usize>,
+}
+
+impl Trampolines {
+    /// Creates a `Trampolines` struct with the indice for its section, and number of slots and size of slot
+    pub fn new(trampolines: SectionIndex, slots: usize, size: usize) -> Self {
+        let map = HashMap::new();
+        Self {
+            trampolines,
+            slots,
+            size,
+            map,
+        }
+    }
+
+    /// Check if an address already have a trampoline
+    pub fn exist(&self, address: usize) -> bool {
+        self.map.contains_key(&address)
+    }
+    /// Get the trampoline address for an adress
+    pub fn get(&self, address: usize) -> usize {
+        *self.map.get(&address).unwrap()
+    }
+    /// Add a new trampoline address, given the base adress of the Section. Return the address of the jump
+    /// The trampoline itself still have to be writen
+    pub fn add(&mut self, address: usize, baseaddress: usize) -> usize {
+        if self.map.contains_key(&address) {
+            *self.map.get(&address).unwrap()
+        } else {
+            let ret = self.map.len();
+            if ret == self.slots {
+                panic!("No more slot in Trampolines");
+            }
+            self.map.insert(address, baseaddress + ret * self.size);
+            baseaddress + ret * self.size
+        }
+    }
+}
+
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
@@ -155,6 +210,9 @@ pub struct Compilation {
 
     /// Section ids corresponding to the Dwarf debug info
     debug: Option<Dwarf>,
+
+    /// Trampolines for the arch that needs it
+    trampolines: Option<Trampolines>,
 }
 
 impl Compilation {
@@ -165,6 +223,7 @@ impl Compilation {
         function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
         debug: Option<Dwarf>,
+        trampolines: Option<Trampolines>,
     ) -> Self {
         Self {
             functions,
@@ -172,6 +231,7 @@ impl Compilation {
             function_call_trampolines,
             dynamic_function_trampolines,
             debug,
+            trampolines,
         }
     }
 
@@ -248,6 +308,11 @@ impl Compilation {
     /// Returns the Dwarf info.
     pub fn get_debug(&self) -> Option<Dwarf> {
         self.debug.clone()
+    }
+
+    /// Returns the Trampilines info.
+    pub fn get_trampolines(&self) -> Option<Trampolines> {
+        self.trampolines.clone()
     }
 }
 

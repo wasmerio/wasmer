@@ -455,6 +455,16 @@ impl<'ctx> Intrinsics<'ctx> {
             false,
         );
 
+        let _linkage = if module
+            .get_triple()
+            .as_str()
+            .to_string_lossy()
+            .starts_with("aarch64")
+        {
+            Some(Linkage::External)
+        } else {
+            None
+        };
         let intrinsics = Self {
             ctlz_i32: module.add_function("llvm.ctlz.i32", ret_i32_take_i32_i1, None),
             ctlz_i64: module.add_function("llvm.ctlz.i64", ret_i64_take_i64_i1, None),

@@ -122,6 +122,7 @@ impl UniversalArtifact {
             custom_sections: compilation.get_custom_sections(),
             custom_section_relocations: compilation.get_custom_section_relocations(),
             debug: compilation.get_debug(),
+            trampolines: compilation.get_trampolines(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -187,6 +188,8 @@ impl UniversalArtifact {
             &serializable.compilation.custom_sections,
         )?;
 
+        let mut trampolines = serializable.compilation.trampolines.clone();
+
         link_module(
             &serializable.compile_info.module,
             &finished_functions,
@@ -194,6 +197,7 @@ impl UniversalArtifact {
             serializable.compilation.function_relocations.clone(),
             &custom_sections,
             &serializable.compilation.custom_section_relocations,
+            &mut trampolines,
         );
 
         // Compute indices into the shared signature table.
@@ -221,10 +225,27 @@ impl UniversalArtifact {
             }
             None => None,
         };
+
+        //let trampolines_section = match &serializable.compilation.trampolines {
+        //    Some(trampolines) => {
+        //        let trampolines_section_size = serializable.compilation.custom_sections
+        //            [trampolines.trampolines]
+        //            .bytes
+        //            .len();
+        //        let trampolines_section_pointer = custom_sections[trampolines.trampolines];
+        //        Some(unsafe {
+        //            std::slice::from_raw_parts(*trampolines_section_pointer, trampolines_section_size)
+        //        })
+        //    }
+        //    None => None,
+        //};
+
         // Make all code compiled thus far executable.
         inner_engine.publish_compiled_code();
 
         inner_engine.publish_eh_frame(eh_frame)?;
+
+        //inner_engine.publish_trampolines(trampolines_section)?;
 
         let finished_function_lengths = finished_functions
             .values()

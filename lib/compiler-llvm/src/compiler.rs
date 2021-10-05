@@ -12,9 +12,9 @@ use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
-    Dwarf, FunctionBodyData, ModuleMiddleware, ModuleTranslationState, RelocationTarget,
-    SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
+    Architecture, Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection,
+    CustomSectionProtection, Dwarf, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
+    RelocationTarget, SectionBody, SectionIndex, Symbol, SymbolRegistry, Target, Trampolines,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -303,6 +303,36 @@ impl Compiler for LLVMCompiler {
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
+        let trampolines = match target.triple().architecture {
+            Architecture::Aarch64(_) => {
+                let nj = 16;
+                let trampolines = Some(Trampolines::new(
+                    SectionIndex::from_u32(module_custom_sections.len() as u32),
+                    nj,
+                    16,
+                ));
+                // We create a jump to an absolute 64bits address
+                // using x16 as a scratch register, SystemV declare both x16 and x17 as Intra-Procedural  scratch register
+                // LDR x16, #8      50 00 00 58
+                // BR x16           00 02 1f d6
+                // JMPADDR          00 00 00 00 00 00 00 00
+                let onejump = vec![
+                    0x50, 0x00, 0x00, 0x58, 0x00, 0x02, 0x1f, 0xd6, 0, 0, 0, 0, 0, 0, 0, 0,
+                ];
+                let mut alljmps = Vec::<u8>::new();
+                for _ in 0..nj {
+                    alljmps.extend(onejump.iter().copied());
+                }
+                module_custom_sections.push(CustomSection {
+                    protection: CustomSectionProtection::ReadExecute,
+                    bytes: SectionBody::new_with_vec(alljmps),
+                    relocations: vec![],
+                });
+                trampolines
+            }
+            _ => None,
+        };
+
         let dwarf = if !frame_section_bytes.is_empty() {
             let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
                 module_custom_sections.len() as u32,
@@ -367,6 +397,7 @@ impl Compiler for LLVMCompiler {
             function_call_trampolines,
             dynamic_function_trampolines,
             dwarf,
+            trampolines,
         ))
     }
 }
