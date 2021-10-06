@@ -174,6 +174,9 @@
 <span id="173">173</span>
 <span id="174">174</span>
 <span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys::exports::Exports</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys::externals::Extern</span>;
@@ -289,7 +292,10 @@
     <span class="doccomment">/// Those are, as defined by the spec:</span>
     <span class="doccomment">///  * Link errors that happen when plugging the imports into the instance</span>
     <span class="doccomment">///  * Runtime errors that happen when running the module `start` function.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>, <span class="ident">resolver</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Resolver</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
+        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>,
+        <span class="ident">resolver</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">Resolver</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>),
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">store</span>();
         <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">instantiate</span>(<span class="ident">resolver</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="ident">module</span>
