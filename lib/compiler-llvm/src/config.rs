@@ -103,8 +103,8 @@ impl LLVM {
         // Hack: we're using is_pic to determine whether this is a native
         // build or not.
         let operating_system = if target.triple().operating_system
-        == wasmer_compiler::OperatingSystem::Darwin
-        && !self.is_pic
+            == wasmer_compiler::OperatingSystem::Darwin
+            && !self.is_pic
         {
             // LLVM detects static relocation + darwin + 64-bit and
             // force-enables PIC because MachO doesn't support that
