@@ -102,14 +102,9 @@ impl LLVM {
     fn target_triple(&self, target: &Target) -> TargetTriple {
         // Hack: we're using is_pic to determine whether this is a native
         // build or not.
-        let binary_format = if self.is_pic {
-            target.triple().binary_format
-        } else {
-            target_lexicon::BinaryFormat::Elf
-        };
         let operating_system = if target.triple().operating_system
-            == wasmer_compiler::OperatingSystem::Darwin
-            && !self.is_pic
+        == wasmer_compiler::OperatingSystem::Darwin
+        && !self.is_pic
         {
             // LLVM detects static relocation + darwin + 64-bit and
             // force-enables PIC because MachO doesn't support that
@@ -119,11 +114,16 @@ impl LLVM {
             // Since both linux and darwin use SysV ABI, this should work.
             //  but not in the case of Aarch64, there the ABI is slightly different
             match target.triple().architecture {
-                Architecture::Aarch64(_) => target.triple().operating_system,
+                //Architecture::Aarch64(_) => wasmer_compiler::OperatingSystem::Darwin,
                 _ => wasmer_compiler::OperatingSystem::Linux,
             }
         } else {
             target.triple().operating_system
+        };
+        let binary_format = if self.is_pic {
+            target.triple().binary_format
+        } else {
+            target_lexicon::BinaryFormat::Elf
         };
         let triple = Triple {
             architecture: target.triple().architecture,
