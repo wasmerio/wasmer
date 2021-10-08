@@ -312,12 +312,13 @@ impl Compiler for LLVMCompiler {
                     16,
                 ));
                 // We create a jump to an absolute 64bits address
-                // using x16 as a scratch register, SystemV declare both x16 and x17 as Intra-Procedural  scratch register
-                // LDR x16, #8      50 00 00 58
-                // BR x16           00 02 1f d6
+                // using x17 as a scratch register, SystemV declare both x16 and x17 as Intra-Procedural  scratch register
+                // but Apple ask to just not use x16
+                // LDR x17, #8      51 00 00 58
+                // BR x17           20 02 1f d6
                 // JMPADDR          00 00 00 00 00 00 00 00
                 let onejump = vec![
-                    0x50, 0x00, 0x00, 0x58, 0x00, 0x02, 0x1f, 0xd6, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0x51, 0x00, 0x00, 0x58, 0x20, 0x02, 0x1f, 0xd6, 0, 0, 0, 0, 0, 0, 0, 0,
                 ];
                 let mut alljmps = Vec::<u8>::new();
                 for _ in 0..nj {
