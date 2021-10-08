@@ -1,23 +1,23 @@
 benches                            @syrusakbary
-examples                           @Hywan
+examples                           
 fuzz                               @syrusakbary
-lib/api                            @syrusakbary @Hywan
-lib/c-api                          @Hywan
-lib/cache                          @syrusakbary @Hywan
+lib/api                            @syrusakbary
+lib/c-api                          
+lib/cache                          @syrusakbary
 lib/cli                            @syrusakbary
-lib/compiler                       @syrusakbary @Hywan
+lib/compiler                       @syrusakbary
 lib/compiler-cranelift             @syrusakbary
-lib/compiler-llvm                  @Hywan
+lib/compiler-llvm                  
 lib/compiler-singlepass            @syrusakbary
-lib/deprecated                     @Hywan
-lib/emscripten                     @Hywan
-lib/engine                         @syrusakbary @Hywan
-lib/engine-jit                     @syrusakbary @Hywan
-lib/engine-native                  @syrusakbary @Hywan
-lib/engine-object-file             @syrusakbary @Hywan
+lib/deprecated                     
+lib/emscripten                     
+lib/engine                         @syrusakbary
+lib/engine-jit                     @syrusakbary
+lib/engine-native                  @syrusakbary
+lib/engine-object-file             @syrusakbary
 lib/object                         @syrusakbary
-lib/vm                             @syrusakbary @Hywan
-lib/wasi                           @Hywan
-lib/wasmer-types                   @syrusakbary @Hywan
+lib/vm                             @syrusakbary
+lib/wasi                           
+lib/wasmer-types                   @syrusakbary
 scripts                            @syrusakbary
-tests                              @Hywan
+tests                              
