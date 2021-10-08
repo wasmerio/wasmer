@@ -109,11 +109,12 @@ impl WasiEnv {
     pub fn import_object_for_all_wasi_versions(
         &mut self,
         module: &Module,
-    ) -> Result<Box<dyn NamedResolver>, WasiError> {
+    ) -> Result<Box<dyn NamedResolver + Send + Sync>, WasiError> {
         let wasi_versions =
             get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
 
-        let mut resolver: Box<dyn NamedResolver> = { Box::new(()) };
+        let mut resolver: Box<dyn NamedResolver + Send + Sync> =
+            { Box::new(()) as Box<dyn NamedResolver + Send + Sync> };
         for version in wasi_versions.iter() {
             let new_import_object =
                 generate_import_object_from_env(module.store(), self.clone(), *version);

@@ -1,4 +1,4 @@
-use crate::js::export::{Export, VMFunction};
+use crate::js::export::Export;
 use crate::js::resolver::Resolver;
 use crate::js::store::Store;
 use crate::js::types::{ExportType, ImportType};
@@ -214,9 +214,9 @@ impl Module {
     pub(crate) fn instantiate(
         &self,
         resolver: &dyn Resolver,
-    ) -> Result<(WebAssembly::Instance, Vec<VMFunction>), RuntimeError> {
+    ) -> Result<(WebAssembly::Instance, Vec<Export>), RuntimeError> {
         let imports = js_sys::Object::new();
-        let mut functions: Vec<VMFunction> = vec![];
+        let mut import_externs: Vec<Export> = vec![];
         for (i, import_type) in self.imports().enumerate() {
             let resolved_import =
                 resolver.resolve(i as u32, import_type.module(), import_type.name());
@@ -239,9 +239,7 @@ impl Module {
                         &import_namespace.into(),
                     )?;
                 }
-                if let Export::Function(func) = import {
-                    functions.push(func);
-                }
+                import_externs.push(import);
             }
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
@@ -249,7 +247,7 @@ impl Module {
         Ok((
             WebAssembly::Instance::new(&self.module, &imports)
                 .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
-            functions,
+            import_externs,
         ))
     }
 

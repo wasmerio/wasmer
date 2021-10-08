@@ -113,22 +113,29 @@ impl ImportObject {
         }
         out
     }
-}
 
-impl Into<js_sys::Object> for ImportObject {
-    fn into(self) -> js_sys::Object {
-        let guard = self.map.lock().unwrap();
+    /// Returns the `ImportObject` as a Javascript `Object`
+    pub fn as_jsobject(&self) -> js_sys::Object {
+        let guard = self.map.lock().expect("Can't get the map");
         let map = guard.borrow();
 
         let imports = js_sys::Object::new();
         for (module, ns) in map.iter() {
             let import_namespace = js_sys::Object::new();
             for (name, exp) in ns.get_namespace_exports() {
-                js_sys::Reflect::set(&import_namespace, &name.into(), exp.as_jsvalue()).unwrap();
+                js_sys::Reflect::set(&import_namespace, &name.into(), exp.as_jsvalue())
+                    .expect("Error while setting into the js namespace object");
             }
-            js_sys::Reflect::set(&imports, &module.into(), &import_namespace.into()).unwrap();
+            js_sys::Reflect::set(&imports, &module.into(), &import_namespace.into())
+                .expect("Error while setting into the js imports object");
         }
         imports
+    }
+}
+
+impl Into<js_sys::Object> for ImportObject {
+    fn into(self) -> js_sys::Object {
+        self.as_jsobject()
     }
 }
 
