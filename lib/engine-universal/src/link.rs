@@ -70,7 +70,7 @@ fn apply_relocation(
         RelocationKind::X86PCRelRodata4 => {}
         RelocationKind::Arm64Call => unsafe {
             let (reloc_address, mut reloc_delta) = r.for_address(body, target_func_address as u64);
-            if reloc_delta.abs() as i64 >= 0x1000_0000 {
+            if (reloc_delta as i64).abs() >= 0x1000_0000 {
                 let new_address =
                     match use_trampoline(target_func_address, allocated_sections, trampolines) {
                         Some(new_address) => new_address,
