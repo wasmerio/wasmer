@@ -84,12 +84,12 @@ jobs:
           #  run_integration_tests: false
           - build: linux-musl-x64
             os: ubuntu-latest
-            container: alpine:latest
             artifact_name: 'wasmer-linux-musl-amd64'
             run_test: true
             run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
             run_integration_tests: false
             use_sccache: false
+            use_brr: true
     container: ${{ matrix.container }}
     env:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
@@ -105,9 +105,26 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl-x64' && !matrix.use_brr
         run: |
-            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+          apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+
+      - name: Install brr
+        if: matrix.build == 'linux-musl-x64' && matrix.use_brr
+        env:
+          TAG: 0.0.20
+        run: |
+          curl -L https://github.com/buildrecall/brr/releases/download/$TAG/brr-$TAG-x86_64-unknown-linux-musl -o /tmp/brr
+          sudo mv /tmp/brr /usr/bin/brr
+          sudo chmod +x /usr/bin/brr
+          brr -V
+      - name: brr build musl
+        if: matrix.build == 'linux-musl-x64' && matrix.use_brr
+        env:
+          BUILDRECALL_API_KEY: ${{ secrets.BUILDRECALL_API_KEY }}
+        run: |
+          brr run test-build-musl cluxmusl
+
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -202,19 +219,21 @@ jobs:
       - name: Test
         run: |
           make test
-        if: matrix.run_test
+        if: matrix.run_test && !matrix.use_brr
       - name: Test C API
         run: |
           make test-capi
-        if: matrix.run_test_capi
+        if: matrix.run_test_capi && !matrix.use_brr
       - name: Build C API
+        if: '!matrix.use_brr'
         run: |
           make build-capi
       - name: Build Wasmer binary
+        if: '!matrix.use_brr'
         run: |
           make build-wasmer
       - name: Build Wapm binary
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+        if: needs.setup.outputs.DOING_RELEASE == '1' && !matrix.use_brr
         run: |
           make build-wapm
       - name: Install Nightly Rust for Headless
@@ -223,10 +242,10 @@ jobs:
           toolchain: 'nightly-2021-04-25'
           target: ${{ matrix.target }}
           override: true
-          components: "rust-src"
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+          components: 'rust-src'
+        if: needs.setup.outputs.DOING_RELEASE == '1' && !matrix.use_brr
       - name: Build Minimal Wasmer Headless
-        if: needs.setup.outputs.DOING_RELEASE == '1' && matrix.build != 'linux-musl-x64'
+        if: needs.setup.outputs.DOING_RELEASE == '1' && matrix.build != 'linux-musl-x64' && !matrix.use_brr
         run: |
           cargo install xargo
           echo "" >> Cargo.toml
@@ -242,6 +261,7 @@ jobs:
           echo "rpath = false" >> Cargo.toml
           make build-wasmer-headless-minimal
       - name: Dist
+        if: '!matrix.use_brr'
         run: |
           make distribution
       - name: Run integration tests (Windows)
@@ -343,7 +363,7 @@ jobs:
           OUTPUT=$(./wasmer run artifacts/cross_compiled_from_linux/qjs_mac_from_linux.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));")
           [[ "$OUTPUT" == '"Hello, World"' ]]
           #wasmer run artifacts/cross/cross_compiled_from_win/qjs_mac_from_win.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-          
+
   #test-cross-compile-on-win:
   #  needs: [setup, test]
   #  runs-on: windows-latest
@@ -433,15 +453,15 @@ jobs:
           asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
-      #- name: Upload Release Asset Linux aarch64
-      #  uses: actions/upload-release-asset@v1
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #  with:
-      #    upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #    asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-      #    asset_name: wasmer-linux-aarch64.tar.gz
-      #    asset_content_type: application/gzip
+  #- name: Upload Release Asset Linux aarch64
+  #  uses: actions/upload-release-asset@v1
+  #  env:
+  #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #  with:
+  #    upload_url: ${{ steps.create_release.outputs.upload_url }}
+  #    asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
+  #    asset_name: wasmer-linux-aarch64.tar.gz
+  #    asset_content_type: application/gzip
 
   audit:
     name: Audit

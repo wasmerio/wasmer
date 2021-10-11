@@ -1,0 +1,23 @@
+# Optimization idea: have each combination of features compile to a separate target directory
+# 
+[project]
+name = 'wasmer'
+
+[jobs.test-build-musl]
+run = '''
+rustup target add x86_64-unknown-linux-musl
+
+make test
+make build-capi
+make build-wasmer
+make distribution
+'''
+artifacts = ["dist/wasmer.tar.gz"]
+
+[jobs.test-build-musl.env]
+CARGO_BUILD_TARGET = "x86_64-unknown-linux-musl"
+TARGET = "x86_64-unknown-linux-musl"
+
+[containers.cluxmusl]
+image = "clux/muslrust:1.53.0-stable"
+persist = ["/root/.cargo/registry", "/root/.cargo/git"]
