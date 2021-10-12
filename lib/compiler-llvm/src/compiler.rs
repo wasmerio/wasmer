@@ -14,7 +14,8 @@ use std::sync::Arc;
 use wasmer_compiler::{
     Architecture, Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection,
     CustomSectionProtection, Dwarf, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
-    RelocationTarget, SectionBody, SectionIndex, Symbol, SymbolRegistry, Target, Trampolines,
+    RelocationTarget, SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
+    TrampolinesSection,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -306,7 +307,7 @@ impl Compiler for LLVMCompiler {
         let trampolines = match target.triple().architecture {
             Architecture::Aarch64(_) => {
                 let nj = 16;
-                let trampolines = Some(Trampolines::new(
+                let trampolines = Some(TrampolinesSection::new(
                     SectionIndex::from_u32(module_custom_sections.len() as u32),
                     nj,
                     16,

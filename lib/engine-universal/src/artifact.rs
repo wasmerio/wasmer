@@ -188,8 +188,6 @@ impl UniversalArtifact {
             &serializable.compilation.custom_sections,
         )?;
 
-        let mut trampolines = serializable.compilation.trampolines.clone();
-
         link_module(
             &serializable.compile_info.module,
             &finished_functions,
@@ -197,7 +195,7 @@ impl UniversalArtifact {
             serializable.compilation.function_relocations.clone(),
             &custom_sections,
             &serializable.compilation.custom_section_relocations,
-            &mut trampolines,
+            &serializable.compilation.trampolines,
         );
 
         // Compute indices into the shared signature table.

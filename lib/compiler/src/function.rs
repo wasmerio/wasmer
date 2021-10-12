@@ -4,7 +4,6 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use crate::lib::std::collections::HashMap;
 use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
@@ -117,49 +116,22 @@ impl Dwarf {
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
 #[derive(Debug, PartialEq, Eq, Clone, MemoryUsage)]
-pub struct Trampolines {
+pub struct TrampolinesSection {
     /// SectionIndex for the actual Trampolines code
-    pub trampolines: SectionIndex,
+    pub section_index: SectionIndex,
     /// Number of jump slots in the section
-    slots: usize,
+    pub slots: usize,
     /// Slot size
-    size: usize,
-    /// Map containing already done jump
-    map: HashMap<usize, usize>,
+    pub size: usize,
 }
 
-impl Trampolines {
+impl TrampolinesSection {
     /// Creates a `Trampolines` struct with the indice for its section, and number of slots and size of slot
-    pub fn new(trampolines: SectionIndex, slots: usize, size: usize) -> Self {
-        let map = HashMap::new();
+    pub fn new(section_index: SectionIndex, slots: usize, size: usize) -> Self {
         Self {
-            trampolines,
+            section_index,
             slots,
             size,
-            map,
-        }
-    }
-
-    /// Check if an address already have a trampoline
-    pub fn exist(&self, address: usize) -> bool {
-        self.map.contains_key(&address)
-    }
-    /// Get the trampoline address for an adress
-    pub fn get(&self, address: usize) -> usize {
-        *self.map.get(&address).unwrap()
-    }
-    /// Add a new trampoline address, given the base adress of the Section. Return the address of the jump
-    /// The trampoline itself still have to be writen
-    pub fn add(&mut self, address: usize, baseaddress: usize) -> usize {
-        if self.map.contains_key(&address) {
-            *self.map.get(&address).unwrap()
-        } else {
-            let ret = self.map.len();
-            if ret == self.slots {
-                panic!("No more slot in Trampolines");
-            }
-            self.map.insert(address, baseaddress + ret * self.size);
-            baseaddress + ret * self.size
         }
     }
 }
@@ -212,7 +184,7 @@ pub struct Compilation {
     debug: Option<Dwarf>,
 
     /// Trampolines for the arch that needs it
-    trampolines: Option<Trampolines>,
+    trampolines: Option<TrampolinesSection>,
 }
 
 impl Compilation {
@@ -223,7 +195,7 @@ impl Compilation {
         function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
         debug: Option<Dwarf>,
-        trampolines: Option<Trampolines>,
+        trampolines: Option<TrampolinesSection>,
     ) -> Self {
         Self {
             functions,
@@ -311,7 +283,7 @@ impl Compilation {
     }
 
     /// Returns the Trampilines info.
-    pub fn get_trampolines(&self) -> Option<Trampolines> {
+    pub fn get_trampolines(&self) -> Option<TrampolinesSection> {
         self.trampolines.clone()
     }
 }

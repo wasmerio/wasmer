@@ -1,26 +1,71 @@
 //! Linking for Universal-compiled code.
 
+use std::collections::HashMap;
 use std::ptr::{read_unaligned, write_unaligned};
 use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
-    SectionIndex, Trampolines,
+    SectionIndex, TrampolinesSection,
 };
 use wasmer_engine::FunctionExtent;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
 use wasmer_vm::SectionBodyPtr;
 
+/// Add a new trampoline address, given the base adress of the Section. Return the address of the jump
+/// The trampoline itself still have to be writen
+fn trampolines_add(
+    map: &mut HashMap<usize, usize>,
+    trampoline: &TrampolinesSection,
+    address: usize,
+    baseaddress: usize,
+) -> usize {
+    if map.contains_key(&address) {
+        *map.get(&address).unwrap()
+    } else {
+        let ret = map.len();
+        if ret == trampoline.slots {
+            panic!("No more slot in Trampolines");
+        }
+        map.insert(address, baseaddress + ret * trampoline.size);
+        baseaddress + ret * trampoline.size
+    }
+}
+
 fn use_trampoline(
     address: usize,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
-    trampolines: &mut Option<Trampolines>,
+    trampolines: &Option<TrampolinesSection>,
+    map: &mut HashMap<usize, usize>,
 ) -> Option<usize> {
     match trampolines {
-        Some(trampolines) => Some(trampolines.add(
+        Some(trampolines) => Some(trampolines_add(
+            map,
+            trampolines,
             address,
-            *allocated_sections[trampolines.trampolines] as usize,
+            *allocated_sections[trampolines.section_index] as usize,
         )),
         _ => None,
+    }
+}
+
+fn fill_trampolin_map(
+    allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
+    trampolines: &Option<TrampolinesSection>,
+    map: &mut HashMap<usize, usize>,
+) {
+    match trampolines {
+        Some(trampolines) => {
+            let baseaddress = *allocated_sections[trampolines.section_index] as usize;
+            for i in 0..trampolines.size {
+                let jmpslot: usize = unsafe {
+                    read_unaligned((baseaddress + i * trampolines.size + 8) as *mut usize)
+                };
+                if jmpslot != 0 {
+                    map.insert(jmpslot, baseaddress + i * trampolines.size);
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -30,7 +75,8 @@ fn apply_relocation(
     allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
-    trampolines: &mut Option<Trampolines>,
+    trampolines: &Option<TrampolinesSection>,
+    map: &mut HashMap<usize, usize>,
 ) {
     let target_func_address: usize = match r.reloc_target {
         RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
@@ -72,7 +118,8 @@ fn apply_relocation(
             let (reloc_address, mut reloc_delta) = r.for_address(body, target_func_address as u64);
             if (reloc_delta as i64).abs() >= 0x1000_0000 {
                 let new_address =
-                    match use_trampoline(target_func_address, allocated_sections, trampolines) {
+                    match use_trampoline(target_func_address, allocated_sections, trampolines, map)
+                    {
                         Some(new_address) => new_address,
                         _ => panic!(
                             "Relocation to big for {:?} for {:?} with {:x}, current val {:x}",
@@ -130,8 +177,10 @@ pub fn link_module(
     function_relocations: Relocations,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
     section_relocations: &PrimaryMap<SectionIndex, Vec<Relocation>>,
-    trampolines: &mut Option<Trampolines>,
+    trampolines: &Option<TrampolinesSection>,
 ) {
+    let mut map: HashMap<usize, usize> = HashMap::new();
+    fill_trampolin_map(allocated_sections, trampolines, &mut map);
     for (i, section_relocs) in section_relocations.iter() {
         let body = *allocated_sections[i] as usize;
         for r in section_relocs {
@@ -142,6 +191,7 @@ pub fn link_module(
                 jt_offsets,
                 allocated_sections,
                 trampolines,
+                &mut map,
             );
         }
     }
@@ -155,6 +205,7 @@ pub fn link_module(
                 jt_offsets,
                 allocated_sections,
                 trampolines,
+                &mut map,
             );
         }
     }
