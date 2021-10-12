@@ -19,16 +19,15 @@ fn trampolines_add(
     address: usize,
     baseaddress: usize,
 ) -> usize {
-    if map.contains_key(&address) {
-        *map.get(&address).unwrap()
-    } else {
-        let ret = map.len();
-        if ret == trampoline.slots {
-            panic!("No more slot in Trampolines");
-        }
-        map.insert(address, baseaddress + ret * trampoline.size);
-        baseaddress + ret * trampoline.size
+    if let Some(target) = map.get(&address) {
+        return *target;
     }
+    let ret = map.len();
+    if ret == trampoline.slots {
+        panic!("No more slot in Trampolines");
+    }
+    map.insert(address, baseaddress + ret * trampoline.size);
+    baseaddress + ret * trampoline.size
 }
 
 fn use_trampoline(
@@ -77,7 +76,7 @@ fn apply_relocation(
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
     trampolines: &Option<TrampolinesSection>,
-    map: &mut HashMap<usize, usize>,
+    trampolines_map: &mut HashMap<usize, usize>,
 ) {
     let target_func_address: usize = match r.reloc_target {
         RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
@@ -118,18 +117,21 @@ fn apply_relocation(
         RelocationKind::Arm64Call => unsafe {
             let (reloc_address, mut reloc_delta) = r.for_address(body, target_func_address as u64);
             if (reloc_delta as i64).abs() >= 0x1000_0000 {
-                let new_address =
-                    match use_trampoline(target_func_address, allocated_sections, trampolines, map)
-                    {
-                        Some(new_address) => new_address,
-                        _ => panic!(
-                            "Relocation to big for {:?} for {:?} with {:x}, current val {:x}",
-                            r.kind,
-                            r.reloc_target,
-                            reloc_delta,
-                            read_unaligned(reloc_address as *mut u32)
-                        ),
-                    };
+                let new_address = match use_trampoline(
+                    target_func_address,
+                    allocated_sections,
+                    trampolines,
+                    trampolines_map,
+                ) {
+                    Some(new_address) => new_address,
+                    _ => panic!(
+                        "Relocation to big for {:?} for {:?} with {:x}, current val {:x}",
+                        r.kind,
+                        r.reloc_target,
+                        reloc_delta,
+                        read_unaligned(reloc_address as *mut u32)
+                    ),
+                };
                 write_unaligned((new_address + 8) as *mut u64, target_func_address as u64); // write the jump address
                 let (_, new_delta) = r.for_address(body, new_address as u64);
                 reloc_delta = new_delta;
@@ -180,7 +182,7 @@ pub fn link_module(
     section_relocations: &PrimaryMap<SectionIndex, Vec<Relocation>>,
     trampolines: &Option<TrampolinesSection>,
 ) {
-    let mut map = fill_trampolin_map(allocated_sections, trampolines);
+    let mut trampolines_map = fill_trampolin_map(allocated_sections, trampolines);
     for (i, section_relocs) in section_relocations.iter() {
         let body = *allocated_sections[i] as usize;
         for r in section_relocs {
@@ -191,7 +193,7 @@ pub fn link_module(
                 jt_offsets,
                 allocated_sections,
                 trampolines,
-                &mut map,
+                &mut trampolines_map,
             );
         }
     }
@@ -205,7 +207,7 @@ pub fn link_module(
                 jt_offsets,
                 allocated_sections,
                 trampolines,
-                &mut map,
+                &mut trampolines_map,
             );
         }
     }
