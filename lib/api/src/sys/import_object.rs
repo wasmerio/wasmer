@@ -48,7 +48,7 @@ pub trait LikeNamespace {
 /// ```
 #[derive(Clone, Default)]
 pub struct ImportObject {
-    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace>>>>,
+    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send + Sync>>>>,
 }
 
 impl ImportObject {
@@ -94,7 +94,7 @@ impl ImportObject {
     pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,
-        N: LikeNamespace + 'static,
+        N: LikeNamespace + Send + Sync + 'static,
     {
         let mut guard = self.map.lock().unwrap();
         let map = guard.borrow_mut();
