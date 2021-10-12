@@ -409,10 +409,27 @@
 <span id="408">408</span>
 <span id="409">409</span>
 <span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! The import module contains the implementation data structures and helper functions used to</span>
 <span class="doccomment">//! manipulate and access a wasm module&#39;s imports including memories, tables, globals, and</span>
 <span class="doccomment">//! functions.</span>
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::Exports</span>;
 <span class="kw">use</span> <span class="ident">std::borrow</span>::{<span class="ident">Borrow</span>, <span class="ident">BorrowMut</span>};
 <span class="kw">use</span> <span class="ident">std::collections::VecDeque</span>;
 <span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">hash_map::Entry</span>, <span class="ident">HashMap</span>};
@@ -428,6 +445,12 @@
     <span class="kw">fn</span> <span class="ident">get_namespace_export</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&gt;</span>;
     <span class="doccomment">/// Gets all exports in the namespace.</span>
     <span class="kw">fn</span> <span class="ident">get_namespace_exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">Export</span>)<span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the contents of this namespace as an `Exports`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This is used by `ImportObject::get_namespace_exports`.</span>
+    <span class="kw">fn</span> <span class="ident">as_exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Exports</span><span class="op">&gt;</span> {
+        <span class="prelude-val">None</span>
+    }
 }
 
 <span class="doccomment">/// All of the import data used when instantiating.</span>
@@ -511,6 +534,15 @@
             }
             <span class="ident">Entry::Occupied</span>(<span class="kw-2">mut</span> <span class="ident">occupied</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">occupied</span>.<span class="ident">insert</span>(<span class="ident">Box::new</span>(<span class="ident">namespace</span>))),
         }
+    }
+
+    <span class="doccomment">/// Returns the contents of a namespace as an `Exports`.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Returns `None` if the namespace doesn&#39;t exist or doesn&#39;t implement the</span>
+    <span class="doccomment">/// `as_exports` method.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_namespace_exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Exports</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
+        <span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">name</span>).<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">ns</span><span class="op">|</span> <span class="ident">ns</span>.<span class="ident">as_exports</span>())
     }
 
     <span class="kw">fn</span> <span class="ident">get_objects</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VecDeque</span><span class="op">&lt;</span>((<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">Export</span>)<span class="op">&gt;</span> {

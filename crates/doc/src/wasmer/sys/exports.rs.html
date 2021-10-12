@@ -338,6 +338,10 @@
 <span id="337">337</span>
 <span id="338">338</span>
 <span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys::externals</span>::{<span class="ident">Extern</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::sys::import_object::LikeNamespace</span>;
@@ -630,6 +634,10 @@
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> (<span class="ident">k</span>.<span class="ident">clone</span>(), <span class="ident">v</span>.<span class="ident">to_export</span>()))
             .<span class="ident">collect</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">as_exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Exports</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">clone</span>())
     }
 }
 
