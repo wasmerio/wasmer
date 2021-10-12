@@ -224,26 +224,10 @@ impl UniversalArtifact {
             None => None,
         };
 
-        //let trampolines_section = match &serializable.compilation.trampolines {
-        //    Some(trampolines) => {
-        //        let trampolines_section_size = serializable.compilation.custom_sections
-        //            [trampolines.trampolines]
-        //            .bytes
-        //            .len();
-        //        let trampolines_section_pointer = custom_sections[trampolines.trampolines];
-        //        Some(unsafe {
-        //            std::slice::from_raw_parts(*trampolines_section_pointer, trampolines_section_size)
-        //        })
-        //    }
-        //    None => None,
-        //};
-
         // Make all code compiled thus far executable.
         inner_engine.publish_compiled_code();
 
         inner_engine.publish_eh_frame(eh_frame)?;
-
-        //inner_engine.publish_trampolines(trampolines_section)?;
 
         let finished_function_lengths = finished_functions
             .values()
