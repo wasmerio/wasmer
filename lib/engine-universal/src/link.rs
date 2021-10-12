@@ -51,8 +51,8 @@ fn use_trampoline(
 fn fill_trampolin_map(
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
     trampolines: &Option<TrampolinesSection>,
-    map: &mut HashMap<usize, usize>,
-) {
+) -> HashMap<usize, usize> {
+    let mut map: HashMap<usize, usize> = HashMap::new();
     match trampolines {
         Some(trampolines) => {
             let baseaddress = *allocated_sections[trampolines.section_index] as usize;
@@ -66,7 +66,8 @@ fn fill_trampolin_map(
             }
         }
         _ => {}
-    }
+    };
+    map
 }
 
 fn apply_relocation(
@@ -179,8 +180,7 @@ pub fn link_module(
     section_relocations: &PrimaryMap<SectionIndex, Vec<Relocation>>,
     trampolines: &Option<TrampolinesSection>,
 ) {
-    let mut map: HashMap<usize, usize> = HashMap::new();
-    fill_trampolin_map(allocated_sections, trampolines, &mut map);
+    let mut map = fill_trampolin_map(allocated_sections, trampolines);
     for (i, section_relocs) in section_relocations.iter() {
         let body = *allocated_sections[i] as usize;
         for r in section_relocs {
