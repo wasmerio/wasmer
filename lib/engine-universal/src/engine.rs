@@ -307,19 +307,6 @@ impl UniversalEngineInner {
         Ok(())
     }
 
-    /// Make Trampolines code executable
-    //pub(crate) fn publish_trampolines(&mut self, trampolines_code: Option<&[u8]>) -> Result<(), CompileError> {
-    //    self.code_memory
-    //        .last_mut()
-    //        .unwrap()
-    //        .unwind_registry_mut()
-    //        .publish(trampolines_code)
-    //        .map_err(|e| {
-    //            CompileError::Resource(format!("Error while publishing the trampolines code: {}", e))
-    //        })?;
-    //    Ok(())
-    //}
-
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
