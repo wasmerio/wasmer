@@ -307,21 +307,21 @@ impl Compiler for LLVMCompiler {
         let trampolines = match target.triple().architecture {
             Architecture::Aarch64(_) => {
                 let nj = 16;
-                let trampolines = Some(TrampolinesSection::new(
-                    SectionIndex::from_u32(module_custom_sections.len() as u32),
-                    nj,
-                    16,
-                ));
                 // We create a jump to an absolute 64bits address
                 // using x17 as a scratch register, SystemV declare both x16 and x17 as Intra-Procedural  scratch register
                 // but Apple ask to just not use x16
                 // LDR x17, #8      51 00 00 58
                 // BR x17           20 02 1f d6
                 // JMPADDR          00 00 00 00 00 00 00 00
-                let onejump = vec![
+                let onejump = [
                     0x51, 0x00, 0x00, 0x58, 0x20, 0x02, 0x1f, 0xd6, 0, 0, 0, 0, 0, 0, 0, 0,
                 ];
-                let mut alljmps = Vec::<u8>::new();
+                let trampolines = Some(TrampolinesSection::new(
+                    SectionIndex::from_u32(module_custom_sections.len() as u32),
+                    nj,
+                    onejump.len(),
+                ));
+                let mut alljmps = vec![];
                 for _ in 0..nj {
                     alljmps.extend(onejump.iter().copied());
                 }

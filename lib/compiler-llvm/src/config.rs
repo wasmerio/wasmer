@@ -114,7 +114,6 @@ impl LLVM {
             // Since both linux and darwin use SysV ABI, this should work.
             //  but not in the case of Aarch64, there the ABI is slightly different
             match target.triple().architecture {
-                //Architecture::Aarch64(_) => wasmer_compiler::OperatingSystem::Darwin,
                 _ => wasmer_compiler::OperatingSystem::Linux,
             }
         } else {
