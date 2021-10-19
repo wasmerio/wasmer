@@ -167,6 +167,7 @@ impl Compiler for SinglepassCompiler {
             function_call_trampolines,
             dynamic_function_trampolines,
             None,
+            None,
         ))
     }
 }
