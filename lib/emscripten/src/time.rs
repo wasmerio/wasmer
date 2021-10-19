@@ -102,7 +102,7 @@ pub fn _clock_gettime(ctx: &EmEnv, clk_id: clockid_t, tp: c_int) -> c_int {
             };
             let precise_ns = *PRECISE0;
             (time::Instant::now() - precise_ns).whole_nanoseconds()
-        },
+        }
         _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
     };
 
