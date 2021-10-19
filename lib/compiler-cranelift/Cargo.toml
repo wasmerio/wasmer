@@ -23,7 +23,7 @@ hashbrown = { version = "0.11", optional = true }
 rayon = "1.5"
 more-asserts = "0.2"
 gimli = { version = "0.25", optional = true }
-smallvec = "1.6"
+smallvec = "1.7"
 loupe = "0.1"
 
 [dev-dependencies]
