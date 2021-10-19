@@ -276,6 +276,43 @@
 <span id="273">273</span>
 <span id="274">274</span>
 <span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -388,6 +425,33 @@
     }
 }
 
+<span class="doccomment">/// Trampolines section used by ARM short jump (26bits)</span>
+<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
+<span class="attribute">#[<span class="ident">cfg_attr</span>(
+    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
+    <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
+)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TrampolinesSection</span> {
+    <span class="doccomment">/// SectionIndex for the actual Trampolines code</span>
+    <span class="kw">pub</span> <span class="ident">section_index</span>: <span class="ident">SectionIndex</span>,
+    <span class="doccomment">/// Number of jump slots in the section</span>
+    <span class="kw">pub</span> <span class="ident">slots</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// Slot size</span>
+    <span class="kw">pub</span> <span class="ident">size</span>: <span class="ident">usize</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">TrampolinesSection</span> {
+    <span class="doccomment">/// Creates a `Trampolines` struct with the indice for its section, and number of slots and size of slot</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">section_index</span>: <span class="ident">SectionIndex</span>, <span class="ident">slots</span>: <span class="ident">usize</span>, <span class="ident">size</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">section_index</span>,
+            <span class="ident">slots</span>,
+            <span class="ident">size</span>,
+        }
+    }
+}
+
 <span class="doccomment">/// The result of compiling a WebAssembly module&#39;s functions.</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
@@ -434,6 +498,9 @@
 
     <span class="doccomment">/// Section ids corresponding to the Dwarf debug info</span>
     <span class="ident">debug</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Dwarf</span><span class="op">&gt;</span>,
+
+    <span class="doccomment">/// Trampolines for the arch that needs it</span>
+    <span class="ident">trampolines</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrampolinesSection</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Compilation</span> {
@@ -444,6 +511,7 @@
         <span class="ident">function_call_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
         <span class="ident">dynamic_function_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
         <span class="ident">debug</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Dwarf</span><span class="op">&gt;</span>,
+        <span class="ident">trampolines</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrampolinesSection</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">functions</span>,
@@ -451,6 +519,7 @@
             <span class="ident">function_call_trampolines</span>,
             <span class="ident">dynamic_function_trampolines</span>,
             <span class="ident">debug</span>,
+            <span class="ident">trampolines</span>,
         }
     }
 
@@ -527,6 +596,11 @@
     <span class="doccomment">/// Returns the Dwarf info.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_debug</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Dwarf</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">debug</span>.<span class="ident">clone</span>()
+    }
+
+    <span class="doccomment">/// Returns the Trampilines info.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_trampolines</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrampolinesSection</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">trampolines</span>.<span class="ident">clone</span>()
     }
 }
 

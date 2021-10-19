@@ -341,6 +341,19 @@
 <span id="340">340</span>
 <span id="341">341</span>
 <span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">Object</span>, <span class="ident">ObjectSection</span>, <span class="ident">ObjectSymbol</span>};
 
@@ -512,6 +525,19 @@
                 (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_X86_64_PC64</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="ident">RelocationKind::X86PCRel8</span>
                 }
+                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G0_NC</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">RelocationKind::Arm64Movw0</span>
+                }
+                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G1_NC</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">RelocationKind::Arm64Movw1</span>
+                }
+                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G2_NC</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">RelocationKind::Arm64Movw2</span>
+                }
+                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G3</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">RelocationKind::Arm64Movw3</span>
+                }
+                (<span class="ident">object::RelocationKind::PltRelative</span>, <span class="number">26</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Arm64Call</span>,
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                         <span class="string">&quot;unknown relocation {:?}&quot;</span>,

@@ -387,6 +387,9 @@
 <span id="384">384</span>
 <span id="385">385</span>
 <span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `UniversalArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
@@ -512,6 +515,7 @@
             <span class="ident">custom_sections</span>: <span class="ident">compilation</span>.<span class="ident">get_custom_sections</span>(),
             <span class="ident">custom_section_relocations</span>: <span class="ident">compilation</span>.<span class="ident">get_custom_section_relocations</span>(),
             <span class="ident">debug</span>: <span class="ident">compilation</span>.<span class="ident">get_debug</span>(),
+            <span class="ident">trampolines</span>: <span class="ident">compilation</span>.<span class="ident">get_trampolines</span>(),
         };
         <span class="kw">let</span> <span class="ident">serializable</span> <span class="op">=</span> <span class="ident">SerializableModule</span> {
             <span class="ident">compilation</span>: <span class="ident">serializable_compilation</span>,
@@ -584,6 +588,7 @@
             <span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">function_relocations</span>.<span class="ident">clone</span>(),
             <span class="kw-2">&amp;</span><span class="ident">custom_sections</span>,
             <span class="kw-2">&amp;</span><span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">custom_section_relocations</span>,
+            <span class="kw-2">&amp;</span><span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">trampolines</span>,
         );
 
         <span class="comment">// Compute indices into the shared signature table.</span>
@@ -611,6 +616,7 @@
             }
             <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
         };
+
         <span class="comment">// Make all code compiled thus far executable.</span>
         <span class="ident">inner_engine</span>.<span class="ident">publish_compiled_code</span>();
 
