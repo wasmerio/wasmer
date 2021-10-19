@@ -119,7 +119,7 @@ jobs:
         if: matrix.llvm_choco_version
         shell: bash
         run: |
-          choco install llvm --version ${{ matrix.llvm_choco_version }}
+          choco install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
           cd 'C:\Program Files\LLVM\'
           LLVM_DIR=$(pwd)
           echo "LLVM_SYS_110_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV

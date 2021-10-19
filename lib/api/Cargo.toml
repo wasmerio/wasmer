@@ -153,3 +153,6 @@ js = []
 js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["js", "wasmparser"]
+
+[package.metadata.docs.rs]
+features = ["compiler", "core", "cranelift", "default-compiler", "default-dylib", "default-engine", "dylib", "engine", "jit", "llvm", "native", "singlepass", "sys", "sys-default", "universal"]
