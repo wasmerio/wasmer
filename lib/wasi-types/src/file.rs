@@ -126,11 +126,8 @@ impl Default for __wasi_filestat_t {
 impl fmt::Debug for __wasi_filestat_t {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let convert_ts_into_time_string = |ts| {
-            let tspec =
-                ::time::Timespec::new(ts as i64 / 1_000_000_000, (ts % 1_000_000_000) as i32);
-            let tm = ::time::at(tspec);
-            let out_time = tm.rfc822();
-            format!("{} ({})", out_time, ts)
+            let tspec = ::time::OffsetDateTime::from_unix_timestamp_nanos(ts);
+            format!("{} ({})", tspec.format("%a, %d %b %Y %T %Z"), ts)
         };
         f.debug_struct("__wasi_filestat_t")
             .field("st_dev", &self.st_dev)
@@ -145,9 +142,18 @@ impl fmt::Debug for __wasi_filestat_t {
             )
             .field("st_nlink", &self.st_nlink)
             .field("st_size", &self.st_size)
-            .field("st_atim", &convert_ts_into_time_string(self.st_atim))
-            .field("st_mtim", &convert_ts_into_time_string(self.st_mtim))
-            .field("st_ctim", &convert_ts_into_time_string(self.st_ctim))
+            .field(
+                "st_atim",
+                &convert_ts_into_time_string(self.st_atim as i128),
+            )
+            .field(
+                "st_mtim",
+                &convert_ts_into_time_string(self.st_mtim as i128),
+            )
+            .field(
+                "st_ctim",
+                &convert_ts_into_time_string(self.st_ctim as i128),
+            )
             .finish()
     }
 }
