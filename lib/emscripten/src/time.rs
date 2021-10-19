@@ -93,24 +93,22 @@ pub fn _clock_gettime(ctx: &EmEnv, clk_id: clockid_t, tp: c_int) -> c_int {
     }
 
     #[allow(unreachable_patterns)]
-    let timespec = match clk_id {
-        CLOCK_REALTIME => time::OffsetDateTime::now_utc(),
+    let duration = match clk_id {
+        CLOCK_REALTIME => time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
 
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
             lazy_static! {
                 static ref PRECISE0: time::Instant = time::Instant::now();
             };
             let precise_ns = *PRECISE0;
-            let precise_ns = time::Instant::now() - precise_ns;
-            time::OffsetDateTime::from_unix_timestamp_nanos(precise_ns.whole_nanoseconds())
-        }
+            (time::Instant::now() - precise_ns).whole_nanoseconds()
+        },
         _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
     };
 
     unsafe {
         let timespec_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), tp) as *mut GuestTimeSpec;
-        let duration = timespec.unix_timestamp_nanos();
         (*timespec_struct_ptr).tv_sec = (duration / 1_000_000_000) as _;
         (*timespec_struct_ptr).tv_nsec = (duration % 1_000_000_000) as _;
     }
@@ -244,7 +242,7 @@ pub fn _localtime(ctx: &EmEnv, time_p: u32) -> c_int {
     let timespec = unsafe {
         let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_p) as *mut i64;
         let seconds = *time_p_addr;
-        time::OffsetDateTime::from_unix_timestamp(0) + time::Duration::seconds(seconds)
+        time::OffsetDateTime::from_unix_timestamp(seconds)
     };
 
     unsafe {
@@ -281,8 +279,7 @@ pub fn _localtime_r(ctx: &EmEnv, time_p: u32, result: u32) -> c_int {
 
     unsafe {
         let seconds = emscripten_memory_pointer!(ctx.memory(0), time_p) as *const i32;
-        let timespec = time::OffsetDateTime::from_unix_timestamp_nanos(0)
-            + time::Duration::seconds(*seconds as _);
+        let timespec = time::OffsetDateTime::from_unix_timestamp_nanos(*seconds as _);
 
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
