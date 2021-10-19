@@ -100,7 +100,8 @@ pub fn _clock_gettime(ctx: &EmEnv, clk_id: clockid_t, tp: c_int) -> c_int {
             lazy_static! {
                 static ref PRECISE0: time::Instant = time::Instant::now();
             };
-            let precise_ns = time::Instant::now() - *PRECISE0;
+            let precise_ns = *PRECISE0;
+            let precise_ns = time::Instant::now() - precise_ns;
             time::OffsetDateTime::from_unix_timestamp_nanos(precise_ns.whole_nanoseconds())
         }
         _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
