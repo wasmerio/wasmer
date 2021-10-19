@@ -1,5 +1,5 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
-use crate::{allocate_on_stack, EmEnv};
+use crate::{allocate_on_stack, lazy_static, EmEnv};
 use libc::{c_char, c_int};
 // use libc::{c_char, c_int, clock_getres, clock_settime};
 use std::mem;
@@ -97,9 +97,10 @@ pub fn _clock_gettime(ctx: &EmEnv, clk_id: clockid_t, tp: c_int) -> c_int {
         CLOCK_REALTIME => time::OffsetDateTime::now_utc(),
 
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
-            // not sure this is the correct way to simulate this clock. The time::Instant can only
-            // be used as a Duration, and I see no way to create an "0" Instant
-            let precise_ns = time::OffsetDateTime::now_utc() - time::OffsetDateTime::unix_epoch();
+            lazy_static! {
+                static ref PRECISE0: time::Instant = time::Instant::now();
+            };
+            let precise_ns = time::Instant::now() - *PRECISE0;
             time::OffsetDateTime::from_unix_timestamp_nanos(precise_ns.whole_nanoseconds())
         }
         _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
