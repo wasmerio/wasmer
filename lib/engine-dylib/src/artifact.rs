@@ -307,7 +307,18 @@ impl DylibArtifact {
         let ios_compile_target = target_triple.operating_system == OperatingSystem::Ios;
         let ios_sdk_flag = {
             if ios_compile_target {
-                "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+                if target_triple.architecture == Architecture::X86_64 {
+                    "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk"
+                } else {
+                    "-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+                }
+            } else {
+                ""
+            }
+        };
+        let ios_sdk_lib = {
+            if ios_compile_target {
+                "-lSystem"
             } else {
                 ""
             }
@@ -330,6 +341,7 @@ impl DylibArtifact {
                 "-nodefaultlibs".to_string(),
                 "-nostdlib".to_string(),
                 ios_sdk_flag.to_string(),
+                ios_sdk_lib.to_string(),
             ]
         } else {
             // We are explicit on the target when the host system is
