@@ -312,6 +312,13 @@ impl DylibArtifact {
                 ""
             }
         };
+        let ios_sdk_lib = {
+            if ios_compile_target {
+                "-lSystem"
+            } else {
+                ""
+            }
+        };
 
         // Get the location of the 'ld' linker for clang
         let fuse_linker = {
@@ -330,6 +337,7 @@ impl DylibArtifact {
                 "-nodefaultlibs".to_string(),
                 "-nostdlib".to_string(),
                 ios_sdk_flag.to_string(),
+                ios_sdk_lib.to_string(),
             ]
         } else {
             // We are explicit on the target when the host system is
