@@ -870,6 +870,18 @@
 <span id="867">867</span>
 <span id="868">868</span>
 <span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
@@ -1180,7 +1192,18 @@
         <span class="kw">let</span> <span class="ident">ios_compile_target</span> <span class="op">=</span> <span class="ident">target_triple</span>.<span class="ident">operating_system</span> <span class="op">=</span><span class="op">=</span> <span class="ident">OperatingSystem::Ios</span>;
         <span class="kw">let</span> <span class="ident">ios_sdk_flag</span> <span class="op">=</span> {
             <span class="kw">if</span> <span class="ident">ios_compile_target</span> {
-                <span class="string">&quot;-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk&quot;</span>
+                <span class="kw">if</span> <span class="ident">target_triple</span>.<span class="ident">architecture</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Architecture::X86_64</span> {
+                    <span class="string">&quot;-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk&quot;</span>
+                } <span class="kw">else</span> {
+                    <span class="string">&quot;-isysroot/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk&quot;</span>
+                }
+            } <span class="kw">else</span> {
+                <span class="string">&quot;&quot;</span>
+            }
+        };
+        <span class="kw">let</span> <span class="ident">ios_sdk_lib</span> <span class="op">=</span> {
+            <span class="kw">if</span> <span class="ident">ios_compile_target</span> {
+                <span class="string">&quot;-lSystem&quot;</span>
             } <span class="kw">else</span> {
                 <span class="string">&quot;&quot;</span>
             }
@@ -1203,6 +1226,7 @@
                 <span class="string">&quot;-nodefaultlibs&quot;</span>.<span class="ident">to_string</span>(),
                 <span class="string">&quot;-nostdlib&quot;</span>.<span class="ident">to_string</span>(),
                 <span class="ident">ios_sdk_flag</span>.<span class="ident">to_string</span>(),
+                <span class="ident">ios_sdk_lib</span>.<span class="ident">to_string</span>(),
             ]
         } <span class="kw">else</span> {
             <span class="comment">// We are explicit on the target when the host system is</span>
