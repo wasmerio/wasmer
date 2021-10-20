@@ -122,10 +122,12 @@ wasitests::unstable::mem_fs::fd_close
 wasitests::unstable::host_fs::poll_oneoff
 wasitests::unstable::mem_fs::poll_oneoff
 
+### randomly failed, mainly on windows but also on macos, due to a race condition when concurently testing multiple compiler / engines
+wasitests::snapshot1::host_fs::fd_rename_path
+
 ## Failing due to different line endings on Windows
 ## we need a better solution to this problem:
 
-windows wasitests::snapshot1::host_fs::fd_rename_path # Skip flaky test
 windows wasitests::snapshot1::host_fs::file_metadata
 windows wasitests::snapshot1::host_fs::fseek
 windows wasitests::snapshot1::host_fs::path_link
