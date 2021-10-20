@@ -453,15 +453,15 @@ jobs:
           asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
-  #- name: Upload Release Asset Linux aarch64
-  #  uses: actions/upload-release-asset@v1
-  #  env:
-  #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #  with:
-  #    upload_url: ${{ steps.create_release.outputs.upload_url }}
-  #    asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-  #    asset_name: wasmer-linux-aarch64.tar.gz
-  #    asset_content_type: application/gzip
+      #- name: Upload Release Asset Linux aarch64
+      #  uses: actions/upload-release-asset@v1
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #  with:
+      #    upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #    asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
+      #    asset_name: wasmer-linux-aarch64.tar.gz
+      #    asset_content_type: application/gzip
 
   audit:
     name: Audit
