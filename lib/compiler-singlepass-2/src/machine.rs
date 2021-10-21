@@ -126,23 +126,23 @@ pub trait Machine {
     ) -> Vec<u8>;
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use dynasmrt::x64::Assembler;
+ #[cfg(test)]
+ mod test {
+     use super::*;
+     use dynasmrt::x64::Assembler;
 
-//     #[test]
-//     fn test_release_locations_keep_state_nopanic() {
-//         let mut machine = Machine::new();
-//         let mut assembler = Assembler::new().unwrap();
-//         let locs = machine.acquire_locations(
-//             &mut assembler,
-//             &(0..10)
-//                 .map(|_| (WpType::I32, MachineValue::Undefined))
-//                 .collect::<Vec<_>>(),
-//             false,
-//         );
+     #[test]
+     fn test_release_locations_keep_state_nopanic() {
+         let mut machine = Machine::new();
+         let mut assembler = Assembler::new().unwrap();
+         let locs = machine.acquire_locations(
+             &mut assembler,
+             &(0..10)
+                 .map(|_| (WpType::I32, MachineValue::Undefined))
+                 .collect::<Vec<_>>(),
+             false,
+         );
 
-//         machine.release_locations_keep_state(&mut assembler, &locs);
-//     }
-// }
+         machine.release_locations_keep_state(&mut assembler, &locs);
+     }
+ }

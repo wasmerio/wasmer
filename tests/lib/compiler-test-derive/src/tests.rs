@@ -74,6 +74,29 @@ gen_tests! {
                 }
             }
 
+            #[cfg(feature = "singlepass2")]
+            mod singlepass2 {
+                use super::*;
+                #[test_env_log::test]
+                #[cold]
+                #[cfg(feature = "universal")]
+                fn universal() {
+                    foo(crate::Config::new(
+                        crate::Engine::Universal,
+                        crate::Compiler::Singlepass2
+                    ))
+                }
+                #[test_env_log::test]
+                #[cold]
+                #[cfg(feature = "dylib")]
+                fn dylib() {
+                    foo(crate::Config::new(
+                        crate::Engine::Dylib,
+                        crate::Compiler::Singlepass2
+                    ))
+                }
+            }
+
             #[cfg(feature = "cranelift")]
             mod cranelift {
                 use super::*;

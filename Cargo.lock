@@ -2722,7 +2722,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-compiler-singlepass-2"
+name = "wasmer-compiler-singlepass2"
 version = "0.0.1"
 dependencies = [
  "array-init",
@@ -3015,7 +3015,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-compiler-singlepass-2",
+ "wasmer-compiler-singlepass2",
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",

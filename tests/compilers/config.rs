@@ -6,6 +6,7 @@ pub enum Compiler {
     LLVM,
     Cranelift,
     Singlepass,
+    Singlepass2,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -125,12 +126,13 @@ impl Config {
                 self.add_middlewares(&mut compiler);
                 Box::new(compiler)
             }
-            #[cfg(feature = "test-singlepass-2")]
+            #[cfg(feature = "singlepass2")]
             Compiler::Singlepass2 => {
-                let mut compiler = wasmer_compiler_singlepass_2::Singlepass::new();
+                let mut compiler = wasmer_compiler_singlepass2::Singlepass::new();
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler.enable_verifier();
-                compiler
+                self.add_middlewares(&mut compiler);
+                Box::new(compiler)
             }
             #[allow(unreachable_patterns)]
             compiler => {

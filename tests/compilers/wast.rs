@@ -70,6 +70,13 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
             "Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled",
         ]);
     }
+    if config.compiler == crate::Compiler::Singlepass2 {
+        // We don't support multivalue yet in singlepass2
+        wast.allow_instantiation_failures(&[
+            "Validation error: invalid result arity: func type returns multiple values",
+            "Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled",
+        ]);
+    }
     wast.fail_fast = false;
     let path = Path::new(wast_path);
     wast.run_file(path)

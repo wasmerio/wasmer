@@ -14,7 +14,7 @@ wasmer = { version = "2.0.0", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "2.0.0", path = "lib/compiler" }
 wasmer-compiler-cranelift = { version = "2.0.0", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "2.0.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-singlepass-2 = { version = "0.0.1", path = "lib/compiler-singlepass-2", optional = true }
+wasmer-compiler-singlepass2 = { version = "0.0.1", path = "lib/compiler-singlepass-2", optional = true }
 wasmer-compiler-llvm = { version = "2.0.0", path = "lib/compiler-llvm", optional = true }
 wasmer-emscripten = { version = "2.0.0", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "2.0.0", path = "lib/engine" }
@@ -124,8 +124,8 @@ singlepass = [
     "wasmer-compiler-singlepass",
     "compiler",
 ]
-singlepass-2 = [
-    "wasmer-compiler-singlepass-2",
+singlepass2 = [
+    "wasmer-compiler-singlepass2",
     "compiler",
 ]
 cranelift = [
@@ -142,8 +142,8 @@ middlewares = ["wasmer-middlewares"]
 test-singlepass = [
     "singlepass",
 ]
-test-singlepass-2 = [
-    "singlepass-2",
+test-singlepass2 = [
+    "singlepass2",
 ]
 test-cranelift = [
     "cranelift",

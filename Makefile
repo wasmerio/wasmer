@@ -184,18 +184,18 @@ ifneq (, $(findstring singlepass,$(compilers)))
 	ENABLE_SINGLEPASS := 1
 endif
 
-# If the user didn't disable the Singlepass-2 compiler…
+# If the user didn't disable the Singlepass2 compiler…
 ifneq ($(ENABLE_SINGLEPASS_2), 0)
-	# … then maybe the user forced to enable the Singlepass-2 compiler.
+	# … then maybe the user forced to enable the Singlepass2 compiler.
 	ifeq ($(ENABLE_SINGLEPASS_2), 1)
-		compilers += singlepass-2
-	# … otherwise, we try to check whether Singlepass-2 works on this host.
+		compilers += singlepass2
+	# … otherwise, we try to check whether Singlepass2 works on this host.
 	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
-			compilers += singlepass-2
+			compilers += singlepass2
 	endif
 endif
 
-ifneq (, $(findstring singlepass-2,$(compilers)))
+ifneq (, $(findstring singlepass2,$(compilers)))
 	ENABLE_SINGLEPASS_2 := 1
 endif
 
@@ -261,6 +261,14 @@ ifeq ($(ENABLE_SINGLEPASS), 1)
 	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-universal
+		endif
+	endif
+endif
+
+ifeq ($(ENABLE_SINGLEPASS_2), 1)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers_engines += singlepass2-universal
 		endif
 	endif
 endif
@@ -542,14 +550,14 @@ test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 test-singlepass-dylib:
 	cargo test --release --tests $(compiler_features) -- singlepass::dylib
 
-test-singlepass-2-native:
-	cargo test --release $(compiler_features) --features "test-singlepass-2 test-native"
+test-singlepass2-dylib:
+	cargo test --release --tests $(compiler_features) -- singlepass2::dylib
 
 test-singlepass-universal:
 	cargo test --release --tests $(compiler_features) -- singlepass::universal
 
-test-singlepass-2-universal:
-	cargo test --release --tests $(compiler_features) -- singlepass-2::universal
+test-singlepass2-universal:
+	cargo test --release --tests $(compiler_features) -- singlepass2::universal
 
 test-cranelift-dylib:
 	cargo test --release --tests $(compiler_features) -- cranelift::dylib
@@ -565,7 +573,7 @@ test-llvm-universal:
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
-test-singlepass-2: $(foreach singlepass_engine,$(filter singlepass-2-%,$(compilers_engines)),test-$(singlepass_engine))
+test-singlepass2: $(foreach singlepass_engine,$(filter singlepass2-%,$(compilers_engines)),test-$(singlepass_engine))
 
 test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engines)),test-$(cranelift_engine))
 
