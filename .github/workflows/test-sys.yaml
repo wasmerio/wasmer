@@ -6,11 +6,12 @@ env:
 on:
   push:
     branches:
+      - 'merge-master'
       - 'near-main'
       - 'staging'
       - 'trying'
     pull_request:
-      branches: [ 'near-main' ]
+      branches: ['near-main']
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
@@ -110,7 +111,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+          apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -226,7 +227,7 @@ jobs:
           toolchain: 'nightly-2021-04-25'
           target: ${{ matrix.target }}
           override: true
-          components: "rust-src"
+          components: 'rust-src'
         if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Build Minimal Wasmer Headless
         if: needs.setup.outputs.DOING_RELEASE == '1' && matrix.build != 'linux-musl-x64'
@@ -346,7 +347,7 @@ jobs:
           OUTPUT=$(./wasmer run artifacts/cross_compiled_from_linux/qjs_mac_from_linux.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));")
           [[ "$OUTPUT" == '"Hello, World"' ]]
           #wasmer run artifacts/cross/cross_compiled_from_win/qjs_mac_from_win.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-          
+
   #test-cross-compile-on-win:
   #  needs: [setup, test]
   #  runs-on: windows-latest
