@@ -1,6 +1,7 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
+use crate::Exports;
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
@@ -16,6 +17,12 @@ pub trait LikeNamespace {
     fn get_namespace_export(&self, name: &str) -> Option<Export>;
     /// Gets all exports in the namespace.
     fn get_namespace_exports(&self) -> Vec<(String, Export)>;
+    /// Returns the contents of this namespace as an `Exports`.
+    ///
+    /// This is used by `ImportObject::get_namespace_exports`.
+    fn as_exports(&self) -> Option<Exports> {
+        None
+    }
 }
 
 /// All of the import data used when instantiating.
@@ -41,7 +48,7 @@ pub trait LikeNamespace {
 /// ```
 #[derive(Clone, Default)]
 pub struct ImportObject {
-    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace>>>>,
+    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send + Sync>>>>,
 }
 
 impl ImportObject {
@@ -87,7 +94,7 @@ impl ImportObject {
     pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,
-        N: LikeNamespace + 'static,
+        N: LikeNamespace + Send + Sync + 'static,
     {
         let mut guard = self.map.lock().unwrap();
         let map = guard.borrow_mut();
@@ -99,6 +106,15 @@ impl ImportObject {
             }
             Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
         }
+    }
+
+    /// Returns the contents of a namespace as an `Exports`.
+    ///
+    /// Returns `None` if the namespace doesn't exist or doesn't implement the
+    /// `as_exports` method.
+    pub fn get_namespace_exports(&self, name: &str) -> Option<Exports> {
+        let map = self.map.lock().unwrap();
+        map.get(name).and_then(|ns| ns.as_exports())
     }
 
     fn get_objects(&self) -> VecDeque<((String, String), Export)> {

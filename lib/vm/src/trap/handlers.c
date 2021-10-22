@@ -14,7 +14,16 @@
 // doesn't need to touch the kernel signal handling routines.
 // In case of macOS, stackoverflow
 #if defined(CFG_TARGET_OS_WINDOWS)
-#define platform_setjmp(buf) setjmp(buf)
+// On Windows, default setjmp/longjmp sequence will try to unwind the stack
+// it's fine most of the time, but not for JIT'd code that may not respect stack ordring
+// Using a special setjmp here, with NULL as second parameter to disable that behaviour
+// and have a regular simple setjmp/longjmp sequence
+#ifdef __MINGW32__
+// MINGW64 doesn't expose the __intrinsic_setjmp function, but a similar _setjump instead
+#define platform_setjmp(buf) _setjmp(buf, NULL)
+#else
+#define platform_setjmp(buf) __intrinsic_setjmp(buf, NULL)
+#endif
 #define platform_longjmp(buf, arg) longjmp(buf, arg)
 #define platform_jmp_buf jmp_buf
 #elif defined(CFG_TARGET_OS_MACOS)

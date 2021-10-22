@@ -16,6 +16,9 @@ pub struct VMMemory {
     pub(crate) ty: MemoryType,
 }
 
+unsafe impl Send for VMMemory {}
+unsafe impl Sync for VMMemory {}
+
 impl VMMemory {
     pub(crate) fn new(memory: Memory, ty: MemoryType) -> Self {
         Self { memory, ty }
@@ -34,11 +37,17 @@ impl VMGlobal {
     }
 }
 
+unsafe impl Send for VMGlobal {}
+unsafe impl Sync for VMGlobal {}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMTable {
     pub(crate) table: Table,
     pub(crate) ty: TableType,
 }
+
+unsafe impl Send for VMTable {}
+unsafe impl Sync for VMTable {}
 
 impl VMTable {
     pub(crate) fn new(table: Table, ty: TableType) -> Self {
@@ -52,6 +61,9 @@ pub struct VMFunction {
     pub(crate) ty: FunctionType,
     pub(crate) environment: Option<Arc<RefCell<Box<dyn WasmerEnv>>>>,
 }
+
+unsafe impl Send for VMFunction {}
+unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
     pub(crate) fn new(

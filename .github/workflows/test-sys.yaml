@@ -14,6 +14,7 @@ on:
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
+  pull_request:
 jobs:
   setup:
     name: Set up
@@ -70,7 +71,7 @@ jobs:
           - build: windows-x64
             os: windows-latest
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
-            llvm_choco_version: 11.1.0
+            llvm_choco_version: 12.0.1
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
@@ -121,7 +122,7 @@ jobs:
         if: matrix.llvm_choco_version
         shell: bash
         run: |
-          choco install llvm --version ${{ matrix.llvm_choco_version }}
+          choco install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
           cd 'C:\Program Files\LLVM\'
           LLVM_DIR=$(pwd)
           echo "LLVM_SYS_110_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV

@@ -2,7 +2,6 @@
 singlepass spec::multi_value # Singlepass has not implemented multivalue (functions that returns "structs"/"tuples")
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 
-singlepass+windows * # We might need to add support for Windows calling convention from host to wasm (Company showed interest to sponsor)
 singlepass+dylib * # It needs to add support for PIC in Singlepass. Not implemented at the moment
 windows+dylib * # This might be trivial to fix?
 musl+dylib * # Dynamic loading not supported in Musl
@@ -47,6 +46,7 @@ llvm+dylib+macos+aarch64 * # Tests seem to be randomly failing
 # https://github.com/rust-lang/backtrace-rs/issues/356
 cranelift+aarch64 spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
 llvm+aarch64      spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
+singlepass+windows spec::skip_stack_guard_page # Needs investigation.
 cranelift+windows spec::skip_stack_guard_page # Needs investigation. Issue: `STATUS_ACCESS_VIOLATION` trap happened
 cranelift+macos   spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
 llvm+macos        spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
@@ -121,6 +121,9 @@ wasitests::unstable::mem_fs::fd_close
 ### Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
 wasitests::unstable::host_fs::poll_oneoff
 wasitests::unstable::mem_fs::poll_oneoff
+
+### randomly failed, mainly on windows but also on macos, due to a race condition when concurently testing multiple compiler / engines
+wasitests::snapshot1::host_fs::fd_rename_path
 
 ## Failing due to different line endings on Windows
 ## we need a better solution to this problem:
