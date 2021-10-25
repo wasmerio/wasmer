@@ -2,13 +2,18 @@ pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
-/// Dynasm proc-macro checks for an `.arch` expression in a source file to
-/// determine the architecture it should use.
-fn _dummy(_a: &Assembler) {
-    dynasm!(
-        _a
-        ; .arch x64
-    );
+/// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
+/// `dynasm!` proc-macro tries to auto-detect it by default by looking at the
+/// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
+/// is always equal to host, even when cross-compiling.
+macro_rules! dynasm {
+    ($a:expr ; $($tt:tt)*) => {
+        dynasm::dynasm!(
+            $a
+            ; .arch x64
+            ; $($tt)*
+        )
+    };
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
