@@ -1414,18 +1414,28 @@
 <span id="1411">1411</span>
 <span id="1412">1412</span>
 <span id="1413">1413</span>
+<span id="1414">1414</span>
+<span id="1415">1415</span>
+<span id="1416">1416</span>
+<span id="1417">1417</span>
+<span id="1418">1418</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::x64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasm::dynasm</span>;
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">x64::Assembler</span>, <span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>, <span class="ident">DynasmApi</span>, <span class="ident">DynasmLabelApi</span>};
 
-<span class="doccomment">/// Dynasm proc-macro checks for an `.arch` expression in a source file to</span>
-<span class="doccomment">/// determine the architecture it should use.</span>
-<span class="kw">fn</span> <span class="ident">_dummy</span>(<span class="ident">_a</span>: <span class="kw-2">&amp;</span><span class="ident">Assembler</span>) {
-    <span class="macro">dynasm!</span>(
-        <span class="ident">_a</span>
-        ; .<span class="ident">arch</span> <span class="ident">x64</span>
-    );
+<span class="doccomment">/// Force `dynasm!` to use the correct arch (x64) when cross-compiling.</span>
+<span class="doccomment">/// `dynasm!` proc-macro tries to auto-detect it by default by looking at the</span>
+<span class="doccomment">/// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which</span>
+<span class="doccomment">/// is always equal to host, even when cross-compiling.</span>
+<span class="macro">macro_rules!</span> <span class="ident">dynasm</span> {
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>:<span class="ident">expr</span> ; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tt</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="macro">dynasm::dynasm!</span>(
+            <span class="macro-nonterminal">$</span><span class="macro-nonterminal">a</span>
+            ; .<span class="ident">arch</span> <span class="ident">x64</span>
+            ; $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tt</span>)<span class="op">*</span>
+        )
+    };
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
