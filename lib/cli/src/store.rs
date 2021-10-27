@@ -47,15 +47,19 @@ pub struct StoreOptions {
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[structopt(long, conflicts_with_all = &["cranelift", "llvm"])]
+    #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "singlepass2"])]
     singlepass: bool,
 
+    /// Use Singlepass2 compiler.
+    #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "singlepass"])]
+    singlepass2: bool,
+
     /// Use Cranelift compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "llvm"])]
+    #[structopt(long, conflicts_with_all = &["singlepass", "singlepass2", "llvm"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "cranelift"])]
+    #[structopt(long, conflicts_with_all = &["singlepass", "singlepass2", "cranelift"])]
     llvm: bool,
 
     /// Enable compiler internal verification.
@@ -79,6 +83,8 @@ impl CompilerOptions {
             Ok(CompilerType::LLVM)
         } else if self.singlepass {
             Ok(CompilerType::Singlepass)
+        } else if self.singlepass2 {
+            Ok(CompilerType::Singlepass2)
         } else {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
@@ -87,6 +93,9 @@ impl CompilerOptions {
                 }
                 else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {
                     Ok(CompilerType::Singlepass)
+                }
+                else if #[cfg(all(feature = "singlepass2", target_arch = "x86_64"))] {
+                    Ok(CompilerType::Singlepass2)
                 }
                 else if #[cfg(feature = "llvm")] {
                     Ok(CompilerType::LLVM)
@@ -177,6 +186,14 @@ impl CompilerOptions {
             #[cfg(feature = "singlepass")]
             CompilerType::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
+                if self.enable_verifier {
+                    config.enable_verifier();
+                }
+                Box::new(config)
+            }
+            #[cfg(feature = "singlepass2")]
+            CompilerType::Singlepass2 => {
+                let mut config = wasmer_compiler_singlepass2::Singlepass::new();
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
@@ -293,7 +310,7 @@ impl CompilerOptions {
                 }
                 Box::new(config)
             }
-            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
+            #[cfg(not(all(feature = "singlepass", feature = "singlepass2", feature = "cranelift", feature = "llvm",)))]
             compiler => {
                 bail!(
                     "The `{}` compiler is not included in this binary.",
@@ -312,6 +329,8 @@ impl CompilerOptions {
 pub enum CompilerType {
     /// Singlepass compiler
     Singlepass,
+    /// Singlepass2 compiler
+    Singlepass2,
     /// Cranelift compiler
     Cranelift,
     /// LLVM compiler
@@ -326,6 +345,8 @@ impl CompilerType {
         vec![
             #[cfg(feature = "singlepass")]
             Self::Singlepass,
+            #[cfg(feature = "singlepass2")]
+            Self::Singlepass2,
             #[cfg(feature = "cranelift")]
             Self::Cranelift,
             #[cfg(feature = "llvm")]
@@ -338,6 +359,7 @@ impl ToString for CompilerType {
     fn to_string(&self) -> String {
         match self {
             Self::Singlepass => "singlepass".to_string(),
+            Self::Singlepass2 => "singlepass2".to_string(),
             Self::Cranelift => "cranelift".to_string(),
             Self::LLVM => "llvm".to_string(),
             Self::Headless => "headless".to_string(),
