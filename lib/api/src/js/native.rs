@@ -28,6 +28,7 @@ pub struct TypedFunction<Args = (), Rets = ()> {
 }
 
 unsafe impl<Args, Rets> Send for TypedFunction<Args, Rets> {}
+unsafe impl<Args, Rets> Sync for TypedFunction<Args, Rets> {}
 
 impl<Args, Rets> TypedFunction<Args, Rets>
 where

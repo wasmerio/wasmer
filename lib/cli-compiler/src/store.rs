@@ -107,13 +107,15 @@ pub struct CompilerOptions {
     llvm: bool,
 
     /// Enable compiler internal verification.
+    #[allow(unused)]
     #[structopt(long)]
     #[allow(dead_code)]
     enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
+    #[allow(unused)]
     #[cfg(feature = "llvm")]
-    #[structopt(long, parse(from_os_str))]
+    #[cfg_attr(feature = "llvm", structopt(long, parse(from_os_str)))]
     llvm_debug_dir: Option<PathBuf>,
 
     #[structopt(flatten)]
