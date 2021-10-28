@@ -1,10 +1,10 @@
 use crate::syscalls::types::*;
 use tracing::debug;
-use wasmer::WasmCell;
+use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
     clock_id: __wasi_clockid_t,
-    resolution: WasmCell<__wasi_timestamp_t>,
+    resolution: WasmRef<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let resolution_val = match clock_id {
         // resolution of monotonic clock at 10ms, from:
@@ -20,14 +20,14 @@ pub fn platform_clock_res_get(
         }
         _ => return __WASI_EINVAL,
     };
-    resolution.set(resolution_val);
+    wasi_try_mem!(resolution.write(resolution_val));
     __WASI_ESUCCESS
 }
 
 pub fn platform_clock_time_get(
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
-    time: WasmCell<__wasi_timestamp_t>,
+    time: WasmRef<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let nanos = match clock_id {
         __WASI_CLOCK_MONOTONIC => {
@@ -51,6 +51,6 @@ pub fn platform_clock_time_get(
         }
         _ => return __WASI_EINVAL,
     };
-    time.set(nanos);
+    wasi_try_mem!(time.write(nanos));
     __WASI_ESUCCESS
 }

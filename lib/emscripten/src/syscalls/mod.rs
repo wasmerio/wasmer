@@ -11,7 +11,6 @@ pub use self::unix::*;
 pub use self::windows::*;
 
 use crate::{
-    ptr::{Array, WasmPtr},
     utils::{copy_stat_into_wasm, get_cstr_path, get_current_directory},
     EmEnv,
 };
@@ -46,10 +45,10 @@ use libc::{
 };
 
 use super::env;
-use std::cell::Cell;
 #[allow(unused_imports)]
 use std::io::Error;
 use std::slice;
+use wasmer::WasmPtr;
 
 /// exit
 pub fn ___syscall1(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) {
@@ -212,11 +211,10 @@ pub fn ___syscall42(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     let emscripten_memory = ctx.memory(0);
 
     // convert the file descriptor into a vec with two slots
-    let mut fd_vec: Vec<c_int> = emscripten_memory.view()[((fd_offset / 4) as usize)..]
-        .iter()
-        .map(|pipe_end: &Cell<c_int>| pipe_end.get())
-        .take(2)
-        .collect();
+    let mut fd_vec: [c_int; 2] = WasmPtr::<[c_int; 2]>::new(fd_offset)
+        .deref(&emscripten_memory)
+        .read()
+        .unwrap();
 
     // get it as a mutable pointer
     let fd_ptr = fd_vec.as_mut_ptr();
@@ -351,18 +349,18 @@ pub fn ___syscall163(_ctx: &EmEnv, _one: i32, _two: i32) -> i32 {
 // getcwd
 pub fn ___syscall183(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall183");
-    let buf_offset: WasmPtr<libc::c_char, Array> = varargs.get(ctx);
+    let buf_offset: WasmPtr<libc::c_char> = varargs.get(ctx);
     let _size: c_int = varargs.get(ctx);
     let path = get_current_directory(ctx);
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
     let memory = ctx.memory(0);
 
-    let buf_writer = buf_offset.deref(&memory, 0, len as u32 + 1).unwrap();
+    let buf_writer = buf_offset.slice(&memory, len as u32 + 1).unwrap();
     for (i, byte) in path_string.bytes().enumerate() {
-        buf_writer[i].set(byte as _);
+        buf_writer.index(i as u64).write(byte as _).unwrap();
     }
-    buf_writer[len].set(0);
+    buf_writer.index(len as u64).write(0).unwrap();
     buf_offset.offset() as i32
 }
 
@@ -414,8 +412,8 @@ pub fn ___syscall140(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     let ret = unsafe { lseek(fd, offset as _, whence) as i64 };
     let memory = ctx.memory(0);
 
-    let result_ptr = result_ptr_value.deref(&memory).unwrap();
-    result_ptr.set(ret);
+    let result_ptr = result_ptr_value.deref(&memory);
+    result_ptr.write(ret).unwrap();
 
     debug!(
         "=> fd: {}, offset: {}, result: {}, whence: {} = {}\nlast os error: {}",

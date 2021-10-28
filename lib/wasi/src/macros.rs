@@ -22,15 +22,16 @@ macro_rules! wasi_try {
     }};
 }
 
-/// Reads a string from Wasm memory and returns the invalid argument error
-/// code if it fails.
-///
-/// # Safety
-/// See the safety docs for [`wasmer::WasmPtr::get_utf8_str`]: the returned value
-/// points into Wasm memory and care must be taken that it does not get
-/// corrupted.
+/// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.
+macro_rules! wasi_try_mem {
+    ($expr:expr) => {{
+        wasi_try!($expr.map_err($crate::mem_error_to_wasi))
+    }};
+}
+
+/// Reads a string from Wasm memory.
 macro_rules! get_input_str {
     ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try!($data.get_utf8_string($memory, $len), __WASI_EINVAL)
+        wasi_try_mem!($data.read_utf8_string($memory, $len))
     }};
 }

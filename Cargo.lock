@@ -3249,6 +3249,7 @@ dependencies = [
  "byteorder",
  "serde",
  "time",
+ "wasmer-derive",
  "wasmer-types",
 ]
 
