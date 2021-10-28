@@ -4,11 +4,11 @@ use libc::{
     CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
 };
 use std::mem;
-use wasmer::WasmCell;
+use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
     clock_id: __wasi_clockid_t,
-    resolution: WasmCell<__wasi_timestamp_t>,
+    resolution: WasmRef<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let unix_clock_id = match clock_id {
         __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,
@@ -27,7 +27,7 @@ pub fn platform_clock_res_get(
     };
 
     let t_out = (timespec_out.tv_sec * 1_000_000_000).wrapping_add(timespec_out.tv_nsec);
-    resolution.set(t_out as __wasi_timestamp_t);
+    wasi_try_mem!(resolution.write(t_out as __wasi_timestamp_t));
 
     // TODO: map output of clock_getres to __wasi_errno_t
     __WASI_ESUCCESS
@@ -36,7 +36,7 @@ pub fn platform_clock_res_get(
 pub fn platform_clock_time_get(
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
-    time: WasmCell<__wasi_timestamp_t>,
+    time: WasmRef<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let unix_clock_id = match clock_id {
         __WASI_CLOCK_MONOTONIC => CLOCK_MONOTONIC,
@@ -58,7 +58,7 @@ pub fn platform_clock_time_get(
     };
 
     let t_out = (timespec_out.tv_sec * 1_000_000_000).wrapping_add(timespec_out.tv_nsec);
-    time.set(t_out as __wasi_timestamp_t);
+    wasi_try_mem!(time.write(t_out as __wasi_timestamp_t));
 
     // TODO: map output of clock_gettime to __wasi_errno_t
     __WASI_ESUCCESS

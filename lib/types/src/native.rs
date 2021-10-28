@@ -5,6 +5,8 @@ use crate::extern_ref::VMExternRef;
 use crate::lib::std::fmt;
 use crate::types::Type;
 use crate::values::{Value, WasmValueType};
+use std::marker::PhantomData;
+use std::mem::MaybeUninit;
 
 /// `NativeWasmType` represents a Wasm type that has a direct
 /// representation on the host (hence the “native” term).
@@ -246,25 +248,51 @@ mod test_native_type {
 /// Trait for a Value type. A Value type is a type that is always valid and may
 /// be safely copied.
 ///
-/// That is, for all possible bit patterns a valid Value type can be constructed
-/// from those bits.
+/// To maintain safety, types which implement this trait must be valid for all
+/// bit patterns. This means that it cannot contain enums, `bool`, references,
+/// etc.
 ///
 /// Concretely a `u32` is a Value type because every combination of 32 bits is
 /// a valid `u32`. However a `bool` is _not_ a Value type because any bit patterns
 /// other than `0` and `1` are invalid in Rust and may cause undefined behavior if
 /// a `bool` is constructed from those bytes.
-pub unsafe trait ValueType: Copy
-where
-    Self: Sized,
-{
+///
+/// Additionally this trait has a method which zeros out any uninitializes bytes
+/// prior to writing them to Wasm memory, which prevents information leaks into
+/// the sandbox.
+pub unsafe trait ValueType: Copy {
+    /// This method is passed a byte slice which contains the byte
+    /// representation of `self`. It must zero out any bytes which are
+    /// uninitialized (e.g. padding bytes).
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]);
 }
 
-macro_rules! impl_value_type_for {
-    ( $($type:ty),* ) => {
-        $(
-            unsafe impl ValueType for $type {}
-        )*
-    };
+// Trivial implementations for primitive types and arrays of them.
+macro_rules! primitives {
+    ($($t:ident)*) => ($(
+        unsafe impl ValueType for $t {
+            #[inline]
+            fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+        }
+        unsafe impl<const N: usize> ValueType for [$t; N] {
+            #[inline]
+            fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+        }
+    )*)
+}
+primitives! {
+    i8 u8
+    i16 u16
+    i32 u32
+    i64 u64
+    i128 u128
+    isize usize
+    f32 f64
 }
 
-impl_value_type_for!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+// This impl for PhantomData allows #[derive(ValueType)] to work with types
+// that contain a PhantomData.
+unsafe impl<T: ?Sized> ValueType for PhantomData<T> {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}

@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
     imports, namespace, Exports, Function, FunctionType, Global, ImportObject, Instance, LazyInit,
     Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val,
-    ValType, WasmerEnv,
+    ValType, WasmPtr, WasmerEnv,
 };
 
 #[cfg(unix)]
@@ -52,7 +52,6 @@ mod math;
 mod memory;
 mod process;
 mod pthread;
-mod ptr;
 mod signal;
 mod storage;
 mod syscalls;
@@ -413,13 +412,13 @@ pub fn emscripten_set_up_memory(
     memory: &Memory,
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
-    let dynamictop_ptr = globals.dynamictop_ptr;
+    let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(memory);
     let dynamic_base = globals.dynamic_base;
 
-    if (dynamictop_ptr / 4) as usize >= memory.view::<u32>().len() {
+    if dynamictop_ptr.offset() >= memory.data_size() {
         return Err("dynamictop_ptr beyond memory len".to_string());
     }
-    memory.view::<u32>()[(dynamictop_ptr / 4) as usize].set(dynamic_base);
+    dynamictop_ptr.write(dynamic_base as i32).unwrap();
     Ok(())
 }
 

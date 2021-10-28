@@ -1,7 +1,7 @@
-use crate::ptr::{Array, WasmPtr};
 use crate::syscalls;
 use crate::syscalls::types::{self, snapshot0};
-use crate::WasiEnv;
+use crate::{mem_error_to_wasi, WasiEnv};
+use wasmer::WasmPtr;
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
@@ -19,12 +19,10 @@ pub fn fd_filestat_get(
     // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
     // The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire
     // memory access will fail.
-    let new_buf: WasmPtr<types::__wasi_filestat_t> = unsafe { std::mem::transmute(buf) };
+    let new_buf: WasmPtr<types::__wasi_filestat_t> = buf.cast();
 
     // Copy the data including the extra data
-    #[allow(clippy::clone_on_copy)]
-    let new_filestat_setup: types::__wasi_filestat_t =
-        wasi_try!(new_buf.deref(memory)).get().clone();
+    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(memory));
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
@@ -34,7 +32,7 @@ pub fn fd_filestat_get(
     let memory = env.memory();
 
     // get the values written to memory
-    let new_filestat = wasi_try!(new_buf.deref(memory)).get();
+    let new_filestat = wasi_try_mem!(new_buf.deref(memory).read());
     // translate the new struct into the old struct in host memory
     let old_stat = snapshot0::__wasi_filestat_t {
         st_dev: new_filestat.st_dev,
@@ -49,11 +47,11 @@ pub fn fd_filestat_get(
 
     // write back the original values at the pointer's memory locations
     // (including the memory unrelated to the pointer)
-    wasi_try!(new_buf.deref(memory)).set(new_filestat_setup);
+    wasi_try_mem!(new_buf.deref(memory).write(new_filestat_setup));
 
     // Now that this memory is back as it was, write the translated filestat
     // into memory leaving it as it should be
-    wasi_try!(buf.deref(memory)).set(old_stat);
+    wasi_try_mem!(buf.deref(memory).write(old_stat));
 
     result
 }
@@ -64,22 +62,20 @@ pub fn path_filestat_get(
     env: &WasiEnv,
     fd: types::__wasi_fd_t,
     flags: types::__wasi_lookupflags_t,
-    path: WasmPtr<u8, Array>,
+    path: WasmPtr<u8>,
     path_len: u32,
     buf: WasmPtr<snapshot0::__wasi_filestat_t>,
 ) -> types::__wasi_errno_t {
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let memory = env.memory();
 
-    let new_buf: WasmPtr<types::__wasi_filestat_t> = unsafe { std::mem::transmute(buf) };
-    #[allow(clippy::clone_on_copy)]
-    let new_filestat_setup: types::__wasi_filestat_t =
-        wasi_try!(new_buf.deref(memory)).get().clone();
+    let new_buf: WasmPtr<types::__wasi_filestat_t> = buf.cast();
+    let new_filestat_setup: types::__wasi_filestat_t = wasi_try_mem!(new_buf.read(memory));
 
     let result = syscalls::path_filestat_get(env, fd, flags, path, path_len, new_buf);
 
     let memory = env.memory();
-    let new_filestat = wasi_try!(new_buf.deref(memory)).get();
+    let new_filestat = wasi_try_mem!(new_buf.deref(memory).read());
     let old_stat = snapshot0::__wasi_filestat_t {
         st_dev: new_filestat.st_dev,
         st_ino: new_filestat.st_ino,
@@ -91,8 +87,8 @@ pub fn path_filestat_get(
         st_ctim: new_filestat.st_ctim,
     };
 
-    wasi_try!(new_buf.deref(memory)).set(new_filestat_setup);
-    wasi_try!(buf.deref(memory)).set(old_stat);
+    wasi_try_mem!(new_buf.deref(memory).write(new_filestat_setup));
+    wasi_try_mem!(buf.deref(memory).write(old_stat));
 
     result
 }
@@ -120,8 +116,8 @@ pub fn fd_seek(
 /// userdata field back
 pub fn poll_oneoff(
     env: &WasiEnv,
-    in_: WasmPtr<snapshot0::__wasi_subscription_t, Array>,
-    out_: WasmPtr<types::__wasi_event_t, Array>,
+    in_: WasmPtr<snapshot0::__wasi_subscription_t>,
+    out_: WasmPtr<types::__wasi_event_t>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32>,
 ) -> types::__wasi_errno_t {
@@ -130,20 +126,17 @@ pub fn poll_oneoff(
 
     // we start by adjusting `in_` into a format that the new code can understand
     let memory = env.memory();
-    let mut in_origs: Vec<snapshot0::__wasi_subscription_t> = vec![];
-    for in_sub in wasi_try!(in_.deref(memory, 0, nsubscriptions)) {
-        in_origs.push(in_sub.get());
-    }
+    let in_origs = wasi_try_mem!(in_.slice(memory, nsubscriptions));
+    let in_origs = wasi_try_mem!(in_origs.read_to_vec());
 
     // get a pointer to the smaller new type
-    let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t, Array> =
-        unsafe { std::mem::transmute(in_) };
+    let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t> = in_.cast();
 
-    for (in_sub_new, orig) in wasi_try!(in_new_type_ptr.deref(memory, 0, nsubscriptions))
+    for (in_sub_new, orig) in wasi_try_mem!(in_new_type_ptr.slice(memory, nsubscriptions))
         .iter()
         .zip(in_origs.iter())
     {
-        in_sub_new.set(types::__wasi_subscription_t {
+        wasi_try_mem!(in_sub_new.write(types::__wasi_subscription_t {
             userdata: orig.userdata,
             type_: orig.type_,
             u: if orig.type_ == types::__WASI_EVENTTYPE_CLOCK {
@@ -160,7 +153,7 @@ pub fn poll_oneoff(
                     fd_readwrite: unsafe { orig.u.fd_readwrite },
                 }
             },
-        });
+        }));
     }
 
     // make the call
@@ -169,11 +162,11 @@ pub fn poll_oneoff(
     // replace the old values of in, in case the calling code reuses the memory
     let memory = env.memory();
 
-    for (in_sub, orig) in wasi_try!(in_.deref(memory, 0, nsubscriptions))
+    for (in_sub, orig) in wasi_try_mem!(in_.slice(memory, nsubscriptions))
         .iter()
         .zip(in_origs.into_iter())
     {
-        in_sub.set(orig);
+        wasi_try_mem!(in_sub.write(orig));
     }
 
     result

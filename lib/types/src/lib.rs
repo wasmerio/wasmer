@@ -61,7 +61,6 @@ mod indexes;
 mod initializers;
 mod libcalls;
 mod memory;
-mod memory_view;
 mod module;
 mod native;
 mod table;
@@ -84,7 +83,6 @@ pub use crate::indexes::{
 pub use crate::initializers::{
     DataInitializer, DataInitializerLocation, OwnedDataInitializer, TableInitializer,
 };
-pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::units::{

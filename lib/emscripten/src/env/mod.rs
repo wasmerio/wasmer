@@ -12,17 +12,14 @@ pub use self::windows::*;
 
 use libc::c_char;
 
-use crate::{
-    allocate_on_stack,
-    ptr::{Array, WasmPtr},
-    EmscriptenData,
-};
+use crate::{allocate_on_stack, EmscriptenData};
 
 use std::os::raw::c_int;
 use std::sync::MutexGuard;
 
 use crate::EmEnv;
 use wasmer::ValueType;
+use wasmer::WasmPtr;
 
 pub fn call_malloc(ctx: &EmEnv, size: u32) -> u32 {
     get_emscripten_data(ctx)
@@ -33,7 +30,7 @@ pub fn call_malloc(ctx: &EmEnv, size: u32) -> u32 {
 }
 
 #[warn(dead_code)]
-pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &EmEnv, size: u32) -> WasmPtr<T, Ty> {
+pub fn call_malloc_with_cast<T: Copy>(ctx: &EmEnv, size: u32) -> WasmPtr<T> {
     WasmPtr::new(call_malloc(ctx, size))
 }
 
@@ -166,7 +163,7 @@ pub fn _fpathconf(_ctx: &EmEnv, _fildes: c_int, name: c_int) -> c_int {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, ValueType)]
 #[repr(C)]
 pub struct EmAddrInfo {
     // int
@@ -182,20 +179,16 @@ pub struct EmAddrInfo {
     // struct sockaddr*
     pub ai_addr: WasmPtr<EmSockAddr>,
     // char*
-    pub ai_canonname: WasmPtr<c_char, Array>,
+    pub ai_canonname: WasmPtr<c_char>,
     // struct addrinfo*
     pub ai_next: WasmPtr<EmAddrInfo>,
 }
 
-unsafe impl ValueType for EmAddrInfo {}
-
 // NOTE: from looking at emscripten JS, this should be a union
 // TODO: review this, highly likely to have bugs
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, ValueType)]
 #[repr(C)]
 pub struct EmSockAddr {
     pub sa_family: i16,
     pub sa_data: [c_char; 14],
 }
-
-unsafe impl ValueType for EmSockAddr {}
