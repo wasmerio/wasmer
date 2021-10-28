@@ -28,6 +28,7 @@ pub struct NativeFunc<Args = (), Rets = ()> {
 }
 
 unsafe impl<Args, Rets> Send for NativeFunc<Args, Rets> {}
+unsafe impl<Args, Rets> Sync for NativeFunc<Args, Rets> {}
 
 impl<Args, Rets> NativeFunc<Args, Rets>
 where
