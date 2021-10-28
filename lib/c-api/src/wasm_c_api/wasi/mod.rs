@@ -19,7 +19,7 @@ use std::os::raw::c_char;
 use std::slice;
 use wasmer_api::{Exportable, Extern};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiState,
+    generate_import_object_from_thread, get_wasi_version, WasiEnv, WasiFile, WasiState,
     WasiStateBuilder, WasiVersion,
 };
 
@@ -229,7 +229,8 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
     let mut state = env.inner.state();
-    let stderr = if let Ok(stderr) = state.fs.stderr_mut() {
+    let inodes = state.inodes.write().unwrap();
+    let stderr = if let Ok(stderr) = inodes.stderr_mut(&state.fs.fd_map) {
         if let Some(stderr) = stderr.as_mut() {
             stderr
         } else {
@@ -345,7 +346,8 @@ fn wasi_get_imports_inner(
     let version = c_try!(get_wasi_version(&module.inner, false)
         .ok_or("could not detect a WASI version on the given module"));
 
-    let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
+    let mut thread = wasi_env.inner.new_thread();
+    let import_object = generate_import_object_from_thread(store, thread, version);
 
     imports.set_buffer(c_try!(module
         .inner

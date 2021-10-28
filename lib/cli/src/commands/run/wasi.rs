@@ -41,7 +41,7 @@ pub struct Wasi {
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices")]
+    #[cfg_attr(feature = "experimental-io-devices", structopt(long = "enable-experimental-io-devices"))]
     enable_experimental_io_devices: bool,
 
     /// Allow WASI modules to import multiple versions of WASI without a warning.
@@ -94,6 +94,7 @@ impl Wasi {
         }
 
         let mut wasi_env = wasi_state_builder.finalize()?;
+        let mut wasi_thread = wasi_env.new_thread();
         let import_object = wasi_env.import_object_for_all_wasi_versions(module)?;
         let instance = Instance::new(module, &import_object)?;
         Ok(instance)

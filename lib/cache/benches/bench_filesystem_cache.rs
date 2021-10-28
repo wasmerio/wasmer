@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
@@ -54,7 +55,7 @@ pub fn store_cache_native(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&Native::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),
@@ -73,7 +74,7 @@ pub fn load_cache_native(c: &mut Criterion) {
     let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
-    let store = Store::new(&Native::new(compiler).engine());
+    let store = Store::new(&Universal::new(compiler).engine());
     let module = Module::new(
         &store,
         std::fs::read("../../lib/c-api/examples/assets/qjs.wasm").unwrap(),

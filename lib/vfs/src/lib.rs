@@ -51,7 +51,7 @@ impl dyn FileSystem + 'static {
 }
 
 pub trait FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile>>;
+    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile + Sync>>;
 }
 
 #[derive(Debug, Clone)]
@@ -111,6 +111,10 @@ impl OpenOptions {
             },
         }
     }
+    pub fn options(&mut self, options: OpenOptionsConfig) -> &mut Self {
+        self.conf = options;
+        self
+    }
 
     pub fn read(&mut self, read: bool) -> &mut Self {
         self.conf.read = read;
@@ -142,7 +146,7 @@ impl OpenOptions {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile>> {
+    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile + Sync>> {
         self.opener.open(path.as_ref(), &self.conf)
     }
 }
@@ -177,7 +181,28 @@ pub trait VirtualFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcas
     }
 
     /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize>;
+    fn bytes_available(&self) -> Result<usize> {
+        return Ok(self.bytes_available_read()?.unwrap_or(0usize)
+           + self.bytes_available_write()?.unwrap_or(0usize));
+    }
+
+    /// Returns the number of bytes available.  This function must not block
+    /// Defaults to `None` which means the number of bytes is unknown
+    fn bytes_available_read(&self) -> Result<Option<usize>> {
+        Ok(None)
+    }
+
+    /// Returns the number of bytes available.  This function must not block
+    /// Defaults to `None` which means the number of bytes is unknown
+    fn bytes_available_write(&self) -> Result<Option<usize>> {
+        Ok(None)
+    }
+
+    /// Indicates if the file is opened or closed. This function must not block
+    /// Defaults to a status of being constantly open
+    fn is_open(&self) -> bool {
+        true
+    }
 
     /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
     /// Returns the underlying host fd

@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First, we create the `WasiEnv` with the stdio pipes
     let input = Pipe::new();
     let output = Pipe::new();
-    let mut wasi_env = WasiState::new("hello")
+    let wasi_env = WasiState::new("hello")
         .stdin(Box::new(input))
         .stdout(Box::new(output))
         .finalize()?;
@@ -46,7 +46,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Instantiating module with WASI imports...");
     // Then, we get the import object related to our WASI
     // and attach it to the Wasm instance.
-    let import_object = wasi_env.import_object(&module)?;
+    let mut wasi_thread = wasi_env.new_thread();
+    let import_object = wasi_thread.import_object(&module)?;
     let instance = Instance::new(&module, &import_object)?;
 
     let msg = "racecar go zoom";

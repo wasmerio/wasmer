@@ -1,12 +1,13 @@
 use anyhow::Context;
 use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
+use std::sync::{Arc, Mutex, mpsc};
 use std::path::{Path, PathBuf};
 use wasmer::{Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
+    generate_import_object_from_thread, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
     WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
@@ -39,33 +40,18 @@ pub struct WasiTest<'a> {
 // TODO: add `test_fs` here to sandbox better
 const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi-wast/wasi/");
 
-fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<String> {
-    let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
-    let stdout = (&**stdout_boxed)
-        .downcast_ref::<OutputCapturerer>()
-        .unwrap();
-    let stdout_str = std::str::from_utf8(&stdout.output)?;
+fn get_stdio_output(rx: &mpsc::Receiver<Vec<u8>>) -> anyhow::Result<String> {
+    let mut stdio = Vec::new();
+    while let Ok(mut buf) = rx.try_recv() {
+        stdio.append(&mut buf);
+    }
+    let stdout_str = std::str::from_utf8(&stdio[..])?;
     #[cfg(target_os = "windows")]
     // normalize line endings
     return Ok(stdout_str.replace("\r\n", "\n"));
 
     #[cfg(not(target_os = "windows"))]
     return Ok(stdout_str.to_string());
-}
-
-fn get_stderr_output(wasi_state: &WasiState) -> anyhow::Result<String> {
-    let stderr_boxed = wasi_state.fs.stderr()?.as_ref().unwrap();
-    let stderr = (&**stderr_boxed)
-        .downcast_ref::<OutputCapturerer>()
-        .unwrap();
-    let stderr_str = std::str::from_utf8(&stderr.output)?;
-
-    #[cfg(target_os = "windows")]
-    // normalize line endings
-    return Ok(stderr_str.replace("\r\n", "\n"));
-
-    #[cfg(not(target_os = "windows"))]
-    return Ok(stderr_str.to_string());
 }
 
 #[allow(dead_code)]
@@ -95,16 +81,18 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let module = Module::new(store, &wasm_bytes)?;
-        let (env, _tempdirs) = self.create_wasi_env(filesystem_kind)?;
+        let module = Module::new(&store, &wasm_bytes)?;
+        let (env, _tempdirs, stdout_rx, stderr_rx) = self.create_wasi_env(filesystem_kind)?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;
 
         if let Some(stdin) = &self.stdin {
-            let mut state = env.state();
-            let wasi_stdin = state.fs.stdin_mut()?.as_mut().unwrap();
+            let state = env.state();
+            let inodes = state.inodes.write().unwrap();
+            let mut wasi_stdin = inodes.stdin_mut(&state.fs.fd_map)?;
+            let wasi_stdin = wasi_stdin.as_mut().unwrap();
             // Then we can write to it!
             write!(wasi_stdin, "{}", stdin.stream)?;
         }
@@ -113,9 +101,8 @@ impl<'a> WasiTest<'a> {
         match start.call(&[]) {
             Ok(_) => {}
             Err(e) => {
-                let wasi_state = env.state();
-                let stdout_str = get_stdout_output(&wasi_state)?;
-                let stderr_str = get_stderr_output(&wasi_state)?;
+                let stdout_str = get_stdio_output(&stdout_rx)?;
+                let stderr_str = get_stdio_output(&stderr_rx)?;
                 Err(e).with_context(|| {
                     format!(
                         "failed to run WASI `_start` function: failed with stdout: \"{}\"\nstderr: \"{}\"",
@@ -126,15 +113,13 @@ impl<'a> WasiTest<'a> {
             }
         }
 
-        let wasi_state = env.state();
-
         if let Some(expected_stdout) = &self.assert_stdout {
-            let stdout_str = get_stdout_output(&wasi_state)?;
+            let stdout_str = get_stdio_output(&stdout_rx)?;
             assert_eq!(stdout_str, expected_stdout.expected);
         }
 
         if let Some(expected_stderr) = &self.assert_stderr {
-            let stderr_str = get_stderr_output(&wasi_state)?;
+            let stderr_str = get_stdio_output(&stderr_rx)?;
             assert_eq!(stderr_str, expected_stderr.expected);
         }
 
@@ -145,7 +130,7 @@ impl<'a> WasiTest<'a> {
     fn create_wasi_env(
         &self,
         filesystem_kind: WasiFileSystemKind,
-    ) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
+    ) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>, mpsc::Receiver<Vec<u8>>, mpsc::Receiver<Vec<u8>>)> {
         let mut builder = WasiState::new(self.wasm_path);
 
         let stdin_pipe = Pipe::new();
@@ -216,15 +201,17 @@ impl<'a> WasiTest<'a> {
             }
         }
 
+        let (stdout, stdout_rx) = OutputCapturerer::new();
+        let (stderr, stderr_rx) = OutputCapturerer::new();
         let out = builder
             .args(&self.args)
             // adding this causes some tests to fail. TODO: investigate this
             //.env("RUST_BACKTRACE", "1")
-            .stdout(Box::new(OutputCapturerer::new()))
-            .stderr(Box::new(OutputCapturerer::new()))
+            .stdout(Box::new(stdout))
+            .stderr(Box::new(stderr))
             .finalize()?;
 
-        Ok((out, host_temp_dirs_to_not_drop))
+        Ok((out, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
@@ -237,8 +224,9 @@ impl<'a> WasiTest<'a> {
     /// Get the correct WASI import object for the given module and set it up with the
     /// [`WasiEnv`].
     fn get_imports(&self, store: &Store, module: &Module, env: WasiEnv) -> anyhow::Result<Imports> {
+        let thread = env.new_thread();
         let version = self.get_version(module)?;
-        Ok(generate_import_object_from_env(store, env, version))
+        Ok(generate_import_object_from_thread(store, thread, version))
     }
 }
 
@@ -528,14 +516,15 @@ mod test {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct OutputCapturerer {
-    output: Vec<u8>,
+    output: Arc<Mutex<mpsc::Sender<Vec<u8>>>>,
 }
 
 impl OutputCapturerer {
-    fn new() -> Self {
-        Self { output: vec![] }
+    fn new() -> (Self, mpsc::Receiver<Vec<u8>>) {
+        let (tx, rx) = mpsc::channel();
+        (Self { output: Arc::new(Mutex::new(tx)) }, rx)
     }
 }
 
@@ -575,18 +564,30 @@ impl Seek for OutputCapturerer {
 }
 impl Write for OutputCapturerer {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.output.extend_from_slice(buf);
+        self.output.lock().unwrap().send(buf.to_vec())
+            .map_err(|err| io::Error::new(
+                io::ErrorKind::BrokenPipe, err.to_string(),
+            ))?;
         Ok(buf.len())
     }
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.output.extend_from_slice(buf);
+        self.output.lock().unwrap().send(buf.to_vec())
+            .map_err(|err| io::Error::new(
+                io::ErrorKind::BrokenPipe, err.to_string(),
+            ))?;
         Ok(())
     }
     fn write_fmt(&mut self, fmt: std::fmt::Arguments) -> io::Result<()> {
-        self.output.write_fmt(fmt)
+        let mut buf = Vec::<u8>::new();
+        buf.write_fmt(fmt)?;
+        self.output.lock().unwrap().send(buf)
+            .map_err(|err| io::Error::new(
+                io::ErrorKind::BrokenPipe, err.to_string(),
+            ))?;
+        Ok(())
     }
 }
 
