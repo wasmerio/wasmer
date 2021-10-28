@@ -1,7 +1,11 @@
 use crate::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{
+    fmt,
+    mem::{self, MaybeUninit},
+};
+use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
 
 pub type __wasi_device_t = u64;
@@ -21,13 +25,11 @@ pub const __WASI_FDFLAG_SYNC: u16 = 1 << 4;
 pub type __wasi_preopentype_t = u8;
 pub const __WASI_PREOPENTYPE_DIR: u8 = 0;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_prestat_u_dir_t {
     pub pr_name_len: u32,
 }
-
-unsafe impl ValueType for __wasi_prestat_u_dir_t {}
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -40,8 +42,6 @@ impl fmt::Debug for __wasi_prestat_u {
         write!(f, "__wasi_prestat_u")
     }
 }
-
-unsafe impl ValueType for __wasi_prestat_u {}
 
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -77,9 +77,42 @@ impl __wasi_prestat_t {
     }
 }
 
-unsafe impl ValueType for __wasi_prestat_t {}
+unsafe impl ValueType for __wasi_prestat_t {
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
+        macro_rules! field {
+            ($($f:tt)*) => {
+                &self.$($f)* as *const _ as usize - self as *const _ as usize
+            };
+        }
+        macro_rules! field_end {
+            ($($f:tt)*) => {
+                field!($($f)*) + mem::size_of_val(&self.$($f)*)
+            };
+        }
+        macro_rules! zero {
+            ($start:expr, $end:expr) => {
+                for i in $start..$end {
+                    bytes[i] = MaybeUninit::new(0);
+                }
+            };
+        }
+        self.pr_type
+            .zero_padding_bytes(&mut bytes[field!(pr_type)..field_end!(pr_type)]);
+        zero!(field_end!(pr_type), field!(u));
+        match self.pr_type {
+            __WASI_PREOPENTYPE_DIR => unsafe {
+                self.u
+                    .dir
+                    .zero_padding_bytes(&mut bytes[field!(u.dir)..field_end!(u.dir)]);
+                zero!(field_end!(u.dir), field_end!(u));
+            },
+            _ => zero!(field!(u), field_end!(u)),
+        }
+        zero!(field_end!(u), mem::size_of_val(self));
+    }
+}
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_fdstat_t {
     pub fs_filetype: __wasi_filetype_t,
@@ -88,13 +121,11 @@ pub struct __wasi_fdstat_t {
     pub fs_rights_inheriting: __wasi_rights_t,
 }
 
-unsafe impl ValueType for __wasi_fdstat_t {}
-
 pub type __wasi_filedelta_t = i64;
 
 pub type __wasi_filesize_t = u64;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, ValueType)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(C)]
 pub struct __wasi_filestat_t {
@@ -157,8 +188,6 @@ impl fmt::Debug for __wasi_filestat_t {
             .finish()
     }
 }
-
-unsafe impl ValueType for __wasi_filestat_t {}
 
 pub fn wasi_filetype_to_name(ft: __wasi_filetype_t) -> &'static str {
     match ft {

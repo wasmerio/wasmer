@@ -35,7 +35,6 @@ compile_error!(
 
 #[macro_use]
 mod macros;
-mod ptr;
 mod state;
 mod syscalls;
 mod utils;
@@ -56,8 +55,8 @@ pub use wasmer_vfs::{FsError, VirtualFile};
 
 use thiserror::Error;
 use wasmer::{
-    imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, Module,
-    NamedResolver, Store, WasmerEnv,
+    imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, MemoryAccessError,
+    Module, NamedResolver, Store, WasmerEnv,
 };
 
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -267,5 +266,14 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
             "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
         }
+    }
+}
+
+fn mem_error_to_wasi(err: MemoryAccessError) -> types::__wasi_errno_t {
+    match err {
+        MemoryAccessError::HeapOutOfBounds => types::__WASI_EFAULT,
+        MemoryAccessError::Overflow => types::__WASI_EOVERFLOW,
+        MemoryAccessError::NonUtf8String => types::__WASI_EINVAL,
+        _ => types::__WASI_EINVAL,
     }
 }

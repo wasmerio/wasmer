@@ -1,7 +1,6 @@
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_memorytype_t;
 use super::CApiExternTag;
-use std::mem;
 use wasmer_api::{Memory, Pages};
 
 #[allow(non_camel_case_types)]
@@ -57,8 +56,7 @@ pub unsafe extern "C" fn wasm_memory_type(
 // get a raw pointer into bytes
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_data(memory: &mut wasm_memory_t) -> *mut u8 {
-    mem::transmute::<&[std::cell::Cell<u8>], &[u8]>(&memory.inner.view()[..]) as *const [u8]
-        as *const u8 as *mut u8
+    memory.inner.data_ptr()
 }
 
 // size in bytes

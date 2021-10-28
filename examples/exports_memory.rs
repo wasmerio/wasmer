@@ -11,7 +11,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Array, Instance, Module, Store, WasmPtr};
+use wasmer::{imports, wat2wasm, Instance, Module, Store, WasmPtr};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_universal::Universal;
 
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let load = instance
         .exports
-        .get_native_function::<(), (WasmPtr<u8, Array>, i32)>("load")?;
+        .get_native_function::<(), (WasmPtr<u8>, i32)>("load")?;
 
     // Here we go.
     //
@@ -67,11 +67,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Memory size (pages) {:?}", memory.size());
     println!("Memory size (bytes) {:?}", memory.data_size());
 
-    // Next, we'll want to read the contents of the memory.
-    //
-    // To do so, we have to get a `View` of the memory.
-    //let view = memory.view::<u8>();
-
     // Oh! Wait, before reading the contents, we need to know
     // where to find what we are looking for.
     //
@@ -85,18 +80,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // We will get bytes out of the memory so we need to
     // decode them into a string.
-    let str = ptr.get_utf8_string(memory, length as u32).unwrap();
+    let str = ptr.read_utf8_string(memory, length as u32).unwrap();
     println!("Memory contents: {:?}", str);
 
     // What about changing the contents of the memory with a more
     // appropriate string?
     //
-    // To do that, we'll dereference our pointer and change the content
-    // of each `Cell`
+    // To do that, we'll make a slice from our pointer and change the content
+    // of each element.
     let new_str = b"Hello, Wasmer!";
-    let values = ptr.deref(memory, 0, new_str.len() as u32).unwrap();
+    let values = ptr.slice(memory, new_str.len() as u32).unwrap();
     for i in 0..new_str.len() {
-        values[i].set(new_str[i]);
+        values.index(i as u64).write(new_str[i]).unwrap();
     }
 
     // And now, let's see the result.
@@ -106,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // before.
     println!("New string length: {:?}", new_str.len());
 
-    let str = ptr.get_utf8_string(memory, new_str.len() as u32).unwrap();
+    let str = ptr.read_utf8_string(memory, new_str.len() as u32).unwrap();
     println!("New memory contents: {:?}", str);
 
     // Much better, don't you think?

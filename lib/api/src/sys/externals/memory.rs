@@ -1,13 +1,16 @@
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::store::Store;
-use crate::sys::{MemoryType, MemoryView};
+use crate::sys::MemoryType;
+use crate::MemoryAccessError;
 use loupe::MemoryUsage;
 use std::convert::TryInto;
+use std::mem;
+use std::mem::MaybeUninit;
 use std::slice;
 use std::sync::Arc;
 use wasmer_engine::Export;
-use wasmer_types::{Pages, ValueType};
+use wasmer_types::Pages;
 use wasmer_vm::{MemoryError, VMMemory};
 
 /// A WebAssembly `memory` instance.
@@ -93,34 +96,11 @@ impl Memory {
         &self.store
     }
 
-    /// Retrieve a slice of the memory contents.
-    ///
-    /// # Safety
-    ///
-    /// Until the returned slice is dropped, it is undefined behaviour to
-    /// modify the memory contents in any way including by calling a wasm
-    /// function that writes to the memory or by resizing the memory.
-    pub unsafe fn data_unchecked(&self) -> &[u8] {
-        self.data_unchecked_mut()
-    }
-
-    /// Retrieve a mutable slice of the memory contents.
-    ///
-    /// # Safety
-    ///
-    /// This method provides interior mutability without an UnsafeCell. Until
-    /// the returned value is dropped, it is undefined behaviour to read or
-    /// write to the pointed-to memory in any way except through this slice,
-    /// including by calling a wasm function that reads the memory contents or
-    /// by resizing this Memory.
-    #[allow(clippy::mut_from_ref)]
-    pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        let definition = self.vm_memory.from.vmmemory();
-        let def = definition.as_ref();
-        slice::from_raw_parts_mut(def.base, def.current_length.try_into().unwrap())
-    }
-
     /// Returns the pointer to the raw bytes of the `Memory`.
+    //
+    // This used by wasmer-emscripten and wasmer-c-api, but should be treated
+    // as deprecated and not used in future code.
+    #[doc(hidden)]
     pub fn data_ptr(&self) -> *mut u8 {
         let definition = self.vm_memory.from.vmmemory();
         let def = unsafe { definition.as_ref() };
@@ -187,53 +167,6 @@ impl Memory {
         self.vm_memory.from.grow(delta.into())
     }
 
-    /// Return a "view" of the currently accessible memory. By
-    /// default, the view is unsynchronized, using regular memory
-    /// accesses. You can force a memory view to use atomic accesses
-    /// by calling the [`MemoryView::atomically`] method.
-    ///
-    /// # Notes:
-    ///
-    /// This method is safe (as in, it won't cause the host to crash or have UB),
-    /// but it doesn't obey rust's rules involving data races, especially concurrent ones.
-    /// Therefore, if this memory is shared between multiple threads, a single memory
-    /// location can be mutated concurrently without synchronization.
-    ///
-    /// # Usage:
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryView};
-    /// # use std::{cell::Cell, sync::atomic::Ordering};
-    /// # fn view_memory(memory: Memory) {
-    /// // Without synchronization.
-    /// let view: MemoryView<u8> = memory.view();
-    /// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {
-    ///     println!("byte: {}", byte);
-    /// }
-    ///
-    /// // With synchronization.
-    /// let atomic_view = view.atomically();
-    /// for byte in atomic_view[0x1000 .. 0x1010].iter().map(|atom| atom.load(Ordering::SeqCst)) {
-    ///     println!("byte: {}", byte);
-    /// }
-    /// # }
-    /// ```
-    pub fn view<T: ValueType>(&self) -> MemoryView<T> {
-        let base = self.data_ptr();
-
-        let length = self.size().bytes().0 / std::mem::size_of::<T>();
-
-        unsafe { MemoryView::new(base as _, length as u32) }
-    }
-
-    /// A shortcut to [`Self::view::<u8>`][self::view].
-    ///
-    /// This code is going to be refactored. Use it as your own risks.
-    #[doc(hidden)]
-    pub fn uint8view(&self) -> MemoryView<u8> {
-        self.view()
-    }
-
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
         Self {
             store: store.clone(),
@@ -268,6 +201,82 @@ impl Memory {
     pub unsafe fn get_vm_memory(&self) -> &VMMemory {
         &self.vm_memory
     }
+
+    /// Safely reads bytes from the memory at the given offset.
+    ///
+    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
+    /// to indicate an out-of-bounds access.
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
+        let definition = self.vm_memory.from.vmmemory();
+        let def = unsafe { definition.as_ref() };
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > def.current_length.try_into().unwrap() {
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+        unsafe {
+            volatile_memcpy_read(def.base.add(offset as usize), buf.as_mut_ptr(), buf.len());
+        }
+
+        Ok(())
+    }
+
+    /// Safely reads bytes from the memory at the given offset.
+    ///
+    /// This method is similar to `read` but allows reading into an
+    /// uninitialized buffer. An initialized view of the buffer is returned.
+    ///
+    /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
+    /// to indicate an out-of-bounds access.
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent writes.
+    pub fn read_uninit<'a>(
+        &self,
+        offset: u64,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Result<&'a mut [u8], MemoryAccessError> {
+        let definition = self.vm_memory.from.vmmemory();
+        let def = unsafe { definition.as_ref() };
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > def.current_length.try_into().unwrap() {
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+        let buf_ptr = buf.as_mut_ptr() as *mut u8;
+        unsafe {
+            volatile_memcpy_read(def.base.add(offset as usize), buf_ptr, buf.len());
+        }
+
+        Ok(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) })
+    }
+
+    /// Safely writes bytes to the memory at the given offset.
+    ///
+    /// If the write exceeds the bounds of the memory then a `MemoryAccessError` is
+    /// returned.
+    ///
+    /// This method is guaranteed to be safe (from the host side) in the face of
+    /// concurrent reads/writes.
+    pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
+        let definition = self.vm_memory.from.vmmemory();
+        let def = unsafe { definition.as_ref() };
+        let end = offset
+            .checked_add(data.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > def.current_length.try_into().unwrap() {
+            Err(MemoryAccessError::HeapOutOfBounds)?;
+        }
+        unsafe {
+            volatile_memcpy_write(data.as_ptr(), def.base.add(offset as usize), data.len());
+        }
+        Ok(())
+    }
 }
 
 impl Clone for Memory {
@@ -299,5 +308,65 @@ impl<'a> Exportable<'a> for Memory {
             .instance_ref
             .as_mut()
             .map(|v| *v = v.downgrade());
+    }
+}
+
+// We can't use a normal memcpy here because it has undefined behavior if the
+// memory is being concurrently modified. So we need to write our own memcpy
+// implementation which uses volatile operations.
+//
+// The implementation of these functions can optimize very well when inlined
+// with a fixed length: they should compile down to a single load/store
+// instruction for small (8/16/32/64-bit) copies.
+#[inline]
+unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
+    #[inline]
+    unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
+        #[repr(packed)]
+        struct Unaligned<T>(T);
+        let val = (*src as *const Unaligned<T>).read_volatile();
+        (*dst as *mut Unaligned<T>).write(val);
+        *src = src.add(mem::size_of::<T>());
+        *dst = dst.add(mem::size_of::<T>());
+        *len -= mem::size_of::<T>();
+    }
+
+    while len >= 8 {
+        copy_one::<u64>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 4 {
+        copy_one::<u32>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 2 {
+        copy_one::<u16>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 1 {
+        copy_one::<u8>(&mut src, &mut dst, &mut len);
+    }
+}
+#[inline]
+unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
+    #[inline]
+    unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
+        #[repr(packed)]
+        struct Unaligned<T>(T);
+        let val = (*src as *const Unaligned<T>).read();
+        (*dst as *mut Unaligned<T>).write_volatile(val);
+        *src = src.add(mem::size_of::<T>());
+        *dst = dst.add(mem::size_of::<T>());
+        *len -= mem::size_of::<T>();
+    }
+
+    while len >= 8 {
+        copy_one::<u64>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 4 {
+        copy_one::<u32>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 2 {
+        copy_one::<u16>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 1 {
+        copy_one::<u8>(&mut src, &mut dst, &mut len);
     }
 }

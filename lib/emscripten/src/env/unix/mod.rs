@@ -8,9 +8,9 @@ use std::mem;
 use std::os::raw::c_char;
 
 use crate::env::{call_malloc, call_malloc_with_cast, EmAddrInfo, EmSockAddr};
-use crate::ptr::{Array, WasmPtr};
 use crate::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
 use crate::EmEnv;
+use wasmer::WasmPtr;
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
@@ -148,12 +148,12 @@ pub fn _gai_strerror(ctx: &EmEnv, ecode: i32) -> i32 {
 
     let cstr = unsafe { std::ffi::CStr::from_ptr(libc::gai_strerror(ecode)) };
     let bytes = cstr.to_bytes_with_nul();
-    let string_on_guest: WasmPtr<c_char, Array> = call_malloc_with_cast(ctx, bytes.len() as _);
+    let string_on_guest: WasmPtr<c_char> = call_malloc_with_cast(ctx, bytes.len() as _);
     let memory = ctx.memory(0);
 
-    let writer = string_on_guest.deref(&memory, 0, bytes.len() as _).unwrap();
+    let writer = string_on_guest.slice(&memory, bytes.len() as _).unwrap();
     for (i, byte) in bytes.iter().enumerate() {
-        writer[i].set(*byte as _);
+        writer.index(i as u64).write(*byte as _).unwrap();
     }
 
     string_on_guest.offset() as _
@@ -170,29 +170,25 @@ pub fn _getaddrinfo(
     debug!("emscripten::_getaddrinfo");
     let memory = ctx.memory(0);
     debug!(" => node = {}", {
-        node_ptr
-            .deref(&memory)
-            .map(|_np| {
-                unimplemented!();
-                // std::ffi::CStr::from_ptr(np as *const Cell<c_char> as *const c_char)
-                //     .to_string_lossy()
-            })
-            .unwrap_or(std::borrow::Cow::Borrowed("null"))
+        if node_ptr.is_null() {
+            std::borrow::Cow::Borrowed("null")
+        } else {
+            unimplemented!()
+        }
     });
     debug!(" => server_str = {}", {
-        service_str_ptr
-            .deref(&memory)
-            .map(|_np| {
-                unimplemented!();
-                // std::ffi::CStr::from_ptr(np as *const Cell<c_char> as *const c_char)
-                //     .to_string_lossy()
-            })
-            .unwrap_or(std::borrow::Cow::Borrowed("null"))
+        if service_str_ptr.is_null() {
+            std::borrow::Cow::Borrowed("null")
+        } else {
+            unimplemented!()
+        }
     });
 
-    let hints = hints_ptr.deref(&memory).map(|hints_memory| {
-        let hints_guest = hints_memory.get();
-        addrinfo {
+    let hints = if hints_ptr.is_null() {
+        None
+    } else {
+        let hints_guest = hints_ptr.deref(&memory).read().unwrap();
+        Some(addrinfo {
             ai_flags: hints_guest.ai_flags,
             ai_family: hints_guest.ai_family,
             ai_socktype: hints_guest.ai_socktype,
@@ -201,26 +197,24 @@ pub fn _getaddrinfo(
             ai_addr: std::ptr::null_mut(),
             ai_canonname: std::ptr::null_mut(),
             ai_next: std::ptr::null_mut(),
-        }
-    });
+        })
+    };
 
     let mut out_ptr: *mut addrinfo = std::ptr::null_mut();
 
     // allocate equivalent memory for res_val_ptr
     let result = unsafe {
         libc::getaddrinfo(
-            (node_ptr.deref(&memory).map(|_m| {
-                unimplemented!();
-                //m as *const Cell<c_char> as *const c_char
-            }))
-            .unwrap_or(std::ptr::null()),
-            service_str_ptr
-                .deref(&memory)
-                .map(|_m| {
-                    unimplemented!();
-                    // m as *const Cell<c_char> as *const c_char
-                })
-                .unwrap_or(std::ptr::null()),
+            if node_ptr.is_null() {
+                std::ptr::null()
+            } else {
+                unimplemented!()
+            },
+            if service_str_ptr.is_null() {
+                std::ptr::null()
+            } else {
+                unimplemented!()
+            },
             hints
                 .as_ref()
                 .map(|h| h as *const addrinfo)
@@ -247,10 +241,10 @@ pub fn _getaddrinfo(
 
             // connect list
             if let Some(prev_guest) = previous_guest_node {
-                let derefed_prev_guest = prev_guest.deref(&memory).unwrap();
-                let mut pg = derefed_prev_guest.get();
+                let derefed_prev_guest = prev_guest.deref(&memory);
+                let mut pg = derefed_prev_guest.read().unwrap();
                 pg.ai_next = current_guest_node_ptr;
-                derefed_prev_guest.set(pg);
+                derefed_prev_guest.write(pg).unwrap();
             }
 
             // update values
@@ -262,11 +256,11 @@ pub fn _getaddrinfo(
                 let guest_sockaddr_ptr: WasmPtr<EmSockAddr> =
                     call_malloc_with_cast(ctx, host_addrlen as _);
 
-                let derefed_guest_sockaddr = guest_sockaddr_ptr.deref(&memory).unwrap();
-                let mut gs = derefed_guest_sockaddr.get();
+                let derefed_guest_sockaddr = guest_sockaddr_ptr.deref(&memory);
+                let mut gs = derefed_guest_sockaddr.read().unwrap();
                 gs.sa_family = (*host_sockaddr_ptr).sa_family as i16;
                 gs.sa_data = (*host_sockaddr_ptr).sa_data;
-                derefed_guest_sockaddr.set(gs);
+                derefed_guest_sockaddr.write(gs).unwrap();
 
                 guest_sockaddr_ptr
             };
@@ -278,13 +272,16 @@ pub fn _getaddrinfo(
                     let canonname_cstr = std::ffi::CStr::from_ptr(str_ptr);
                     let canonname_bytes = canonname_cstr.to_bytes_with_nul();
                     let str_size = canonname_bytes.len();
-                    let guest_canonname: WasmPtr<c_char, Array> =
+                    let guest_canonname: WasmPtr<c_char> =
                         call_malloc_with_cast(ctx, str_size as _);
 
                     let guest_canonname_writer =
-                        guest_canonname.deref(&memory, 0, str_size as _).unwrap();
+                        guest_canonname.slice(&memory, str_size as _).unwrap();
                     for (i, b) in canonname_bytes.into_iter().enumerate() {
-                        guest_canonname_writer[i].set(*b as _)
+                        guest_canonname_writer
+                            .index(i as u64)
+                            .write(*b as _)
+                            .unwrap();
                     }
 
                     guest_canonname
@@ -293,8 +290,8 @@ pub fn _getaddrinfo(
                 }
             };
 
-            let derefed_current_guest_node = current_guest_node_ptr.deref(&memory).unwrap();
-            let mut cgn = derefed_current_guest_node.get();
+            let derefed_current_guest_node = current_guest_node_ptr.deref(&memory);
+            let mut cgn = derefed_current_guest_node.read().unwrap();
             cgn.ai_flags = (*current_host_node).ai_flags;
             cgn.ai_family = (*current_host_node).ai_family;
             cgn.ai_socktype = (*current_host_node).ai_socktype;
@@ -303,7 +300,7 @@ pub fn _getaddrinfo(
             cgn.ai_addr = guest_sockaddr_ptr;
             cgn.ai_canonname = guest_canonname_ptr;
             cgn.ai_next = WasmPtr::new(0);
-            derefed_current_guest_node.set(cgn);
+            derefed_current_guest_node.write(cgn).unwrap();
 
             previous_guest_node = Some(current_guest_node_ptr);
             current_host_node = (*current_host_node).ai_next;
@@ -313,7 +310,7 @@ pub fn _getaddrinfo(
         head_of_list.unwrap_or_else(|| WasmPtr::new(0))
     };
 
-    res_val_ptr.deref(&memory).unwrap().set(head_of_list);
+    res_val_ptr.deref(&memory).write(head_of_list).unwrap();
 
     0
 }
