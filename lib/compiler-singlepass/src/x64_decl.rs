@@ -2,6 +2,7 @@
 
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use std::collections::BTreeMap;
+use wasmer_compiler::CallingConvention;
 use wasmer_types::Type;
 
 /// General-purpose registers.
@@ -170,42 +171,75 @@ pub struct ArgumentRegisterAllocator {
 
 impl ArgumentRegisterAllocator {
     /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
-    pub fn next(&mut self, ty: Type) -> Option<X64Register> {
-        static GPR_SEQ: &'static [GPR] =
-            &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
-        static XMM_SEQ: &'static [XMM] = &[
-            XMM::XMM0,
-            XMM::XMM1,
-            XMM::XMM2,
-            XMM::XMM3,
-            XMM::XMM4,
-            XMM::XMM5,
-            XMM::XMM6,
-            XMM::XMM7,
-        ];
-        match ty {
-            Type::I32 | Type::I64 => {
-                if self.n_gprs < GPR_SEQ.len() {
-                    let gpr = GPR_SEQ[self.n_gprs];
-                    self.n_gprs += 1;
-                    Some(X64Register::GPR(gpr))
-                } else {
-                    None
+    pub fn next(&mut self, ty: Type, calling_convention: CallingConvention) -> Option<X64Register> {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => {
+                static GPR_SEQ: &'static [GPR] = &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9];
+                static XMM_SEQ: &'static [XMM] = &[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
+                let idx = self.n_gprs + self.n_xmms;
+                match ty {
+                    Type::I32 | Type::I64 => {
+                        if idx < 4 {
+                            let gpr = GPR_SEQ[idx];
+                            self.n_gprs += 1;
+                            Some(X64Register::GPR(gpr))
+                        } else {
+                            None
+                        }
+                    }
+                    Type::F32 | Type::F64 => {
+                        if idx < 4 {
+                            let xmm = XMM_SEQ[idx];
+                            self.n_xmms += 1;
+                            Some(X64Register::XMM(xmm))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => todo!(
+                        "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
+                        ty
+                    ),
                 }
             }
-            Type::F32 | Type::F64 => {
-                if self.n_xmms < XMM_SEQ.len() {
-                    let xmm = XMM_SEQ[self.n_xmms];
-                    self.n_xmms += 1;
-                    Some(X64Register::XMM(xmm))
-                } else {
-                    None
+            _ => {
+                static GPR_SEQ: &'static [GPR] =
+                    &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+                static XMM_SEQ: &'static [XMM] = &[
+                    XMM::XMM0,
+                    XMM::XMM1,
+                    XMM::XMM2,
+                    XMM::XMM3,
+                    XMM::XMM4,
+                    XMM::XMM5,
+                    XMM::XMM6,
+                    XMM::XMM7,
+                ];
+                match ty {
+                    Type::I32 | Type::I64 => {
+                        if self.n_gprs < GPR_SEQ.len() {
+                            let gpr = GPR_SEQ[self.n_gprs];
+                            self.n_gprs += 1;
+                            Some(X64Register::GPR(gpr))
+                        } else {
+                            None
+                        }
+                    }
+                    Type::F32 | Type::F64 => {
+                        if self.n_xmms < XMM_SEQ.len() {
+                            let xmm = XMM_SEQ[self.n_xmms];
+                            self.n_xmms += 1;
+                            Some(X64Register::XMM(xmm))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => todo!(
+                        "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
+                        ty
+                    ),
                 }
             }
-            _ => todo!(
-                "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
-                ty
-            ),
         }
     }
 }

@@ -64,18 +64,27 @@ fn main() -> anyhow::Result<()> {
             buffer: String::new(),
             path: vec![],
         };
-        let wasi_versions = ["unstable", "snapshot1"];
+
         with_test_module(&mut wasitests, "wasitests", |wasitests| {
-            for wasi_version in &wasi_versions {
+            for wasi_version in &["unstable", "snapshot1"] {
                 with_test_module(wasitests, wasi_version, |wasitests| {
-                    let _wasi_tests = test_directory(
-                        wasitests,
-                        format!("tests/wasi-wast/wasi/{}", wasi_version),
-                        wasi_processor,
-                    )?;
+                    for (wasi_filesystem_test_name, wasi_filesystem_kind) in &[
+                        ("host_fs", "WasiFileSystemKind::Host"),
+                        ("mem_fs", "WasiFileSystemKind::InMemory"),
+                    ] {
+                        with_test_module(wasitests, wasi_filesystem_test_name, |wasitests| {
+                            test_directory(
+                                wasitests,
+                                format!("tests/wasi-wast/wasi/{}", wasi_version),
+                                |out, path| wasi_processor(out, path, wasi_filesystem_kind),
+                            )
+                        })?;
+                    }
+
                     Ok(())
                 })?;
             }
+
             Ok(())
         })?;
 

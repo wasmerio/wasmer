@@ -18,7 +18,7 @@ wasmer-engine = { path = "../engine", version = "2.0.0" }
 wasmer-object = { path = "../object", version = "2.0.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 cfg-if = "1.0"
-tracing = "0.1"
+tracing = { version = "0.1", features = ["log"] }
 leb128 = "0.2"
 libloading = "0.7"
 tempfile = "3.1"

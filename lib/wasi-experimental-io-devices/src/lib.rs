@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 use tracing::debug;
 use wasmer_wasi::types::*;
-use wasmer_wasi::{Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
+use wasmer_wasi::{Fd, VirtualFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
 
 use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
 
@@ -403,8 +403,8 @@ impl Write for FrameBuffer {
     }
 }
 
-#[typetag::serde]
-impl WasiFile for FrameBuffer {
+#[cfg_attr(feature = "enable-serde", typetag::serde)]
+impl VirtualFile for FrameBuffer {
     fn last_accessed(&self) -> u64 {
         0
     }

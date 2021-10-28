@@ -1,0 +1,604 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		6315FBEE26CC45F10059CE47 /* calc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6315FBEC26CC45F10059CE47 /* calc.cpp */; };
+		63CD62C426C9492100424C7A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CD62C326C9492100424C7A /* AppDelegate.swift */; };
+		63CD62C626C9492100424C7A /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CD62C526C9492100424C7A /* SceneDelegate.swift */; };
+		63CD62C826C9492100424C7A /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CD62C726C9492100424C7A /* ViewController.swift */; };
+		63CD62CB26C9492100424C7A /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 63CD62C926C9492100424C7A /* Main.storyboard */; };
+		63CD62CD26C9492400424C7A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63CD62CC26C9492400424C7A /* Assets.xcassets */; };
+		63CD62D026C9492400424C7A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 63CD62CE26C9492400424C7A /* LaunchScreen.storyboard */; };
+		63CD62DB26C9492400424C7A /* DylibExampleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63CD62DA26C9492400424C7A /* DylibExampleTests.swift */; };
+		63CD62FB26C94F4700424C7A /* libwasmer.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 63CD62F826C94EB600424C7A /* libwasmer.a */; };
+		63CD62FF26C952CC00424C7A /* sum.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 63CD62FE26C952CC00424C7A /* sum.wasm */; };
+		63CD630126C9541E00424C7A /* sum.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 63CD630026C9541E00424C7A /* sum.dylib */; };
+		63CD630226C9541E00424C7A /* sum.dylib in Embed .dylib in App bundle */ = {isa = PBXBuildFile; fileRef = 63CD630026C9541E00424C7A /* sum.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		63CD62D726C9492400424C7A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 63CD62B826C9492100424C7A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 63CD62BF26C9492100424C7A;
+			remoteInfo = DylibExample;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		63CD630326C9541E00424C7A /* Embed .dylib in App bundle */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				63CD630226C9541E00424C7A /* sum.dylib in Embed .dylib in App bundle */,
+			);
+			name = "Embed .dylib in App bundle";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		6311890B26CBAD2C007746B2 /* sum.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = sum.dylib; path = DylibExample/sum.dylib; sourceTree = "<group>"; };
+		6315FBEC26CC45F10059CE47 /* calc.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = calc.cpp; sourceTree = "<group>"; };
+		6315FBED26CC45F10059CE47 /* calc.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = calc.h; sourceTree = "<group>"; };
+		63CD62C026C9492100424C7A /* DylibExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DylibExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		63CD62C326C9492100424C7A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		63CD62C526C9492100424C7A /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		63CD62C726C9492100424C7A /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		63CD62CA26C9492100424C7A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		63CD62CC26C9492400424C7A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		63CD62CF26C9492400424C7A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		63CD62D126C9492400424C7A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		63CD62D626C9492400424C7A /* DylibExampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DylibExampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		63CD62DA26C9492400424C7A /* DylibExampleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DylibExampleTests.swift; sourceTree = "<group>"; };
+		63CD62DC26C9492400424C7A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		63CD62F426C94D6000424C7A /* DylibExample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DylibExample-Bridging-Header.h"; sourceTree = "<group>"; };
+		63CD62F826C94EB600424C7A /* libwasmer.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libwasmer.a; path = ../../../../target/universal/release/libwasmer.a; sourceTree = "<group>"; };
+		63CD62FE26C952CC00424C7A /* sum.wasm */ = {isa = PBXFileReference; lastKnownFileType = text; path = sum.wasm; sourceTree = "<group>"; };
+		63CD630026C9541E00424C7A /* sum.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = sum.dylib; path = DylibExample/sum.dylib; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		63CD62BD26C9492100424C7A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63CD630126C9541E00424C7A /* sum.dylib in Frameworks */,
+				63CD62FB26C94F4700424C7A /* libwasmer.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63CD62D326C9492400424C7A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		63CD62B726C9492100424C7A = {
+			isa = PBXGroup;
+			children = (
+				6311890B26CBAD2C007746B2 /* sum.dylib */,
+				63CD62F826C94EB600424C7A /* libwasmer.a */,
+				63CD62C226C9492100424C7A /* DylibExample */,
+				63CD62D926C9492400424C7A /* DylibExampleTests */,
+				63CD62C126C9492100424C7A /* Products */,
+				63CD62FA26C94F4700424C7A /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		63CD62C126C9492100424C7A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				63CD62C026C9492100424C7A /* DylibExample.app */,
+				63CD62D626C9492400424C7A /* DylibExampleTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		63CD62C226C9492100424C7A /* DylibExample */ = {
+			isa = PBXGroup;
+			children = (
+				63CD62C326C9492100424C7A /* AppDelegate.swift */,
+				63CD62C526C9492100424C7A /* SceneDelegate.swift */,
+				63CD62C726C9492100424C7A /* ViewController.swift */,
+				63CD62C926C9492100424C7A /* Main.storyboard */,
+				63CD62CC26C9492400424C7A /* Assets.xcassets */,
+				63CD62CE26C9492400424C7A /* LaunchScreen.storyboard */,
+				63CD62D126C9492400424C7A /* Info.plist */,
+				63CD62F426C94D6000424C7A /* DylibExample-Bridging-Header.h */,
+				63CD62FE26C952CC00424C7A /* sum.wasm */,
+				6315FBEC26CC45F10059CE47 /* calc.cpp */,
+				6315FBED26CC45F10059CE47 /* calc.h */,
+			);
+			path = DylibExample;
+			sourceTree = "<group>";
+		};
+		63CD62D926C9492400424C7A /* DylibExampleTests */ = {
+			isa = PBXGroup;
+			children = (
+				63CD62DA26C9492400424C7A /* DylibExampleTests.swift */,
+				63CD62DC26C9492400424C7A /* Info.plist */,
+			);
+			path = DylibExampleTests;
+			sourceTree = "<group>";
+		};
+		63CD62FA26C94F4700424C7A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				63CD630026C9541E00424C7A /* sum.dylib */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		63CD62BF26C9492100424C7A /* DylibExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 63CD62EA26C9492400424C7A /* Build configuration list for PBXNativeTarget "DylibExample" */;
+			buildPhases = (
+				63CD62F326C94B1D00424C7A /* Build Headless Wasmer */,
+				63CD62FD26C951EF00424C7A /* Compile .wasm to .dylib */,
+				63CD62BC26C9492100424C7A /* Sources */,
+				63CD62BD26C9492100424C7A /* Frameworks */,
+				63CD62BE26C9492100424C7A /* Resources */,
+				63CD630326C9541E00424C7A /* Embed .dylib in App bundle */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DylibExample;
+			productName = DylibExample;
+			productReference = 63CD62C026C9492100424C7A /* DylibExample.app */;
+			productType = "com.apple.product-type.application";
+		};
+		63CD62D526C9492400424C7A /* DylibExampleTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 63CD62ED26C9492400424C7A /* Build configuration list for PBXNativeTarget "DylibExampleTests" */;
+			buildPhases = (
+				63CD62D226C9492400424C7A /* Sources */,
+				63CD62D326C9492400424C7A /* Frameworks */,
+				63CD62D426C9492400424C7A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				63CD62D826C9492400424C7A /* PBXTargetDependency */,
+			);
+			name = DylibExampleTests;
+			productName = DylibExampleTests;
+			productReference = 63CD62D626C9492400424C7A /* DylibExampleTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		63CD62B826C9492100424C7A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1250;
+				LastUpgradeCheck = 1250;
+				TargetAttributes = {
+					63CD62BF26C9492100424C7A = {
+						CreatedOnToolsVersion = 12.5;
+						LastSwiftMigration = 1250;
+					};
+					63CD62D526C9492400424C7A = {
+						CreatedOnToolsVersion = 12.5;
+						TestTargetID = 63CD62BF26C9492100424C7A;
+					};
+				};
+			};
+			buildConfigurationList = 63CD62BB26C9492100424C7A /* Build configuration list for PBXProject "DylibExample" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 63CD62B726C9492100424C7A;
+			productRefGroup = 63CD62C126C9492100424C7A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				63CD62BF26C9492100424C7A /* DylibExample */,
+				63CD62D526C9492400424C7A /* DylibExampleTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		63CD62BE26C9492100424C7A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63CD62D026C9492400424C7A /* LaunchScreen.storyboard in Resources */,
+				63CD62CD26C9492400424C7A /* Assets.xcassets in Resources */,
+				63CD62CB26C9492100424C7A /* Main.storyboard in Resources */,
+				63CD62FF26C952CC00424C7A /* sum.wasm in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63CD62D426C9492400424C7A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		63CD62F326C94B1D00424C7A /* Build Headless Wasmer */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Headless Wasmer";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/bash\nexport PATH=$(bash -l -c 'echo $PATH')\ncd ../../../../\nmake build-wasmer\nmake build-capi-headless-ios\n";
+		};
+		63CD62FD26C951EF00424C7A /* Compile .wasm to .dylib */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Compile .wasm to .dylib";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/sum.dylib",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export ARCH='x86_64-apple-ios'\nif [[ `uname -m` == 'arm64' ]]; then\n  export ARCH='aarch64-apple-ios-sim'\nfi\n\n\n./../../../../target/release/wasmer compile DylibExample/sum.wasm --target $ARCH --dylib  -o DylibExample/sum.dylib\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		63CD62BC26C9492100424C7A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63CD62C826C9492100424C7A /* ViewController.swift in Sources */,
+				6315FBEE26CC45F10059CE47 /* calc.cpp in Sources */,
+				63CD62C426C9492100424C7A /* AppDelegate.swift in Sources */,
+				63CD62C626C9492100424C7A /* SceneDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63CD62D226C9492400424C7A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63CD62DB26C9492400424C7A /* DylibExampleTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		63CD62D826C9492400424C7A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 63CD62BF26C9492100424C7A /* DylibExample */;
+			targetProxy = 63CD62D726C9492400424C7A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		63CD62C926C9492100424C7A /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				63CD62CA26C9492100424C7A /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		63CD62CE26C9492400424C7A /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				63CD62CF26C9492400424C7A /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		63CD62E826C9492400424C7A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		63CD62E926C9492400424C7A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		63CD62EB26C9492400424C7A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				EXCLUDED_ARCHS = "";
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				HEADER_SEARCH_PATHS = "../../../../lib/c-api/";
+				INFOPLIST_FILE = DylibExample/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"../../../../target/universal/release/**",
+					"$(PROJECT_DIR)/DylibExample",
+				);
+				NEW_SETTING = "";
+				PATH = "/Users/nathanhorrigan/.wasmer/bin:/Users/nathanhorrigan/.cargo/bin:/Users/nathanhorrigan/Android/Sdk/tools:/Users/nathanhorrigan/Android/Sdk/tools/bin:/Users/nathanhorrigan/Android/Sdk/platform-tools:/Users/nathanhorrigan/.pyenv/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/Users/nathanhorrigan/.wasmer/globals/wapm_packages/.bin";
+				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "DylibExample/DylibExample-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		63CD62EC26C9492400424C7A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				HEADER_SEARCH_PATHS = "../../../../lib/c-api/";
+				INFOPLIST_FILE = DylibExample/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"../../../../target/universal/release/**",
+					"$(PROJECT_DIR)/DylibExample",
+				);
+				NEW_SETTING = "";
+				PATH = "/Users/nathanhorrigan/.wasmer/bin:/Users/nathanhorrigan/.cargo/bin:/Users/nathanhorrigan/Android/Sdk/tools:/Users/nathanhorrigan/Android/Sdk/tools/bin:/Users/nathanhorrigan/Android/Sdk/platform-tools:/Users/nathanhorrigan/.pyenv/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/Users/nathanhorrigan/.wasmer/globals/wapm_packages/.bin";
+				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "DylibExample/DylibExample-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		63CD62EE26C9492400424C7A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				HEADER_SEARCH_PATHS = "../../../../lib/c-api/**";
+				INFOPLIST_FILE = DylibExampleTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "../../../../target/universal/release/**";
+				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExampleTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DylibExample.app/DylibExample";
+			};
+			name = Debug;
+		};
+		63CD62EF26C9492400424C7A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
+				HEADER_SEARCH_PATHS = "../../../../lib/c-api/**";
+				INFOPLIST_FILE = DylibExampleTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "../../../../target/universal/release/**";
+				PRODUCT_BUNDLE_IDENTIFIER = io.wasmer.DylibExampleTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DylibExample.app/DylibExample";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		63CD62BB26C9492100424C7A /* Build configuration list for PBXProject "DylibExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				63CD62E826C9492400424C7A /* Debug */,
+				63CD62E926C9492400424C7A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		63CD62EA26C9492400424C7A /* Build configuration list for PBXNativeTarget "DylibExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				63CD62EB26C9492400424C7A /* Debug */,
+				63CD62EC26C9492400424C7A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		63CD62ED26C9492400424C7A /* Build configuration list for PBXNativeTarget "DylibExampleTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				63CD62EE26C9492400424C7A /* Debug */,
+				63CD62EF26C9492400424C7A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 63CD62B826C9492100424C7A /* Project object */;
+}

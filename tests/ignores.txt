@@ -1,19 +1,21 @@
 # Compilers
-singlepass spec::multi_value
-singlepass spec::simd
+singlepass spec::multi_value # Singlepass has not implemented multivalue (functions that returns "structs"/"tuples")
+singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 
-singlepass+windows *
-singlepass+dylib *
-windows+dylib *
+singlepass+dylib * # It needs to add support for PIC in Singlepass. Not implemented at the moment
+windows+dylib * # This might be trivial to fix?
 musl+dylib * # Dynamic loading not supported in Musl
 
 # Traps
+## Traps. Tracing doesn't work properly in Singlepass
+## Unwinding is not properly implemented in Singlepass
+# Needs investigation
 singlepass traps::test_trap_trace
 dylib     traps::test_trap_trace
 aarch64    traps::test_trap_trace
-singlepass traps::test_trap_stack_overflow
-dylib     traps::test_trap_stack_overflow
-aarch64    traps::test_trap_stack_overflow
+singlepass traps::test_trap_stack_overflow # Need to investigate
+dylib     traps::test_trap_stack_overflow # Need to investigate
+aarch64    traps::test_trap_stack_overflow # Need to investigate
 singlepass traps::trap_display_pretty
 llvm       traps::trap_display_pretty
 dylib     traps::trap_display_pretty
@@ -31,26 +33,31 @@ llvm       traps::start_trap_pretty
 dylib     traps::start_trap_pretty
 aarch64    traps::start_trap_pretty
 
-cranelift  multi_value_imports::dylib
-singlepass multi_value_imports::dylib
-singlepass multi_value_imports::dynamic
+cranelift  multi_value_imports::dylib # Needs investigation
+singlepass multi_value_imports::dylib # Singlepass doesn't support multivalue
+singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
 
+# LLVM doesn't fully work in macOS M1
+llvm+universal+macos+aarch64 * # We are using the object crate, it was not fully supporting aarch64 relocations emitted by LLVM. Needs reassesment
+llvm+dylib+macos+aarch64 * # Tests seem to be randomly failing
 
-# LLVM/Universal doesn't work in macOS M1. Skip all tests
-llvm+universal+macos+aarch64 *
-
-# TODO: We need to fix this. The issue is caused by libunwind overflowing
+# TODO: We need to fix this in ARM. The issue is caused by libunwind overflowing
 # the stack while creating the stacktrace.
 # https://github.com/rust-lang/backtrace-rs/issues/356
-cranelift spec::skip_stack_guard_page
-llvm      spec::skip_stack_guard_page
+cranelift+aarch64 spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
+llvm+aarch64      spec::skip_stack_guard_page # This is skipped for ARM, not fully fixed yet
+singlepass+windows spec::skip_stack_guard_page # Needs investigation.
+cranelift+windows spec::skip_stack_guard_page # Needs investigation. Issue: `STATUS_ACCESS_VIOLATION` trap happened
+cranelift+macos   spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
+llvm+macos        spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
+
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in dylib engine
-cranelift+dylib spec::linking
-cranelift+dylib spec::bulk
+cranelift+dylib spec::linking # Needs investigation
+cranelift+dylib spec::bulk # Needs investigation
 
 # Some SIMD opperations are not yet supported by Cranelift
-cranelift+aarch64 spec::simd::simd_boolean
+# Cranelift just added support for most of those recently, it might be easy to update
 cranelift spec::simd::simd_conversions
 cranelift spec::simd::simd_i16x8_extadd_pairwise_i8x16
 cranelift spec::simd::simd_i16x8_extmul_i8x16
@@ -69,53 +76,85 @@ cranelift spec::simd::simd_int_to_int_extend
 ### These tests don't pass due to race conditions in the new way we run tests.
 ### It's not built to be run in parallel with itself, so we disable it for now.
 
-wasitests::snapshot1::writing
-wasitests::unstable::writing
+wasitests::snapshot1::host_fs::writing
+wasitests::unstable::host_fs::writing
+wasitests::snapshot1::mem_fs::writing
+wasitests::unstable::mem_fs::writing
 
 ### due to hard-coded direct calls into WASI for wasi unstable
 
-wasitests::snapshot1::fd_read
-wasitests::snapshot1::poll_oneoff
-wasitests::snapshot1::fd_pread
-wasitests::snapshot1::fd_close
-wasitests::snapshot1::fd_allocate
-wasitests::snapshot1::close_preopen_fd
-wasitests::snapshot1::envvar
+wasitests::snapshot1::host_fs::fd_read
+wasitests::snapshot1::host_fs::poll_oneoff
+wasitests::snapshot1::host_fs::fd_pread
+wasitests::snapshot1::host_fs::fd_close
+wasitests::snapshot1::host_fs::fd_allocate
+wasitests::snapshot1::host_fs::close_preopen_fd
+wasitests::snapshot1::host_fs::envvar
+wasitests::snapshot1::mem_fs::fd_read
+wasitests::snapshot1::mem_fs::poll_oneoff
+wasitests::snapshot1::mem_fs::fd_pread
+wasitests::snapshot1::mem_fs::fd_close
+wasitests::snapshot1::mem_fs::fd_allocate
+wasitests::snapshot1::mem_fs::close_preopen_fd
+wasitests::snapshot1::mem_fs::envvar
 
 ### TODO: resolve the disabled tests below. These are newly disabled tests from the migration:
 
 ### due to git clone not preserving symlinks:
-wasitests::snapshot1::readlink
-wasitests::unstable::readlink
+wasitests::snapshot1::host_fs::readlink
+wasitests::unstable::host_fs::readlink
+wasitests::snapshot1::mem_fs::readlink
+wasitests::unstable::mem_fs::readlink
 
 ### failing due to `remove_dir_all`. this test is also bad for parallelism
-wasitests::snapshot1::create_dir
-wasitests::unstable::create_dir
+wasitests::snapshot1::host_fs::create_dir
+wasitests::unstable::host_fs::create_dir
+wasitests::snapshot1::mem_fs::create_dir
+wasitests::unstable::mem_fs::create_dir
 
 ### failing because it closes `stdout` which breaks our testing system
-wasitests::unstable::fd_close
+wasitests::unstable::host_fs::fd_close
+wasitests::unstable::mem_fs::fd_close
 
 ### failing because we're operating on stdout which is now overridden.
 ### TODO: check WasiFile implementation
 ### Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
-wasitests::unstable::poll_oneoff
+wasitests::unstable::host_fs::poll_oneoff
+wasitests::unstable::mem_fs::poll_oneoff
+
+### randomly failed, mainly on windows but also on macos, due to a race condition when concurently testing multiple compiler / engines
+wasitests::snapshot1::host_fs::fd_rename_path
 
 ## Failing due to different line endings on Windows
 ## we need a better solution to this problem:
 
-windows wasitests::snapshot1::file_metadata
-windows wasitests::snapshot1::fseek
-windows wasitests::snapshot1::path_link
-windows wasitests::snapshot1::path_symlink
-windows wasitests::snapshot1::mapdir_with_leading_slash
-windows wasitests::unstable::fd_pread
-windows wasitests::unstable::fd_read
-windows wasitests::unstable::file_metadata
-windows wasitests::unstable::fseek
-windows wasitests::unstable::path_link
-windows wasitests::unstable::path_symlink
-windows wasitests::unstable::mapdir_with_leading_slash
+windows wasitests::snapshot1::host_fs::file_metadata
+windows wasitests::snapshot1::host_fs::fseek
+windows wasitests::snapshot1::host_fs::path_link
+windows wasitests::snapshot1::host_fs::path_symlink
+windows wasitests::snapshot1::host_fs::mapdir_with_leading_slash
+windows wasitests::unstable::host_fs::fd_pread
+windows wasitests::unstable::host_fs::fd_read
+windows wasitests::unstable::host_fs::file_metadata
+windows wasitests::unstable::host_fs::fseek
+windows wasitests::unstable::host_fs::path_link
+windows wasitests::unstable::host_fs::path_symlink
+windows wasitests::unstable::host_fs::mapdir_with_leading_slash
+windows wasitests::snapshot1::mem_fs::file_metadata
+windows wasitests::snapshot1::mem_fs::fseek
+windows wasitests::snapshot1::mem_fs::path_link
+windows wasitests::snapshot1::mem_fs::path_symlink
+windows wasitests::snapshot1::mem_fs::mapdir_with_leading_slash
+windows wasitests::unstable::mem_fs::fd_pread
+windows wasitests::unstable::mem_fs::fd_read
+windows wasitests::unstable::mem_fs::file_metadata
+windows wasitests::unstable::mem_fs::fseek
+windows wasitests::unstable::mem_fs::path_link
+windows wasitests::unstable::mem_fs::path_symlink
+windows wasitests::unstable::mem_fs::mapdir_with_leading_slash
 
-# This test is meant to only run on Unix
-windows wasitests::unstable::unix_open_special_files
-windows wasitests::snapshot1::unix_open_special_files
+# This tests are disabled for now
+wasitests::unstable::host_fs::unix_open_special_files
+wasitests::snapshot1::host_fs::unix_open_special_files
+wasitests::unstable::mem_fs::unix_open_special_files
+wasitests::snapshot1::mem_fs::unix_open_special_files

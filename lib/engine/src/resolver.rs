@@ -4,12 +4,12 @@
 use crate::{Export, ExportFunctionMetadata, ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
+use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, ModuleInfo, TableIndex};
 
 use wasmer_vm::{
-    FunctionBodyPtr, ImportFunctionEnv, Imports, MemoryStyle, ModuleInfo, TableStyle,
-    VMFunctionBody, VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalImport,
-    VMMemoryImport, VMTableImport,
+    FunctionBodyPtr, ImportFunctionEnv, Imports, MemoryStyle, TableStyle, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
+    VMTableImport,
 };
 
 /// Import resolver connects imports with available exported values.
@@ -64,7 +64,7 @@ impl<T: NamedResolver> NamedResolver for &T {
     }
 }
 
-impl NamedResolver for Box<dyn NamedResolver> {
+impl NamedResolver for Box<dyn NamedResolver + Send + Sync> {
     fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
         (**self).resolve_by_name(module, field)
     }
@@ -293,7 +293,7 @@ pub fn resolve_imports(
 }
 
 /// A [`Resolver`] that links two resolvers together in a chain.
-pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
+pub struct NamedResolverChain<A: NamedResolver + Send + Sync, B: NamedResolver + Send + Sync> {
     a: A,
     b: B,
 }
@@ -303,14 +303,14 @@ pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
 /// ```
 /// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
 /// # fn chainable_test<A, B>(imports1: A, imports2: B)
-/// # where A: NamedResolver + Sized,
-/// #       B: NamedResolver + Sized,
+/// # where A: NamedResolver + Sized + Send + Sync,
+/// #       B: NamedResolver + Sized + Send + Sync,
 /// # {
 /// // override duplicates with imports from `imports2`
 /// imports1.chain_front(imports2);
 /// # }
 /// ```
-pub trait ChainableNamedResolver: NamedResolver + Sized {
+pub trait ChainableNamedResolver: NamedResolver + Sized + Send + Sync {
     /// Chain a resolver in front of the current resolver.
     ///
     /// This will cause the second resolver to override the first.
@@ -318,8 +318,8 @@ pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// ```
     /// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
     /// # fn chainable_test<A, B>(imports1: A, imports2: B)
-    /// # where A: NamedResolver + Sized,
-    /// #       B: NamedResolver + Sized,
+    /// # where A: NamedResolver + Sized + Send + Sync,
+    /// #       B: NamedResolver + Sized + Send + Sync,
     /// # {
     /// // override duplicates with imports from `imports2`
     /// imports1.chain_front(imports2);
@@ -327,7 +327,7 @@ pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// ```
     fn chain_front<U>(self, other: U) -> NamedResolverChain<U, Self>
     where
-        U: NamedResolver,
+        U: NamedResolver + Send + Sync,
     {
         NamedResolverChain { a: other, b: self }
     }
@@ -339,8 +339,8 @@ pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// ```
     /// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
     /// # fn chainable_test<A, B>(imports1: A, imports2: B)
-    /// # where A: NamedResolver + Sized,
-    /// #       B: NamedResolver + Sized,
+    /// # where A: NamedResolver + Sized + Send + Sync,
+    /// #       B: NamedResolver + Sized + Send + Sync,
     /// # {
     /// // override duplicates with imports from `imports1`
     /// imports1.chain_back(imports2);
@@ -348,19 +348,19 @@ pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// ```
     fn chain_back<U>(self, other: U) -> NamedResolverChain<Self, U>
     where
-        U: NamedResolver,
+        U: NamedResolver + Send + Sync,
     {
         NamedResolverChain { a: self, b: other }
     }
 }
 
 // We give these chain methods to all types implementing NamedResolver
-impl<T: NamedResolver> ChainableNamedResolver for T {}
+impl<T: NamedResolver + Send + Sync> ChainableNamedResolver for T {}
 
 impl<A, B> NamedResolver for NamedResolverChain<A, B>
 where
-    A: NamedResolver,
-    B: NamedResolver,
+    A: NamedResolver + Send + Sync,
+    B: NamedResolver + Send + Sync,
 {
     fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
         self.a
@@ -371,8 +371,8 @@ where
 
 impl<A, B> Clone for NamedResolverChain<A, B>
 where
-    A: NamedResolver + Clone,
-    B: NamedResolver + Clone,
+    A: NamedResolver + Clone + Send + Sync,
+    B: NamedResolver + Clone + Send + Sync,
 {
     fn clone(&self) -> Self {
         Self {

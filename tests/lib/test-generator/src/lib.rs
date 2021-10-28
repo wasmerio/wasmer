@@ -23,12 +23,10 @@ pub struct Test {
     pub body: String,
 }
 
-pub type ProcessorType = fn(&mut Testsuite, PathBuf) -> Option<Test>;
-
 pub fn test_directory_module(
     out: &mut Testsuite,
     path: impl AsRef<Path>,
-    processor: ProcessorType,
+    processor: impl Fn(&mut Testsuite, PathBuf) -> Option<Test>,
 ) -> anyhow::Result<usize> {
     let path = path.as_ref();
     let testsuite = &extract_name(path);
@@ -55,7 +53,7 @@ fn write_test(out: &mut Testsuite, testname: &str, body: &str) -> anyhow::Result
 pub fn test_directory(
     out: &mut Testsuite,
     path: impl AsRef<Path>,
-    processor: ProcessorType,
+    processor: impl Fn(&mut Testsuite, PathBuf) -> Option<Test>,
 ) -> anyhow::Result<usize> {
     let path = path.as_ref();
     let mut dir_entries: Vec<_> = path

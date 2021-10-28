@@ -3,6 +3,7 @@ use super::module::wasm_module_t;
 use super::store::wasm_store_t;
 use super::trap::wasm_trap_t;
 use crate::ordered_resolver::OrderedResolver;
+use rayon::prelude::*;
 use std::mem;
 use std::sync::Arc;
 use wasmer_api::{Extern, Instance, InstantiationError};
@@ -25,7 +26,7 @@ pub struct wasm_instance_t {
 /// 2. Runtime errors that happen when running the module `start`
 ///    function.
 ///
-/// Failures are stored in the `traps` argument; the program doesn't
+/// The failure is stored in the `trap` argument; the program doesn't
 /// panic.
 ///
 /// # Notes
@@ -41,7 +42,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     _store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
     imports: Option<&wasm_extern_vec_t>,
-    traps: *mut *mut wasm_trap_t,
+    trap: *mut *mut wasm_trap_t,
 ) -> Option<Box<wasm_instance_t>> {
     let module = module?;
     let imports = imports?;
@@ -51,8 +52,8 @@ pub unsafe extern "C" fn wasm_instance_new(
     let module_import_count = module_imports.len();
     let resolver: OrderedResolver = imports
         .into_slice()
-        .map(|imports| imports.iter())
-        .unwrap_or_else(|| [].iter())
+        .map(|imports| imports.par_iter())
+        .unwrap_or_else(|| [].par_iter())
         .map(|imp| Extern::from((&**imp).clone()))
         .take(module_import_count)
         .collect();
@@ -67,8 +68,8 @@ pub unsafe extern "C" fn wasm_instance_new(
         }
 
         Err(InstantiationError::Start(runtime_error)) => {
-            let trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
-            *traps = Box::into_raw(trap);
+            let this_trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
+            *trap = Box::into_raw(this_trap);
 
             return None;
         }
@@ -124,9 +125,9 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 ///
 ///     // Instantiate the module.
 ///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-///     wasm_trap_t* traps = NULL;
+///     wasm_trap_t* trap = NULL;
 ///
-///     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+///     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &trap);
 ///     assert(instance);
 ///
 ///     // Read the exports.
@@ -252,8 +253,8 @@ mod tests {
                 wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
 
                 // Instantiate the module.
-                wasm_trap_t* traps = NULL;
-                wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+                wasm_trap_t* trap = NULL;
+                wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &trap);
 
                 assert(instance);
 
@@ -273,7 +274,7 @@ mod tests {
                 wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
                 wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
 
-                wasm_trap_t* trap = wasm_func_call(run_function, &arguments_as_array, &results_as_array);
+                trap = wasm_func_call(run_function, &arguments_as_array, &results_as_array);
 
                 assert(trap == NULL);
                 assert(results[0].of.i32 == 2);

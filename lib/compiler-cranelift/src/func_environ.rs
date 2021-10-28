@@ -18,21 +18,16 @@ use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
-    TableIndex, Type as WasmerType,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    SignatureIndex, TableIndex, Type as WasmerType,
 };
 use wasmer_vm::VMBuiltinFunctionIndex;
 use wasmer_vm::VMOffsets;
-use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
+use wasmer_vm::{MemoryStyle, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.as_u32())
-}
-
-/// The type of the `current_length` field.
-pub fn type_of_vmmemory_definition_current_length(vmoffsets: &VMOffsets) -> ir::Type {
-    ir::Type::int(u16::from(vmoffsets.size_of_vmmemory_definition_current_length()) * 8).unwrap()
 }
 
 /// The type of the `current_elements` field.
@@ -1049,7 +1044,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                 let heap_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: ptr,
                     offset: Offset32::new(current_length_offset),
-                    global_type: type_of_vmmemory_definition_current_length(&self.offsets),
+                    global_type: pointer_type,
                     readonly: false,
                 });
                 (

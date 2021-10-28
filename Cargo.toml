@@ -22,6 +22,7 @@ wasmer-engine-dylib = { version = "2.0.0", path = "lib/engine-dylib", optional =
 wasmer-engine-staticlib = { version = "2.0.0", path = "lib/engine-staticlib", optional = true }
 wasmer-wasi = { version = "2.0.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "2.0.0", path = "tests/lib/wast", optional = true }
+wasi-test-generator = { version = "2.0.0", path = "tests/wasi-wast", optional = true }
 wasmer-cache = { version = "2.0.0", path = "lib/cache", optional = true }
 wasmer-types = { version = "2.0.0", path = "lib/types" }
 wasmer-middlewares = { version = "2.0.0", path = "lib/middlewares", optional = true }
@@ -44,27 +45,30 @@ members = [
     "lib/engine-dylib",
     "lib/engine-staticlib",
     "lib/object",
+    "lib/vfs",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
     "lib/types",
+    "tests/wasi-wast",
     "tests/lib/wast",
     "tests/lib/compiler-test-derive",
     "tests/integration/cli",
+    "tests/integration/ios",
     "fuzz",
 ]
+resolver = "2"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"
 anyhow = "1.0"
 glob = "0.3"
-rustc_version = "0.3"
+rustc_version = "0.4"
 
 [dev-dependencies]
 anyhow = "1.0"
-blake3 = "0.3"
 criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
@@ -72,6 +76,10 @@ wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.1"
 loupe = "0.1"
+# For logging tests using the `RUST_LOG=debug` when testing
+test-env-log = { version = "0.2", default-features = false, features = ["trace"] }
+tracing = { version = "0.1", default-features = false, features = ["log"] }
+tracing-subscriber = { version = "0.2", default-features = false, features = ["env-filter", "fmt"] }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
@@ -80,7 +88,6 @@ default = [
     "wat",
     "wast",
     "universal",
-    "dylib",
     "staticlib",
     "cache",
     "wasi",
@@ -175,6 +182,11 @@ required-features = ["cranelift"]
 [[example]]
 name = "engine-headless"
 path = "examples/engine_headless.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "platform-headless-ios"
+path = "examples/platform_ios_headless.rs"
 required-features = ["cranelift"]
 
 [[example]]

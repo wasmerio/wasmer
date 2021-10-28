@@ -1,11 +1,10 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
-
-use super::module::translate_module;
 use super::state::ModuleTranslationState;
 use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
+use crate::translate_module;
 use crate::wasmparser::{Operator, Range, Type};
 use crate::{WasmError, WasmResult};
 use std::convert::{TryFrom, TryInto};
@@ -15,10 +14,9 @@ use wasmer_types::FunctionType;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
-    LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableInitializer,
-    TableType,
+    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
+    TableInitializer, TableType,
 };
-use wasmer_vm::ModuleInfo;
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
@@ -61,7 +59,7 @@ pub trait FunctionBinaryReader<'a> {
 /// yet translated, and data initializers have not yet been copied out of the
 /// original buffer.
 /// The function bodies will be translated by a specific compiler backend.
-pub struct ModuleInfoTranslation<'data> {
+pub struct ModuleEnvironment<'data> {
     /// ModuleInfo information.
     pub module: ModuleInfo,
 
@@ -75,41 +73,28 @@ pub struct ModuleInfoTranslation<'data> {
     pub module_translation_state: Option<ModuleTranslationState>,
 }
 
-/// Object containing the standalone environment information.
-pub struct ModuleEnvironment<'data> {
-    /// The result to be filled in.
-    pub result: ModuleInfoTranslation<'data>,
-    imports: u32,
-}
-
 impl<'data> ModuleEnvironment<'data> {
     /// Allocates the environment data structures.
     pub fn new() -> Self {
         Self {
-            result: ModuleInfoTranslation {
-                module: ModuleInfo::new(),
-                function_body_inputs: PrimaryMap::new(),
-                data_initializers: Vec::new(),
-                module_translation_state: None,
-            },
-            imports: 0,
+            module: ModuleInfo::new(),
+            function_body_inputs: PrimaryMap::new(),
+            data_initializers: Vec::new(),
+            module_translation_state: None,
         }
     }
 
     /// Translate a wasm module using this environment. This consumes the
     /// `ModuleEnvironment` and produces a `ModuleInfoTranslation`.
-    pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleInfoTranslation<'data>> {
-        assert!(self.result.module_translation_state.is_none());
+    pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleEnvironment<'data>> {
+        assert!(self.module_translation_state.is_none());
         let module_translation_state = translate_module(data, &mut self)?;
-        self.result.module_translation_state = Some(module_translation_state);
-        Ok(self.result)
+        self.module_translation_state = Some(module_translation_state);
+        Ok(self)
     }
 
     pub(crate) fn declare_export(&mut self, export: ExportIndex, name: &str) -> WasmResult<()> {
-        self.result
-            .module
-            .exports
-            .insert(String::from(name), export);
+        self.module.exports.insert(String::from(name), export);
         Ok(())
     }
 
@@ -119,16 +104,19 @@ impl<'data> ModuleEnvironment<'data> {
         module: &str,
         field: &str,
     ) -> WasmResult<()> {
-        self.result.module.imports.insert(
-            (String::from(module), String::from(field), self.imports),
+        self.module.imports.insert(
+            (
+                String::from(module),
+                String::from(field),
+                self.module.imports.len().try_into().unwrap(),
+            ),
             import,
         );
         Ok(())
     }
 
     pub(crate) fn reserve_signatures(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
+        self.module
             .signatures
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
@@ -136,7 +124,7 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
         // TODO: Deduplicate signatures.
-        self.result.module.signatures.push(sig);
+        self.module.signatures.push(sig);
         Ok(())
     }
 
@@ -147,20 +135,19 @@ impl<'data> ModuleEnvironment<'data> {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.result.module.functions.len(),
-            self.result.module.num_imported_functions,
+            self.module.functions.len(),
+            self.module.num_imported_functions,
             "Imported functions must be declared first"
         );
         self.declare_import(
             ImportIndex::Function(FunctionIndex::from_u32(
-                self.result.module.num_imported_functions as _,
+                self.module.num_imported_functions as _,
             )),
             module,
             field,
         )?;
-        self.result.module.functions.push(sig_index);
-        self.result.module.num_imported_functions += 1;
-        self.imports += 1;
+        self.module.functions.push(sig_index);
+        self.module.num_imported_functions += 1;
         Ok(())
     }
 
@@ -171,20 +158,17 @@ impl<'data> ModuleEnvironment<'data> {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.result.module.tables.len(),
-            self.result.module.num_imported_tables,
+            self.module.tables.len(),
+            self.module.num_imported_tables,
             "Imported tables must be declared first"
         );
         self.declare_import(
-            ImportIndex::Table(TableIndex::from_u32(
-                self.result.module.num_imported_tables as _,
-            )),
+            ImportIndex::Table(TableIndex::from_u32(self.module.num_imported_tables as _)),
             module,
             field,
         )?;
-        self.result.module.tables.push(table);
-        self.result.module.num_imported_tables += 1;
-        self.imports += 1;
+        self.module.tables.push(table);
+        self.module.num_imported_tables += 1;
         Ok(())
     }
 
@@ -195,20 +179,19 @@ impl<'data> ModuleEnvironment<'data> {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.result.module.memories.len(),
-            self.result.module.num_imported_memories,
+            self.module.memories.len(),
+            self.module.num_imported_memories,
             "Imported memories must be declared first"
         );
         self.declare_import(
             ImportIndex::Memory(MemoryIndex::from_u32(
-                self.result.module.num_imported_memories as _,
+                self.module.num_imported_memories as _,
             )),
             module,
             field,
         )?;
-        self.result.module.memories.push(memory);
-        self.result.module.num_imported_memories += 1;
-        self.imports += 1;
+        self.module.memories.push(memory);
+        self.module.num_imported_memories += 1;
         Ok(())
     }
 
@@ -219,20 +202,17 @@ impl<'data> ModuleEnvironment<'data> {
         field: &str,
     ) -> WasmResult<()> {
         debug_assert_eq!(
-            self.result.module.globals.len(),
-            self.result.module.num_imported_globals,
+            self.module.globals.len(),
+            self.module.num_imported_globals,
             "Imported globals must be declared first"
         );
         self.declare_import(
-            ImportIndex::Global(GlobalIndex::from_u32(
-                self.result.module.num_imported_globals as _,
-            )),
+            ImportIndex::Global(GlobalIndex::from_u32(self.module.num_imported_globals as _)),
             module,
             field,
         )?;
-        self.result.module.globals.push(global);
-        self.result.module.num_imported_globals += 1;
-        self.imports += 1;
+        self.module.globals.push(global);
+        self.module.num_imported_globals += 1;
         Ok(())
     }
 
@@ -241,37 +221,33 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_func_types(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
+        self.module
             .functions
             .reserve_exact(usize::try_from(num).unwrap());
-        self.result
-            .function_body_inputs
+        self.function_body_inputs
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_func_type(&mut self, sig_index: SignatureIndex) -> WasmResult<()> {
-        self.result.module.functions.push(sig_index);
+        self.module.functions.push(sig_index);
         Ok(())
     }
 
     pub(crate) fn reserve_tables(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
+        self.module
             .tables
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_table(&mut self, table: TableType) -> WasmResult<()> {
-        self.result.module.tables.push(table);
+        self.module.tables.push(table);
         Ok(())
     }
 
     pub(crate) fn reserve_memories(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
+        self.module
             .memories
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
@@ -283,13 +259,12 @@ impl<'data> ModuleEnvironment<'data> {
                 "shared memories are not supported yet".to_owned(),
             ));
         }
-        self.result.module.memories.push(memory);
+        self.module.memories.push(memory);
         Ok(())
     }
 
     pub(crate) fn reserve_globals(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
+        self.module
             .globals
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
@@ -300,16 +275,13 @@ impl<'data> ModuleEnvironment<'data> {
         global: GlobalType,
         initializer: GlobalInit,
     ) -> WasmResult<()> {
-        self.result.module.globals.push(global);
-        self.result.module.global_initializers.push(initializer);
+        self.module.globals.push(global);
+        self.module.global_initializers.push(initializer);
         Ok(())
     }
 
     pub(crate) fn reserve_exports(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .exports
-            .reserve(usize::try_from(num).unwrap());
+        self.module.exports.reserve(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -346,14 +318,13 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn declare_start_function(&mut self, func_index: FunctionIndex) -> WasmResult<()> {
-        debug_assert!(self.result.module.start_function.is_none());
-        self.result.module.start_function = Some(func_index);
+        debug_assert!(self.module.start_function.is_none());
+        self.module.start_function = Some(func_index);
         Ok(())
     }
 
     pub(crate) fn reserve_table_initializers(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
+        self.module
             .table_initializers
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
@@ -366,15 +337,12 @@ impl<'data> ModuleEnvironment<'data> {
         offset: usize,
         elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        self.result
-            .module
-            .table_initializers
-            .push(TableInitializer {
-                table_index,
-                base,
-                offset,
-                elements,
-            });
+        self.module.table_initializers.push(TableInitializer {
+            table_index,
+            base,
+            offset,
+            elements,
+        });
         Ok(())
     }
 
@@ -383,11 +351,7 @@ impl<'data> ModuleEnvironment<'data> {
         elem_index: ElemIndex,
         segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        let old = self
-            .result
-            .module
-            .passive_elements
-            .insert(elem_index, segments);
+        let old = self.module.passive_elements.insert(elem_index, segments);
         debug_assert!(
             old.is_none(),
             "should never get duplicate element indices, that would be a bug in `wasmer_compiler`'s \
@@ -402,7 +366,7 @@ impl<'data> ModuleEnvironment<'data> {
         body_bytes: &'data [u8],
         body_offset: usize,
     ) -> WasmResult<()> {
-        self.result.function_body_inputs.push(FunctionBodyData {
+        self.function_body_inputs.push(FunctionBodyData {
             data: body_bytes,
             module_offset: body_offset,
         });
@@ -410,8 +374,7 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_data_initializers(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .data_initializers
+        self.data_initializers
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
@@ -423,7 +386,7 @@ impl<'data> ModuleEnvironment<'data> {
         offset: usize,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        self.result.data_initializers.push(DataInitializer {
+        self.data_initializers.push(DataInitializer {
             location: DataInitializerLocation {
                 memory_index,
                 base,
@@ -436,7 +399,7 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn reserve_passive_data(&mut self, count: u32) -> WasmResult<()> {
         let count = usize::try_from(count).unwrap();
-        self.result.module.passive_data.reserve(count);
+        self.module.passive_data.reserve(count);
         Ok(())
     }
 
@@ -445,11 +408,7 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        let old = self
-            .result
-            .module
-            .passive_data
-            .insert(data_index, Arc::from(data));
+        let old = self.module.passive_data.insert(data_index, Arc::from(data));
         debug_assert!(
             old.is_none(),
             "a module can't have duplicate indices, this would be a wasmer-compiler bug"
@@ -458,7 +417,7 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn declare_module_name(&mut self, name: &'data str) -> WasmResult<()> {
-        self.result.module.name = Some(name.to_string());
+        self.module.name = Some(name.to_string());
         Ok(())
     }
 
@@ -467,8 +426,7 @@ impl<'data> ModuleEnvironment<'data> {
         func_index: FunctionIndex,
         name: &'data str,
     ) -> WasmResult<()> {
-        self.result
-            .module
+        self.module
             .function_names
             .insert(func_index, name.to_string());
         Ok(())
@@ -488,21 +446,12 @@ impl<'data> ModuleEnvironment<'data> {
     /// Indicates that a custom section has been found in the wasm file
     pub(crate) fn custom_section(&mut self, name: &'data str, data: &'data [u8]) -> WasmResult<()> {
         let custom_section = CustomSectionIndex::from_u32(
-            self.result
-                .module
-                .custom_sections_data
-                .len()
-                .try_into()
-                .unwrap(),
+            self.module.custom_sections_data.len().try_into().unwrap(),
         );
-        self.result
-            .module
+        self.module
             .custom_sections
             .insert(String::from(name), custom_section);
-        self.result
-            .module
-            .custom_sections_data
-            .push(Arc::from(data));
+        self.module.custom_sections_data.push(Arc::from(data));
         Ok(())
     }
 }

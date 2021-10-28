@@ -8,11 +8,29 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+### Added
+- [#2574](https://github.com/wasmerio/wasmer/pull/2574) Added Windows support to Singlepass.
+- [#2535](https://github.com/wasmerio/wasmer/pull/2435) Added iOS support for Wasmer. This relies on the `dylib-engine`.
+- [#2427](https://github.com/wasmerio/wasmer/pull/2427) Wasmer can now compile to Javascript via `wasm-bindgen`. Use the `js-default` (and no default features) feature to try it!.
+- [#2436](https://github.com/wasmerio/wasmer/pull/2436) Added the x86-32 bit variant support to LLVM compiler.
+
 ### Changed
+- [#2460](https://github.com/wasmerio/wasmer/pull/2460) **breaking change** `wasmer` API usage with `no-default-features` requires now the `sys` feature to preserve old behavior.
+- [#2476](https://github.com/wasmerio/wasmer/pull/2476) Removed unncessary abstraction `ModuleInfoTranslate` from `wasmer-compiler`.
+- [#2442](https://github.com/wasmerio/wasmer/pull/2442) Improved `WasmPtr`, added `WasmCell` for host/guest interaction.
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
+- [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `wasm_instance_new()`’s “traps” argument to “trap”.
 
 ### Fixed
+- [#2599](https://github.com/wasmerio/wasmer/pull/2599) Fixed Universal engine for Linux/Aarch64 target.
+- [#2587](https://github.com/wasmerio/wasmer/pull/2587) Fixed deriving `WasmerEnv` when aliasing `Result`.
+- [#2518](https://github.com/wasmerio/wasmer/pull/2518) Remove temporary file used to creating an artifact when creating a Dylib engine artifact.
+- [#2494](https://github.com/wasmerio/wasmer/pull/2494) Fixed `WasmerEnv` access when using `call_indirect` with the Singlepass compiler.
+- [#2449](https://github.com/wasmerio/wasmer/pull/2449) Fixed `wasmer-c-api` used `soname`.
+- [#2479](https://github.com/wasmerio/wasmer/pull/2479) Improved `wasmer validate` error message on non-wasm inputs.
+- [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
+- [#2635](https://github.com/wasmerio/wasmer/pull/2635) Fix cross-compilation for singlepass.
 
 ## 2.0.0 - 2021/06/16
 
@@ -176,9 +194,9 @@ This change is unlikely to affect any users of `wasmer`, but if it does please c
 ## 1.0.0-beta2 - 2020-12-16
 
 ### Added
- 
+
 * [#1916](https://github.com/wasmerio/wasmer/pull/1916) Add the `WASMER_VERSION*` constants with the `wasmer_version*` functions in the Wasmer C API
-* [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points` 
+* [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points`
 * [#1881](https://github.com/wasmerio/wasmer/pull/1881) Added `UnsupportedTarget` error to `CompileError`
 * [#1908](https://github.com/wasmerio/wasmer/pull/1908) Implemented `TryFrom<Value<T>>` for `i32`/`u32`/`i64`/`u64`/`f32`/`f64`
 * [#1927](https://github.com/wasmerio/wasmer/pull/1927) Added mmap support in `Engine::deserialize_from_file` to speed up artifact loading

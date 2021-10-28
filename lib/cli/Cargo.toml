@@ -35,11 +35,12 @@ wasmer-engine-universal = { version = "2.0.0", path = "../engine-universal", opt
 wasmer-engine-dylib = { version = "2.0.0", path = "../engine-dylib", optional = true }
 wasmer-engine-staticlib = { version = "2.0.0", path = "../engine-staticlib", optional = true }
 wasmer-vm = { version = "2.0.0", path = "../vm" }
-wasmer-wasi = { version = "2.0.0", path = "../wasi", default-features = false, optional = true }
+wasmer-wasi = { version = "2.0.0", path = "../wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "2.0.0", path = "../wasi-experimental-io-devices", optional = true }
 wasmer-wast = { version = "2.0.0", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "2.0.0", path = "../cache", optional = true }
 wasmer-types = { version = "2.0.0", path = "../types" }
+wasmer-vfs  = { version = "2.0.0", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
@@ -81,6 +82,7 @@ staticlib = [
     "engine",
 ]
 cache = ["wasmer-cache"]
+cache-blake3-pure = ["wasmer-cache/blake3-pure"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]

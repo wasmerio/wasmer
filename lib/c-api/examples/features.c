@@ -40,8 +40,8 @@ int main(int argc, const char* argv[]) {
 
     printf("Instantiating module...\n");
     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-    wasm_trap_t* traps = NULL;
-    wasm_instance_t* instance = wasm_instance_new(store, module, &imports,&traps);
+    wasm_trap_t* trap = NULL;
+    wasm_instance_t* instance = wasm_instance_new(store, module, &imports,&trap);
 
     if (!instance) {
         printf("> Error instantiating module!\n");
@@ -67,7 +67,7 @@ int main(int argc, const char* argv[]) {
     wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
     wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
 
-    wasm_trap_t* trap = wasm_func_call(swap, &arguments_as_array, &results_as_array);
+    trap = wasm_func_call(swap, &arguments_as_array, &results_as_array);
 
     if (trap != NULL) {
         printf("> Failed to call `swap`.\n");

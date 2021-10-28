@@ -1,10 +1,14 @@
 //! Logging functions for the debug feature.
 use crate::utils::wasmer_should_print_color;
+use anyhow::Result;
 use fern::colors::{Color, ColoredLevelConfig};
 use std::time;
 
+/// The debug level
+pub type DebugLevel = log::LevelFilter;
+
 /// Subroutine to instantiate the loggers
-pub fn set_up_logging() -> Result<(), String> {
+pub fn set_up_logging(verbose: u8) -> Result<(), String> {
     let colors_line = ColoredLevelConfig::new()
         .error(Color::Red)
         .warn(Color::Yellow)
@@ -12,8 +16,12 @@ pub fn set_up_logging() -> Result<(), String> {
     let should_color = wasmer_should_print_color();
 
     let colors_level = colors_line.info(Color::Green);
+    let level = match verbose {
+        1 => DebugLevel::Debug,
+        _ => DebugLevel::Trace,
+    };
     let dispatch = fern::Dispatch::new()
-        .level(log::LevelFilter::Debug)
+        .level(level)
         .chain({
             let base = if should_color {
                 fern::Dispatch::new().format(move |out, message, record| {
