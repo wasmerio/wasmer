@@ -1,8 +1,12 @@
 use crate::*;
-use std::fmt;
+use std::{
+    fmt,
+    mem::{self, MaybeUninit},
+};
+use wasmer_derive::ValueType;
 use wasmer_types::ValueType;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
 #[repr(C)]
 pub struct __wasi_event_fd_readwrite_t {
     pub nbytes: __wasi_filesize_t,
@@ -63,7 +67,46 @@ impl __wasi_event_t {
     }
 }
 
-unsafe impl ValueType for __wasi_event_t {}
+unsafe impl ValueType for __wasi_event_t {
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
+        macro_rules! field {
+            ($($f:tt)*) => {
+                &self.$($f)* as *const _ as usize - self as *const _ as usize
+            };
+        }
+        macro_rules! field_end {
+            ($($f:tt)*) => {
+                field!($($f)*) + mem::size_of_val(&self.$($f)*)
+            };
+        }
+        macro_rules! zero {
+            ($start:expr, $end:expr) => {
+                for i in $start..$end {
+                    bytes[i] = MaybeUninit::new(0);
+                }
+            };
+        }
+        self.userdata
+            .zero_padding_bytes(&mut bytes[field!(userdata)..field_end!(userdata)]);
+        zero!(field_end!(userdata), field!(error));
+        self.error
+            .zero_padding_bytes(&mut bytes[field!(error)..field_end!(error)]);
+        zero!(field_end!(error), field!(type_));
+        self.type_
+            .zero_padding_bytes(&mut bytes[field!(type_)..field_end!(type_)]);
+        zero!(field_end!(type_), field!(u));
+        match self.type_ {
+            __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => unsafe {
+                self.u.fd_readwrite.zero_padding_bytes(
+                    &mut bytes[field!(u.fd_readwrite)..field_end!(u.fd_readwrite)],
+                );
+                zero!(field_end!(u.fd_readwrite), field_end!(u));
+            },
+            _ => zero!(field!(u), field_end!(u)),
+        }
+        zero!(field_end!(u), mem::size_of_val(self));
+    }
+}
 
 pub type __wasi_eventrwflags_t = u16;
 pub const __WASI_EVENT_FD_READWRITE_HANGUP: u16 = 1 << 0;

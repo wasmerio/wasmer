@@ -1,35 +1,33 @@
 use crate::varargs::VarArgs;
 use crate::EmEnv;
 use libc::execvp as libc_execvp;
-use std::cell::Cell;
 use std::ffi::CString;
+use wasmer::WasmPtr;
 
 pub fn execvp(ctx: &EmEnv, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
     let emscripten_memory = ctx.memory(0);
 
     // read command name as string
-    let command_name_string_vec: Vec<u8> = emscripten_memory.view()
-        [(command_name_offset as usize)..]
-        .iter()
-        .map(|cell| cell.get())
-        .take_while(|&byte| byte != 0)
-        .collect();
+    let command_name_string_vec = WasmPtr::<u8>::new(command_name_offset)
+        .read_until(&emscripten_memory, |&byte| byte == 0)
+        .unwrap();
     let command_name_string = CString::new(command_name_string_vec).unwrap();
 
     // get the array of args
-    let mut argv: Vec<*const i8> = emscripten_memory.view()[((argv_offset / 4) as usize)..]
-        .iter()
-        .map(|cell: &Cell<u32>| cell.get())
-        .take_while(|&byte| byte != 0)
-        .map(|offset| {
-            let p: *const i8 = (emscripten_memory.view::<u8>()[(offset as usize)..])
-                .iter()
-                .map(|cell| cell.as_ptr() as *const i8)
-                .collect::<Vec<*const i8>>()[0];
-            p
+    let argv = WasmPtr::<WasmPtr<u8>>::new(argv_offset)
+        .read_until(&emscripten_memory, |&ptr| ptr.is_null())
+        .unwrap();
+    let arg_strings: Vec<CString> = argv
+        .into_iter()
+        .map(|ptr| {
+            let vec = ptr
+                .read_until(&emscripten_memory, |&byte| byte == 0)
+                .unwrap();
+            CString::new(vec).unwrap()
         })
         .collect();
+    let mut argv: Vec<*const i8> = arg_strings.iter().map(|s| s.as_ptr()).collect();
 
     // push a nullptr on to the end of the args array
     argv.push(std::ptr::null());
