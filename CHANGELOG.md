@@ -22,6 +22,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `wasm_instance_new()`’s “traps” argument to “trap”.
 
 ### Fixed
+- [#2599](https://github.com/wasmerio/wasmer/pull/2599) Fixed Universal engine for Linux/Aarch64 target.
 - [#2587](https://github.com/wasmerio/wasmer/pull/2587) Fixed deriving `WasmerEnv` when aliasing `Result`.
 - [#2518](https://github.com/wasmerio/wasmer/pull/2518) Remove temporary file used to creating an artifact when creating a Dylib engine artifact.
 - [#2494](https://github.com/wasmerio/wasmer/pull/2494) Fixed `WasmerEnv` access when using `call_indirect` with the Singlepass compiler.
@@ -29,6 +30,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2479](https://github.com/wasmerio/wasmer/pull/2479) Improved `wasmer validate` error message on non-wasm inputs.
 - [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
+- [#2635](https://github.com/wasmerio/wasmer/pull/2635) Fix cross-compilation for singlepass.
 
 ## 2.0.0 - 2021/06/16
 
@@ -192,9 +194,9 @@ This change is unlikely to affect any users of `wasmer`, but if it does please c
 ## 1.0.0-beta2 - 2020-12-16
 
 ### Added
- 
+
 * [#1916](https://github.com/wasmerio/wasmer/pull/1916) Add the `WASMER_VERSION*` constants with the `wasmer_version*` functions in the Wasmer C API
-* [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points` 
+* [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points`
 * [#1881](https://github.com/wasmerio/wasmer/pull/1881) Added `UnsupportedTarget` error to `CompileError`
 * [#1908](https://github.com/wasmerio/wasmer/pull/1908) Implemented `TryFrom<Value<T>>` for `i32`/`u32`/`i64`/`u64`/`f32`/`f64`
 * [#1927](https://github.com/wasmerio/wasmer/pull/1927) Added mmap support in `Engine::deserialize_from_file` to speed up artifact loading

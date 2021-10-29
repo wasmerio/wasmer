@@ -294,6 +294,7 @@ impl Compiler for CraneliftCompiler {
             function_call_trampolines,
             dynamic_function_trampolines,
             dwarf,
+            None,
         ))
     }
 }

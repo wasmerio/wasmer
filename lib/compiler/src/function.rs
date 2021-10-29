@@ -109,6 +109,33 @@ impl Dwarf {
     }
 }
 
+/// Trampolines section used by ARM short jump (26bits)
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
+#[derive(Debug, PartialEq, Eq, Clone, MemoryUsage)]
+pub struct TrampolinesSection {
+    /// SectionIndex for the actual Trampolines code
+    pub section_index: SectionIndex,
+    /// Number of jump slots in the section
+    pub slots: usize,
+    /// Slot size
+    pub size: usize,
+}
+
+impl TrampolinesSection {
+    /// Creates a `Trampolines` struct with the indice for its section, and number of slots and size of slot
+    pub fn new(section_index: SectionIndex, slots: usize, size: usize) -> Self {
+        Self {
+            section_index,
+            slots,
+            size,
+        }
+    }
+}
+
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
@@ -155,6 +182,9 @@ pub struct Compilation {
 
     /// Section ids corresponding to the Dwarf debug info
     debug: Option<Dwarf>,
+
+    /// Trampolines for the arch that needs it
+    trampolines: Option<TrampolinesSection>,
 }
 
 impl Compilation {
@@ -165,6 +195,7 @@ impl Compilation {
         function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
         debug: Option<Dwarf>,
+        trampolines: Option<TrampolinesSection>,
     ) -> Self {
         Self {
             functions,
@@ -172,6 +203,7 @@ impl Compilation {
             function_call_trampolines,
             dynamic_function_trampolines,
             debug,
+            trampolines,
         }
     }
 
@@ -248,6 +280,11 @@ impl Compilation {
     /// Returns the Dwarf info.
     pub fn get_debug(&self) -> Option<Dwarf> {
         self.debug.clone()
+    }
+
+    /// Returns the Trampilines info.
+    pub fn get_trampolines(&self) -> Option<TrampolinesSection> {
+        self.trampolines.clone()
     }
 }
 
