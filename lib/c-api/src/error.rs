@@ -63,7 +63,7 @@ thread_local! {
 /// # Example
 ///
 /// ```rust,no_run
-/// # use wasmer_c_api::error::{update_last_error, CApiError};
+/// # use wasmer::error::{update_last_error, CApiError};
 ///
 /// update_last_error(CApiError {
 ///     msg: "Hello, World!".to_string(),

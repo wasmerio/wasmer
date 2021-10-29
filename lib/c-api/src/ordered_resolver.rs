@@ -4,8 +4,9 @@
 //! This resolver is used in the Wasm-C-API as the imports are provided
 //! by index and not by module and name.
 
+use rayon::iter::{FromParallelIterator, IntoParallelIterator, ParallelIterator};
 use std::iter::FromIterator;
-use wasmer::{Export, Exportable, Extern, Resolver};
+use wasmer_api::{Export, Exportable, Extern, Resolver};
 
 /// An `OrderedResolver` stores all the `externs` provided to an Instance
 /// in a Vec, so we can retrieve them later based on index.
@@ -25,10 +26,16 @@ impl Resolver for OrderedResolver {
 
 impl FromIterator<Extern> for OrderedResolver {
     fn from_iter<I: IntoIterator<Item = Extern>>(iter: I) -> Self {
-        let mut externs = Vec::new();
-        for extern_ in iter {
-            externs.push(extern_);
+        OrderedResolver {
+            externs: iter.into_iter().collect(),
         }
-        OrderedResolver { externs }
+    }
+}
+
+impl FromParallelIterator<Extern> for OrderedResolver {
+    fn from_par_iter<I: IntoParallelIterator<Item = Extern>>(iter: I) -> Self {
+        OrderedResolver {
+            externs: iter.into_par_iter().collect(),
+        }
     }
 }

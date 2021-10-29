@@ -26,7 +26,7 @@ use crate::vmcontext::{
     VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
-use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
+use crate::{FunctionBodyPtr, VMOffsets};
 use crate::{VMFunction, VMGlobal, VMMemory, VMTable};
 use loupe::{MemoryUsage, MemoryUsageTracker};
 use memoffset::offset_of;
@@ -44,8 +44,8 @@ use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
-    SignatureIndex, TableIndex, TableInitializer,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
 };
 
 /// The function pointer to call with data and an [`Instance`] pointer to

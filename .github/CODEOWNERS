@@ -1,24 +1,23 @@
 benches                            @syrusakbary
-examples                           @Hywan @jubianchi
+examples                           
 fuzz                               @syrusakbary
-lib/api                            @syrusakbary @Hywan @MarkMcCaskey
-lib/c-api                          @Hywan @MarkMcCaskey @jubianchi
-lib/cache                          @syrusakbary @Hywan
-lib/cli                            @syrusakbary @MarkMcCaskey
-lib/compiler                       @syrusakbary @nlewycky @losfair @Hywan @MarkMcCaskey
-lib/compiler-cranelift             @nlewycky @syrusakbary
-lib/compiler-llvm                  @nlewycky @losfair
-lib/compiler-singlepass            @losfair @nlewycky
-lib/deprecated                     @Hywan @MarkMcCaskey
-lib/emscripten                     @MarkMcCaskey
-lib/engine                         @syrusakbary @MarkMcCaskey @Hywan
-lib/engine-jit                     @syrusakbary @MarkMcCaskey @Hywan
-lib/engine-native                  @syrusakbary @MarkMcCaskey @Hywan
-lib/engine-object-file             @syrusakbary @MarkMcCaskey @Hywan
-lib/object                         @syrusakbary @nlewycky
-lib/vm                             @syrusakbary @nlewycky @MarkMcCaskey
-lib/wasi                           @MarkMcCaskey
-lib/wasi-experimental-io-devices   @MarkMcCaskey
-lib/wasmer-types                   @syrusakbary @Hywan
+lib/api                            @syrusakbary
+lib/c-api                          
+lib/cache                          @syrusakbary
+lib/cli                            @syrusakbary
+lib/compiler                       @syrusakbary
+lib/compiler-cranelift             @syrusakbary
+lib/compiler-llvm                  
+lib/compiler-singlepass            @syrusakbary
+lib/deprecated                     
+lib/emscripten                     
+lib/engine                         @syrusakbary
+lib/engine-jit                     @syrusakbary
+lib/engine-native                  @syrusakbary
+lib/engine-object-file             @syrusakbary
+lib/object                         @syrusakbary
+lib/vm                             @syrusakbary
+lib/wasi                           
+lib/wasmer-types                   @syrusakbary
 scripts                            @syrusakbary
-tests                              @MarkMcCaskey
+tests                              

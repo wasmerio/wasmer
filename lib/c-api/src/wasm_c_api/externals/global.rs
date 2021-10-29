@@ -4,7 +4,7 @@ use super::super::value::wasm_val_t;
 use super::CApiExternTag;
 use crate::error::update_last_error;
 use std::convert::TryInto;
-use wasmer::{Global, Val};
+use wasmer_api::{Global, Val};
 
 #[allow(non_camel_case_types)]
 #[repr(C)]

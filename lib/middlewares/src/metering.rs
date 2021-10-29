@@ -18,8 +18,7 @@ use wasmer::{
     ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
     MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
 };
-use wasmer_types::GlobalIndex;
-use wasmer_vm::ModuleInfo;
+use wasmer_types::{GlobalIndex, ModuleInfo};
 
 #[derive(Clone, MemoryUsage)]
 struct MeteringGlobalIndexes(GlobalIndex, GlobalIndex);

@@ -2,8 +2,10 @@
 //! if memory access failed
 
 use crate::syscalls::types::{__wasi_errno_t, __WASI_EFAULT};
-use std::{cell::Cell, fmt};
-pub use wasmer::{Array, FromToNativeWasmType, Item, Memory, ValueType, WasmPtr as BaseWasmPtr};
+use std::fmt;
+pub use wasmer::{
+    Array, FromToNativeWasmType, Item, Memory, ValueType, WasmCell, WasmPtr as BaseWasmPtr,
+};
 
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item>(BaseWasmPtr<T, Ty>);
@@ -63,7 +65,7 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
 
 impl<T: Copy + ValueType> WasmPtr<T, Item> {
     #[inline(always)]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Result<&'a Cell<T>, __wasi_errno_t> {
+    pub fn deref<'a>(self, memory: &'a Memory) -> Result<WasmCell<'a, T>, __wasi_errno_t> {
         self.0.deref(memory).ok_or(__WASI_EFAULT)
     }
 }
@@ -75,12 +77,21 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         memory: &'a Memory,
         index: u32,
         length: u32,
-    ) -> Result<&'a [Cell<T>], __wasi_errno_t> {
+    ) -> Result<Vec<WasmCell<'a, T>>, __wasi_errno_t> {
         self.0.deref(memory, index, length).ok_or(__WASI_EFAULT)
     }
 
     #[inline(always)]
-    pub unsafe fn get_utf8_str(self, memory: &Memory, str_len: u32) -> Option<&str> {
-        self.0.get_utf8_str(memory, str_len)
+    pub unsafe fn get_utf8_str<'a>(
+        self,
+        memory: &'a Memory,
+        str_len: u32,
+    ) -> Option<std::borrow::Cow<'a, str>> {
+        self.0.get_utf8_str(memory, str_len).map(Into::into)
+    }
+
+    #[inline(always)]
+    pub unsafe fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
+        self.0.get_utf8_string(memory, str_len)
     }
 }

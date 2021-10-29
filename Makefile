@@ -127,22 +127,30 @@ endif
 ifneq ($(ENABLE_LLVM), 0)
 	# … then maybe the user forced to enable the LLVM compiler.
 	ifeq ($(ENABLE_LLVM), 1)
+		LLVM_VERSION := $(shell llvm-config --version)
 		compilers += llvm
 	# … otherwise, we try to autodetect LLVM from `llvm-config`
 	else ifneq (, $(shell which llvm-config 2>/dev/null))
 		LLVM_VERSION := $(shell llvm-config --version)
 
 		# If findstring is not empty, then it have found the value
-		ifneq (, $(findstring 11,$(LLVM_VERSION)))
+		ifneq (, $(findstring 12,$(LLVM_VERSION)))
+			compilers += llvm
+		else ifneq (, $(findstring 11,$(LLVM_VERSION)))
 			compilers += llvm
 		else ifneq (, $(findstring 10,$(LLVM_VERSION)))
 			compilers += llvm
 		endif
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
 	else
-		ifneq (, $(shell which llvm-config-11 2>/dev/null))
+		ifneq (, $(shell which llvm-config-12 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-12 --version)
+			compilers += llvm
+		else ifneq (, $(shell which llvm-config-11 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-11 --version)
 			compilers += llvm
 		else ifneq (, $(shell which llvm-config-10 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-10 --version)
 			compilers += llvm
 		endif
 	endif
@@ -153,6 +161,7 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
+exclude_tests += --exclude wasmer-integration-tests-ios
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -171,7 +180,7 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 	ifeq ($(ENABLE_SINGLEPASS), 1)
 		compilers += singlepass
 	# … otherwise, we try to check whether Singlepass works on this host.
-	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_WINDOWS)))
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
@@ -231,6 +240,7 @@ ifeq ($(ENABLE_LLVM), 1)
 			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		endif
 	endif
@@ -317,10 +327,15 @@ ifneq (, $(LIBC))
 endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
 $(info Testing the following compilers & engines:)
-$(info   * API: $(bold)$(green)${compilers_engines}$(reset))
-$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset))
+$(info   * API: $(bold)$(green)${compilers_engines}$(reset),)
+$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset).)
 $(info Cargo features:)
-$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info Rust version: $(bold)$(green)$(shell rustc --version)$(reset).)
+$(info NodeJS version: $(bold)$(green)$(shell node --version)$(reset).)
+ifeq ($(ENABLE_LLVM), 1)
+        $(info LLVM version: $(bold)$(green)${LLVM_VERSION}$(reset).)
+endif
 $(info )
 $(info )
 $(info --------------)
@@ -329,9 +344,25 @@ $(info --------------)
 $(info )
 $(info )
 
-############
-# Building #
-############
+#####
+#
+# Configure `sed -i` for a cross-platform usage.
+#
+#####
+
+SEDI ?=
+
+ifeq ($(IS_DARWIN), 1)
+	SEDI := "-i ''"
+else ifeq ($(IS_LINUX), 1)
+	SEDI := "-i"
+endif
+
+#####
+#
+# Building.
+#
+#####
 
 # Not really "all", just the default target that builds enough so make
 # install will go through.
@@ -341,7 +372,7 @@ build-wasmer:
 	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
 
 bench:
 	cargo bench $(compiler_features)
@@ -363,12 +394,10 @@ build-wasmer-headless-minimal:
 	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
-else
-ifeq ($(IS_WINDOWS), 1)
+else ifeq ($(IS_WINDOWS), 1)
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
 else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
-endif
 endif
 
 WAPM_VERSION = v0.5.1
@@ -384,7 +413,7 @@ else
 endif
 
 build-docs:
-	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
+	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
 capi-setup:
 ifeq ($(IS_WINDOWS), 1)
@@ -392,7 +421,12 @@ ifeq ($(IS_WINDOWS), 1)
 endif
 
 build-docs-capi: capi-setup
+	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
+	# when generating the documentation, we rename it to its
+	# crate's name. Then we restore the lib's name.
+	sed "$(SEDI)"  -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
 	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
+	sed "$(SEDI)"  -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -464,10 +498,15 @@ build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
+build-capi-headless-ios: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features dylib,wasi
 
-###########
-# Testing #
-###########
+#####
+#
+# Testing.
+#
+#####
 
 test: test-compilers test-packages test-examples
 
@@ -480,9 +519,19 @@ test-packages:
 	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
-########################
-# Testing (Compatible) #
-########################
+test-js: test-js-api test-js-wasi
+
+test-js-api:
+	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
+
+test-js-wasi:
+	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js
+
+#####
+#
+# Testing compilers.
+#
+#####
 
 test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
@@ -527,15 +576,27 @@ test-capi-integration-%:
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
+test-wasi:
+	cargo test --release --tests $(compiler_features) -- wasi::wasitests
+
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
 
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
 
-#############
-# Packaging #
-#############
+test-integration-ios:
+	cargo test -p wasmer-integration-tests-ios
+
+generate-wasi-tests:
+# Uncomment the following for installing the toolchain
+#   cargo run -p wasi-test-generator -- -s
+	cargo run -p wasi-test-generator -- -g
+#####
+#
+# Packaging.
+#
+#####
 
 package-wapm:
 	mkdir -p "package/bin"
@@ -584,33 +645,29 @@ package-capi:
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
 
-	# Windows
-	if [ -f $(TARGET_DIR)/wasmer_c_api.dll ]; then \
-		cp $(TARGET_DIR)/wasmer_c_api.dll package/lib/wasmer.dll ;\
+	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
+		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
 	fi
-	if [ -f $(TARGET_DIR)/wasmer_c_api.lib ]; then \
-		cp $(TARGET_DIR)/wasmer_c_api.lib package/lib/wasmer.lib ;\
-	fi
-
-	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
-	rm -f package/lib/libwasmer.dylib
-	if [ -f $(TARGET_DIR)/libwasmer_c_api.dylib ]; then \
-		cp $(TARGET_DIR)/libwasmer_c_api.dylib package/lib/libwasmer.dylib ;\
-		install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib ;\
+	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
+		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer.lib ;\
 	fi
 
-	if [ -f $(TARGET_DIR)/libwasmer_c_api.so ]; then \
-		cp $(TARGET_DIR)/libwasmer_c_api.so package/lib/libwasmer.so ;\
+	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
+		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer.dylib ;\
 	fi
-	if [ -f $(TARGET_DIR)/libwasmer_c_api.a ]; then \
-		cp $(TARGET_DIR)/libwasmer_c_api.a package/lib/libwasmer.a ;\
+
+	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
+		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer.so ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
+		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
 	fi
 
 package-docs: build-docs build-docs-capi
-	mkdir -p "package/docs/c"
-	cp -R target/doc package/docs/crates
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
+	mkdir -p "package/docs/crates"
+	cp -R target/doc/ package/docs/crates
+	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
+	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
 
@@ -625,9 +682,11 @@ endif
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
-########################
-# (Distro-) Installing #
-########################
+#####
+#
+# Installating (for Distros).
+#
+#####
 
 DESTDIR ?= /usr/local
 
@@ -645,27 +704,34 @@ install-capi-lib:
 	pkgver=$$(target/release/wasmer --version | cut -d\  -f2) && \
 	shortver="$${pkgver%.*}" && \
 	majorver="$${shortver%.*}" && \
-	install -Dm755 target/release/libwasmer_c_api.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
+	install -Dm755 target/release/libwasmer.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$shortver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$majorver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so"
 
 install-capi-staticlib:
-	install -Dm644 target/release/libwasmer_c_api.a "$(DESTDIR)/lib/libwasmer.a"
+	install -Dm644 target/release/libwasmer.a "$(DESTDIR)/lib/libwasmer.a"
 
 install-misc:
 	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE
 
 install-pkgconfig:
-	unset WASMER_DIR # Make sure WASMER_INSTALL_PREFIX is set during build
-	target/release/wasmer config --pkg-config | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc
+	# Make sure WASMER_INSTALL_PREFIX is set during build
+	unset WASMER_DIR; \
+	if pc="$$(target/release/wasmer config --pkg-config 1>/dev/null 2>/dev/null)"; then \
+		echo "$$pc" | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc; \
+	else \
+		echo 1>&2 "WASMER_INSTALL_PREFIX was not set during build, not installing wasmer.pc"; \
+	fi
 
 install-wasmer-headless-minimal:
 	install -Dm755 target/release/wasmer-headless $(DESTDIR)/bin/wasmer-headless
 
-#################
-# Miscellaneous #
-#################
+#####
+#
+# Miscellaneous.
+#
+#####
 
 # Updates the spectests from the repo
 update-testsuite:

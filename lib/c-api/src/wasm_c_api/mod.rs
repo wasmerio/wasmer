@@ -102,9 +102,9 @@ pub mod externals;
 ///
 ///     // Instantiate the module.
 ///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-///     wasm_trap_t* traps = NULL;
+///     wasm_trap_t* trap = NULL;
 ///
-///     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+///     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &trap);
 ///     assert(instance);
 ///
 ///     // Now do something with the instance, like calling the
@@ -224,6 +224,50 @@ pub mod module;
 /// cbindgen:ignore
 pub mod store;
 
+/// A trap represents an error which stores trace message with
+/// backtrace.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer.h"
+/// #
+/// int main() {
+///     // Create an engine and a store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create the trap message.
+///     wasm_message_t message;
+///     wasm_name_new_from_string_nt(&message, "foobar");
+///
+///     // Create the trap with its message.
+///     // The backtrace will be generated automatically.
+///     wasm_trap_t* trap = wasm_trap_new(store, &message);
+///     assert(trap);
+///
+///     wasm_name_delete(&message);
+///
+///     // Do something with the trap.
+///
+///     // Free everything.
+///     wasm_trap_delete(trap);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// Usually, a trap is returned from a host function (an imported
+/// function).
+///
 /// cbindgen:ignore
 pub mod trap;
 

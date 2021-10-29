@@ -1,5 +1,5 @@
 use super::{wasm_externtype_t, wasm_valtype_vec_delete, wasm_valtype_vec_t, WasmExternType};
-use wasmer::{ExternType, FunctionType, ValType};
+use wasmer_api::{ExternType, FunctionType, ValType};
 
 #[derive(Debug)]
 pub(crate) struct WasmFunctionType {

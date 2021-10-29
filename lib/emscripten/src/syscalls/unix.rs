@@ -1,5 +1,5 @@
 use crate::{ptr::WasmPtr, varargs::VarArgs, LibcDirWrapper};
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 use libc::size_t;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
 /// Syscall list: https://www.cs.utexas.edu/~bismith/test/syscalls/syscalls32.html
@@ -121,7 +121,7 @@ use std::io::Error;
 use std::mem;
 
 // Linking to functions that are not provided by rust libc
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 #[link(name = "c")]
 extern "C" {
     pub fn wait4(pid: pid_t, status: *mut c_int, options: c_int, rusage: *mut rusage) -> pid_t;
@@ -140,19 +140,19 @@ extern "C" {
     pub fn lstat(path: *const libc::c_char, buf: *mut stat) -> c_int;
 }
 
-#[cfg(not(any(target_os = "freebsd", target_os = "macos", target_os = "android")))]
+#[cfg(not(any(target_os = "freebsd", target_vendor = "apple", target_os = "android")))]
 use libc::fallocate;
 #[cfg(target_os = "freebsd")]
 use libc::madvise;
-#[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
+#[cfg(not(any(target_os = "freebsd", target_vendor = "apple")))]
 use libc::{fdatasync, ftruncate64, lstat, madvise, wait4};
 
 // Another conditional constant for name resolution: Macos et iOS use
 // SO_NOSIGPIPE as a setsockopt flag to disable SIGPIPE emission on socket.
 // Other platforms do otherwise.
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 use libc::SO_NOSIGPIPE;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(target_vendor = "apple"))]
 const SO_NOSIGPIPE: c_int = 0;
 
 /// open
@@ -269,7 +269,7 @@ pub fn ___syscall194(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
     debug!("emscripten::___syscall194 (ftruncate64) {}", _which);
     let _fd: c_int = varargs.get(ctx);
     let _length: i64 = varargs.get(ctx);
-    #[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
+    #[cfg(not(any(target_os = "freebsd", target_vendor = "apple")))]
     unsafe {
         ftruncate64(_fd, _length)
     }
@@ -277,7 +277,7 @@ pub fn ___syscall194(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
     unsafe {
         ftruncate(_fd, _length)
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(target_vendor = "apple")]
     unimplemented!("emscripten::___syscall194 (ftruncate64) {}", _which)
 }
 
@@ -633,17 +633,17 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
                 address.deref(&memory).unwrap().get(),
                 address_len.deref(&memory).unwrap().get()
             );
-            let address_len_addr = unsafe { address_len.deref_mut(&memory).unwrap().get_mut() };
+            let mut address_len_addr = address_len.deref(&memory).unwrap().get();
             // let mut address_len_addr: socklen_t = 0;
 
             let mut host_address: sockaddr = sockaddr {
                 sa_family: Default::default(),
                 sa_data: Default::default(),
-                #[cfg(any(target_os = "freebsd", target_os = "macos"))]
+                #[cfg(any(target_os = "freebsd", target_vendor = "apple"))]
                 sa_len: Default::default(),
             };
-            let fd = unsafe { accept(socket, &mut host_address, address_len_addr) };
-            let address_addr = unsafe { address.deref_mut(&memory).unwrap().get_mut() };
+            let fd = unsafe { accept(socket, &mut host_address, &mut address_len_addr) };
+            let mut address_addr = address.deref(&memory).unwrap().get();
 
             address_addr.sa_family = host_address.sa_family as _;
             address_addr.sa_data = host_address.sa_data;
@@ -667,12 +667,12 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
             let socket: i32 = socket_varargs.get(ctx);
             let address: WasmPtr<EmSockAddr> = socket_varargs.get(ctx);
             let address_len: WasmPtr<u32> = socket_varargs.get(ctx);
-            let address_len_addr = unsafe { address_len.deref_mut(&memory).unwrap().get_mut() };
+            let address_len_addr = address_len.deref(&memory).unwrap().get();
 
             let mut sock_addr_host: sockaddr = sockaddr {
                 sa_family: Default::default(),
                 sa_data: Default::default(),
-                #[cfg(any(target_os = "freebsd", target_os = "macos"))]
+                #[cfg(any(target_os = "freebsd", target_vendor = "apple"))]
                 sa_len: Default::default(),
             };
             let ret = unsafe {
@@ -683,7 +683,7 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
                 )
             };
             // translate from host data into emscripten data
-            let mut address_mut = unsafe { address.deref_mut(&memory).unwrap().get_mut() };
+            let mut address_mut = address.deref(&memory).unwrap().get();
             address_mut.sa_family = sock_addr_host.sa_family as _;
             address_mut.sa_data = sock_addr_host.sa_data;
 
@@ -857,11 +857,11 @@ pub fn ___syscall168(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     let timeout: i32 = varargs.get(ctx);
     let memory = ctx.memory(0);
 
-    let fds_mut = unsafe { fds.deref_mut(&memory).unwrap().get_mut() };
+    let mut fds_mut = fds.deref(&memory).unwrap().get();
 
     let ret = unsafe {
         libc::poll(
-            fds_mut as *mut EmPollFd as *mut libc::pollfd,
+            &mut fds_mut as *mut EmPollFd as *mut libc::pollfd,
             nfds as _,
             timeout,
         )
@@ -1013,14 +1013,14 @@ pub fn ___syscall196(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     unsafe {
         let mut stat: stat = std::mem::zeroed();
 
-        #[cfg(target_os = "macos")]
+        #[cfg(target_vendor = "apple")]
         let stat_ptr = &mut stat as *mut stat as *mut c_void;
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(target_vendor = "apple"))]
         let stat_ptr = &mut stat as *mut stat;
 
-        #[cfg(target_os = "macos")]
+        #[cfg(target_vendor = "apple")]
         let ret = lstat64(real_path, stat_ptr);
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(target_vendor = "apple"))]
         let ret = lstat(real_path, stat_ptr);
 
         debug!("ret: {}", ret);
@@ -1131,11 +1131,11 @@ pub fn ___syscall324(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
     let _mode: c_int = varargs.get(ctx);
     let _offset: off_t = varargs.get(ctx);
     let _len: off_t = varargs.get(ctx);
-    #[cfg(not(any(target_os = "freebsd", target_os = "macos", target_os = "android")))]
+    #[cfg(not(any(target_os = "freebsd", target_vendor = "apple", target_os = "android")))]
     unsafe {
         fallocate(_fd, _mode, _offset, _len)
     }
-    #[cfg(any(target_os = "freebsd", target_os = "macos", target_os = "android"))]
+    #[cfg(any(target_os = "freebsd", target_vendor = "apple", target_os = "android"))]
     {
         unimplemented!("emscripten::___syscall324 (fallocate) {}", _which)
     }

@@ -62,17 +62,8 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
-// The `universal` feature has been enabled for this build.
-#define WASMER_UNIVERSAL_ENABLED
-
-// The `compiler` feature has been enabled for this build.
-#define WASMER_COMPILER_ENABLED
-
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
-
-// The `middlewares` feature has been enabled for this build.
-#define WASMER_MIDDLEWARES_ENABLED
 
 // This file corresponds to the following Wasmer version.
 #define WASMER_VERSION "2.0.0"
@@ -129,521 +120,1549 @@ typedef enum wasmer_engine_t {
   STATICLIB = 2,
 } wasmer_engine_t;
 
+#if defined(WASMER_COMPILER_ENABLED)
 typedef enum wasmer_parser_operator_t {
+#if defined(WASMER_COMPILER_ENABLED)
   Unreachable,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Nop,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Block,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Loop,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   If,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Else,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Try,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Catch,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   CatchAll,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Delegate,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Throw,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Rethrow,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Unwind,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   End,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Br,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   BrIf,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   BrTable,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Return,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Call,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   CallIndirect,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   ReturnCall,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   ReturnCallIndirect,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Drop,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   Select,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TypedSelect,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   LocalGet,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   LocalSet,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   LocalTee,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   GlobalGet,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   GlobalSet,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Load,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Load,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Load,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Load,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Load8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Load8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Load16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Load16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Load8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Load8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Load16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Load16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Load32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Load32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Store,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Store,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Store,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Store,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Store8,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Store16,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Store8,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Store16,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Store32,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemorySize,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemoryGrow,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Const,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Const,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Const,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Const,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   RefNull,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   RefIsNull,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   RefFunc,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Eqz,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32LtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32LtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32GtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32GtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32LeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32LeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32GeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32GeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Eqz,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64LtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64LtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64GtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64GtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64LeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64LeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64GeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64GeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Lt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Gt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Le,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Ge,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Lt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Gt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Le,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Ge,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Clz,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Ctz,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Popcnt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32DivS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32DivU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32RemS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32RemU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32And,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Or,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Xor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Shl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32ShrS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32ShrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Rotl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Rotr,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Clz,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Ctz,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Popcnt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64DivS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64DivU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64RemS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64RemU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64And,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Or,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Xor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Shl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64ShrS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64ShrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Rotl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Rotr,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Ceil,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Floor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Trunc,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Nearest,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Sqrt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Div,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Min,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Max,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32Copysign,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Ceil,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Floor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Trunc,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Nearest,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Sqrt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Div,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Min,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Max,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64Copysign,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32WrapI64,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncF32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncF32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncF64S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncF64U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64ExtendI32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64ExtendI32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncF32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncF32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncF64S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncF64U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32ConvertI32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32ConvertI32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32ConvertI64S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32ConvertI64U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32DemoteF64,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64ConvertI32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64ConvertI32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64ConvertI64S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64ConvertI64U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64PromoteF32,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32ReinterpretF32,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64ReinterpretF64,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32ReinterpretI32,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64ReinterpretI64,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Extend8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32Extend16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Extend8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Extend16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64Extend32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncSatF32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncSatF32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncSatF64S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32TruncSatF64U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncSatF32S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncSatF32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncSatF64S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64TruncSatF64U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemoryInit,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   DataDrop,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemoryCopy,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemoryFill,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TableInit,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   ElemDrop,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TableCopy,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TableFill,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TableGet,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TableSet,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TableGrow,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   TableSize,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemoryAtomicNotify,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemoryAtomicWait32,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   MemoryAtomicWait64,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   AtomicFence,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicLoad,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicLoad,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicLoad8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicLoad16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicLoad8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicLoad16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicLoad32U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicStore,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicStore,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicStore8,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicStore16,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicStore8,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicStore16,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicStore32,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmwAdd,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmwAdd,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw8AddU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw16AddU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw8AddU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw16AddU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw32AddU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmwSub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmwSub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw8SubU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw16SubU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw8SubU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw16SubU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw32SubU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmwAnd,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmwAnd,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw8AndU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw16AndU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw8AndU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw16AndU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw32AndU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmwOr,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmwOr,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw8OrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw16OrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw8OrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw16OrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw32OrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmwXor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmwXor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw8XorU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw16XorU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw8XorU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw16XorU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw32XorU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmwXchg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmwXchg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw8XchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw16XchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw8XchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw16XchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw32XchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmwCmpxchg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmwCmpxchg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw8CmpxchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32AtomicRmw16CmpxchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw8CmpxchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw16CmpxchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64AtomicRmw32CmpxchgU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Store,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Const,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16ExtractLaneS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16ExtractLaneU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16ReplaceLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtractLaneS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtractLaneU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ReplaceLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtractLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ReplaceLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtractLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ReplaceLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4ExtractLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4ReplaceLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2ExtractLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2ReplaceLane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16LtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16LtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16GtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16GtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16LeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16LeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16GeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16GeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8LtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8LtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8GtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8GtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8LeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8LeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8GeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8GeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4LtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4LtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4GtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4GtU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4LeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4LeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4GeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4GeU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2LtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2GtS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2LeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2GeS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Lt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Gt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Le,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Ge,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Eq,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Ne,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Lt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Gt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Le,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Ge,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Not,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128And,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128AndNot,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Or,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Xor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Bitselect,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128AnyTrue,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16AllTrue,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Bitmask,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Shl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16ShrS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16ShrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16AddSatS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16AddSatU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16SubSatS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16SubSatU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16MinS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16MinU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16MaxS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16MaxU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Popcnt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8AllTrue,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Bitmask,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Shl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ShrS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ShrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8AddSatS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8AddSatU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8SubSatS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8SubSatU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8MinS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8MinU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8MaxS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8MaxU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtAddPairwiseI8x16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtAddPairwiseI8x16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4AllTrue,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Bitmask,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Shl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ShrS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ShrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4MinS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4MinU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4MaxS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4MaxU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4DotI16x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtAddPairwiseI16x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtAddPairwiseI16x8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2AllTrue,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Bitmask,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Shl,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ShrS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ShrU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Ceil,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Floor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Trunc,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Nearest,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Ceil,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Floor,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Trunc,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Nearest,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Sqrt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Div,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Min,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4Max,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4PMin,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4PMax,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Abs,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Neg,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Sqrt,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Add,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Sub,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Mul,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Div,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Min,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2Max,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2PMin,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2PMax,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4TruncSatF32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4TruncSatF32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4ConvertI32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4ConvertI32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Swizzle,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16Shuffle,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load8Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load16Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load32Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load32Zero,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load64Splat,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load64Zero,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16NarrowI16x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16NarrowI16x8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8NarrowI32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8NarrowI32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtendLowI8x16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtendHighI8x16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtendLowI8x16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtendHighI8x16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtendLowI16x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtendHighI16x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtendLowI16x8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtendHighI16x8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtendLowI32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtendHighI32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtendLowI32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtendHighI32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtMulLowI8x16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtMulHighI8x16S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtMulLowI8x16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8ExtMulHighI8x16U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtMulLowI16x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtMulHighI16x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtMulLowI16x8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4ExtMulHighI16x8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtMulLowI32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtMulHighI32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtMulLowI32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I64x2ExtMulHighI32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load8x8S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load8x8U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load16x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load16x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load32x2S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load32x2U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load8Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load16Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load32Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Load64Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Store8Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Store16Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Store32Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   V128Store64Lane,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I8x16RoundingAverageU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8RoundingAverageU,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I16x8Q15MulrSatS,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F32x4DemoteF64x2Zero,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2PromoteLowF32x4,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2ConvertLowI32x4S,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   F64x2ConvertLowI32x4U,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4TruncSatF64x2SZero,
+#endif
+#if defined(WASMER_COMPILER_ENABLED)
   I32x4TruncSatF64x2UZero,
+#endif
 } wasmer_parser_operator_t;
+#endif
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_config_t wasi_config_t;
@@ -803,7 +1822,9 @@ bool wasmer_features_tail_call(struct wasmer_features_t *features, bool enable);
 
 bool wasmer_features_threads(struct wasmer_features_t *features, bool enable);
 
+#if defined(WASMER_COMPILER_ENABLED)
 bool wasmer_is_compiler_available(enum wasmer_compiler_t compiler);
+#endif
 
 bool wasmer_is_engine_available(enum wasmer_engine_t engine);
 

@@ -8,10 +8,29 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+### Added
+- [#2574](https://github.com/wasmerio/wasmer/pull/2574) Added Windows support to Singlepass.
+- [#2535](https://github.com/wasmerio/wasmer/pull/2435) Added iOS support for Wasmer. This relies on the `dylib-engine`.
+- [#2427](https://github.com/wasmerio/wasmer/pull/2427) Wasmer can now compile to Javascript via `wasm-bindgen`. Use the `js-default` (and no default features) feature to try it!.
+- [#2436](https://github.com/wasmerio/wasmer/pull/2436) Added the x86-32 bit variant support to LLVM compiler.
+
+### Changed
+- [#2460](https://github.com/wasmerio/wasmer/pull/2460) **breaking change** `wasmer` API usage with `no-default-features` requires now the `sys` feature to preserve old behavior.
+- [#2476](https://github.com/wasmerio/wasmer/pull/2476) Removed unncessary abstraction `ModuleInfoTranslate` from `wasmer-compiler`.
+- [#2442](https://github.com/wasmerio/wasmer/pull/2442) Improved `WasmPtr`, added `WasmCell` for host/guest interaction.
+- [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
+- [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `wasm_instance_new()`’s “traps” argument to “trap”.
+
 ### Fixed
+- [#2587](https://github.com/wasmerio/wasmer/pull/2587) Fixed deriving `WasmerEnv` when aliasing `Result`.
+- [#2518](https://github.com/wasmerio/wasmer/pull/2518) Remove temporary file used to creating an artifact when creating a Dylib engine artifact.
+- [#2494](https://github.com/wasmerio/wasmer/pull/2494) Fixed `WasmerEnv` access when using `call_indirect` with the Singlepass compiler.
+- [#2449](https://github.com/wasmerio/wasmer/pull/2449) Fixed `wasmer-c-api` used `soname`.
+- [#2479](https://github.com/wasmerio/wasmer/pull/2479) Improved `wasmer validate` error message on non-wasm inputs.
+- [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
 
-## 2.0.0 - 2020/06/16
+## 2.0.0 - 2021/06/16
 
 ### Added
 - [#2411](https://github.com/wasmerio/wasmer/pull/2411) Extract types from `wasi` to a new `wasi-types` crate.
@@ -24,12 +43,12 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ### Fixed
 - [#2386](https://github.com/wasmerio/wasmer/pull/2386) Handle properly when a module has no exported functions in the CLI.
 
-## 2.0.0-rc2 - 2020/06/03
+## 2.0.0-rc2 - 2021/06/03
 
 ### Fixed
 - [#2383](https://github.com/wasmerio/wasmer/pull/2383) Fix bugs in the Wasmer CLI tool with the way `--version` and the name of the CLI tool itself were printed.
 
-## 2.0.0-rc1 - 2020/06/02
+## 2.0.0-rc1 - 2021/06/02
 
 ### Added
 - [#2348](https://github.com/wasmerio/wasmer/pull/2348) Make Wasmer available on `aarch64-linux-android`.
@@ -78,6 +97,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2157](https://github.com/wasmerio/wasmer/pull/2157) Simplify the code behind `WasmPtr`
 
 ### Fixed
+- [#2397](https://github.com/wasmerio/wasmer/pull/2397) Fix WASI rename temporary file issue.
 - [#2391](https://github.com/wasmerio/wasmer/pull/2391) Fix Singlepass emit bug, [#2347](https://github.com/wasmerio/wasmer/issues/2347) and [#2159](https://github.com/wasmerio/wasmer/issues/2159)
 - [#2327](https://github.com/wasmerio/wasmer/pull/2327) Fix memory leak preventing internal instance memory from being freed when a WasmerEnv contained an exported extern (e.g. Memory, etc.).
 - [#2247](https://github.com/wasmerio/wasmer/pull/2247) Internal WasiFS logic updated to be closer to what WASI libc does when finding a preopened fd for a path.

@@ -54,7 +54,7 @@ gen_tests! {
             #[cfg(feature = "singlepass")]
             mod singlepass {
                 use super::*;
-                #[test]
+                #[test_env_log::test]
                 #[cold]
                 #[cfg(feature = "universal")]
                 fn universal() {
@@ -63,7 +63,7 @@ gen_tests! {
                         crate::Compiler::Singlepass
                     ))
                 }
-                #[test]
+                #[test_env_log::test]
                 #[cold]
                 #[cfg(feature = "dylib")]
                 fn dylib() {
@@ -77,7 +77,7 @@ gen_tests! {
             #[cfg(feature = "cranelift")]
             mod cranelift {
                 use super::*;
-                #[test]
+                #[test_env_log::test]
                 #[cold]
                 #[cfg(feature = "universal")]
                 fn universal() {
@@ -86,7 +86,7 @@ gen_tests! {
                         crate::Compiler::Cranelift
                     ))
                 }
-                #[test]
+                #[test_env_log::test]
                 #[cold]
                 #[cfg(feature = "dylib")]
                 fn dylib() {
@@ -100,7 +100,7 @@ gen_tests! {
             #[cfg(feature = "llvm")]
             mod llvm {
                 use super::*;
-                #[test]
+                #[test_env_log::test]
                 #[cold]
                 #[cfg(feature = "universal")]
                 fn universal() {
@@ -109,7 +109,7 @@ gen_tests! {
                         crate::Compiler::LLVM
                     ))
                 }
-                #[test]
+                #[test_env_log::test]
                 #[cold]
                 #[cfg(feature = "dylib")]
                 fn dylib() {

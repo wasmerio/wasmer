@@ -1,6 +1,6 @@
 use super::super::value::wasm_valkind_t;
 use std::convert::TryInto;
-use wasmer::ValType;
+use wasmer_api::ValType;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

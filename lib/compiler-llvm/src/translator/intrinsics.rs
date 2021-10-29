@@ -26,9 +26,8 @@ use wasmer_compiler::CompileError;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    Mutability, SignatureIndex, TableIndex, Type,
+    ModuleInfo as WasmerCompilerModule, Mutability, SignatureIndex, TableIndex, Type,
 };
-use wasmer_vm::ModuleInfo as WasmerCompilerModule;
 use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 pub fn type_to_llvm_ptr<'ctx>(

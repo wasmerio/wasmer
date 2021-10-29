@@ -7,6 +7,7 @@ extern crate compiler_test_derive;
 
 mod config;
 mod imports;
+mod issues;
 mod metering;
 mod middlewares;
 // mod multi_value_imports;
@@ -19,3 +20,4 @@ mod wast;
 pub use crate::config::{Compiler, Config, Engine};
 pub use crate::wasi::run_wasi;
 pub use crate::wast::run_wast;
+pub use wasmer_wast::WasiFileSystemKind;

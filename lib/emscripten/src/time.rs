@@ -1,5 +1,5 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
-use crate::{allocate_on_stack, EmEnv};
+use crate::{allocate_on_stack, lazy_static, EmEnv};
 use libc::{c_char, c_int};
 // use libc::{c_char, c_int, clock_getres, clock_settime};
 use std::mem;
@@ -35,11 +35,11 @@ use libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
 #[cfg(target_os = "freebsd")]
 const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 use libc::CLOCK_REALTIME;
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 const CLOCK_MONOTONIC: clockid_t = 1;
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
 // some assumptions about the constants when targeting windows
@@ -93,15 +93,15 @@ pub fn _clock_gettime(ctx: &EmEnv, clk_id: clockid_t, tp: c_int) -> c_int {
     }
 
     #[allow(unreachable_patterns)]
-    let timespec = match clk_id {
-        CLOCK_REALTIME => time::get_time(),
+    let duration = match clk_id {
+        CLOCK_REALTIME => time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
 
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
-            let precise_ns = time::precise_time_ns();
-            time::Timespec::new(
-                (precise_ns / 1000000000) as i64,
-                (precise_ns % 1000000000) as i32,
-            )
+            lazy_static! {
+                static ref PRECISE0: time::Instant = time::Instant::now();
+            };
+            let precise_ns = *PRECISE0;
+            (time::Instant::now() - precise_ns).whole_nanoseconds()
         }
         _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
     };
@@ -109,8 +109,8 @@ pub fn _clock_gettime(ctx: &EmEnv, clk_id: clockid_t, tp: c_int) -> c_int {
     unsafe {
         let timespec_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), tp) as *mut GuestTimeSpec;
-        (*timespec_struct_ptr).tv_sec = timespec.sec as _;
-        (*timespec_struct_ptr).tv_nsec = timespec.nsec as _;
+        (*timespec_struct_ptr).tv_sec = (duration / 1_000_000_000) as _;
+        (*timespec_struct_ptr).tv_nsec = (duration % 1_000_000_000) as _;
     }
     0
 }
@@ -242,9 +242,8 @@ pub fn _localtime(ctx: &EmEnv, time_p: u32) -> c_int {
     let timespec = unsafe {
         let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_p) as *mut i64;
         let seconds = *time_p_addr;
-        time::Timespec::new(seconds, 0)
+        time::OffsetDateTime::from_unix_timestamp(seconds)
     };
-    let result_tm = time::at(timespec);
 
     unsafe {
         let tm_struct_offset = env::call_malloc(ctx, mem::size_of::<guest_tm>() as _);
@@ -255,15 +254,15 @@ pub fn _localtime(ctx: &EmEnv, time_p: u32) -> c_int {
         //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
         //     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
         // );
-        (*tm_struct_ptr).tm_sec = result_tm.tm_sec;
-        (*tm_struct_ptr).tm_min = result_tm.tm_min;
-        (*tm_struct_ptr).tm_hour = result_tm.tm_hour;
-        (*tm_struct_ptr).tm_mday = result_tm.tm_mday;
-        (*tm_struct_ptr).tm_mon = result_tm.tm_mon;
-        (*tm_struct_ptr).tm_year = result_tm.tm_year;
-        (*tm_struct_ptr).tm_wday = result_tm.tm_wday;
-        (*tm_struct_ptr).tm_yday = result_tm.tm_yday;
-        (*tm_struct_ptr).tm_isdst = result_tm.tm_isdst;
+        (*tm_struct_ptr).tm_sec = timespec.second() as _;
+        (*tm_struct_ptr).tm_min = timespec.minute() as _;
+        (*tm_struct_ptr).tm_hour = timespec.hour() as _;
+        (*tm_struct_ptr).tm_mon = timespec.month() as _;
+        (*tm_struct_ptr).tm_mday = timespec.day() as _;
+        (*tm_struct_ptr).tm_year = timespec.year();
+        (*tm_struct_ptr).tm_wday = timespec.weekday() as _;
+        (*tm_struct_ptr).tm_yday = timespec.ordinal() as _;
+        (*tm_struct_ptr).tm_isdst = -1; // DST information unknown with time 0.2+
         (*tm_struct_ptr).tm_gmtoff = 0;
         (*tm_struct_ptr).tm_zone = 0;
 
@@ -280,8 +279,7 @@ pub fn _localtime_r(ctx: &EmEnv, time_p: u32, result: u32) -> c_int {
 
     unsafe {
         let seconds = emscripten_memory_pointer!(ctx.memory(0), time_p) as *const i32;
-        let timespec = time::Timespec::new(*seconds as _, 0);
-        let result_tm = time::at(timespec);
+        let timespec = time::OffsetDateTime::from_unix_timestamp_nanos(*seconds as _);
 
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
@@ -291,15 +289,15 @@ pub fn _localtime_r(ctx: &EmEnv, time_p: u32, result: u32) -> c_int {
 
         let result_addr = emscripten_memory_pointer!(ctx.memory(0), result) as *mut guest_tm;
 
-        (*result_addr).tm_sec = result_tm.tm_sec;
-        (*result_addr).tm_min = result_tm.tm_min;
-        (*result_addr).tm_hour = result_tm.tm_hour;
-        (*result_addr).tm_mday = result_tm.tm_mday;
-        (*result_addr).tm_mon = result_tm.tm_mon;
-        (*result_addr).tm_year = result_tm.tm_year;
-        (*result_addr).tm_wday = result_tm.tm_wday;
-        (*result_addr).tm_yday = result_tm.tm_yday;
-        (*result_addr).tm_isdst = result_tm.tm_isdst;
+        (*result_addr).tm_sec = timespec.second() as _;
+        (*result_addr).tm_min = timespec.minute() as _;
+        (*result_addr).tm_hour = timespec.hour() as _;
+        (*result_addr).tm_mon = timespec.month() as _;
+        (*result_addr).tm_mday = timespec.day() as _;
+        (*result_addr).tm_year = timespec.year();
+        (*result_addr).tm_wday = timespec.weekday() as _;
+        (*result_addr).tm_yday = timespec.ordinal() as _;
+        (*result_addr).tm_isdst = -1; // DST information unknown with time 0.2+
         (*result_addr).tm_gmtoff = 0;
         (*result_addr).tm_zone = 0;
 
@@ -406,25 +404,18 @@ pub fn _strftime(ctx: &EmEnv, s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_
 
     let tm = unsafe { &*tm };
 
-    let rust_tm = ::time::Tm {
-        tm_sec: tm.tm_sec,
-        tm_min: tm.tm_min,
-        tm_hour: tm.tm_hour,
-        tm_mday: tm.tm_mday,
-        tm_mon: tm.tm_mon,
-        tm_year: tm.tm_year,
-        tm_wday: tm.tm_wday,
-        tm_yday: tm.tm_yday,
-        tm_isdst: tm.tm_isdst,
-        tm_utcoff: tm.tm_gmtoff,
-        tm_nsec: 0,
-    };
+    let rust_date = time::Date::try_from_ymd(tm.tm_year, tm.tm_mon as u8, tm.tm_mday as u8);
+    if !rust_date.is_ok() {
+        return 0;
+    }
+    let rust_time = time::Time::try_from_hms(tm.tm_hour as u8, tm.tm_min as u8, tm.tm_sec as u8);
+    if !rust_time.is_ok() {
+        return 0;
+    }
+    let rust_datetime = time::PrimitiveDateTime::new(rust_date.unwrap(), rust_time.unwrap());
+    let rust_odt = rust_datetime.assume_offset(time::UtcOffset::seconds(tm.tm_gmtoff));
 
-    let result_str = match ::time::strftime(format_string, &rust_tm) {
-        Ok(res_string) => res_string,
-        // TODO: maybe match on e in Err(e) and return different values if required
-        _ => return 0,
-    };
+    let result_str = rust_odt.format(format_string);
 
     // pad for null?
     let bytes = result_str.chars().count();

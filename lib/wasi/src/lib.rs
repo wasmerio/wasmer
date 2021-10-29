@@ -12,6 +12,27 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
+#[cfg(all(not(feature = "sys"), not(feature = "js")))]
+compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
+
+#[cfg(all(feature = "sys", feature = "js"))]
+compile_error!(
+    "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "sys", target_arch = "wasm32"))]
+compile_error!("The `sys` feature must be enabled only for non-`wasm32` target.");
+
+#[cfg(all(feature = "js", not(target_arch = "wasm32")))]
+compile_error!(
+    "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
+);
+
+#[cfg(all(feature = "host-fs", feature = "mem-fs"))]
+compile_error!(
+    "Cannot have both `host-fs` and `mem-fs` features enabled at the same time. Please, pick one."
+);
+
 #[macro_use]
 mod macros;
 mod ptr;
@@ -22,11 +43,16 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, Pipe, Stderr, Stdin, Stdout, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder,
-    WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiState, WasiStateBuilder, WasiStateCreationError,
+    ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
+#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
+pub use wasmer_vfs::FsError as WasiFsError;
+#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
+pub use wasmer_vfs::VirtualFile as WasiFile;
+pub use wasmer_vfs::{FsError, VirtualFile};
 
 use thiserror::Error;
 use wasmer::{
@@ -83,11 +109,12 @@ impl WasiEnv {
     pub fn import_object_for_all_wasi_versions(
         &mut self,
         module: &Module,
-    ) -> Result<Box<dyn NamedResolver>, WasiError> {
+    ) -> Result<Box<dyn NamedResolver + Send + Sync>, WasiError> {
         let wasi_versions =
             get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
 
-        let mut resolver: Box<dyn NamedResolver> = { Box::new(()) };
+        let mut resolver: Box<dyn NamedResolver + Send + Sync> =
+            { Box::new(()) as Box<dyn NamedResolver + Send + Sync> };
         for version in wasi_versions.iter() {
             let new_import_object =
                 generate_import_object_from_env(module.store(), self.clone(), *version);

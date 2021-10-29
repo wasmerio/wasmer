@@ -16,7 +16,7 @@ impl WasiVersion {
     pub fn get_compiler_toolchain(&self) -> &'static str {
         match self {
             WasiVersion::Unstable => "nightly-2019-09-13",
-            WasiVersion::Snapshot1 => "nightly-2019-12-18",
+            WasiVersion::Snapshot1 => "1.53.0",
         }
     }
 

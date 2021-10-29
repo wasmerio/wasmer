@@ -9,12 +9,12 @@ use std::sync::Arc;
 use wasmer_compiler::Features;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle,
-    TrapHandler, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, TableStyle, TrapHandler,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -175,7 +175,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
-/// Trait needed to get downcasting from `WasiFile` to work.
+/// Trait needed to get downcasting of `Engine`s to work.
 pub trait Upcastable {
     fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
     fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;

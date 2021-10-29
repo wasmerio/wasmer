@@ -66,8 +66,8 @@
 //!     
 //!     // Instantiate the module.
 //!     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-//!     wasm_trap_t* traps = NULL;
-//!     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+//!     wasm_trap_t* trap = NULL;
+//!     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &trap);
 //!     assert(instance);
 //!     
 //!     // Here we go. At this step, we will get the `add_two` exported function, and
@@ -88,7 +88,7 @@
 //!
 //!     // Let's call `add_two` for the first time!
 //!     {
-//!         wasm_trap_t* trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
+//!         trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
 //!         assert(trap == NULL);
 //!         assert(results[0].of.i32 == 42);
 //!
@@ -99,7 +99,7 @@
 //!
 //!     // Let's call `add_two` for the second time!
 //!     {
-//!         wasm_trap_t* trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
+//!         trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
 //!         assert(trap == NULL);
 //!         assert(results[0].of.i32 == 42);
 //!
@@ -110,7 +110,7 @@
 //!
 //!     // Let's call `add_two` for the third time!
 //!     {
-//!         wasm_trap_t* trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
+//!         trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
 //!         // Oh, it failed!
 //!         assert(trap != NULL);
 //!
@@ -135,7 +135,7 @@ use super::super::super::instance::wasm_instance_t;
 use super::super::parser::operator::wasmer_parser_operator_t;
 use super::wasmer_middleware_t;
 use std::sync::Arc;
-use wasmer::wasmparser::Operator;
+use wasmer_api::wasmparser::Operator;
 use wasmer_middlewares::{
     metering::{get_remaining_points, set_remaining_points, MeteringPoints},
     Metering,
@@ -269,8 +269,8 @@ pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_
 ///     assert(module);
 ///     
 ///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-///     wasm_trap_t* traps = NULL;
-///     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+///     wasm_trap_t* trap = NULL;
+///     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &trap);
 ///     assert(instance);
 ///
 ///     // Read the number of points.

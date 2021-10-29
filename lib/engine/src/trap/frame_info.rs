@@ -5,7 +5,8 @@
 //!
 //! # Example
 //! ```ignore
-//! use wasmer_vm::{ModuleInfo, FRAME_INFO};
+//! use wasmer_vm::{FRAME_INFO};
+//! use wasmer_types::ModuleInfo;
 //!
 //! let module: ModuleInfo = ...;
 //! FRAME_INFO.register(module, compiled_functions);
@@ -16,8 +17,8 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasmer_types::LocalFunctionIndex;
-use wasmer_vm::{FunctionBodyPtr, ModuleInfo};
+use wasmer_types::{LocalFunctionIndex, ModuleInfo};
+use wasmer_vm::FunctionBodyPtr;
 
 lazy_static::lazy_static! {
     /// This is a global cache of backtrace frame information for all active

@@ -5,7 +5,9 @@
 
 use cbindgen::{Builder, Language};
 use std::{
-    env, fs,
+    env,
+    ffi::OsStr,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -76,6 +78,7 @@ fn main() {
 
     build_wasm_c_api_headers(&crate_dir, &out_dir);
     build_inline_c_env_vars();
+    build_cdylib_link_arg();
 }
 
 /// Check whether we should build the C API headers or set `inline-c` up.
@@ -222,8 +225,103 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
 }
 
 fn build_inline_c_env_vars() {
-    use std::ffi::OsStr;
+    let shared_object_dir = shared_object_dir();
+    let shared_object_dir = shared_object_dir.as_path().to_string_lossy();
+    let include_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
+    // The following options mean:
+    //
+    // * `-I`, add `include_dir` to include search path,
+    // * `-L`, add `shared_object_dir` to library search path,
+    // * `-D_DEBUG`, enable debug mode to enable `assert.h`.
+    // * `-D_CRT_SECURE_NO_WARNINGS`, disable security features in the
+    //   Windows C runtime, which allows to use `getenv` without any
+    //   warnings.
+    println!(
+        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L} -D_DEBUG -D_CRT_SECURE_NO_WARNINGS",
+        I = include_dir,
+        L = shared_object_dir.clone(),
+    );
+
+    if let Ok(compiler_engine) = env::var("TEST") {
+        println!(
+            "cargo:rustc-env=INLINE_C_RS_TEST={test}",
+            test = compiler_engine
+        );
+    }
+
+    println!(
+        "cargo:rustc-env=INLINE_C_RS_LDFLAGS=-rpath,{shared_object_dir} {shared_object_dir}/{lib}",
+        shared_object_dir = shared_object_dir,
+        lib = if cfg!(target_os = "windows") {
+            "wasmer.dll".to_string()
+        } else if cfg!(target_vendor = "apple") {
+            "libwasmer.dylib".to_string()
+        } else {
+            let path = format!(
+                "{shared_object_dir}/{lib}",
+                shared_object_dir = shared_object_dir,
+                lib = "libwasmer.so"
+            );
+
+            if Path::new(path.as_str()).exists() {
+                "libwasmer.so".to_string()
+            } else {
+                "libwasmer.a".to_string()
+            }
+        }
+    );
+}
+
+fn build_cdylib_link_arg() {
+    // Code inspired by the `cdylib-link-lines` crate.
+    let mut lines = Vec::new();
+    let os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
+    let version_major = env::var("CARGO_PKG_VERSION_MAJOR").unwrap();
+    let version_minor = env::var("CARGO_PKG_VERSION_MINOR").unwrap();
+    let version_patch = env::var("CARGO_PKG_VERSION_PATCH").unwrap();
+    let shared_object_dir = shared_object_dir();
+
+    match (os.as_str(), env.as_str()) {
+        ("android", _) => {
+            lines.push(format!("-Wl,-soname,libwasmer.so"));
+        }
+
+        ("linux", _) | ("freebsd", _) | ("dragonfly", _) | ("netbsd", _) if env != "musl" => {
+            lines.push(format!("-Wl,-soname,libwasmer.so"));
+        }
+
+        ("macos", _) | ("ios", _) => {
+            lines.push(format!(
+                "-Wl,-install_name,@rpath/libwasmer.dylib,-current_version,{x}.{y}.{z},-compatibility_version,{x}",
+                x = version_major,
+                y = version_minor,
+                z = version_patch,
+            ));
+        }
+
+        ("windows", "gnu") => {
+            // This is only set up to work on GNU toolchain versions of Rust
+            lines.push(format!(
+                "-Wl,--out-implib,{}",
+                shared_object_dir.join(format!("wasmer.dll.a")).display()
+            ));
+            lines.push(format!(
+                "-Wl,--output-def,{}",
+                shared_object_dir.join(format!("wasmer.def")).display()
+            ));
+        }
+
+        _ => {}
+    }
+
+    for line in lines {
+        println!("cargo:rustc-cdylib-link-arg={}", line);
+    }
+}
+
+fn shared_object_dir() -> PathBuf {
     // We start from `OUT_DIR` because `cargo publish` uses a different directory
     // so traversing from `CARGO_MANIFEST_DIR` is less reliable.
     let mut shared_object_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -252,49 +350,5 @@ fn build_inline_c_env_vars() {
 
     shared_object_dir.push(env::var("PROFILE").unwrap());
 
-    let shared_object_dir = shared_object_dir.as_path().to_string_lossy();
-    let include_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-
-    // The following options mean:
-    //
-    // * `-I`, add `include_dir` to include search path,
-    // * `-L`, add `shared_object_dir` to library search path,
-    // * `-D_DEBUG`, enable debug mode to enable `assert.h`.
-    // * `-D_CRT_SECURE_NO_WARNINGS`, disable security features in the
-    //   Windows C runtime, which allows to use `getenv` without any
-    //   warnings.
-    println!(
-        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L} -D_DEBUG -D_CRT_SECURE_NO_WARNINGS",
-        I = include_dir,
-        L = shared_object_dir.clone(),
-    );
-
-    if let Ok(compiler_engine) = env::var("TEST") {
-        println!(
-            "cargo:rustc-env=INLINE_C_RS_TEST={test}",
-            test = compiler_engine
-        );
-    }
-
-    println!(
-        "cargo:rustc-env=INLINE_C_RS_LDFLAGS={shared_object_dir}/{lib}",
-        shared_object_dir = shared_object_dir,
-        lib = if cfg!(target_os = "windows") {
-            "wasmer_c_api.dll".to_string()
-        } else if cfg!(target_os = "macos") {
-            "libwasmer_c_api.dylib".to_string()
-        } else {
-            let path = format!(
-                "{shared_object_dir}/{lib}",
-                shared_object_dir = shared_object_dir,
-                lib = "libwasmer_c_api.so"
-            );
-
-            if Path::new(path.as_str()).exists() {
-                "libwasmer_c_api.so".to_string()
-            } else {
-                "libwasmer_c_api.a".to_string()
-            }
-        }
-    );
+    shared_object_dir
 }
