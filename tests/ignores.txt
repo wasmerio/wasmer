@@ -9,7 +9,7 @@ musl+dylib * # Dynamic loading not supported in Musl
 # Linking tests are not fully passing because of an issue with how reference types was
 # initially implemented, we will fix this.
 # Related issue: #2438
-spec::linking *
+spec::linking
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
