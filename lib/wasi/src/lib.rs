@@ -41,10 +41,15 @@ mod syscalls;
 mod utils;
 
 use crate::syscalls::*;
+pub use proxy::WasiProxy;
+pub use ptr::Array;
+pub use ptr::WasmPtr;
+pub use ptr::WasmCell;
+pub use syscalls::native;
 
 pub use crate::state::{
     Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiState, WasiStateBuilder, WasiStateCreationError,
-    ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    ALL_RIGHTS, VIRTUAL_ROOT_FD, PollEvent, PollEventSet, PollEventBuilder, PollEventIter, iterate_poll_events
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
@@ -53,6 +58,7 @@ pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
+pub use wasmer_vfs as vfs;
 
 use thiserror::Error;
 use wasmer::{
@@ -84,13 +90,16 @@ pub struct WasiEnv {
     pub state: Arc<Mutex<WasiState>>,
     #[wasmer(export)]
     memory: LazyInit<Memory>,
+    /// Allows the system to proxy any WASI syscalls
+    pub proxy: Arc<Box<dyn WasiProxy>>,
 }
 
 impl WasiEnv {
-    pub fn new(state: WasiState) -> Self {
+    pub fn new(state: WasiState, proxy: Box<dyn WasiProxy + 'static>) -> Self {
         Self {
             state: Arc::new(Mutex::new(state)),
             memory: LazyInit::new(),
+            proxy: Arc::new(proxy)
         }
     }
 

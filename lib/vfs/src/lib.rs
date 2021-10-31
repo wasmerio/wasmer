@@ -22,6 +22,17 @@ pub type Result<T> = std::result::Result<T, FsError>;
 #[repr(transparent)]
 pub struct FileDescriptor(usize);
 
+impl FileDescriptor
+{
+    pub fn new(fd: usize) -> FileDescriptor {
+        FileDescriptor(fd)
+    }
+
+    pub fn fd(&self) -> usize {
+        self.0
+    }
+}
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;

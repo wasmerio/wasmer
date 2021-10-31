@@ -1,3 +1,6 @@
+#![allow(unused)]
+use tracing::{debug, trace, warn};
+
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
 #[cfg(feature = "enable-serde")]
@@ -220,10 +223,10 @@ pub(crate) fn poll(
 
 #[cfg(not(unix))]
 pub(crate) fn poll(
-    _selfs: &[&dyn VirtualFile],
+    selfs: &[&dyn VirtualFile],
     _events: &[PollEventSet],
     _seen_events: &mut [PollEventSet],
-) -> Result<(), FsError> {
+) -> Result<u32, FsError> {
     unimplemented!("VirtualFile::poll is not implemented for non-Unix-like targets yet");
 }
 

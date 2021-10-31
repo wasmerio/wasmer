@@ -185,7 +185,7 @@ impl VirtualFile for FileHandle {
     }
 
     fn get_fd(&self) -> Option<FileDescriptor> {
-        Some(FileDescriptor(self.inode))
+        Some(FileDescriptor::new(self.inode))
     }
 }
 
@@ -393,7 +393,7 @@ mod test_virtual_file {
             .expect("failed to create a new file");
 
         assert!(
-            matches!(file.get_fd(), Some(FileDescriptor(1))),
+            matches!(file.get_fd(), Some(FileDescriptor::new(1))),
             "reading the file descriptor",
         );
     }

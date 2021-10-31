@@ -6,6 +6,7 @@ use crate::WasiEnv;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use wasmer_vfs::{FsError, VirtualFile};
+use crate::syscalls::proxy::*;
 
 /// Creates an empty [`WasiStateBuilder`].
 ///
@@ -45,6 +46,7 @@ pub struct WasiStateBuilder {
     stderr_override: Option<Box<dyn VirtualFile>>,
     stdin_override: Option<Box<dyn VirtualFile>>,
     fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
+    syscall_override: Option<Box<dyn WasiProxy>>,
 }
 
 impl std::fmt::Debug for WasiStateBuilder {
@@ -299,6 +301,14 @@ impl WasiStateBuilder {
         self
     }
 
+    /// Overrides one or more syscall operations from their default behaviour
+    /// handled by Wasmer
+    pub fn syscall_proxy(&mut self, proxy: Box<dyn WasiProxy>) -> &mut Self {
+        self.syscall_override = Some(proxy);
+
+        self
+    }
+
     /// Sets the FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
@@ -463,8 +473,9 @@ impl WasiStateBuilder {
     /// [Self::build]'s documentation to learn more.
     pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
         let state = self.build()?;
+        let proxy = self.syscall_override.take().unwrap_or_else(|| Box::new(DefaultWasiProxy::default()));
 
-        Ok(WasiEnv::new(state))
+        Ok(WasiEnv::new(state, proxy))
     }
 }
 
