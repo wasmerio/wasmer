@@ -10,6 +10,9 @@ license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
 edition = "2018"
 
+[lib]
+name = "wasmer_types"
+
 [dependencies]
 serde = { version = "1.0", features = ["derive", "rc"], optional = true, default-features = false }
 thiserror = "1.0"

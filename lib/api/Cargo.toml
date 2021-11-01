@@ -19,6 +19,9 @@ edition = "2018"
 #   JavaScript host.
 #####
 
+[lib]
+name = "wasmer"
+
 # Shared dependencies.
 [dependencies]
 # - Mandatory shared dependencies.
