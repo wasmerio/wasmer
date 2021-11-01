@@ -239,6 +239,7 @@ mod sys {
 
     #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
+    #[ignore]
     fn refs_in_globals() -> Result<()> {
         let store = Store::default();
         let wat = r#"(module
