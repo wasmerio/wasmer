@@ -62,14 +62,23 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
+// The `universal` feature has been enabled for this build.
+#define WASMER_UNIVERSAL_ENABLED
+
+// The `compiler` feature has been enabled for this build.
+#define WASMER_COMPILER_ENABLED
+
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
 
+// The `middlewares` feature has been enabled for this build.
+#define WASMER_MIDDLEWARES_ENABLED
+
 // This file corresponds to the following Wasmer version.
-#define WASMER_VERSION "2.0.0"
+#define WASMER_VERSION "2.0.2"
 #define WASMER_VERSION_MAJOR 2
 #define WASMER_VERSION_MINOR 0
-#define WASMER_VERSION_PATCH 0
+#define WASMER_VERSION_PATCH 2
 #define WASMER_VERSION_PRE ""
 
 #endif // WASMER_H_PRELUDE
