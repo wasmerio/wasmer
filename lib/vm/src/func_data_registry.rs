@@ -10,7 +10,7 @@ use loupe::MemoryUsage;
 /// A function reference. A single word that points to metadata about a function.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, MemoryUsage)]
-pub struct VMFuncRef(pub(crate) *const VMCallerCheckedAnyfunc);
+pub struct VMFuncRef(pub *const VMCallerCheckedAnyfunc);
 
 impl wasmer_types::NativeWasmType for VMFuncRef {
     const WASM_TYPE: wasmer_types::Type = wasmer_types::Type::FuncRef;

@@ -551,12 +551,18 @@ impl Function {
         }
     }
 
-    /*pub(crate) fn vm_funcref(&self) -> VMFuncRef {
+    pub(crate) fn vm_funcref(&self) -> VMFuncRef {
         let engine = self.store.engine();
         let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
+        let ptr = wasmer_vm::VMCallerCheckedAnyfunc {
+            func_ptr: self.exported.vm_function.address,
+            type_index: vmsignature,
+            vmctx: self.exported.vm_function.vmctx,
+        };
+        VMFuncRef(&ptr)
         // with the new changes this method is no longer possible... it should be though
         // so TODO: figure out how to make this work
-    }*/
+    }
 
     /// Transform this WebAssembly function into a function with the
     /// native ABI. See [`NativeFunc`] to learn more.
