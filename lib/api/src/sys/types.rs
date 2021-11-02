@@ -53,7 +53,7 @@ impl ValFuncRef for Val {
         }
         Ok(match self {
             Self::FuncRef(None) => VMFuncRef::null(),
-            Self::FuncRef(Some(_)) => VMFuncRef::null(), //f.vm_funcref(),
+            Self::FuncRef(Some(_)) => VMFuncRef::null(),
             _ => return Err(RuntimeError::new("val is not func ref")),
         })
     }
