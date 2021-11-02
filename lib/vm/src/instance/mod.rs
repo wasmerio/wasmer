@@ -14,7 +14,7 @@ pub use allocator::InstanceAllocator;
 pub use r#ref::{InstanceRef, WeakInstanceRef, WeakOrStrongInstanceRef};
 
 use crate::export::VMExtern;
-use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
+use crate::func_data_registry::VMFuncRef;
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -93,8 +93,8 @@ pub(crate) struct Instance {
     /// get removed. A missing entry is considered equivalent to an empty slice.
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
-    /// mapping of function indices to their func ref backing data.
-    funcrefs: BoxedSlice<FunctionIndex, VMFuncRef>,
+    /// TODO: document this
+    funcref_backings: BoxedSlice<FunctionIndex, Box<VMCallerCheckedAnyfunc>>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -640,7 +640,8 @@ impl Instance {
         if index == FunctionIndex::reserved_value() {
             return VMFuncRef::null();
         }
-        self.funcrefs[index]
+        let entry: &VMCallerCheckedAnyfunc = &*self.funcref_backings[index];
+        VMFuncRef(entry as *const VMCallerCheckedAnyfunc)
     }
 
     /// The `table.init` operation: initializes a portion of a table with a
@@ -909,7 +910,6 @@ impl InstanceHandle {
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        func_data_registry: &FuncDataRegistry,
         host_state: Box<dyn Any>,
         imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
     ) -> Result<Self, Trap> {
@@ -923,7 +923,7 @@ impl InstanceHandle {
         let handle = {
             let offsets = allocator.offsets().clone();
             // use dummy value to create an instance so we can get the vmctx pointer
-            let funcrefs = PrimaryMap::new().into_boxed_slice();
+            let funcref_backings = PrimaryMap::new().into_boxed_slice();
             // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
@@ -936,7 +936,7 @@ impl InstanceHandle {
                 passive_elements: Default::default(),
                 passive_data,
                 host_state,
-                funcrefs,
+                funcref_backings,
                 imported_function_envs,
                 vmctx: VMContext {},
             };
@@ -947,11 +947,10 @@ impl InstanceHandle {
             {
                 let instance = instance_ref.as_mut().unwrap();
                 let vmctx_ptr = instance.vmctx_ptr();
-                instance.funcrefs = build_funcrefs(
+                instance.funcref_backings = build_funcrefs(
                     &*instance.module,
                     &imports,
                     &instance.functions,
-                    func_data_registry,
                     &vmshared_signatures,
                     vmctx_ptr,
                 );
@@ -1443,10 +1442,9 @@ fn build_funcrefs(
     module_info: &ModuleInfo,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    func_data_registry: &FuncDataRegistry,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     vmctx_ptr: *mut VMContext,
-) -> BoxedSlice<FunctionIndex, VMFuncRef> {
+) -> BoxedSlice<FunctionIndex, Box<VMCallerCheckedAnyfunc>> {
     let mut func_refs = PrimaryMap::with_capacity(module_info.functions.len());
 
     // do imported functions
@@ -1458,8 +1456,7 @@ fn build_funcrefs(
             type_index,
             vmctx: import.environment,
         };
-        let func_ref = func_data_registry.register(anyfunc);
-        func_refs.push(func_ref);
+        func_refs.push(Box::new(anyfunc));
     }
 
     // do local functions
@@ -1472,8 +1469,7 @@ fn build_funcrefs(
             type_index,
             vmctx: VMFunctionEnvironment { vmctx: vmctx_ptr },
         };
-        let func_ref = func_data_registry.register(anyfunc);
-        func_refs.push(func_ref);
+        func_refs.push(Box::new(anyfunc));
     }
 
     func_refs.into_boxed_slice()

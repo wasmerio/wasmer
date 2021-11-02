@@ -27,10 +27,7 @@ use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
     SignatureIndex, TableIndex,
 };
-use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex,
-    VMTrampoline,
-};
+use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
@@ -42,7 +39,6 @@ pub struct StaticlibArtifact {
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    func_data_registry: Arc<FuncDataRegistry>,
     /// Length of the serialized metadata
     metadata_length: usize,
     symbol_registry: ModuleMetadataSymbolRegistry,
@@ -292,7 +288,6 @@ impl StaticlibArtifact {
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
-            func_data_registry: engine_inner.func_data().clone(),
             metadata_length,
             symbol_registry,
         })
@@ -332,7 +327,6 @@ impl StaticlibArtifact {
 
         let engine_inner = engine.inner();
         let signature_registry = engine_inner.signatures();
-        let func_data_registry = engine_inner.func_data().clone();
         let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
 
         let num_imported_functions = metadata.compile_info.module.num_imported_functions;
@@ -412,7 +406,6 @@ impl StaticlibArtifact {
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
-            func_data_registry,
             metadata_length: 0,
             symbol_registry,
         })
@@ -476,10 +469,6 @@ impl Artifact for StaticlibArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
-    }
-
-    fn func_data_registry(&self) -> &FuncDataRegistry {
-        &self.func_data_registry
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {

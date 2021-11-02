@@ -17,7 +17,7 @@ wasmer-vm = { path = "../vm", version = "2.0.1", package = "wasmer-vm-near" }
 loupe = "0.1"
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "2.0.1", package = "wasmer-near", features = ["compiler"] }
+wasmer = { path = "../api", version = "2.0.1", package = "wasmer-near", features = ["compiler", "cranelift"] }
 
 [badges]
 maintenance = { status = "actively-developed" }
