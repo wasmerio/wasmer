@@ -4,11 +4,11 @@ use std::fmt::Debug;
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Multiplier {
- Zero   = 0, 
- One    = 1, 
- Two    = 2, 
- Four   = 4, 
- Height = 8,
+    Zero = 0,
+    One = 1,
+    Two = 2,
+    Four = 4,
+    Height = 8,
 }
 
 #[allow(dead_code)]

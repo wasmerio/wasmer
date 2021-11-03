@@ -1,6 +1,6 @@
-pub use crate::x64_decl::{GPR, XMM};
-pub use crate::location::Multiplier;
 use crate::location::Location as AbstractLocation;
+pub use crate::location::Multiplier;
+pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
 use dynasmrt::{
     x64::X64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
@@ -33,7 +33,6 @@ macro_rules! dynasm {
 //    Memory(GPR, i32),
 //    MemoryAddTriple(GPR, GPR, i32),
 //}
-
 
 pub type Location = AbstractLocation<GPR, XMM>;
 
@@ -814,19 +813,35 @@ impl Emitter for Assembler {
             (Size::S32, Location::Memory2(src1, src2, mult, disp), Location::GPR(dst)) => {
                 match mult {
                     Multiplier::Zero => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + disp]),
-                    Multiplier::One => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]),
-                    Multiplier::Two => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 2 + disp]),
-                    Multiplier::Four => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 4 + disp]),
-                    Multiplier::Height => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 8 + disp]),
+                    Multiplier::One => {
+                        dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp])
+                    }
+                    Multiplier::Two => {
+                        dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 2 + disp])
+                    }
+                    Multiplier::Four => {
+                        dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 4 + disp])
+                    }
+                    Multiplier::Height => {
+                        dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 8 + disp])
+                    }
                 };
             }
             (Size::S64, Location::Memory2(src1, src2, mult, disp), Location::GPR(dst)) => {
                 match mult {
                     Multiplier::Zero => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + disp]),
-                    Multiplier::One => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]),
-                    Multiplier::Two => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 2 + disp]),
-                    Multiplier::Four => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 4 + disp]),
-                    Multiplier::Height => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 8 + disp]),
+                    Multiplier::One => {
+                        dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp])
+                    }
+                    Multiplier::Two => {
+                        dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 2 + disp])
+                    }
+                    Multiplier::Four => {
+                        dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 4 + disp])
+                    }
+                    Multiplier::Height => {
+                        dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 8 + disp])
+                    }
                 };
             }
             _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),

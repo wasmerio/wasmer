@@ -94,8 +94,8 @@ impl AbstractReg for GPR {
 impl AbstractReg for XMM {
     fn is_callee_save(self) -> bool {
         const IS_CALLEE_SAVE: [bool; 16] = [
-            false, false, false, false, false, false, false, false, 
-            true, true, true, true, true, true, true, true,
+            false, false, false, false, false, false, false, false, true, true, true, true, true,
+            true, true, true,
         ];
         IS_CALLEE_SAVE[self as usize]
     }

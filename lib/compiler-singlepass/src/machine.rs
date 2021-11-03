@@ -1,6 +1,4 @@
-
 #[allow(dead_code)]
-
 #[derive(Clone, PartialEq)]
 pub enum Value {
     I8(i8),
@@ -16,4 +14,3 @@ pub trait MaybeImmediate {
         self.imm_value().is_some()
     }
 }
-

@@ -14,10 +14,10 @@ mod common_decl;
 mod compiler;
 mod config;
 mod emitter_x64;
+mod location;
 mod machine;
 mod machine_x64;
 mod x64_decl;
-mod location;
 
 pub use crate::compiler::SinglepassCompiler;
 pub use crate::config::Singlepass;
