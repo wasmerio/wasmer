@@ -1,6 +1,6 @@
 use crate::address_map::get_function_address_map;
-use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
-use dynasmrt::{x64::X64Relocation, DynamicLabel, VecAssembler};
+use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine_x64::Machine, x64_decl::*};
+use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
@@ -336,7 +336,7 @@ impl<'a> FuncGen<'a> {
         let tmp2 = self.machine.acquire_temp_xmm().unwrap();
         let tmp3 = self.machine.acquire_temp_xmm().unwrap();
 
-        self.emit_relaxed_binop(Assembler::emit_mov, sz, input, Location::XMM(tmp1));
+        self.emit_relaxed_binop(Assembler::emit_mov, sz, input, Location::SIMD(tmp1));
         let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
 
         match sz {
@@ -349,7 +349,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(tmpg1),
                 );
                 self.assembler
-                    .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
+                    .emit_mov(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp3));
                 self.assembler
                     .emit_vblendvps(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
             }
@@ -362,14 +362,14 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(tmpg1),
                 );
                 self.assembler
-                    .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(tmp3));
+                    .emit_mov(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp3));
                 self.assembler
                     .emit_vblendvpd(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
             }
             _ => unreachable!(),
         }
 
-        self.emit_relaxed_binop(Assembler::emit_mov, sz, Location::XMM(tmp1), output);
+        self.emit_relaxed_binop(Assembler::emit_mov, sz, Location::SIMD(tmp1), output);
 
         self.machine.release_temp_gpr(tmpg1);
         self.machine.release_temp_xmm(tmp3);
@@ -503,7 +503,7 @@ impl<'a> FuncGen<'a> {
             {
                 RelaxMode::SrcToGPR
             }
-            (_, Location::XMM(_)) => RelaxMode::SrcToGPR,
+            (_, Location::SIMD(_)) => RelaxMode::SrcToGPR,
             _ => RelaxMode::Direct,
         };
 
@@ -577,24 +577,24 @@ impl<'a> FuncGen<'a> {
         let tmpg = self.machine.acquire_temp_gpr().unwrap();
 
         let src1 = match src1 {
-            Location::XMM(x) => x,
+            Location::SIMD(x) => x,
             Location::GPR(_) | Location::Memory(_, _) => {
                 self.assembler
-                    .emit_mov(Size::S64, src1, Location::XMM(tmp1));
+                    .emit_mov(Size::S64, src1, Location::SIMD(tmp1));
                 tmp1
             }
             Location::Imm32(_) => {
                 self.assembler
                     .emit_mov(Size::S32, src1, Location::GPR(tmpg));
                 self.assembler
-                    .emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp1));
+                    .emit_mov(Size::S32, Location::GPR(tmpg), Location::SIMD(tmp1));
                 tmp1
             }
             Location::Imm64(_) => {
                 self.assembler
                     .emit_mov(Size::S64, src1, Location::GPR(tmpg));
                 self.assembler
-                    .emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp1));
+                    .emit_mov(Size::S64, Location::GPR(tmpg), Location::SIMD(tmp1));
                 tmp1
             }
             _ => {
@@ -605,25 +605,25 @@ impl<'a> FuncGen<'a> {
         };
 
         let src2 = match src2 {
-            Location::XMM(x) => XMMOrMemory::XMM(x),
+            Location::SIMD(x) => XMMOrMemory::XMM(x),
             Location::Memory(base, disp) => XMMOrMemory::Memory(base, disp),
             Location::GPR(_) => {
                 self.assembler
-                    .emit_mov(Size::S64, src2, Location::XMM(tmp2));
+                    .emit_mov(Size::S64, src2, Location::SIMD(tmp2));
                 XMMOrMemory::XMM(tmp2)
             }
             Location::Imm32(_) => {
                 self.assembler
                     .emit_mov(Size::S32, src2, Location::GPR(tmpg));
                 self.assembler
-                    .emit_mov(Size::S32, Location::GPR(tmpg), Location::XMM(tmp2));
+                    .emit_mov(Size::S32, Location::GPR(tmpg), Location::SIMD(tmp2));
                 XMMOrMemory::XMM(tmp2)
             }
             Location::Imm64(_) => {
                 self.assembler
                     .emit_mov(Size::S64, src2, Location::GPR(tmpg));
                 self.assembler
-                    .emit_mov(Size::S64, Location::GPR(tmpg), Location::XMM(tmp2));
+                    .emit_mov(Size::S64, Location::GPR(tmpg), Location::SIMD(tmp2));
                 XMMOrMemory::XMM(tmp2)
             }
             _ => {
@@ -634,12 +634,12 @@ impl<'a> FuncGen<'a> {
         };
 
         match dst {
-            Location::XMM(x) => {
+            Location::SIMD(x) => {
                 op(self, src1, src2, x);
             }
             Location::Memory(_, _) | Location::GPR(_) => {
                 op(self, src1, src2, tmp3);
-                self.assembler.emit_mov(Size::S64, Location::XMM(tmp3), dst);
+                self.assembler.emit_mov(Size::S64, Location::SIMD(tmp3), dst);
             }
             _ => {
                 return Err(CodegenError {
@@ -1000,7 +1000,7 @@ impl<'a> FuncGen<'a> {
             for (i, r) in used_xmms.iter().enumerate() {
                 self.assembler.emit_mov(
                     Size::S64,
-                    Location::XMM(*r),
+                    Location::SIMD(*r),
                     Location::Memory(GPR::RSP, (i * 8) as i32),
                 );
             }
@@ -1068,7 +1068,7 @@ impl<'a> FuncGen<'a> {
                             //assert!(content != MachineValue::Undefined);
                             self.machine.state.stack_values.push(content);
                         }
-                        Location::XMM(x) => {
+                        Location::SIMD(x) => {
                             let content = self.machine.state.register_values
                                 [X64Register::XMM(x).to_index().0]
                                 .clone();
@@ -1113,7 +1113,7 @@ impl<'a> FuncGen<'a> {
                             );
                             self.machine.release_temp_gpr(GPR::R9);
                         }
-                        Location::XMM(_) => {
+                        Location::SIMD(_) => {
                             // Dummy value slot to be filled with `mov`.
                             self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
 
@@ -1210,7 +1210,7 @@ impl<'a> FuncGen<'a> {
                 self.assembler.emit_mov(
                     Size::S64,
                     Location::Memory(GPR::RSP, (i * 8) as i32),
-                    Location::XMM(*r),
+                    Location::SIMD(*r),
                 );
             }
             self.assembler.emit_add(
@@ -1307,7 +1307,7 @@ impl<'a> FuncGen<'a> {
             // `tmp_bound + tmp_base - value_size`.
             self.assembler.emit_lea(
                 Size::S64,
-                Location::MemoryAddTriple(tmp_bound, tmp_base, -(value_size as i32)),
+                Location::Memory2(tmp_bound, tmp_base, Multiplier::One, -(value_size as i32)),
                 Location::GPR(tmp_bound),
             );
         }
@@ -1450,11 +1450,11 @@ impl<'a> FuncGen<'a> {
         self.assembler
             .emit_mov(Size::S32, Location::Imm32(lower_bound), Location::GPR(tmp));
         self.assembler
-            .emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
+            .emit_mov(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x));
         self.assembler
             .emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         self.assembler
-            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+            .emit_mov(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
         self.assembler
             .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler
@@ -1464,11 +1464,11 @@ impl<'a> FuncGen<'a> {
         self.assembler
             .emit_mov(Size::S32, Location::Imm32(upper_bound), Location::GPR(tmp));
         self.assembler
-            .emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x));
+            .emit_mov(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x));
         self.assembler
             .emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         self.assembler
-            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+            .emit_mov(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
         self.assembler
             .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::NotEqual, overflow_label);
@@ -1477,7 +1477,7 @@ impl<'a> FuncGen<'a> {
         self.assembler
             .emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
         self.assembler
-            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+            .emit_mov(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
         self.assembler
             .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::Equal, nan_label);
@@ -1603,11 +1603,11 @@ impl<'a> FuncGen<'a> {
         self.assembler
             .emit_mov(Size::S64, Location::Imm64(lower_bound), Location::GPR(tmp));
         self.assembler
-            .emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
+            .emit_mov(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x));
         self.assembler
             .emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         self.assembler
-            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+            .emit_mov(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
         self.assembler
             .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler
@@ -1617,11 +1617,11 @@ impl<'a> FuncGen<'a> {
         self.assembler
             .emit_mov(Size::S64, Location::Imm64(upper_bound), Location::GPR(tmp));
         self.assembler
-            .emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x));
+            .emit_mov(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x));
         self.assembler
             .emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
         self.assembler
-            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+            .emit_mov(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
         self.assembler
             .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::NotEqual, overflow_label);
@@ -1630,7 +1630,7 @@ impl<'a> FuncGen<'a> {
         self.assembler
             .emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
         self.assembler
-            .emit_mov(Size::S32, Location::XMM(tmp_x), Location::GPR(tmp));
+            .emit_mov(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
         self.assembler
             .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
         self.assembler.emit_jmp(Condition::Equal, nan_label);
@@ -2738,10 +2738,10 @@ impl<'a> FuncGen<'a> {
                     let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
 
                     let src1 = match loc_a {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                                .emit_mov(Size::S64, loc_a, Location::SIMD(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
@@ -2750,7 +2750,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -2760,7 +2760,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -2771,10 +2771,10 @@ impl<'a> FuncGen<'a> {
                         }
                     };
                     let src2 = match loc_b {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                                .emit_mov(Size::S64, loc_b, Location::SIMD(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
@@ -2783,7 +2783,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -2793,7 +2793,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -2809,9 +2809,9 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm3 = XMM::XMM10;
 
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
+                        .emit_mov(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1));
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
+                        .emit_mov(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2));
                     self.assembler
                         .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
                     self.assembler
@@ -2843,16 +2843,16 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmpg1),
                     );
                     self.assembler
-                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2));
                     self.assembler
                         .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
-                        Location::XMM(x) => {
+                        Location::SIMD(x) => {
                             self.assembler
                                 .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
-                            self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
+                            self.assembler.emit_mov(Size::S64, Location::SIMD(src1), ret);
                         }
                         _ => {
                             return Err(CodegenError {
@@ -2882,10 +2882,10 @@ impl<'a> FuncGen<'a> {
                     let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
 
                     let src1 = match loc_a {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                                .emit_mov(Size::S64, loc_a, Location::SIMD(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
@@ -2894,7 +2894,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -2904,7 +2904,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -2915,10 +2915,10 @@ impl<'a> FuncGen<'a> {
                         }
                     };
                     let src2 = match loc_b {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                                .emit_mov(Size::S64, loc_b, Location::SIMD(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
@@ -2927,7 +2927,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -2937,7 +2937,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -2953,9 +2953,9 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm3 = XMM::XMM10;
 
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(src1), Location::GPR(tmpg1));
+                        .emit_mov(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1));
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(src2), Location::GPR(tmpg2));
+                        .emit_mov(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2));
                     self.assembler
                         .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1));
                     self.assembler
@@ -2976,7 +2976,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::GPR(tmpg1),
-                        Location::XMM(tmp_xmm2),
+                        Location::SIMD(tmp_xmm2),
                     );
                     self.assembler.emit_label(label2);
                     self.assembler
@@ -2996,16 +2996,16 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmpg1),
                     );
                     self.assembler
-                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2));
                     self.assembler
                         .emit_vblendvps(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
-                        Location::XMM(x) => {
+                        Location::SIMD(x) => {
                             self.assembler
                                 .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
-                            self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
+                            self.assembler.emit_mov(Size::S64, Location::SIMD(src1), ret);
                         }
                         _ => {
                             return Err(CodegenError {
@@ -3160,13 +3160,13 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp),
+                        Location::SIMD(tmp),
                     );
                     self.assembler.arch_emit_f32_neg(tmp, tmp);
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S32,
-                        Location::XMM(tmp),
+                        Location::SIMD(tmp),
                         ret,
                     );
                     self.machine.release_temp_xmm(tmp);
@@ -3228,10 +3228,10 @@ impl<'a> FuncGen<'a> {
                     let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
 
                     let src1 = match loc_a {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                                .emit_mov(Size::S64, loc_a, Location::SIMD(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
@@ -3240,7 +3240,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -3250,7 +3250,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -3261,10 +3261,10 @@ impl<'a> FuncGen<'a> {
                         }
                     };
                     let src2 = match loc_b {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                                .emit_mov(Size::S64, loc_b, Location::SIMD(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
@@ -3273,7 +3273,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -3283,7 +3283,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -3299,9 +3299,9 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm3 = XMM::XMM10;
 
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
+                        .emit_mov(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1));
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
+                        .emit_mov(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2));
                     self.assembler
                         .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
                     self.assembler
@@ -3333,16 +3333,16 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmpg1),
                     );
                     self.assembler
-                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2));
                     self.assembler
                         .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
-                        Location::XMM(x) => {
+                        Location::SIMD(x) => {
                             self.assembler
                                 .emit_vmovapd(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
-                            self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
+                            self.assembler.emit_mov(Size::S64, Location::SIMD(src1), ret);
                         }
                         _ => {
                             return Err(CodegenError {
@@ -3373,10 +3373,10 @@ impl<'a> FuncGen<'a> {
                     let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
 
                     let src1 = match loc_a {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_a, Location::XMM(tmp1));
+                                .emit_mov(Size::S64, loc_a, Location::SIMD(tmp1));
                             tmp1
                         }
                         Location::Imm32(_) => {
@@ -3385,7 +3385,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -3395,7 +3395,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp1),
+                                Location::SIMD(tmp1),
                             );
                             tmp1
                         }
@@ -3406,10 +3406,10 @@ impl<'a> FuncGen<'a> {
                         }
                     };
                     let src2 = match loc_b {
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         Location::GPR(_) | Location::Memory(_, _) => {
                             self.assembler
-                                .emit_mov(Size::S64, loc_b, Location::XMM(tmp2));
+                                .emit_mov(Size::S64, loc_b, Location::SIMD(tmp2));
                             tmp2
                         }
                         Location::Imm32(_) => {
@@ -3418,7 +3418,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -3428,7 +3428,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmpg1),
-                                Location::XMM(tmp2),
+                                Location::SIMD(tmp2),
                             );
                             tmp2
                         }
@@ -3444,9 +3444,9 @@ impl<'a> FuncGen<'a> {
                     let tmp_xmm3 = XMM::XMM10;
 
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(src1), Location::GPR(tmpg1));
+                        .emit_mov(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1));
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(src2), Location::GPR(tmpg2));
+                        .emit_mov(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2));
                     self.assembler
                         .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1));
                     self.assembler
@@ -3467,7 +3467,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler.emit_mov(
                         Size::S64,
                         Location::GPR(tmpg1),
-                        Location::XMM(tmp_xmm2),
+                        Location::SIMD(tmp_xmm2),
                     );
                     self.assembler.emit_label(label2);
                     self.assembler
@@ -3487,16 +3487,16 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmpg1),
                     );
                     self.assembler
-                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::XMM(src2));
+                        .emit_mov(Size::S64, Location::GPR(tmpg1), Location::SIMD(src2));
                     self.assembler
                         .emit_vblendvpd(src1, XMMOrMemory::XMM(src2), tmp_xmm1, src1);
                     match ret {
-                        Location::XMM(x) => {
+                        Location::SIMD(x) => {
                             self.assembler
                                 .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
                         }
                         Location::Memory(_, _) | Location::GPR(_) => {
-                            self.assembler.emit_mov(Size::S64, Location::XMM(src1), ret);
+                            self.assembler.emit_mov(Size::S64, Location::SIMD(src1), ret);
                         }
                         _ => {
                             return Err(CodegenError {
@@ -3668,13 +3668,13 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp),
+                        Location::SIMD(tmp),
                     );
                     self.assembler.arch_emit_f64_neg(tmp, tmp);
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S64,
-                        Location::XMM(tmp),
+                        Location::SIMD(tmp),
                         ret,
                     );
                     self.machine.release_temp_xmm(tmp);
@@ -3789,7 +3789,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -3807,7 +3807,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U32_MIN, LEF32_GT_U32_MAX);
 
@@ -3833,7 +3833,7 @@ impl<'a> FuncGen<'a> {
 
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
-                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::SIMD(tmp_in));
                 self.emit_f32_int_conv_check_sat(
                     tmp_in,
                     GEF32_LT_U32_MIN,
@@ -3886,7 +3886,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -3905,7 +3905,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I32_MIN, LEF32_GT_I32_MAX);
 
@@ -3931,7 +3931,7 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::SIMD(tmp_in));
                 self.emit_f32_int_conv_check_sat(
                     tmp_in,
                     GEF32_LT_I32_MIN,
@@ -3990,7 +3990,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -4009,7 +4009,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I64_MIN, LEF32_GT_I64_MAX);
                     self.assembler
@@ -4035,7 +4035,7 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::SIMD(tmp_in));
                 self.emit_f32_int_conv_check_sat(
                     tmp_in,
                     GEF32_LT_I64_MIN,
@@ -4094,7 +4094,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -4113,7 +4113,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S32,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U64_MIN, LEF32_GT_U64_MAX);
 
@@ -4127,11 +4127,11 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmp),
                     ); //float 9.22337203E+18
                     self.assembler
-                        .emit_mov(Size::S32, Location::GPR(tmp), Location::XMM(tmp_x1));
+                        .emit_mov(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x1));
                     self.assembler.emit_mov(
                         Size::S32,
-                        Location::XMM(tmp_in),
-                        Location::XMM(tmp_x2),
+                        Location::SIMD(tmp_in),
+                        Location::SIMD(tmp_x2),
                     );
                     self.assembler
                         .emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
@@ -4172,7 +4172,7 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::XMM(tmp_in));
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S32, loc, Location::SIMD(tmp_in));
                 self.emit_f32_int_conv_check_sat(
                     tmp_in,
                     GEF32_LT_U64_MIN,
@@ -4208,12 +4208,12 @@ impl<'a> FuncGen<'a> {
                             this.assembler.emit_mov(
                                 Size::S32,
                                 Location::GPR(tmp),
-                                Location::XMM(tmp_x1),
+                                Location::SIMD(tmp_x1),
                             );
                             this.assembler.emit_mov(
                                 Size::S32,
-                                Location::XMM(tmp_in),
-                                Location::XMM(tmp_x2),
+                                Location::SIMD(tmp_in),
+                                Location::SIMD(tmp_x2),
                             );
                             this.assembler
                                 .emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
@@ -4265,7 +4265,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -4284,7 +4284,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U32_MIN, LEF64_GT_U32_MAX);
 
@@ -4311,7 +4311,7 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::XMM(tmp_in));
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::SIMD(tmp_in));
                 self.emit_f64_int_conv_check_sat(
                     tmp_in,
                     GEF64_LT_U32_MIN,
@@ -4364,7 +4364,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -4386,14 +4386,14 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmp_out),
-                                Location::XMM(tmp_in),
+                                Location::SIMD(tmp_in),
                             );
                             tmp_in
                         }
-                        Location::XMM(x) => x,
+                        Location::SIMD(x) => x,
                         _ => {
                             self.assembler
-                                .emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                                .emit_mov(Size::S64, loc, Location::SIMD(tmp_in));
                             tmp_in
                         }
                     };
@@ -4430,14 +4430,14 @@ impl<'a> FuncGen<'a> {
                         self.assembler.emit_mov(
                             Size::S64,
                             Location::GPR(tmp_out),
-                            Location::XMM(tmp_in),
+                            Location::SIMD(tmp_in),
                         );
                         tmp_in
                     }
-                    Location::XMM(x) => x,
+                    Location::SIMD(x) => x,
                     _ => {
                         self.assembler
-                            .emit_mov(Size::S64, loc, Location::XMM(tmp_in));
+                            .emit_mov(Size::S64, loc, Location::SIMD(tmp_in));
                         tmp_in
                     }
                 };
@@ -4500,7 +4500,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -4519,7 +4519,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_I64_MIN, LEF64_GT_I64_MAX);
 
@@ -4546,7 +4546,7 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::XMM(tmp_in));
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::SIMD(tmp_in));
                 self.emit_f64_int_conv_check_sat(
                     tmp_in,
                     GEF64_LT_I64_MIN,
@@ -4605,7 +4605,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
                     self.emit_relaxed_binop(
@@ -4624,7 +4624,7 @@ impl<'a> FuncGen<'a> {
                         Assembler::emit_mov,
                         Size::S64,
                         loc,
-                        Location::XMM(tmp_in),
+                        Location::SIMD(tmp_in),
                     );
                     self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U64_MIN, LEF64_GT_U64_MAX);
 
@@ -4638,11 +4638,11 @@ impl<'a> FuncGen<'a> {
                         Location::GPR(tmp),
                     ); //double 9.2233720368547758E+18
                     self.assembler
-                        .emit_mov(Size::S64, Location::GPR(tmp), Location::XMM(tmp_x1));
+                        .emit_mov(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x1));
                     self.assembler.emit_mov(
                         Size::S64,
-                        Location::XMM(tmp_in),
-                        Location::XMM(tmp_x2),
+                        Location::SIMD(tmp_in),
+                        Location::SIMD(tmp_x2),
                     );
                     self.assembler
                         .emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
@@ -4684,7 +4684,7 @@ impl<'a> FuncGen<'a> {
                 let tmp_out = self.machine.acquire_temp_gpr().unwrap();
                 let tmp_in = self.machine.acquire_temp_xmm().unwrap();
 
-                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::XMM(tmp_in));
+                self.emit_relaxed_binop(Assembler::emit_mov, Size::S64, loc, Location::SIMD(tmp_in));
                 self.emit_f64_int_conv_check_sat(
                     tmp_in,
                     GEF64_LT_U64_MIN,
@@ -4720,12 +4720,12 @@ impl<'a> FuncGen<'a> {
                             this.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(tmp),
-                                Location::XMM(tmp_x1),
+                                Location::SIMD(tmp_x1),
                             );
                             this.assembler.emit_mov(
                                 Size::S64,
-                                Location::XMM(tmp_in),
-                                Location::XMM(tmp_x2),
+                                Location::SIMD(tmp_in),
+                                Location::SIMD(tmp_x2),
                             );
                             this.assembler
                                 .emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
@@ -4784,7 +4784,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S32,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -4798,7 +4798,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler
                         .emit_vcvtsi2ss_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S32, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
@@ -4828,7 +4828,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S32,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -4842,7 +4842,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler
                         .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S32, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
@@ -4872,7 +4872,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S32,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -4886,7 +4886,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler
                         .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S32, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
@@ -4916,7 +4916,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S32,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -4951,7 +4951,7 @@ impl<'a> FuncGen<'a> {
                         .emit_vaddss(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
                     self.assembler.emit_label(end_convert);
                     self.assembler
-                        .emit_mov(Size::S32, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S32, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp);
                     self.machine.release_temp_gpr(tmp_in);
@@ -4983,7 +4983,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S64,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -4997,7 +4997,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler
                         .emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S64, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
@@ -5027,7 +5027,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S64,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -5041,7 +5041,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler
                         .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S64, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
@@ -5071,7 +5071,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S64,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -5085,7 +5085,7 @@ impl<'a> FuncGen<'a> {
                     self.assembler
                         .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S64, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp_in);
                     self.machine.release_temp_xmm(tmp_out);
@@ -5115,7 +5115,7 @@ impl<'a> FuncGen<'a> {
                     self.emit_relaxed_binop(
                         Assembler::emit_mov,
                         Size::S64,
-                        Location::XMM(tmp_out),
+                        Location::SIMD(tmp_out),
                         ret,
                     );
                     self.machine.release_temp_gpr(tmp_in);
@@ -5150,7 +5150,7 @@ impl<'a> FuncGen<'a> {
                         .emit_vaddsd(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
                     self.assembler.emit_label(end_convert);
                     self.assembler
-                        .emit_mov(Size::S64, Location::XMM(tmp_out), ret);
+                        .emit_mov(Size::S64, Location::SIMD(tmp_out), ret);
 
                     self.machine.release_temp_gpr(tmp);
                     self.machine.release_temp_gpr(tmp_in);
@@ -5252,7 +5252,7 @@ impl<'a> FuncGen<'a> {
                     self.value_stack.push(ret);
                     if return_types[0].is_float() {
                         self.assembler
-                            .emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                            .emit_mov(Size::S64, Location::SIMD(XMM::XMM0), ret);
                         self.fp_stack
                             .push(FloatValue::new(self.value_stack.len() - 1));
                     } else {
@@ -5460,7 +5460,7 @@ impl<'a> FuncGen<'a> {
                     self.value_stack.push(ret);
                     if return_types[0].is_float() {
                         self.assembler
-                            .emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                            .emit_mov(Size::S64, Location::SIMD(XMM::XMM0), ret);
                         self.fp_stack
                             .push(FloatValue::new(self.value_stack.len() - 1));
                     } else {
@@ -6720,7 +6720,7 @@ impl<'a> FuncGen<'a> {
                             self.assembler.emit_mov(
                                 Size::S64,
                                 Location::GPR(GPR::RAX),
-                                Location::XMM(XMM::XMM0),
+                                Location::SIMD(XMM::XMM0),
                             );
                         }
                         _ => {}
@@ -8952,7 +8952,7 @@ pub fn gen_std_dynamic_import_trampoline(
         for (i, ty) in sig.params().iter().enumerate() {
             let source_loc = match argalloc.next(*ty, calling_convention) {
                 Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
-                Some(X64Register::XMM(xmm)) => Location::XMM(xmm),
+                Some(X64Register::XMM(xmm)) => Location::SIMD(xmm),
                 None => {
                     a.emit_mov(
                         Size::S64,
@@ -9086,7 +9086,7 @@ pub fn gen_import_call_trampoline(
                     match argalloc.next(*ty, calling_convention) {
                         Some(X64Register::GPR(_gpr)) => continue,
                         Some(X64Register::XMM(xmm)) => {
-                            a.emit_mov(Size::S64, prev_loc, Location::XMM(xmm))
+                            a.emit_mov(Size::S64, prev_loc, Location::SIMD(xmm))
                         }
                         None => continue,
                     };
@@ -9132,7 +9132,7 @@ pub fn gen_import_call_trampoline(
                     let prev_loc = param_locations[i];
                     let targ = match argalloc.next(*ty, calling_convention) {
                         Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
-                        Some(X64Register::XMM(xmm)) => Location::XMM(xmm),
+                        Some(X64Register::XMM(xmm)) => Location::SIMD(xmm),
                         None => {
                             // No register can be allocated. Put this argument on the stack.
                             //

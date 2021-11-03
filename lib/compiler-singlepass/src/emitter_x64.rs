@@ -1,4 +1,6 @@
 pub use crate::x64_decl::{GPR, XMM};
+pub use crate::location::Multiplier;
+use crate::location::Location as AbstractLocation;
 use dynasm::dynasm;
 use dynasmrt::{
     x64::X64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
@@ -20,17 +22,20 @@ macro_rules! dynasm {
     };
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum Location {
-    Imm8(u8),
-    Imm32(u32),
-    Imm64(u64),
-    // Imm128(u128),
-    GPR(GPR),
-    XMM(XMM),
-    Memory(GPR, i32),
-    MemoryAddTriple(GPR, GPR, i32),
-}
+//#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+//pub enum Location {
+//    Imm8(u8),
+//    Imm32(u32),
+//    Imm64(u64),
+//    // Imm128(u128),
+//    GPR(GPR),
+//    XMM(XMM),
+//    Memory(GPR, i32),
+//    MemoryAddTriple(GPR, GPR, i32),
+//}
+
+
+pub type Location = AbstractLocation<GPR, XMM>;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Condition {
@@ -764,32 +769,32 @@ impl Emitter for Assembler {
                     (Size::S32, Location::Imm64(src), Location::Memory(dst, disp)) => {
                         dynasm!(self ; mov DWORD [Rq(dst as u8) + disp], src as i32);
                     }
-                    (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
+                    (Size::S32, Location::GPR(src), Location::SIMD(dst)) => {
                         dynasm!(self ; movd Rx(dst as u8), Rd(src as u8));
                     }
-                    (Size::S32, Location::XMM(src), Location::GPR(dst)) => {
+                    (Size::S32, Location::SIMD(src), Location::GPR(dst)) => {
                         dynasm!(self ; movd Rd(dst as u8), Rx(src as u8));
                     }
-                    (Size::S32, Location::Memory(src, disp), Location::XMM(dst)) => {
+                    (Size::S32, Location::Memory(src, disp), Location::SIMD(dst)) => {
                         dynasm!(self ; movd Rx(dst as u8), [Rq(src as u8) + disp]);
                     }
-                    (Size::S32, Location::XMM(src), Location::Memory(dst, disp)) => {
+                    (Size::S32, Location::SIMD(src), Location::Memory(dst, disp)) => {
                         dynasm!(self ; movd [Rq(dst as u8) + disp], Rx(src as u8));
                     }
 
-                    (Size::S64, Location::GPR(src), Location::XMM(dst)) => {
+                    (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
                         dynasm!(self ; movq Rx(dst as u8), Rq(src as u8));
                     }
-                    (Size::S64, Location::XMM(src), Location::GPR(dst)) => {
+                    (Size::S64, Location::SIMD(src), Location::GPR(dst)) => {
                         dynasm!(self ; movq Rq(dst as u8), Rx(src as u8));
                     }
-                    (Size::S64, Location::Memory(src, disp), Location::XMM(dst)) => {
+                    (Size::S64, Location::Memory(src, disp), Location::SIMD(dst)) => {
                         dynasm!(self ; movq Rx(dst as u8), [Rq(src as u8) + disp]);
                     }
-                    (Size::S64, Location::XMM(src), Location::Memory(dst, disp)) => {
+                    (Size::S64, Location::SIMD(src), Location::Memory(dst, disp)) => {
                         dynasm!(self ; movq [Rq(dst as u8) + disp], Rx(src as u8));
                     }
-                    (_, Location::XMM(src), Location::XMM(dst)) => {
+                    (_, Location::SIMD(src), Location::SIMD(dst)) => {
                         dynasm!(self ; movq Rx(dst as u8), Rx(src as u8));
                     }
 
@@ -806,11 +811,23 @@ impl Emitter for Assembler {
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
                 dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
             }
-            (Size::S32, Location::MemoryAddTriple(src1, src2, disp), Location::GPR(dst)) => {
-                dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
+            (Size::S32, Location::Memory2(src1, src2, mult, disp), Location::GPR(dst)) => {
+                match mult {
+                    Multiplier::Zero => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + disp]),
+                    Multiplier::One => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]),
+                    Multiplier::Two => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 2 + disp]),
+                    Multiplier::Four => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 4 + disp]),
+                    Multiplier::Height => dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 8 + disp]),
+                };
             }
-            (Size::S64, Location::MemoryAddTriple(src1, src2, disp), Location::GPR(dst)) => {
-                dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
+            (Size::S64, Location::Memory2(src1, src2, mult, disp), Location::GPR(dst)) => {
+                match mult {
+                    Multiplier::Zero => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + disp]),
+                    Multiplier::One => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]),
+                    Multiplier::Two => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 2 + disp]),
+                    Multiplier::Four => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 4 + disp]),
+                    Multiplier::Height => dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) * 8 + disp]),
+                };
             }
             _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
         }

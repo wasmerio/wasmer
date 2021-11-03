@@ -15,7 +15,9 @@ mod compiler;
 mod config;
 mod emitter_x64;
 mod machine;
+mod machine_x64;
 mod x64_decl;
+mod location;
 
 pub use crate::compiler::SinglepassCompiler;
 pub use crate::config::Singlepass;
