@@ -82,6 +82,9 @@ pub struct Memory {
     view: js_sys::Uint8Array,
 }
 
+unsafe impl Send for Memory {}
+unsafe impl Sync for Memory {}
+
 impl Memory {
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
@@ -234,8 +237,9 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    #[cfg(test)]
-    pub(crate) fn uint8view(&self) -> js_sys::Uint8Array {
+    /// Used by tests
+    #[doc(hidden)]
+    pub fn uint8view(&self) -> js_sys::Uint8Array {
         self.view.clone()
     }
 
