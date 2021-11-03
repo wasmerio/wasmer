@@ -1,10 +1,7 @@
 use crate::RuntimeError;
-use wasmer_types::ValueType;
-
 use crate::{Memory, Memory32, Memory64, WasmPtr};
 use std::{
     convert::TryInto,
-    error::Error,
     fmt,
     marker::PhantomData,
     mem::{self, MaybeUninit},
@@ -12,30 +9,23 @@ use std::{
     slice,
     string::FromUtf8Error,
 };
+use thiserror::Error;
+use wasmer_types::ValueType;
 
 /// Error for invalid [`Memory`] access.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Error)]
 #[non_exhaustive]
 pub enum MemoryAccessError {
     /// Memory access is outside heap bounds.
+    #[error("memory access out of bounds")]
     HeapOutOfBounds,
     /// Address calculation overflow.
+    #[error("address calculation overflow")]
     Overflow,
     /// String is not valid UTF-8.
+    #[error("string is not valid utf-8")]
     NonUtf8String,
 }
-
-impl fmt::Display for MemoryAccessError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MemoryAccessError::HeapOutOfBounds => write!(f, "memory access out of bounds"),
-            MemoryAccessError::Overflow => write!(f, "address calculation overflow"),
-            MemoryAccessError::NonUtf8String => write!(f, "string is not valid utf-8"),
-        }
-    }
-}
-
-impl Error for MemoryAccessError {}
 
 impl From<MemoryAccessError> for RuntimeError {
     fn from(err: MemoryAccessError) -> Self {
