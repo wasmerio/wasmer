@@ -17,7 +17,10 @@ pub unsafe trait MemorySize {
     /// Zero value used for `WasmPtr::is_null`.
     const ZERO: Self::Offset;
 
+    /// Convert an `Offset` to a `Native`.
     fn offset_to_native(offset: Self::Offset) -> Self::Native;
+
+    /// Convert a `Native` to an `Offset`.
     fn native_to_offset(native: Self::Native) -> Self::Offset;
 }
 
