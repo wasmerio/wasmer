@@ -11,15 +11,32 @@ use structopt::StructOpt;
 /// WASI Options
 pub struct Wasi {
     /// WASI pre-opened directory
-    #[structopt(long = "dir", name = "DIR", multiple = true, group = "wasi")]
+    #[structopt(
+        long = "dir",
+        name = "DIR",
+        multiple = true,
+        group = "wasi",
+        number_of_values = 1
+    )]
     pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the Wasm module
-    #[structopt(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
+    #[structopt(
+        long = "mapdir",
+        name = "GUEST_DIR:HOST_DIR",
+        multiple = true,
+        parse(try_from_str = parse_mapdir),
+        number_of_values = 1,
+    )]
     mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
-    #[structopt(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
+    #[structopt(
+        long = "env",
+        name = "KEY=VALUE",
+        multiple = true,
+        parse(try_from_str = parse_envvar),
+    )]
     env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
