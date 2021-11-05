@@ -45,11 +45,11 @@ pub use crate::instance::{
     ImportFunctionEnv, ImportInitializerFuncPtr, InstanceAllocator, InstanceHandle,
     WeakOrStrongInstanceRef,
 };
-pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
+pub use crate::memory::{LinearMemory, Memory, MemoryError};
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
-pub use crate::table::{LinearTable, Table, TableElement, TableStyle};
+pub use crate::table::{LinearTable, Table, TableElement};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,

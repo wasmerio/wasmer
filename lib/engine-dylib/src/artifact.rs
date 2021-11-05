@@ -38,10 +38,10 @@ use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::DataInitializer;
 use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    SignatureIndex, TableIndex, MemoryStyle, TableStyle, 
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMFunctionBody,
+    FuncDataRegistry, FunctionBodyPtr, VMFunctionBody,
     VMSharedSignatureIndex, VMTrampoline,
 };
 

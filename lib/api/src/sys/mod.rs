@@ -72,9 +72,10 @@ pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMExtern, VMMemoryDefinition,
+        Memory, MemoryError, Table, VMExtern, VMMemoryDefinition,
         VMTableDefinition,
     };
+    pub use wasmer_types::{MemoryStyle, TableStyle};
 }
 
 #[cfg(feature = "wat")]

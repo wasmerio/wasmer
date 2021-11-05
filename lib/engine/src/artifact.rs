@@ -10,10 +10,10 @@ use wasmer_compiler::Features;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SignatureIndex, TableIndex,
+    OwnedDataInitializer, SignatureIndex, TableIndex, MemoryStyle, TableStyle
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, TableStyle,
+    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle,
     TrapHandler, VMSharedSignatureIndex, VMTrampoline,
 };
 

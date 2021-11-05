@@ -4,10 +4,10 @@
 use crate::{Export, ExportFunctionMetadata, ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, ModuleInfo, TableIndex};
+use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, ModuleInfo, TableIndex, MemoryStyle, TableStyle};
 
 use wasmer_vm::{
-    FunctionBodyPtr, ImportFunctionEnv, Imports, MemoryStyle, TableStyle, VMFunctionBody,
+    FunctionBodyPtr, ImportFunctionEnv, Imports, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
     VMTableImport,
 };

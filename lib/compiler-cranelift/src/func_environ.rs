@@ -19,11 +19,10 @@ use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, Type as WasmerType,
+    SignatureIndex, TableIndex, Type as WasmerType, MemoryStyle, TableStyle
 };
 use wasmer_vm::VMBuiltinFunctionIndex;
 use wasmer_vm::VMOffsets;
-use wasmer_vm::{MemoryStyle, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
