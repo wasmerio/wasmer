@@ -1685,7 +1685,9 @@ pub fn tbaa_label<'ctx>(
         .get_global_metadata("wasmer_tbaa_root")
         .pop()
         .unwrap_or_else(|| {
-            module.add_global_metadata("wasmer_tbaa_root", &context.metadata_node(&[]));
+            module
+                .add_global_metadata("wasmer_tbaa_root", &context.metadata_node(&[]))
+                .unwrap();
             module.get_global_metadata("wasmer_tbaa_root")[0]
         });
 
@@ -1696,10 +1698,12 @@ pub fn tbaa_label<'ctx>(
         .get_global_metadata(label.as_str())
         .pop()
         .unwrap_or_else(|| {
-            module.add_global_metadata(
-                label.as_str(),
-                &context.metadata_node(&[type_label.into(), tbaa_root.into()]),
-            );
+            module
+                .add_global_metadata(
+                    label.as_str(),
+                    &context.metadata_node(&[type_label.into(), tbaa_root.into()]),
+                )
+                .unwrap();
             module.get_global_metadata(label.as_str())[0]
         });
 
@@ -1714,18 +1718,20 @@ pub fn tbaa_label<'ctx>(
         .get_global_metadata(label.as_str())
         .pop()
         .unwrap_or_else(|| {
-            module.add_global_metadata(
-                label.as_str(),
-                &context.metadata_node(&[
-                    type_tbaa.into(),
-                    type_tbaa.into(),
-                    intrinsics.i64_zero.into(),
-                ]),
-            );
+            module
+                .add_global_metadata(
+                    label.as_str(),
+                    &context.metadata_node(&[
+                        type_tbaa.into(),
+                        type_tbaa.into(),
+                        intrinsics.i64_zero.into(),
+                    ]),
+                )
+                .unwrap();
             module.get_global_metadata(label.as_str())[0]
         });
 
     // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
-    instruction.set_metadata(type_tbaa, tbaa_kind);
+    instruction.set_metadata(type_tbaa, tbaa_kind).unwrap();
 }
