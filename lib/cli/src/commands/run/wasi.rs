@@ -7,7 +7,7 @@ use wasmer_wasi::{get_wasi_versions, WasiError, WasiState, WasiVersion};
 
 use structopt::StructOpt;
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, StructOpt, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
     /// WASI pre-opened directory
@@ -110,5 +110,18 @@ impl Wasi {
             }
         }
         .with_context(|| "failed to run WASI `_start` function")
+    }
+
+    pub fn for_binfmt_interpreter() -> Result<Self> {
+        use std::env;
+        let dir = env::var_os("WASMER_BINFMT_MISC_PREOPEN")
+            .map(Into::into)
+            .unwrap_or(PathBuf::from("."));
+        Ok(Self {
+            deny_multiple_wasi_versions: true,
+            env_vars: env::vars().collect(),
+            pre_opened_directories: vec![dir],
+            ..Self::default()
+        })
     }
 }
