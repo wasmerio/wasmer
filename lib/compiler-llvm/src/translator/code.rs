@@ -24,6 +24,7 @@ use smallvec::SmallVec;
 use crate::abi::{get_abi, Abi};
 use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
+use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     wptype_to_type, CompileError, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
@@ -2225,8 +2226,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
+                let callable_func = inkwell::values::CallableValue::try_from(func).unwrap();
                 let call_site = self.builder.build_call(
-                    func,
+                    callable_func,
                     params
                         .iter()
                         .copied()
@@ -2517,8 +2519,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
+                let callable_func = inkwell::values::CallableValue::try_from(typed_func_ptr).unwrap();
                 let call_site = self.builder.build_call(
-                    typed_func_ptr,
+                    callable_func,
                     params
                         .iter()
                         .copied()
@@ -10910,8 +10913,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let memory_index = MemoryIndex::from_u32(mem);
                 let delta = self.state.pop1()?;
                 let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics);
+                let callable_func = inkwell::values::CallableValue::try_from(grow_fn_ptr).unwrap();
                 let grow = self.builder.build_call(
-                    grow_fn_ptr,
+                    callable_func,
                     &[
                         vmctx.as_basic_value_enum().into(),
                         delta.into(),
@@ -10924,8 +10928,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemorySize { mem, mem_byte: _ } => {
                 let memory_index = MemoryIndex::from_u32(mem);
                 let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics);
+                let callable_func = inkwell::values::CallableValue::try_from(size_fn_ptr).unwrap();
                 let size = self.builder.build_call(
-                    size_fn_ptr,
+                    callable_func,
                     &[
                         vmctx.as_basic_value_enum().into(),
                         self.intrinsics.i32_ty.const_int(mem.into(), false).into(),

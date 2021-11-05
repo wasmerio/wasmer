@@ -15,6 +15,7 @@ use inkwell::{
 };
 use std::cmp;
 use std::convert::TryInto;
+use std::convert::TryFrom;
 use wasmer_compiler::{CompileError, FunctionBody, RelocationTarget};
 use wasmer_types::{FunctionType, LocalFunctionIndex};
 
@@ -346,7 +347,8 @@ impl FuncTrampoline {
             args_vec.push(arg.into());
         }
 
-        let call_site = builder.build_call(func_ptr, args_vec.as_slice().into(), "call");
+        let callable_func = inkwell::values::CallableValue::try_from(func_ptr).unwrap();
+        let call_site = builder.build_call(callable_func, args_vec.as_slice().into(), "call");
         for (attr, attr_loc) in func_attrs {
             call_site.add_attribute(*attr_loc, *attr);
         }
@@ -441,7 +443,8 @@ impl FuncTrampoline {
             .into_pointer_value();
 
         let values_ptr = builder.build_pointer_cast(values, intrinsics.i128_ptr_ty, "");
-        builder.build_call(callee, &[vmctx.into(), values_ptr.into()], "");
+        let callable_func = inkwell::values::CallableValue::try_from(callee).unwrap();
+        builder.build_call(callable_func, &[vmctx.into(), values_ptr.into()], "");
 
         if func_sig.results().is_empty() {
             builder.build_return(None);
