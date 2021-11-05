@@ -68,7 +68,7 @@ pub struct Run {
     verbose: u8,
 
     /// Application arguments
-    #[structopt(name = "--", multiple = true)]
+    #[structopt(value_name = "ARGS")]
     args: Vec<String>,
 }
 
