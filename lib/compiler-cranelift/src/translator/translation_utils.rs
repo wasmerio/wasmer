@@ -8,13 +8,11 @@ use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_entity::{EntityRef as CraneliftEntityRef, SecondaryMap as CraneliftSecondaryMap};
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::wasm_unsupported;
-use wasmer_compiler::wasmparser;
-use wasmer_compiler::{JumpTable, RelocationKind};
-use wasmer_compiler::{WasmError, WasmResult};
+use wasmer_compiler::{
+    wasm_unsupported, wasmparser, JumpTable, LibCall, RelocationKind, WasmError, WasmResult,
+};
 use wasmer_types::entity::{EntityRef, SecondaryMap};
 use wasmer_types::{FunctionType, Type};
-use wasmer_vm::libcalls::LibCall;
 
 /// Helper function translate a Function signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(

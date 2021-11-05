@@ -6,7 +6,7 @@ use object::{
     elf, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
 };
 use wasmer_compiler::{
-    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
+    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness, LibCall,
     RelocationKind as Reloc, RelocationTarget, SectionIndex, Symbol, SymbolRegistry, Triple,
 };
 use wasmer_types::entity::PrimaryMap;
@@ -102,6 +102,48 @@ pub fn emit_data(
     obj.add_symbol_data(symbol_id, section_id, &data, align);
 
     Ok(())
+}
+
+/// Return the function name associated to the libcall.
+fn libcall_to_function_name(libcall: &LibCall) -> &str {
+    match libcall {
+        LibCall::CeilF32 => "wasmer_vm_f32_ceil",
+        LibCall::CeilF64 => "wasmer_vm_f64_ceil",
+        LibCall::FloorF32 => "wasmer_vm_f32_floor",
+        LibCall::FloorF64 => "wasmer_vm_f64_floor",
+        LibCall::NearestF32 => "wasmer_vm_f32_nearest",
+        LibCall::NearestF64 => "wasmer_vm_f64_nearest",
+        LibCall::TruncF32 => "wasmer_vm_f32_trunc",
+        LibCall::TruncF64 => "wasmer_vm_f64_trunc",
+        LibCall::Memory32Size => "wasmer_vm_memory32_size",
+        LibCall::ImportedMemory32Size => "wasmer_vm_imported_memory32_size",
+        LibCall::TableCopy => "wasmer_vm_table_copy",
+        LibCall::TableInit => "wasmer_vm_table_init",
+        LibCall::TableFill => "wasmer_vm_table_fill",
+        LibCall::TableSize => "wasmer_vm_table_size",
+        LibCall::ImportedTableSize => "wasmer_vm_imported_table_size",
+        LibCall::TableGet => "wasmer_vm_table_get",
+        LibCall::ImportedTableGet => "wasmer_vm_imported_table_get",
+        LibCall::TableSet => "wasmer_vm_table_set",
+        LibCall::ImportedTableSet => "wasmer_vm_imported_table_set",
+        LibCall::TableGrow => "wasmer_vm_table_grow",
+        LibCall::ImportedTableGrow => "wasmer_vm_imported_table_grow",
+        LibCall::FuncRef => "wasmer_vm_func_ref",
+        LibCall::ElemDrop => "wasmer_vm_elem_drop",
+        LibCall::Memory32Copy => "wasmer_vm_memory32_copy",
+        LibCall::ImportedMemory32Copy => "wasmer_vm_imported_memory32_copy",
+        LibCall::Memory32Fill => "wasmer_vm_memory32_fill",
+        LibCall::ImportedMemory32Fill => "wasmer_vm_imported_memory32_fill",
+        LibCall::Memory32Init => "wasmer_vm_memory32_init",
+        LibCall::DataDrop => "wasmer_vm_data_drop",
+        LibCall::RaiseTrap => "wasmer_vm_raise_trap",
+        // We have to do this because macOS requires a leading `_` and it's not
+        // a normal function, it's a static variable, so we have to do it manually.
+        #[cfg(target_vendor = "apple")]
+        LibCall::Probestack => "_wasmer_vm_probestack",
+        #[cfg(not(target_vendor = "apple"))]
+        LibCall::Probestack => "wasmer_vm_probestack",
+    }
 }
 
 /// Emit the compilation result into an existing object.
@@ -328,7 +370,7 @@ pub fn emit_compilation(
                     .map_err(ObjectError::Write)?;
                 }
                 RelocationTarget::LibCall(libcall) => {
-                    let libcall_fn_name = libcall.to_function_name().as_bytes();
+                    let libcall_fn_name = libcall_to_function_name(&libcall).as_bytes();
                     // We add the symols lazily as we see them
                     let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
                         obj.add_symbol(ObjSymbol {

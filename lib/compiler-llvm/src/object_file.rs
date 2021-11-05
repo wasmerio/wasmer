@@ -6,11 +6,10 @@ use std::num::TryFromIntError;
 
 use wasmer_compiler::{
     CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
-    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
+    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, LibCall, Relocation,
     RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
 use wasmer_types::entity::{PrimaryMap, SecondaryMap};
-use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
     CompileError::Codegen(format!("int doesn't fit: {}", error))

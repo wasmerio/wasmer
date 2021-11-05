@@ -11,6 +11,7 @@
 
 use crate::lib::std::fmt;
 use crate::lib::std::vec::Vec;
+use crate::libcall::LibCall;
 use crate::section::SectionIndex;
 use crate::{Addend, CodeOffset, JumpTable};
 use loupe::MemoryUsage;
@@ -20,7 +21,6 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
-use wasmer_vm::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

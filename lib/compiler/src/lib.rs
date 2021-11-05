@@ -63,6 +63,7 @@ mod unwind;
 #[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
+mod libcall;
 mod section;
 mod sourceloc;
 
@@ -77,6 +78,7 @@ pub use crate::function::{
     Functions, TrampolinesSection,
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
+pub use crate::libcall::LibCall;
 pub use crate::module::CompileModuleInfo;
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};

@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 use std::ptr::{read_unaligned, write_unaligned};
 use wasmer_compiler::{
-    JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
-    SectionIndex, TrampolinesSection,
+    JumpTable, JumpTableOffsets, LibCall, Relocation, RelocationKind, RelocationTarget,
+    Relocations, SectionIndex, TrampolinesSection,
 };
 use wasmer_engine::FunctionExtent;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -69,6 +69,44 @@ fn fill_trampolin_map(
     map
 }
 
+/// Given a LibCall it returns the corresponding function pointer so we can link it properly
+fn libcall_function_pointer(libcall: LibCall) -> usize {
+    use wasmer_vm::libcalls::*;
+    match libcall {
+        LibCall::CeilF32 => wasmer_vm_f32_ceil as usize,
+        LibCall::CeilF64 => wasmer_vm_f64_ceil as usize,
+        LibCall::FloorF32 => wasmer_vm_f32_floor as usize,
+        LibCall::FloorF64 => wasmer_vm_f64_floor as usize,
+        LibCall::NearestF32 => wasmer_vm_f32_nearest as usize,
+        LibCall::NearestF64 => wasmer_vm_f64_nearest as usize,
+        LibCall::TruncF32 => wasmer_vm_f32_trunc as usize,
+        LibCall::TruncF64 => wasmer_vm_f64_trunc as usize,
+        LibCall::Memory32Size => wasmer_vm_memory32_size as usize,
+        LibCall::ImportedMemory32Size => wasmer_vm_imported_memory32_size as usize,
+        LibCall::TableCopy => wasmer_vm_table_copy as usize,
+        LibCall::TableInit => wasmer_vm_table_init as usize,
+        LibCall::TableFill => wasmer_vm_table_fill as usize,
+        LibCall::TableSize => wasmer_vm_table_size as usize,
+        LibCall::ImportedTableSize => wasmer_vm_imported_table_size as usize,
+        LibCall::TableGet => wasmer_vm_table_get as usize,
+        LibCall::ImportedTableGet => wasmer_vm_imported_table_get as usize,
+        LibCall::TableSet => wasmer_vm_table_set as usize,
+        LibCall::ImportedTableSet => wasmer_vm_imported_table_set as usize,
+        LibCall::TableGrow => wasmer_vm_table_grow as usize,
+        LibCall::ImportedTableGrow => wasmer_vm_imported_table_grow as usize,
+        LibCall::FuncRef => wasmer_vm_func_ref as usize,
+        LibCall::ElemDrop => wasmer_vm_elem_drop as usize,
+        LibCall::Memory32Copy => wasmer_vm_memory32_copy as usize,
+        LibCall::ImportedMemory32Copy => wasmer_vm_imported_memory32_copy as usize,
+        LibCall::Memory32Fill => wasmer_vm_memory32_fill as usize,
+        LibCall::ImportedMemory32Fill => wasmer_vm_memory32_fill as usize,
+        LibCall::Memory32Init => wasmer_vm_memory32_init as usize,
+        LibCall::DataDrop => wasmer_vm_data_drop as usize,
+        LibCall::Probestack => wasmer_vm_probestack as usize,
+        LibCall::RaiseTrap => wasmer_vm_raise_trap as usize,
+    }
+}
+
 fn apply_relocation(
     body: usize,
     r: &Relocation,
@@ -80,7 +118,7 @@ fn apply_relocation(
 ) {
     let target_func_address: usize = match r.reloc_target {
         RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
-        RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
+        RelocationTarget::LibCall(libcall) => libcall_function_pointer(libcall),
         RelocationTarget::CustomSection(custom_section) => {
             *allocated_sections[custom_section] as usize
         }

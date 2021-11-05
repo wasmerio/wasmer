@@ -31,13 +31,11 @@ use wasmer_compiler::{
 };
 #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 use wasmer_compiler::{
-    CustomSection, CustomSectionProtection, Relocation, RelocationKind, RelocationTarget,
+    CustomSection, CustomSectionProtection, LibCall, Relocation, RelocationKind, RelocationTarget,
     SectionBody,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
-#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
-use wasmer_vm::libcalls::LibCall;
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
