@@ -19,13 +19,10 @@ use wasmer_engine::{
 use wasmer_engine::{Engine, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SignatureIndex, TableIndex, MemoryStyle, TableStyle, 
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer,
+    SignatureIndex, TableIndex, TableStyle,
 };
-use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, VMSharedSignatureIndex,
-    VMTrampoline,
-};
+use wasmer_vm::{FuncDataRegistry, FunctionBodyPtr, VMSharedSignatureIndex, VMTrampoline};
 
 const SERIALIZED_METADATA_LENGTH_OFFSET: usize = 22;
 const SERIALIZED_METADATA_CONTENT_OFFSET: usize = 32;

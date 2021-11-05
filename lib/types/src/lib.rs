@@ -63,11 +63,11 @@ mod initializers;
 mod memory_view;
 mod module;
 mod native;
-mod styles;
 mod trapcode;
 mod types;
 mod units;
 mod values;
+mod vm;
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;
@@ -89,7 +89,7 @@ pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 pub use crate::values::{Value, WasmValueType};
-pub use crate::styles::{MemoryStyle, TableStyle};
+pub use crate::vm::{MemoryStyle, TableStyle, VMBuiltinFunctionIndex, VMOffsets};
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,

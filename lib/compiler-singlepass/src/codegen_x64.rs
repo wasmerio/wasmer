@@ -17,10 +17,10 @@ use wasmer_types::{
     FunctionType,
 };
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, Type,
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, MemoryStyle,
+    ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex,
+    VMOffsets,
 };
-use wasmer_vm::{MemoryStyle, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {

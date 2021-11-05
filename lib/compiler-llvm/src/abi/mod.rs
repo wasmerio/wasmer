@@ -15,8 +15,7 @@ use inkwell::{
     values::{BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
 };
 use wasmer_compiler::CompileError;
-use wasmer_types::FunctionType as FuncSig;
-use wasmer_vm::VMOffsets;
+use wasmer_types::{FunctionType as FuncSig, VMOffsets};
 
 mod aarch64_systemv;
 mod x86_64_systemv;

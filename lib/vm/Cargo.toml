@@ -15,13 +15,11 @@ wasmer-types = { path = "../types", version = "2.0.0" }
 region = "3.0"
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"
-indexmap = { version = "1.6", features = ["serde-1"] }
+indexmap = { version = "1.6" }
 thiserror = "1.0"
 more-asserts = "0.2"
 cfg-if = "1.0"
 backtrace = "0.3"
-serde = { version = "1.0", features = ["derive", "rc"] }
-rkyv = { version = "0.6.1", optional = true}
 loupe = { version = "0.1", features = ["enable-indexmap"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -35,4 +33,3 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = []
-enable-rkyv = ["rkyv"]

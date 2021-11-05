@@ -2769,7 +2769,6 @@ dependencies = [
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vfs",
- "wasmer-vm",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
@@ -2789,7 +2788,6 @@ dependencies = [
  "target-lexicon 0.12.2",
  "thiserror",
  "wasmer-types",
- "wasmer-vm",
  "wasmparser 0.78.2",
 ]
 
@@ -2811,7 +2809,6 @@ dependencies = [
  "tracing",
  "wasmer-compiler",
  "wasmer-types",
- "wasmer-vm",
 ]
 
 [[package]]
@@ -2833,7 +2830,6 @@ dependencies = [
  "target-lexicon 0.12.2",
  "wasmer-compiler",
  "wasmer-types",
- "wasmer-vm",
  "wasmer_inkwell",
 ]
 
@@ -2853,7 +2849,6 @@ dependencies = [
  "target-lexicon 0.12.2",
  "wasmer-compiler",
  "wasmer-types",
- "wasmer-vm",
 ]
 
 [[package]]
@@ -3007,6 +3002,7 @@ version = "2.0.0"
 dependencies = [
  "indexmap",
  "loupe",
+ "more-asserts",
  "rkyv",
  "serde",
  "thiserror",
@@ -3037,8 +3033,6 @@ dependencies = [
  "memoffset",
  "more-asserts",
  "region",
- "rkyv",
- "serde",
  "thiserror",
  "wasmer-types",
  "winapi",

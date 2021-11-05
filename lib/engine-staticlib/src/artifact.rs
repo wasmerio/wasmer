@@ -24,13 +24,10 @@ use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 #[cfg(feature = "compiler")]
 use wasmer_types::DataInitializer;
 use wasmer_types::{
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SignatureIndex, TableIndex, MemoryStyle, TableStyle, 
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer,
+    SignatureIndex, TableIndex, TableStyle,
 };
-use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, VMSharedSignatureIndex,
-    VMTrampoline,
-};
+use wasmer_vm::{FuncDataRegistry, FunctionBodyPtr, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]

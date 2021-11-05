@@ -19,7 +19,7 @@ use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
-use wasmer_types::TrapCode;
+use wasmer_types::{TrapCode, VMBuiltinFunctionIndex};
 
 /// Union representing the first parameter passed when calling a function.
 ///
@@ -82,10 +82,10 @@ pub struct VMFunctionImport {
 #[cfg(test)]
 mod test_vmfunction_import {
     use super::VMFunctionImport;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmfunction_import_offsets() {
@@ -145,10 +145,10 @@ impl<T: Sized + Clone + Send + Sync> Clone for VMDynamicFunctionContext<T> {
 #[cfg(test)]
 mod test_vmdynamicfunction_import_context {
     use super::VMDynamicFunctionContext;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmdynamicfunction_import_context_offsets() {
@@ -222,10 +222,10 @@ pub struct VMTableImport {
 #[cfg(test)]
 mod test_vmtable_import {
     use super::VMTableImport;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmtable_import_offsets() {
@@ -261,10 +261,10 @@ pub struct VMMemoryImport {
 #[cfg(test)]
 mod test_vmmemory_import {
     use super::VMMemoryImport;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmmemory_import_offsets() {
@@ -312,10 +312,10 @@ unsafe impl Sync for VMGlobalImport {}
 #[cfg(test)]
 mod test_vmglobal_import {
     use super::VMGlobalImport;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmglobal_import_offsets() {
@@ -438,10 +438,10 @@ impl VMMemoryDefinition {
 #[cfg(test)]
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmmemory_definition_offsets() {
@@ -493,10 +493,10 @@ impl MemoryUsage for VMTableDefinition {
 #[cfg(test)]
 mod test_vmtable_definition {
     use super::VMTableDefinition;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmtable_definition_offsets() {
@@ -805,9 +805,9 @@ pub struct VMSharedSignatureIndex(u32);
 #[cfg(test)]
 mod test_vmshared_signature_index {
     use super::VMSharedSignatureIndex;
-    use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmshared_signature_index() {
@@ -816,14 +816,6 @@ mod test_vmshared_signature_index {
         assert_eq!(
             size_of::<VMSharedSignatureIndex>(),
             usize::from(offsets.size_of_vmshared_signature_index())
-        );
-    }
-
-    #[test]
-    fn check_target_shared_signature_index() {
-        assert_eq!(
-            size_of::<VMSharedSignatureIndex>(),
-            size_of::<TargetSharedSignatureIndex>()
         );
     }
 }
@@ -859,10 +851,10 @@ pub struct VMCallerCheckedAnyfunc {
 #[cfg(test)]
 mod test_vmcaller_checked_anyfunc {
     use super::VMCallerCheckedAnyfunc;
-    use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
+    use wasmer_types::VMOffsets;
 
     #[test]
     fn check_vmcaller_checked_anyfunc_offsets() {
@@ -896,127 +888,6 @@ impl Default for VMCallerCheckedAnyfunc {
                 vmctx: ptr::null_mut(),
             },
         }
-    }
-}
-
-/// An index type for builtin functions.
-#[derive(Copy, Clone, Debug)]
-pub struct VMBuiltinFunctionIndex(u32);
-
-impl VMBuiltinFunctionIndex {
-    /// Returns an index for wasm's `memory.grow` builtin function.
-    pub const fn get_memory32_grow_index() -> Self {
-        Self(0)
-    }
-    /// Returns an index for wasm's imported `memory.grow` builtin function.
-    pub const fn get_imported_memory32_grow_index() -> Self {
-        Self(1)
-    }
-    /// Returns an index for wasm's `memory.size` builtin function.
-    pub const fn get_memory32_size_index() -> Self {
-        Self(2)
-    }
-    /// Returns an index for wasm's imported `memory.size` builtin function.
-    pub const fn get_imported_memory32_size_index() -> Self {
-        Self(3)
-    }
-    /// Returns an index for wasm's `table.copy` when both tables are locally
-    /// defined.
-    pub const fn get_table_copy_index() -> Self {
-        Self(4)
-    }
-    /// Returns an index for wasm's `table.init`.
-    pub const fn get_table_init_index() -> Self {
-        Self(5)
-    }
-    /// Returns an index for wasm's `elem.drop`.
-    pub const fn get_elem_drop_index() -> Self {
-        Self(6)
-    }
-    /// Returns an index for wasm's `memory.copy` for locally defined memories.
-    pub const fn get_memory_copy_index() -> Self {
-        Self(7)
-    }
-    /// Returns an index for wasm's `memory.copy` for imported memories.
-    pub const fn get_imported_memory_copy_index() -> Self {
-        Self(8)
-    }
-    /// Returns an index for wasm's `memory.fill` for locally defined memories.
-    pub const fn get_memory_fill_index() -> Self {
-        Self(9)
-    }
-    /// Returns an index for wasm's `memory.fill` for imported memories.
-    pub const fn get_imported_memory_fill_index() -> Self {
-        Self(10)
-    }
-    /// Returns an index for wasm's `memory.init` instruction.
-    pub const fn get_memory_init_index() -> Self {
-        Self(11)
-    }
-    /// Returns an index for wasm's `data.drop` instruction.
-    pub const fn get_data_drop_index() -> Self {
-        Self(12)
-    }
-    /// Returns an index for wasm's `raise_trap` instruction.
-    pub const fn get_raise_trap_index() -> Self {
-        Self(13)
-    }
-    /// Returns an index for wasm's `table.size` instruction for local tables.
-    pub const fn get_table_size_index() -> Self {
-        Self(14)
-    }
-    /// Returns an index for wasm's `table.size` instruction for imported tables.
-    pub const fn get_imported_table_size_index() -> Self {
-        Self(15)
-    }
-    /// Returns an index for wasm's `table.grow` instruction for local tables.
-    pub const fn get_table_grow_index() -> Self {
-        Self(16)
-    }
-    /// Returns an index for wasm's `table.grow` instruction for imported tables.
-    pub const fn get_imported_table_grow_index() -> Self {
-        Self(17)
-    }
-    /// Returns an index for wasm's `table.get` instruction for local tables.
-    pub const fn get_table_get_index() -> Self {
-        Self(18)
-    }
-    /// Returns an index for wasm's `table.get` instruction for imported tables.
-    pub const fn get_imported_table_get_index() -> Self {
-        Self(19)
-    }
-    /// Returns an index for wasm's `table.set` instruction for local tables.
-    pub const fn get_table_set_index() -> Self {
-        Self(20)
-    }
-    /// Returns an index for wasm's `table.set` instruction for imported tables.
-    pub const fn get_imported_table_set_index() -> Self {
-        Self(21)
-    }
-    /// Returns an index for wasm's `func.ref` instruction.
-    pub const fn get_func_ref_index() -> Self {
-        Self(22)
-    }
-    /// Returns an index for wasm's `table.fill` instruction for local tables.
-    pub const fn get_table_fill_index() -> Self {
-        Self(23)
-    }
-    /// Returns an index for a function to increment the externref count.
-    pub const fn get_externref_inc_index() -> Self {
-        Self(24)
-    }
-    /// Returns an index for a function to decrement the externref count.
-    pub const fn get_externref_dec_index() -> Self {
-        Self(25)
-    }
-    /// Returns the total number of builtin functions.
-    pub const fn builtin_functions_total_number() -> u32 {
-        26
-    }
-
-    /// Return the index as an u32 number.
-    pub const fn index(self) -> u32 {
-        self.0
     }
 }
 

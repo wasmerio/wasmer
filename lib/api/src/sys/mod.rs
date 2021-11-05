@@ -71,11 +71,10 @@ pub use wasmer_vm::{raise_user_trap, MemoryError};
 pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
 
-    pub use wasmer_vm::{
-        Memory, MemoryError, Table, VMExtern, VMMemoryDefinition,
-        VMTableDefinition,
-    };
     pub use wasmer_types::{MemoryStyle, TableStyle};
+    pub use wasmer_vm::{
+        Memory, MemoryError, Table, VMExtern, VMMemoryDefinition, VMTableDefinition,
+    };
 }
 
 #[cfg(feature = "wat")]

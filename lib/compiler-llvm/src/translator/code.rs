@@ -31,10 +31,9 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, Type,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
+    ModuleInfo, SignatureIndex, TableIndex, TableStyle, Type, VMOffsets,
 };
-use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
 const FUNCTION_SECTION: &str = "__TEXT,wasmer_function";
 

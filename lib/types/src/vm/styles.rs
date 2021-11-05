@@ -5,13 +5,12 @@
 //!
 //! `LinearMemory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
+use crate::Pages;
 use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use crate::Pages;
-
 
 /// Implementation styles for WebAssembly linear memory.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, MemoryUsage)]

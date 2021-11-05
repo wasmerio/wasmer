@@ -33,7 +33,6 @@ mod sig_registry;
 mod table;
 mod trap;
 mod vmcontext;
-mod vmoffsets;
 
 pub mod libcalls;
 
@@ -52,12 +51,11 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{LinearTable, Table, TableElement};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMFunctionBody, VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition,
-    VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition,
-    VMTableImport, VMTrampoline,
+    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
-pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 use loupe::MemoryUsage;
 pub use wasmer_types::VMExternRef;
 #[deprecated(

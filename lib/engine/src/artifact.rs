@@ -9,12 +9,12 @@ use std::sync::Arc;
 use wasmer_compiler::Features;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SignatureIndex, TableIndex, MemoryStyle, TableStyle
+    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo,
+    OwnedDataInitializer, SignatureIndex, TableIndex, TableStyle,
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle,
-    TrapHandler, VMSharedSignatureIndex, VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, TrapHandler,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`

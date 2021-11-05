@@ -4,8 +4,8 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
-    ModuleInfo, TableIndex, TableType, MemoryStyle, TableStyle
+    GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryStyle,
+    MemoryType, ModuleInfo, TableIndex, TableStyle, TableType,
 };
 use wasmer_vm::MemoryError;
 use wasmer_vm::{Global, Memory, Table};

@@ -6,12 +6,9 @@ use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables;
-use wasmer_vm::MemoryError;
-use wasmer_vm::{
-    LinearMemory, LinearTable, Memory, Table, VMMemoryDefinition,
-    VMTableDefinition,
-};
 use wasmer_types::{MemoryStyle, TableStyle};
+use wasmer_vm::MemoryError;
+use wasmer_vm::{LinearMemory, LinearTable, Memory, Table, VMMemoryDefinition, VMTableDefinition};
 
 /// Tunable parameters for WebAssembly compilation.
 /// This is the reference implementation of the `Tunables` trait,
