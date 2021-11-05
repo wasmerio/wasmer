@@ -347,12 +347,12 @@
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
 
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;m&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;m&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">number_of_values</span> <span class="op">=</span> <span class="number">1</span>)]</span>
     <span class="ident">cpu_features</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Additional libraries to link against.</span>
     <span class="doccomment">/// This is useful for fixing linker errors that may occur on some systems.</span>
-    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;l&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
+    <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;l&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">number_of_values</span> <span class="op">=</span> <span class="number">1</span>)]</span>
     <span class="ident">libraries</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 }
 
