@@ -60,7 +60,7 @@
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
 <span class="doccomment">/// The WebAssembly features that can be passed through the</span>
 <span class="doccomment">/// Command Line args.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmFeatures</span> {

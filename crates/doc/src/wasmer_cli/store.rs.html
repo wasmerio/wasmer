@@ -496,7 +496,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CompilerConfig</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>, <span class="ident">Default</span>)]</span>
 <span class="doccomment">/// The compiler and engine options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StoreOptions</span> {
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
@@ -527,7 +527,7 @@
     <span class="ident">object_file</span>: <span class="ident">bool</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>, <span class="ident">Default</span>)]</span>
 <span class="doccomment">/// The compiler options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompilerOptions</span> {
     <span class="doccomment">/// Use Singlepass compiler.</span>

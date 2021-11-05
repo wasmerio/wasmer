@@ -113,6 +113,19 @@
 <span id="112">112</span>
 <span id="113">113</span>
 <span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::utils</span>::{<span class="ident">parse_envvar</span>, <span class="ident">parse_mapdir</span>};
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
@@ -123,7 +136,7 @@
 
 <span class="kw">use</span> <span class="ident">structopt::StructOpt</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">StructOpt</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
 <span class="doccomment">/// WASI Options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Wasi</span> {
     <span class="doccomment">/// WASI pre-opened directory</span>
@@ -226,6 +239,19 @@
             }
         }
         .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;failed to run WASI `_start` function&quot;</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_binfmt_interpreter</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="ident">std::env</span>;
+        <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">env::var_os</span>(<span class="string">&quot;WASMER_BINFMT_MISC_PREOPEN&quot;</span>)
+            .<span class="ident">map</span>(<span class="ident">Into::into</span>)
+            .<span class="ident">unwrap_or</span>(<span class="ident">PathBuf::from</span>(<span class="string">&quot;.&quot;</span>));
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">deny_multiple_wasi_versions</span>: <span class="bool-val">true</span>,
+            <span class="ident">env_vars</span>: <span class="ident">env::vars</span>().<span class="ident">collect</span>(),
+            <span class="ident">pre_opened_directories</span>: <span class="macro">vec!</span>[<span class="ident">dir</span>],
+            ..<span class="self">Self</span><span class="ident">::default</span>()
+        })
     }
 }
 </pre></div>
