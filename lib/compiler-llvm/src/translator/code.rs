@@ -2519,7 +2519,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-                let callable_func = inkwell::values::CallableValue::try_from(typed_func_ptr).unwrap();
+                let callable_func =
+                    inkwell::values::CallableValue::try_from(typed_func_ptr).unwrap();
                 let call_site = self.builder.build_call(
                     callable_func,
                     params

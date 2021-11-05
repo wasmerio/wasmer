@@ -14,8 +14,8 @@ use inkwell::{
     AddressSpace, DLLStorageClass,
 };
 use std::cmp;
-use std::convert::TryInto;
 use std::convert::TryFrom;
+use std::convert::TryInto;
 use wasmer_compiler::{CompileError, FunctionBody, RelocationTarget};
 use wasmer_types::{FunctionType, LocalFunctionIndex};
 
