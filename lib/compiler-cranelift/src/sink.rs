@@ -10,8 +10,7 @@ use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};
 #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 use wasmer_compiler::{RelocationKind, SectionIndex};
 use wasmer_types::entity::EntityRef;
-use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo};
-use wasmer_vm::TrapCode;
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo, TrapCode};
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub(crate) struct RelocSink<'a> {

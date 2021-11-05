@@ -9,7 +9,7 @@ use crate::global::Global;
 use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
-use crate::trap::{Trap, TrapCode};
+use crate::trap::Trap;
 use crate::VMExternRef;
 use loupe::{MemoryUsage, MemoryUsageTracker, POINTER_BYTE_SIZE};
 use std::any::Any;
@@ -19,6 +19,7 @@ use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
+use wasmer_types::TrapCode;
 
 /// Union representing the first parameter passed when calling a function.
 ///

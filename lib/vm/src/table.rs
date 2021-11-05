@@ -6,7 +6,7 @@
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
 use crate::func_data_registry::VMFuncRef;
-use crate::trap::{Trap, TrapCode};
+use crate::trap::Trap;
 use crate::vmcontext::VMTableDefinition;
 use crate::VMExternRef;
 use loupe::{MemoryUsage, MemoryUsageTracker};
@@ -19,7 +19,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasmer_types::{ExternRef, TableType, Type as ValType};
+use wasmer_types::{ExternRef, TableType, TrapCode, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, MemoryUsage)]

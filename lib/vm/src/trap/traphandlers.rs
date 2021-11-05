@@ -4,7 +4,6 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
-use super::trapcode::TrapCode;
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use backtrace::Backtrace;
 use std::any::Any;
@@ -15,6 +14,7 @@ use std::mem::{self, MaybeUninit};
 use std::ptr;
 use std::sync::Once;
 pub use tls::TlsRestore;
+use wasmer_types::TrapCode;
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {

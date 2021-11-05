@@ -63,6 +63,7 @@ mod initializers;
 mod memory_view;
 mod module;
 mod native;
+mod trapcode;
 mod types;
 mod units;
 mod values;
@@ -82,6 +83,7 @@ pub use crate::initializers::{
 pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use crate::native::{NativeWasmType, ValueType};
+pub use crate::trapcode::TrapCode;
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };

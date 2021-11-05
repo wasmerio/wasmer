@@ -3,7 +3,8 @@ use backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_vm::{raise_user_trap, Trap, TrapCode};
+use wasmer_types::TrapCode;
+use wasmer_vm::{raise_user_trap, Trap};
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.

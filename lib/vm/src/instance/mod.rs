@@ -19,7 +19,7 @@ use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::{Table, TableElement};
-use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
+use crate::trap::{catch_traps, Trap, TrapHandler};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
@@ -45,7 +45,7 @@ use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, 
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
+    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, TrapCode,
 };
 
 /// The function pointer to call with data and an [`Instance`] pointer to

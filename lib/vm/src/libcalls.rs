@@ -40,12 +40,12 @@
 use crate::func_data_registry::VMFuncRef;
 use crate::probestack::PROBESTACK;
 use crate::table::{RawTableElement, TableElement};
-use crate::trap::{raise_lib_trap, Trap, TrapCode};
+use crate::trap::{raise_lib_trap, Trap};
 use crate::vmcontext::VMContext;
 use crate::VMExternRef;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    TableIndex, Type,
+    TableIndex, TrapCode, Type,
 };
 
 /// Implementation of f32.ceil
