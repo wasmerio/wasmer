@@ -11283,6 +11283,12 @@
 <span id="11282">11282</span>
 <span id="11283">11283</span>
 <span id="11284">11284</span>
+<span id="11285">11285</span>
+<span id="11286">11286</span>
+<span id="11287">11287</span>
+<span id="11288">11288</span>
+<span id="11289">11289</span>
+<span id="11290">11290</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
@@ -11310,6 +11316,7 @@
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::abi</span>::{<span class="ident">get_abi</span>, <span class="ident">Abi</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::config</span>::{<span class="ident">CompiledKind</span>, <span class="ident">LLVM</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::object_file</span>::{<span class="ident">load_object_file</span>, <span class="ident">CompiledFunction</span>};
+<span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">MemoryImmediate</span>, <span class="ident">Operator</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">wptype_to_type</span>, <span class="ident">CompileError</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>,
@@ -13511,8 +13518,9 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 }
                 */</span>
 
+                <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span> <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">func</span>).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">call_site</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
-                    <span class="ident">func</span>,
+                    <span class="ident">callable_func</span>,
                     <span class="ident">params</span>
                         .<span class="ident">iter</span>()
                         .<span class="ident">copied</span>()
@@ -13803,8 +13811,10 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     }
                 }
                 */</span>
+                <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span>
+                    <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">typed_func_ptr</span>).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">call_site</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
-                    <span class="ident">typed_func_ptr</span>,
+                    <span class="ident">callable_func</span>,
                     <span class="ident">params</span>
                         .<span class="ident">iter</span>()
                         .<span class="ident">copied</span>()
@@ -22196,8 +22206,9 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">mem</span>);
                 <span class="kw">let</span> <span class="ident">delta</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">grow_fn_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">memory_grow</span>(<span class="ident">memory_index</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>);
+                <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span> <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">grow_fn_ptr</span>).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">grow</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
-                    <span class="ident">grow_fn_ptr</span>,
+                    <span class="ident">callable_func</span>,
                     <span class="kw-2">&amp;</span>[
                         <span class="ident">vmctx</span>.<span class="ident">as_basic_value_enum</span>().<span class="ident">into</span>(),
                         <span class="ident">delta</span>.<span class="ident">into</span>(),
@@ -22210,8 +22221,9 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
             <span class="ident">Operator::MemorySize</span> { <span class="ident">mem</span>, <span class="ident">mem_byte</span>: <span class="kw">_</span> } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">mem</span>);
                 <span class="kw">let</span> <span class="ident">size_fn_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">memory_size</span>(<span class="ident">memory_index</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>);
+                <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span> <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">size_fn_ptr</span>).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
-                    <span class="ident">size_fn_ptr</span>,
+                    <span class="ident">callable_func</span>,
                     <span class="kw-2">&amp;</span>[
                         <span class="ident">vmctx</span>.<span class="ident">as_basic_value_enum</span>().<span class="ident">into</span>(),
                         <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">mem</span>.<span class="ident">into</span>(), <span class="bool-val">false</span>).<span class="ident">into</span>(),
