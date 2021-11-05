@@ -79,7 +79,7 @@ impl StaticlibArtifact {
     /// target system.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         cfg_if::cfg_if! {
-            if #[cfg(all(target_pointer_width = "64", target_os="macos"))] {
+            if #[cfg(all(target_pointer_width = "64", target_vendor="apple"))] {
                 bytes.starts_with(Self::MAGIC_HEADER_MH_CIGAM_64)
             }
             else if #[cfg(all(target_pointer_width = "64", target_os="linux"))] {

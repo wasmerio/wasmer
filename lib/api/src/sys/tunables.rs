@@ -52,13 +52,19 @@ impl BaseTunables {
 
         // Allocate a small guard to optimize common cases but without
         // wasting too much memory.
+        // The Windows memory manager seems more laxed than the other ones
+        // And a guard of just 1 page may not be enough is some borderline cases
+        // So using 2 pages for guard on this platform
+        #[cfg(target_os = "windows")]
+        let dynamic_memory_offset_guard_size: u64 = 0x2_0000;
+        #[cfg(not(target_os = "windows"))]
         let dynamic_memory_offset_guard_size: u64 = 0x1_0000;
 
         if let OperatingSystem::Windows = triple.operating_system {
             // For now, use a smaller footprint on Windows so that we don't
             // outstrip the paging file.
             static_memory_bound = min(static_memory_bound, 0x100.into());
-            static_memory_offset_guard_size = min(static_memory_offset_guard_size, 0x10000);
+            static_memory_offset_guard_size = min(static_memory_offset_guard_size, 0x20000);
         }
 
         Self {

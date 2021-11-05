@@ -10,22 +10,58 @@ license = "MIT"
 readme = "README.md"
 edition = "2018"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-bincode = "1"
+cfg-if = "1.0"
 thiserror = "1"
-generational-arena = { version = "0.2", features = ["serde"] }
-libc = { version = "^0.2", default-features = false }
-tracing = { version = "0.1" }
+generational-arena = { version = "0.2" }
+tracing = "0.1"
 getrandom = "0.2"
-typetag = "0.1"
-serde = { version = "1.0", features = ["derive"] }
 wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0" }
-wasmer = { path = "../api", version = "2.0.0", default-features = false, features = ["sys"] }
+wasmer = { path = "../api", version = "2.0.0", default-features = false }
+wasmer-vfs = { path = "../vfs", version = "2.0.0", default-features = false }
+typetag = { version = "0.1", optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+bincode = { version = "1.3", optional = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { version = "^0.2", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.74"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3.0"
+tracing-wasm = "0.2"
+
 [features]
-default = ["logging"]
+default = ["sys-default"]
+
+sys = ["wasmer/sys-default"]
+sys-default = ["sys", "logging", "host-fs"]
+
+js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js"]
+js-default = ["js", "wasmer/js-default"]
+test-js = ["js", "wasmer/js-default", "wasmer/wat"]
+
+host-fs = ["wasmer-vfs/host-fs"]
+mem-fs = ["wasmer-vfs/mem-fs"]
+
 logging = ["tracing/log"]
-disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
+disable-all-logging = [
+    "tracing/release_max_level_off",
+    "tracing/max_level_off"
+]
+enable-serde = [
+    "typetag",
+    "serde",
+    "bincode",
+    "wasmer-vfs/enable-serde",
+    "generational-arena/serde",
+    "wasmer-wasi-types/enable-serde",
+]

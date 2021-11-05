@@ -30,11 +30,6 @@ pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.as_u32())
 }
 
-/// The type of the `current_length` field.
-pub fn type_of_vmmemory_definition_current_length(vmoffsets: &VMOffsets) -> ir::Type {
-    ir::Type::int(u16::from(vmoffsets.size_of_vmmemory_definition_current_length()) * 8).unwrap()
-}
-
 /// The type of the `current_elements` field.
 pub fn type_of_vmtable_definition_current_elements(vmoffsets: &VMOffsets) -> ir::Type {
     ir::Type::int(u16::from(vmoffsets.size_of_vmtable_definition_current_elements()) * 8).unwrap()
@@ -1049,7 +1044,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                 let heap_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: ptr,
                     offset: Offset32::new(current_length_offset),
-                    global_type: type_of_vmmemory_definition_current_length(&self.offsets),
+                    global_type: pointer_type,
                     readonly: false,
                 });
                 (

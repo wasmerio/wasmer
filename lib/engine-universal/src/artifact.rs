@@ -122,6 +122,7 @@ impl UniversalArtifact {
             custom_sections: compilation.get_custom_sections(),
             custom_section_relocations: compilation.get_custom_section_relocations(),
             debug: compilation.get_debug(),
+            trampolines: compilation.get_trampolines(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -194,6 +195,7 @@ impl UniversalArtifact {
             serializable.compilation.function_relocations.clone(),
             &custom_sections,
             &serializable.compilation.custom_section_relocations,
+            &serializable.compilation.trampolines,
         );
 
         // Compute indices into the shared signature table.
@@ -221,6 +223,7 @@ impl UniversalArtifact {
             }
             None => None,
         };
+
         // Make all code compiled thus far executable.
         inner_engine.publish_compiled_code();
 

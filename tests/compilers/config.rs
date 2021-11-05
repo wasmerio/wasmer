@@ -125,7 +125,7 @@ impl Config {
                 self.add_middlewares(&mut compiler);
                 Box::new(compiler)
             }
-            #[allow(dead_code)]
+            #[allow(unreachable_patterns)]
             compiler => {
                 panic!(
                     "The {:?} Compiler is not enabled. Enable it via the features",

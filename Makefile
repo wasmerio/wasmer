@@ -127,22 +127,30 @@ endif
 ifneq ($(ENABLE_LLVM), 0)
 	# … then maybe the user forced to enable the LLVM compiler.
 	ifeq ($(ENABLE_LLVM), 1)
+		LLVM_VERSION := $(shell llvm-config --version)
 		compilers += llvm
 	# … otherwise, we try to autodetect LLVM from `llvm-config`
 	else ifneq (, $(shell which llvm-config 2>/dev/null))
 		LLVM_VERSION := $(shell llvm-config --version)
 
 		# If findstring is not empty, then it have found the value
-		ifneq (, $(findstring 11,$(LLVM_VERSION)))
+		ifneq (, $(findstring 12,$(LLVM_VERSION)))
+			compilers += llvm
+		else ifneq (, $(findstring 11,$(LLVM_VERSION)))
 			compilers += llvm
 		else ifneq (, $(findstring 10,$(LLVM_VERSION)))
 			compilers += llvm
 		endif
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
 	else
-		ifneq (, $(shell which llvm-config-11 2>/dev/null))
+		ifneq (, $(shell which llvm-config-12 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-12 --version)
+			compilers += llvm
+		else ifneq (, $(shell which llvm-config-11 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-11 --version)
 			compilers += llvm
 		else ifneq (, $(shell which llvm-config-10 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config-10 --version)
 			compilers += llvm
 		endif
 	endif
@@ -153,6 +161,7 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
+exclude_tests += --exclude wasmer-integration-tests-ios
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -171,7 +180,7 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 	ifeq ($(ENABLE_SINGLEPASS), 1)
 		compilers += singlepass
 	# … otherwise, we try to check whether Singlepass works on this host.
-	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_WINDOWS)))
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
@@ -231,6 +240,7 @@ ifeq ($(ENABLE_LLVM), 1)
 			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		endif
 	endif
@@ -317,10 +327,15 @@ ifneq (, $(LIBC))
 endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
 $(info Testing the following compilers & engines:)
-$(info   * API: $(bold)$(green)${compilers_engines}$(reset))
-$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset))
+$(info   * API: $(bold)$(green)${compilers_engines}$(reset),)
+$(info   * C-API: $(bold)$(green)${capi_compilers_engines}$(reset).)
 $(info Cargo features:)
-$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info Rust version: $(bold)$(green)$(shell rustc --version)$(reset).)
+$(info NodeJS version: $(bold)$(green)$(shell node --version)$(reset).)
+ifeq ($(ENABLE_LLVM), 1)
+        $(info LLVM version: $(bold)$(green)${LLVM_VERSION}$(reset).)
+endif
 $(info )
 $(info )
 $(info --------------)
@@ -357,7 +372,7 @@ build-wasmer:
 	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
 
 bench:
 	cargo bench $(compiler_features)
@@ -483,6 +498,10 @@ build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
+build-capi-headless-ios: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features dylib,wasi
+
 #####
 #
 # Testing.
@@ -500,9 +519,13 @@ test-packages:
 	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
-test-js:
+test-js: test-js-api test-js-wasi
+
+test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
+test-js-wasi:
+	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js
 
 #####
 #
@@ -553,12 +576,22 @@ test-capi-integration-%:
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
+test-wasi:
+	cargo test --release --tests $(compiler_features) -- wasi::wasitests
+
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
 
 test-integration:
 	cargo test -p wasmer-integration-tests-cli
 
+test-integration-ios:
+	cargo test -p wasmer-integration-tests-ios
+
+generate-wasi-tests:
+# Uncomment the following for installing the toolchain
+#   cargo run -p wasi-test-generator -- -s
+	cargo run -p wasi-test-generator -- -g
 #####
 #
 # Packaging.

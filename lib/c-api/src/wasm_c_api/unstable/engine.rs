@@ -1,7 +1,10 @@
 //! Unstable non-standard Wasmer-specific types for the
 //! `wasm_engine_t` and siblings.
 
-use super::super::engine::{wasm_config_t, wasmer_compiler_t, wasmer_engine_t};
+#[cfg(feature = "compiler")]
+use super::super::engine::wasmer_compiler_t;
+use super::super::engine::{wasm_config_t, wasmer_engine_t};
+
 use super::features::wasmer_features_t;
 use super::target_lexicon::wasmer_target_t;
 
@@ -137,6 +140,7 @@ pub extern "C" fn wasm_config_canonicalize_nans(config: &mut wasm_config_t, enab
 /// Check whether the given compiler is available, i.e. part of this
 /// compiled library.
 #[no_mangle]
+#[cfg(feature = "compiler")]
 pub extern "C" fn wasmer_is_compiler_available(compiler: wasmer_compiler_t) -> bool {
     match compiler {
         wasmer_compiler_t::CRANELIFT if cfg!(feature = "cranelift") => true,

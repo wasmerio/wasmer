@@ -6,6 +6,7 @@ use smallvec::SmallVec;
 use std::cmp;
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
+use wasmer_compiler::CallingConvention;
 
 const NATIVE_PAGE_SIZE: usize = 4096;
 
@@ -330,6 +331,7 @@ impl Machine {
         a: &mut E,
         n: usize,
         n_params: usize,
+        calling_convention: CallingConvention,
     ) -> Vec<Location> {
         // Determine whether a local should be allocated on the stack.
         fn is_local_on_stack(idx: usize) -> bool {
@@ -366,6 +368,11 @@ impl Machine {
 
         // Callee-saved R15 for vmctx.
         static_area_size += 8;
+
+        // For Windows ABI, save RDI and RSI
+        if calling_convention == CallingConvention::WindowsFastcall {
+            static_area_size += 8 * 2;
+        }
 
         // Total size of callee saved registers.
         let callee_saved_regs_size = static_area_size;
@@ -411,6 +418,29 @@ impl Machine {
             X64Register::GPR(GPR::R15).to_index(),
         ));
 
+        if calling_convention == CallingConvention::WindowsFastcall {
+            // Save RDI
+            self.stack_offset.0 += 8;
+            a.emit_mov(
+                Size::S64,
+                Location::GPR(GPR::RDI),
+                Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
+            );
+            self.state.stack_values.push(MachineValue::PreserveRegister(
+                X64Register::GPR(GPR::RDI).to_index(),
+            ));
+            // Save RSI
+            self.stack_offset.0 += 8;
+            a.emit_mov(
+                Size::S64,
+                Location::GPR(GPR::RSI),
+                Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
+            );
+            self.state.stack_values.push(MachineValue::PreserveRegister(
+                X64Register::GPR(GPR::RSI).to_index(),
+            ));
+        }
+
         // Save the offset of register save area.
         self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
 
@@ -432,7 +462,7 @@ impl Machine {
         // Locals are allocated on the stack from higher address to lower address,
         // so we won't skip the stack guard page here.
         for i in 0..n_params {
-            let loc = Self::get_param_location(i + 1);
+            let loc = Self::get_param_location(i + 1, calling_convention);
             match loc {
                 Location::GPR(_) => {
                     a.emit_mov(Size::S64, loc, locations[i]);
@@ -454,7 +484,7 @@ impl Machine {
         // Load vmctx into R15.
         a.emit_mov(
             Size::S64,
-            Self::get_param_location(0),
+            Self::get_param_location(0, calling_convention),
             Location::GPR(GPR::R15),
         );
 
@@ -499,7 +529,12 @@ impl Machine {
         locations
     }
 
-    pub fn finalize_locals<E: Emitter>(&mut self, a: &mut E, locations: &[Location]) {
+    pub fn finalize_locals<E: Emitter>(
+        &mut self,
+        a: &mut E,
+        locations: &[Location],
+        calling_convention: CallingConvention,
+    ) {
         // Unwind stack to the "save area".
         a.emit_lea(
             Size::S64,
@@ -510,6 +545,11 @@ impl Machine {
             Location::GPR(GPR::RSP),
         );
 
+        if calling_convention == CallingConvention::WindowsFastcall {
+            // Restore RSI and RDI
+            a.emit_pop(Size::S64, Location::GPR(GPR::RSI));
+            a.emit_pop(Size::S64, Location::GPR(GPR::RDI));
+        }
         // Restore R15 used by vmctx.
         a.emit_pop(Size::S64, Location::GPR(GPR::R15));
 
@@ -521,15 +561,24 @@ impl Machine {
         }
     }
 
-    pub fn get_param_location(idx: usize) -> Location {
-        match idx {
-            0 => Location::GPR(GPR::RDI),
-            1 => Location::GPR(GPR::RSI),
-            2 => Location::GPR(GPR::RDX),
-            3 => Location::GPR(GPR::RCX),
-            4 => Location::GPR(GPR::R8),
-            5 => Location::GPR(GPR::R9),
-            _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
+    pub fn get_param_location(idx: usize, calling_convention: CallingConvention) -> Location {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => match idx {
+                0 => Location::GPR(GPR::RCX),
+                1 => Location::GPR(GPR::RDX),
+                2 => Location::GPR(GPR::R8),
+                3 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (16 + 32 + (idx - 4) * 8) as i32),
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::RDI),
+                1 => Location::GPR(GPR::RSI),
+                2 => Location::GPR(GPR::RDX),
+                3 => Location::GPR(GPR::RCX),
+                4 => Location::GPR(GPR::R8),
+                5 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
+            },
         }
     }
 }

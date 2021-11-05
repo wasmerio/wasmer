@@ -12,10 +12,10 @@ use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Architecture, Compilation, CompileError, CompileModuleInfo, CompiledFunction, Compiler,
-    CompilerConfig, FunctionBinaryReader, FunctionBody, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, SectionIndex,
-    Target, TrapInformation,
+    Architecture, CallingConvention, Compilation, CompileError, CompileModuleInfo,
+    CompiledFunction, Compiler, CompilerConfig, FunctionBinaryReader, FunctionBody,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
+    ModuleTranslationState, OperatingSystem, SectionIndex, Target, TrapInformation,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -57,17 +57,24 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        if target.triple().operating_system == OperatingSystem::Windows {
+        /*if target.triple().operating_system == OperatingSystem::Windows {
             return Err(CompileError::UnsupportedTarget(
                 OperatingSystem::Windows.to_string(),
             ));
-        }
+        }*/
         if let Architecture::X86_32(arch) = target.triple().architecture {
             return Err(CompileError::UnsupportedTarget(arch.to_string()));
         }
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
+        let calling_convention = match target.triple().default_calling_convention() {
+            Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
+            Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
+            //Ok(CallingConvention::AppleAarch64) => AppleAarch64,
+            _ => panic!("Unsupported Calling convention for Singlepass compiler"),
+        };
+
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
@@ -77,7 +84,12 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
             .map(|i| {
-                gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]])
+                gen_import_call_trampoline(
+                    &vmoffsets,
+                    i,
+                    &module.signatures[module.functions[i]],
+                    calling_convention,
+                )
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -133,7 +145,7 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(gen_std_trampoline)
+            .map(|func_type| gen_std_trampoline(&func_type, calling_convention))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -142,7 +154,9 @@ impl Compiler for SinglepassCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
+            .map(|func_type| {
+                gen_std_dynamic_import_trampoline(&vmoffsets, &func_type, calling_convention)
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
@@ -152,6 +166,7 @@ impl Compiler for SinglepassCompiler {
             import_trampolines,
             function_call_trampolines,
             dynamic_function_trampolines,
+            None,
             None,
         ))
     }
@@ -219,13 +234,13 @@ mod tests {
         let compiler = SinglepassCompiler::new(Singlepass::default());
 
         // Compile for win64
-        let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
+        /*let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
         let (mut info, translation, inputs) = dummy_compilation_ingredients();
         let result = compiler.compile_module(&win64, &mut info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"),
             error => panic!("Unexpected error: {:?}", error),
-        };
+        };*/
 
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
@@ -241,7 +256,7 @@ mod tests {
         let (mut info, translation, inputs) = dummy_compilation_ingredients();
         let result = compiler.compile_module(&win32, &mut info, &translation, inputs);
         match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"), // Windows should be checked before architecture
+            CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {:?}", error),
         };
     }

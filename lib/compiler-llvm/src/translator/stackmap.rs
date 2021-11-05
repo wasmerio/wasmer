@@ -54,7 +54,7 @@ pub enum StackmapEntryKind {
 
 impl StackmapEntry {
     #[cfg(all(
-        any(target_os = "freebsd", target_os = "linux", target_os = "macos"),
+        any(target_os = "freebsd", target_os = "linux", target_vendor = "apple"),
         target_arch = "x86_64"
     ))]
     pub fn populate_msm(

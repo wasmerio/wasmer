@@ -64,6 +64,9 @@ pub struct Run {
     #[structopt(long = "debug", short = "d")]
     debug: bool,
 
+    #[structopt(short, long, parse(from_occurrences))]
+    verbose: u8,
+
     /// Application arguments
     #[structopt(name = "--", multiple = true)]
     args: Vec<String>,
@@ -74,7 +77,7 @@ impl Run {
     pub fn execute(&self) -> Result<()> {
         #[cfg(feature = "debug")]
         if self.debug {
-            logging::set_up_logging().unwrap();
+            logging::set_up_logging(self.verbose).unwrap();
         }
         self.inner_execute().with_context(|| {
             format!(

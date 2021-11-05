@@ -1,9 +1,9 @@
+name: Documentation
+
 on:
   push:
     branches:
       - 'master'
-
-name: Documentation
 
 jobs:
   documentation:

@@ -42,7 +42,7 @@ pub trait LikeNamespace {
 /// ```
 #[derive(Clone, Default)]
 pub struct ImportObject {
-    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace>>>>,
+    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send + Sync>>>>,
 }
 
 impl ImportObject {
@@ -88,7 +88,7 @@ impl ImportObject {
     pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
     where
         S: Into<String>,
-        N: LikeNamespace + 'static,
+        N: LikeNamespace + Send + Sync + 'static,
     {
         let mut guard = self.map.lock().unwrap();
         let map = guard.borrow_mut();
@@ -112,6 +112,30 @@ impl ImportObject {
             }
         }
         out
+    }
+
+    /// Returns the `ImportObject` as a Javascript `Object`
+    pub fn as_jsobject(&self) -> js_sys::Object {
+        let guard = self.map.lock().expect("Can't get the map");
+        let map = guard.borrow();
+
+        let imports = js_sys::Object::new();
+        for (module, ns) in map.iter() {
+            let import_namespace = js_sys::Object::new();
+            for (name, exp) in ns.get_namespace_exports() {
+                js_sys::Reflect::set(&import_namespace, &name.into(), exp.as_jsvalue())
+                    .expect("Error while setting into the js namespace object");
+            }
+            js_sys::Reflect::set(&imports, &module.into(), &import_namespace.into())
+                .expect("Error while setting into the js imports object");
+        }
+        imports
+    }
+}
+
+impl Into<js_sys::Object> for ImportObject {
+    fn into(self) -> js_sys::Object {
+        self.as_jsobject()
     }
 }
 

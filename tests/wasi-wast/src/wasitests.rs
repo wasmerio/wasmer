@@ -147,7 +147,6 @@ fn compile_wasm_for_version(
             .create(true)
             .open(&temp_wasi_rs_file_name)
             .unwrap();
-        actual_file.write_all(b"#![feature(wasi_ext)]\n").unwrap();
         actual_file.write_all(file_contents.as_bytes()).unwrap();
     }
 
@@ -246,13 +245,21 @@ fn compile(temp_dir: &Path, file: &str, wasi_versions: &[WasiVersion]) {
 }
 
 const WASI_TEST_SRC_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wasi/tests/*.rs");
-pub fn build(wasi_versions: &[WasiVersion]) {
+pub fn build(wasi_versions: &[WasiVersion], specific_tests: &[&str]) {
     let temp_dir = tempfile::TempDir::new().unwrap();
     for entry in glob(WASI_TEST_SRC_DIR).unwrap() {
         match entry {
             Ok(path) => {
                 let test = path.to_str().unwrap();
-                compile(temp_dir.path(), test, wasi_versions);
+                if !specific_tests.is_empty() {
+                    if let Some(filename) = path.file_stem().map(|f| f.to_str()).flatten() {
+                        if specific_tests.contains(&filename) {
+                            compile(temp_dir.path(), test, wasi_versions);
+                        }
+                    }
+                } else {
+                    compile(temp_dir.path(), test, wasi_versions);
+                }
             }
             Err(e) => println!("{:?}", e),
         }

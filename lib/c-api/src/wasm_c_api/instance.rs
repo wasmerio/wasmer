@@ -3,6 +3,7 @@ use super::module::wasm_module_t;
 use super::store::wasm_store_t;
 use super::trap::wasm_trap_t;
 use crate::ordered_resolver::OrderedResolver;
+use rayon::prelude::*;
 use std::mem;
 use std::sync::Arc;
 use wasmer_api::{Extern, Instance, InstantiationError};
@@ -51,8 +52,8 @@ pub unsafe extern "C" fn wasm_instance_new(
     let module_import_count = module_imports.len();
     let resolver: OrderedResolver = imports
         .into_slice()
-        .map(|imports| imports.iter())
-        .unwrap_or_else(|| [].iter())
+        .map(|imports| imports.par_iter())
+        .unwrap_or_else(|| [].par_iter())
         .map(|imp| Extern::from((&**imp).clone()))
         .take(module_import_count)
         .collect();

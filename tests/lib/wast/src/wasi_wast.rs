@@ -1,15 +1,25 @@
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
-use std::fs::File;
+use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Module, Store};
+use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiFsError,
+    generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
     WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
+
+/// The kind of filesystem `WasiTest` is going to use.
+#[derive(Debug)]
+pub enum WasiFileSystemKind {
+    /// Instruct the test runner to use `wasmer_vfs::host_fs`.
+    Host,
+
+    /// Instruct the test runner to use `wasmer_vfs::mem_fs`.
+    InMemory,
+}
 
 /// Crate holding metadata parsed from the WASI WAST about the test to be run.
 #[derive(Debug, Clone, Hash)]
@@ -71,7 +81,12 @@ impl<'a> WasiTest<'a> {
     }
 
     /// Execute the WASI test and assert.
-    pub fn run(&self, store: &Store, base_path: &str) -> anyhow::Result<bool> {
+    pub fn run(
+        &self,
+        store: &Store,
+        base_path: &str,
+        filesystem_kind: WasiFileSystemKind,
+    ) -> anyhow::Result<bool> {
         let mut pb = PathBuf::from(base_path);
         pb.push(self.wasm_path);
         let wasm_bytes = {
@@ -81,17 +96,19 @@ impl<'a> WasiTest<'a> {
             out
         };
         let module = Module::new(&store, &wasm_bytes)?;
-        let (env, _tempdirs) = self.create_wasi_env()?;
+        let (env, _tempdirs) = self.create_wasi_env(filesystem_kind)?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;
+
         if let Some(stdin) = &self.stdin {
             let mut state = env.state();
             let wasi_stdin = state.fs.stdin_mut()?.as_mut().unwrap();
             // Then we can write to it!
             write!(wasi_stdin, "{}", stdin.stream)?;
         }
+
         // TODO: handle errors here when the error fix gets shipped
         match start.call(&[]) {
             Ok(_) => {}
@@ -115,6 +132,7 @@ impl<'a> WasiTest<'a> {
             let stdout_str = get_stdout_output(&wasi_state)?;
             assert_eq!(stdout_str, expected_stdout.expected);
         }
+
         if let Some(expected_stderr) = &self.assert_stderr {
             let stderr_str = get_stderr_output(&wasi_state)?;
             assert_eq!(stderr_str, expected_stderr.expected);
@@ -124,7 +142,10 @@ impl<'a> WasiTest<'a> {
     }
 
     /// Create the wasi env with the given metadata.
-    fn create_wasi_env(&self) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
+    fn create_wasi_env(
+        &self,
+        filesystem_kind: WasiFileSystemKind,
+    ) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
         let mut builder = WasiState::new(self.wasm_path);
 
         let stdin_pipe = Pipe::new();
@@ -133,23 +154,66 @@ impl<'a> WasiTest<'a> {
         for (name, value) in &self.envs {
             builder.env(name, value);
         }
-        for (alias, real_dir) in &self.mapped_dirs {
-            let mut dir = PathBuf::from(BASE_TEST_DIR);
-            dir.push(real_dir);
-            builder.map_dir(alias, dir)?;
-        }
 
-        // due to the structure of our code, all preopen dirs must be mapped now
-        for dir in &self.dirs {
-            let mut new_dir = PathBuf::from(BASE_TEST_DIR);
-            new_dir.push(dir);
-            builder.map_dir(dir, new_dir)?;
-        }
-        let mut temp_dirs = vec![];
-        for alias in &self.temp_dirs {
-            let td = tempfile::tempdir()?;
-            builder.map_dir(alias, td.path())?;
-            temp_dirs.push(td);
+        let mut host_temp_dirs_to_not_drop = vec![];
+
+        match filesystem_kind {
+            WasiFileSystemKind::Host => {
+                let fs = host_fs::FileSystem::default();
+
+                for (alias, real_dir) in &self.mapped_dirs {
+                    let mut dir = PathBuf::from(BASE_TEST_DIR);
+                    dir.push(real_dir);
+                    builder.map_dir(alias, dir)?;
+                }
+
+                // due to the structure of our code, all preopen dirs must be mapped now
+                for dir in &self.dirs {
+                    let mut new_dir = PathBuf::from(BASE_TEST_DIR);
+                    new_dir.push(dir);
+                    builder.map_dir(dir, new_dir)?;
+                }
+
+                for alias in &self.temp_dirs {
+                    let temp_dir = tempfile::tempdir()?;
+                    builder.map_dir(alias, temp_dir.path())?;
+                    host_temp_dirs_to_not_drop.push(temp_dir);
+                }
+
+                builder.set_fs(Box::new(fs));
+            }
+
+            WasiFileSystemKind::InMemory => {
+                let fs = mem_fs::FileSystem::default();
+                let mut temp_dir_index: usize = 0;
+
+                let root = PathBuf::from("/");
+
+                map_host_fs_to_mem_fs(&fs, read_dir(BASE_TEST_DIR)?, &root)?;
+
+                for (alias, real_dir) in &self.mapped_dirs {
+                    let mut path = root.clone();
+                    path.push(real_dir);
+                    builder.map_dir(alias, path)?;
+                }
+
+                for dir in &self.dirs {
+                    let mut new_dir = PathBuf::from("/");
+                    new_dir.push(dir);
+
+                    builder.map_dir(dir, new_dir)?;
+                }
+
+                for alias in &self.temp_dirs {
+                    let temp_dir_name =
+                        PathBuf::from(format!("/.tmp_wasmer_wast_{}", temp_dir_index));
+                    fs.create_dir(temp_dir_name.as_path())?;
+                    builder.map_dir(alias, temp_dir_name)?;
+                    temp_dir_index += 1;
+                }
+
+                builder.set_fs(Box::new(fs));
+            }
         }
 
         let out = builder
@@ -159,7 +223,8 @@ impl<'a> WasiTest<'a> {
             .stdout(Box::new(OutputCapturerer::new()))
             .stderr(Box::new(OutputCapturerer::new()))
             .finalize()?;
-        Ok((out, temp_dirs))
+
+        Ok((out, host_temp_dirs_to_not_drop))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
@@ -468,7 +533,7 @@ mod test {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 struct OutputCapturerer {
     output: Vec<u8>,
 }
@@ -530,8 +595,7 @@ impl Write for OutputCapturerer {
     }
 }
 
-#[typetag::serde]
-impl WasiFile for OutputCapturerer {
+impl VirtualFile for OutputCapturerer {
     fn last_accessed(&self) -> __wasi_timestamp_t {
         0
     }
@@ -544,13 +608,50 @@ impl WasiFile for OutputCapturerer {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), FsError> {
         Ok(())
     }
-    fn unlink(&mut self) -> Result<(), WasiFsError> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+    fn bytes_available(&self) -> Result<usize, FsError> {
         Ok(1024)
     }
+}
+
+/// When using `wasmer_vfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
+/// because the host filesystem cannot be used. Instead, we are
+/// copying `BASE_TEST_DIR` to the `mem_fs`.
+fn map_host_fs_to_mem_fs(
+    fs: &mem_fs::FileSystem,
+    directory_reader: ReadDir,
+    path_prefix: &PathBuf,
+) -> anyhow::Result<()> {
+    for entry in directory_reader {
+        let entry = entry?;
+        let entry_type = entry.file_type()?;
+
+        let mut path = path_prefix.clone();
+        path.push(entry.path().file_name().unwrap());
+
+        if entry_type.is_dir() {
+            fs.create_dir(&path)?;
+
+            map_host_fs_to_mem_fs(fs, read_dir(entry.path())?, &path)?
+        } else if entry_type.is_file() {
+            let mut host_file = OpenOptions::new().read(true).open(entry.path())?;
+            let mut mem_file = fs
+                .new_open_options()
+                .create_new(true)
+                .write(true)
+                .open(path)?;
+            let mut buffer = Vec::new();
+            host_file.read_to_end(&mut buffer)?;
+            mem_file.write_all(&buffer)?;
+        } else if entry_type.is_symlink() {
+            //unimplemented!("`mem_fs` does not support symlink for the moment");
+        }
+    }
+
+    Ok(())
 }

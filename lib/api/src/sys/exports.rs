@@ -290,6 +290,10 @@ impl LikeNamespace for Exports {
             .map(|(k, v)| (k.clone(), v.to_export()))
             .collect()
     }
+
+    fn as_exports(&self) -> Option<Exports> {
+        Some(self.clone())
+    }
 }
 
 /// This trait is used to mark types as gettable from an [`Instance`].
