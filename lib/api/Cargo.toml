@@ -68,7 +68,7 @@ hashbrown = { version = "0.11", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wat = "1.0"
 anyhow = "1.0"
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = "0.3.28"
 
 # Specific to `js`.
 #

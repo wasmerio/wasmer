@@ -36,7 +36,7 @@ winapi = "0.3"
 wasm-bindgen = "0.2.74"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen-test = "0.3.28"
 tracing-wasm = "0.2"
 
 [features]
