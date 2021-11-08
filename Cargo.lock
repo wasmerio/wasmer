@@ -1001,10 +1001,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "inkwell_internals"
-version = "0.3.0"
+name = "inkwell"
+version = "0.1.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e1f71330ccec54ee62533ae88574c4169b67fb4b95cbb1196a1322582abd11"
+checksum = "2223d0eba0ae6d40a3e4680c6a3209143471e1f38b41746ea309aa36dde9f90b"
+dependencies = [
+ "either",
+ "inkwell_internals",
+ "libc",
+ "llvm-sys",
+ "once_cell",
+ "parking_lot",
+ "regex",
+]
+
+[[package]]
+name = "inkwell_internals"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c7090af3d300424caa81976b8c97bca41cd70e861272c072e188ae082fb49f9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1141,9 +1156,9 @@ dependencies = [
 
 [[package]]
 name = "llvm-sys"
-version = "110.0.1"
+version = "110.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21ede189444b8c78907e5d36da5dabcf153170fcff9c1dba48afc4b33c7e19f0"
+checksum = "3b7cc88ba864d592f52132ed3a19a97118fe16c92a63961f54b0ab7279c5407f"
 dependencies = [
  "cc",
  "lazy_static",
@@ -2820,6 +2835,7 @@ version = "2.0.0"
 dependencies = [
  "byteorder",
  "cc",
+ "inkwell",
  "itertools",
  "lazy_static",
  "libc",
@@ -2834,7 +2850,6 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
- "wasmer_inkwell",
 ]
 
 [[package]]
@@ -3139,21 +3154,6 @@ dependencies = [
  "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",
-]
-
-[[package]]
-name = "wasmer_inkwell"
-version = "0.2.0-alpha.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5eca826323f39b29a38cd31c8eb33de76945c6193f30a2806c6cde6f6cd42cb1"
-dependencies = [
- "either",
- "inkwell_internals",
- "libc",
- "llvm-sys",
- "once_cell",
- "parking_lot",
- "regex",
 ]
 
 [[package]]

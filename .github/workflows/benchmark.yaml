@@ -17,7 +17,6 @@ jobs:
           - build: linux
             os: ubuntu-latest
     env:
-      CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:

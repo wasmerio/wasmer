@@ -46,3 +46,9 @@
   * `libwasmer-static`, containing `libwasmer.a`.
 
 The Wasmer distro packaging story is still in its infancy, so feedback is very welcome.
+
+## Miscellaneous: binfmt_misc
+
+Wasmer can be registered as a binfmt interpreter for wasm binaries.
+An example systemd [.service](./scripts/wasmer-binfmt.service.example) is included here.
+Please consider statically linking the wasmer binary so that this capability is also available in mount namespaces.
