@@ -125,34 +125,6 @@ wasitests::unstable::mem_fs::poll_oneoff
 ### randomly failed, mainly on windows but also on macos, due to a race condition when concurently testing multiple compiler / engines
 wasitests::snapshot1::host_fs::fd_rename_path
 
-## Failing due to different line endings on Windows
-## we need a better solution to this problem:
-
-windows wasitests::snapshot1::host_fs::file_metadata
-windows wasitests::snapshot1::host_fs::fseek
-windows wasitests::snapshot1::host_fs::path_link
-windows wasitests::snapshot1::host_fs::path_symlink
-windows wasitests::snapshot1::host_fs::mapdir_with_leading_slash
-windows wasitests::unstable::host_fs::fd_pread
-windows wasitests::unstable::host_fs::fd_read
-windows wasitests::unstable::host_fs::file_metadata
-windows wasitests::unstable::host_fs::fseek
-windows wasitests::unstable::host_fs::path_link
-windows wasitests::unstable::host_fs::path_symlink
-windows wasitests::unstable::host_fs::mapdir_with_leading_slash
-windows wasitests::snapshot1::mem_fs::file_metadata
-windows wasitests::snapshot1::mem_fs::fseek
-windows wasitests::snapshot1::mem_fs::path_link
-windows wasitests::snapshot1::mem_fs::path_symlink
-windows wasitests::snapshot1::mem_fs::mapdir_with_leading_slash
-windows wasitests::unstable::mem_fs::fd_pread
-windows wasitests::unstable::mem_fs::fd_read
-windows wasitests::unstable::mem_fs::file_metadata
-windows wasitests::unstable::mem_fs::fseek
-windows wasitests::unstable::mem_fs::path_link
-windows wasitests::unstable::mem_fs::path_symlink
-windows wasitests::unstable::mem_fs::mapdir_with_leading_slash
-
 # This tests are disabled for now
 wasitests::unstable::host_fs::unix_open_special_files
 wasitests::snapshot1::host_fs::unix_open_special_files

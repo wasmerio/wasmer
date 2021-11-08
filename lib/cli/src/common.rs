@@ -5,7 +5,7 @@ use std::env;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, StructOpt, Clone, Default)]
 /// The WebAssembly features that can be passed through the
 /// Command Line args.
 pub struct WasmFeatures {
