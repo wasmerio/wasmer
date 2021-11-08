@@ -1,4 +1,4 @@
 CHANGELOG.md merge=union
 *.wast linguist-vendored
 *.wat linguist-vendored
-* -text
+tests/wasi-wast/wasi/test_fs -text
