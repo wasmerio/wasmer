@@ -432,7 +432,7 @@
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="kw">let</span> <span class="ident">convert_ts_into_time_string</span> <span class="op">=</span> <span class="op">|</span><span class="ident">ts</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">tspec</span> <span class="op">=</span> <span class="ident">::time::OffsetDateTime::from_unix_timestamp_nanos</span>(<span class="ident">ts</span>);
-            <span class="macro">format!</span>(<span class="string">&quot;{} ({})&quot;</span>, <span class="ident">tspec</span>.<span class="ident">format</span>(<span class="string">&quot;%a, %d %b %Y %T %Z&quot;</span>), <span class="ident">ts</span>)
+            <span class="macro">format!</span>(<span class="string">&quot;{} ({})&quot;</span>, <span class="ident">tspec</span>.<span class="ident">format</span>(<span class="string">&quot;%a, %d %b %Y %T %z&quot;</span>), <span class="ident">ts</span>)
         };
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;__wasi_filestat_t&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;st_dev&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">st_dev</span>)
