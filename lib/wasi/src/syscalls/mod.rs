@@ -2073,7 +2073,7 @@ pub fn path_rename(
 
     let source_entry = match &mut state.fs.inodes[source_parent_inode].kind {
         Kind::Dir { entries, .. } => {
-            wasi_try!(entries.remove(&source_entry_name), __WASI_EINVAL)
+            wasi_try!(entries.remove(&source_entry_name), __WASI_ENOENT)
         }
         Kind::Root { .. } => return __WASI_ENOTCAPABLE,
         Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
