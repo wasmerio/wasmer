@@ -29,12 +29,12 @@ pub struct CreateExe {
     #[structopt(flatten)]
     compiler: CompilerOptions,
 
-    #[structopt(short = "m", multiple = true)]
+    #[structopt(short = "m", multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     /// Additional libraries to link against.
     /// This is useful for fixing linker errors that may occur on some systems.
-    #[structopt(short = "l", multiple = true)]
+    #[structopt(short = "l", multiple = true, number_of_values = 1)]
     libraries: Vec<String>,
 }
 

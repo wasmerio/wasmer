@@ -25,8 +25,8 @@ rayon = "1.5"
 loupe = "0.1"
 
 [dependencies.inkwell]
-package = "wasmer_inkwell"
-version = "0.2.0-alpha.2"
+package = "inkwell"
+version = "0.1.0-beta.4"
 default-features = false
 features = ["llvm11-0", "target-x86", "target-aarch64"]
 

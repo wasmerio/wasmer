@@ -13,6 +13,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2535](https://github.com/wasmerio/wasmer/pull/2435) Added iOS support for Wasmer. This relies on the `dylib-engine`.
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Wasmer can now compile to Javascript via `wasm-bindgen`. Use the `js-default` (and no default features) feature to try it!.
 - [#2436](https://github.com/wasmerio/wasmer/pull/2436) Added the x86-32 bit variant support to LLVM compiler.
+- [#2499](https://github.com/wasmerio/wasmer/pull/2499) Added a subcommand to linux wasmer-cli to register wasmer with binfmt_misc
+
 
 ### Changed
 - [#2460](https://github.com/wasmerio/wasmer/pull/2460) **breaking change** `wasmer` API usage with `no-default-features` requires now the `sys` feature to preserve old behavior.
@@ -31,6 +33,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
 - [#2635](https://github.com/wasmerio/wasmer/pull/2635) Fix cross-compilation for singlepass.
+- [#2672](https://github.com/wasmerio/wasmer/pull/2672) Use `ENOENT` instead of `EINVAL` in some WASI syscalls for a non-existent file
 
 ## 2.0.0 - 2021/06/16
 

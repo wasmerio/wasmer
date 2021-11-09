@@ -27,7 +27,7 @@ pub struct Compile {
     #[structopt(flatten)]
     store: StoreOptions,
 
-    #[structopt(short = "m", multiple = true)]
+    #[structopt(short = "m", multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 }
 

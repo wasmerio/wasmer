@@ -1,3 +1,4 @@
 CHANGELOG.md merge=union
 *.wast linguist-vendored
 *.wat linguist-vendored
+scene*.txt -text

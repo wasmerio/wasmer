@@ -1,0 +1,15 @@
+[Unit]
+Description=Set up wasmer to handle execution of wasm binaries
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=proc-sys-fs-binfmt_misc.automount
+After=proc-sys-fs-binfmt_misc.mount
+Before=sysinit.target shutdown.target
+ConditionPathIsReadWrite=/proc/sys/
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/wasmer binfmt reregister
+ExecStop=/usr/bin/wasmer binfmt unregister
+TimeoutSec=10s

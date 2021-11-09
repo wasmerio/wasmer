@@ -1,9 +1,8 @@
 use crate::sys::{MemoryType, Pages, TableType};
 use loupe::MemoryUsage;
-use std::cmp::min;
 use std::ptr::NonNull;
 use std::sync::Arc;
-use target_lexicon::{OperatingSystem, PointerWidth};
+use target_lexicon::PointerWidth;
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables;
 use wasmer_vm::MemoryError;
@@ -37,7 +36,7 @@ impl BaseTunables {
     pub fn for_target(target: &Target) -> Self {
         let triple = target.triple();
         let pointer_width: PointerWidth = triple.pointer_width().unwrap();
-        let (mut static_memory_bound, mut static_memory_offset_guard_size): (Pages, u64) =
+        let (static_memory_bound, static_memory_offset_guard_size): (Pages, u64) =
             match pointer_width {
                 PointerWidth::U16 => (0x400.into(), 0x1000),
                 PointerWidth::U32 => (0x4000.into(), 0x1_0000),
@@ -59,13 +58,6 @@ impl BaseTunables {
         let dynamic_memory_offset_guard_size: u64 = 0x2_0000;
         #[cfg(not(target_os = "windows"))]
         let dynamic_memory_offset_guard_size: u64 = 0x1_0000;
-
-        if let OperatingSystem::Windows = triple.operating_system {
-            // For now, use a smaller footprint on Windows so that we don't
-            // outstrip the paging file.
-            static_memory_bound = min(static_memory_bound, 0x100.into());
-            static_memory_offset_guard_size = min(static_memory_offset_guard_size, 0x20000);
-        }
 
         Self {
             static_memory_bound,
