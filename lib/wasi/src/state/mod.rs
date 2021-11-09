@@ -766,7 +766,7 @@ impl WasiFs {
                                 .fs_backing
                                 .symlink_metadata(&file)
                                 .ok()
-                                .ok_or(__WASI_EINVAL)?;
+                                .ok_or(__WASI_ENOENT)?;
                             let file_type = metadata.file_type();
                             // we want to insert newly opened dirs and files, but not transient symlinks
                             // TODO: explain why (think about this deeply when well rested)
@@ -894,7 +894,7 @@ impl WasiFs {
                         {
                             cur_inode = *entry;
                         } else {
-                            return Err(__WASI_EINVAL);
+                            return Err(__WASI_ENOENT);
                         }
                     }
                     Kind::File { .. } => {
