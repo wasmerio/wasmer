@@ -1621,8 +1621,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         };
                         let case_index_literal =
                             self.context.i32_type().const_int(case_index as u64, false);
-
-                        for (phi, value) in frame.phis().iter().zip(args.iter()) {
+                        let phis = if frame.is_loop() {
+                            frame.loop_body_phis()
+                        } else {
+                            frame.phis()
+                        };
+                        for (phi, value) in phis.iter().zip(args.iter()) {
                             phi.add_incoming(&[(value, current_block)]);
                         }
 
