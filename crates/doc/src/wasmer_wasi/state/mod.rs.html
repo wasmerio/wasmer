@@ -1596,6 +1596,7 @@
 <span id="1595">1595</span>
 <span id="1596">1596</span>
 <span id="1597">1597</span>
+<span id="1598">1598</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
@@ -1924,7 +1925,8 @@
                         <span class="op">|</span> <span class="ident">__WASI_RIGHT_SOCK_SHUTDOWN</span>;
                 }
                 <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">write</span> {
-                    <span class="ident">rights</span> <span class="op">|</span><span class="op">=</span> <span class="ident">__WASI_RIGHT_FD_FDSTAT_SET_FLAGS</span>
+                    <span class="ident">rights</span> <span class="op">|</span><span class="op">=</span> <span class="ident">__WASI_RIGHT_FD_DATASYNC</span>
+                        <span class="op">|</span> <span class="ident">__WASI_RIGHT_FD_FDSTAT_SET_FLAGS</span>
                         <span class="op">|</span> <span class="ident">__WASI_RIGHT_FD_WRITE</span>
                         <span class="op">|</span> <span class="ident">__WASI_RIGHT_FD_SYNC</span>
                         <span class="op">|</span> <span class="ident">__WASI_RIGHT_FD_ALLOCATE</span>
