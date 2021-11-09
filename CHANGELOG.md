@@ -33,6 +33,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
 - [#2635](https://github.com/wasmerio/wasmer/pull/2635) Fix cross-compilation for singlepass.
+- [#2672](https://github.com/wasmerio/wasmer/pull/2672) Use `ENOENT` instead of `EINVAL` in some WASI syscalls for a non-existent file
 
 ## 2.0.0 - 2021/06/16
 
