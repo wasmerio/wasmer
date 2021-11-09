@@ -112,6 +112,11 @@ impl OpenOptions {
         }
     }
 
+    pub fn set_options(&mut self, options: OpenOptionsConfig) -> &mut Self {
+        self.conf = options;
+        self
+    }
+
     pub fn read(&mut self, read: bool) -> &mut Self {
         self.conf.read = read;
         self

@@ -79,9 +79,17 @@ pub fn args_sizes_get(env: &WasiEnv, argc: WasmPtr<u32>, argv_buf_size: WasmPtr<
     env.proxy.args_sizes_get(env, argc, argv_buf_size)
 }
 
-pub fn clock_res_get(env: &WasiEnv, clock_id: __wasi_clockid_t, resolution: WasmPtr<__wasi_timestamp_t>) -> __wasi_errno_t {
+pub fn clock_res_get(env: &WasiEnv, clock_id: __wasi_clockid_t, resolution_ptr: WasmPtr<__wasi_timestamp_t>) -> __wasi_errno_t {
     debug!("wasi::clock_res_get");
-    env.proxy.clock_res_get(env, clock_id, resolution)
+    let memory = env.memory();
+    match env.proxy.clock_res_get(env, clock_id) {
+        Ok(time) => {
+            let resolution_ptr = wasi_try!(resolution_ptr.deref(memory));
+            resolution_ptr.set(time);
+            __WASI_ESUCCESS
+        },
+        Err(err) => err
+    }
 }
 
 /// ### `clock_res_get()`
@@ -92,12 +100,20 @@ pub fn clock_res_get(env: &WasiEnv, clock_id: __wasi_clockid_t, resolution: Wasm
 /// Output:
 /// - `__wasi_timestamp_t *resolution`
 ///     The resolution of the clock in nanoseconds
-pub fn clock_time_get(env: &WasiEnv, clock_id: __wasi_clockid_t, precision: __wasi_timestamp_t, time: WasmPtr<__wasi_timestamp_t>) -> __wasi_errno_t {
-    debug!(
+pub fn clock_time_get(env: &WasiEnv, clock_id: __wasi_clockid_t, precision: __wasi_timestamp_t, time_ptr: WasmPtr<__wasi_timestamp_t>) -> __wasi_errno_t {
+    trace!(
         "wasi::clock_time_get clock_id: {}, precision: {}",
         clock_id, precision
     );
-    env.proxy.clock_time_get(env, clock_id, precision, time)
+    let memory = env.memory();
+    match env.proxy.clock_time_get(env, clock_id, precision) {
+        Ok(time) => {
+            let time_ptr = wasi_try!(time_ptr.deref(memory));
+            time_ptr.set(time);
+            __WASI_ESUCCESS
+        },
+        Err(err) => err
+    }
 }
 
 /// ### `environ_get()`
@@ -338,7 +354,7 @@ pub fn fd_pwrite(env: &WasiEnv, fd: __wasi_fd_t, iovs: WasmPtr<__wasi_ciovec_t, 
 /// - `u32 *nread`
 ///     Number of bytes read
 pub fn fd_read(env: &WasiEnv, fd: __wasi_fd_t, iovs: WasmPtr<__wasi_iovec_t, Array>, iovs_len: u32, nread: WasmPtr<u32>) -> __wasi_errno_t {
-    debug!("wasi::fd_read: fd={}", fd);
+    trace!("wasi::fd_read: fd={}", fd);
     env.proxy.fd_read(env, fd, iovs, iovs_len, nread)
 }
 
@@ -656,8 +672,8 @@ pub fn path_unlink_file(env: &WasiEnv, fd: __wasi_fd_t, path: WasmPtr<u8, Array>
 /// - `u32 nevents`
 ///     The number of events seen
 pub fn poll_oneoff(env: &WasiEnv, in_: WasmPtr<__wasi_subscription_t, Array>, out_: WasmPtr<__wasi_event_t, Array>, nsubscriptions: u32, nevents: WasmPtr<u32>) -> __wasi_errno_t {
-    debug!("wasi::poll_oneoff");
-    debug!("  => nsubscriptions = {}", nsubscriptions);
+    trace!("wasi::poll_oneoff");
+    trace!("  => nsubscriptions = {}", nsubscriptions);
     env.proxy.poll_oneoff(env, in_, out_, nsubscriptions, nevents)
 }
 
@@ -686,7 +702,7 @@ pub fn random_get(env: &WasiEnv, buf: u32, buf_len: u32) -> __wasi_errno_t {
 /// ### `sched_yield()`
 /// Yields execution of the thread
 pub fn sched_yield(env: &WasiEnv) -> __wasi_errno_t {
-    debug!("wasi::sched_yield");
+    trace!("wasi::sched_yield");
     env.proxy.sched_yield(env)
 }
 

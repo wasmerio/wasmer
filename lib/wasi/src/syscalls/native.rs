@@ -16,6 +16,7 @@ pub use super::legacy;
 pub use super::proxy;
 
 use super::types::*;
+use super::utils::map_io_err;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
@@ -52,17 +53,48 @@ fn write_bytes_inner<T: Write>(
     iovs_arr_cell: &[WasmCell<__wasi_ciovec_t>],
 ) -> Result<u32, __wasi_errno_t> {
     let mut bytes_written = 0;
+
+    // We allocate the raw_bytes first once instead of
+    // N times in the loop.
+    let mut raw_bytes: Vec<u8> = vec![0; 4096];
+
+    for iov in iovs_arr_cell {
+        let iov_inner = iov.get();
+        raw_bytes.clear();
+        raw_bytes.resize(iov_inner.buf_len as usize, 0);
+        unsafe {
+            let src = &memory
+                .uint8view()
+                .subarray(
+                    iov_inner.buf as u32,
+                    iov_inner.buf as u32 + iov_inner.buf_len as u32,
+                )
+                .copy_to(&mut raw_bytes);
+        }
+
+        write_loc
+            .write_all(&raw_bytes)
+            .map_err(|e| map_io_err(e))?;
+
+        bytes_written += iov_inner.buf_len;
+    }
+    Ok(bytes_written)
+
+    /*
+    let mut bytes_written = 0;
     for iov in iovs_arr_cell {
         let iov_inner = iov.get();
         let bytes = WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len)?;
+        let bytes = bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>();
         write_loc
-            .write_all(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
-            .map_err(|_| __WASI_EIO)?;
+            .write_all(&bytes)
+            .map_err(|e| map_io_err(e))?;
 
         // TODO: handle failure more accurately
         bytes_written += iov_inner.buf_len;
     }
     Ok(bytes_written)
+    */
 }
 
 fn write_bytes<T: Write>(
@@ -84,13 +116,13 @@ fn read_bytes<T: Read>(
 
     // We allocate the raw_bytes first once instead of
     // N times in the loop.
-    let mut raw_bytes: Vec<u8> = vec![0; 1024];
+    let mut raw_bytes: Vec<u8> = vec![0; 4096];
 
     for iov in iovs_arr_cell {
         let iov_inner = iov.get();
         raw_bytes.clear();
         raw_bytes.resize(iov_inner.buf_len as usize, 0);
-        bytes_read += reader.read(&mut raw_bytes).map_err(|_| __WASI_EIO)? as u32;
+        bytes_read += reader.read(&mut raw_bytes).map_err(|e| map_io_err(e))? as u32;
         unsafe {
             memory
                 .uint8view()
@@ -217,12 +249,8 @@ pub fn args_sizes_get(
 pub fn clock_res_get(
     env: &WasiEnv,
     clock_id: __wasi_clockid_t,
-    resolution: WasmPtr<__wasi_timestamp_t>,
-) -> __wasi_errno_t {
-    let memory = env.memory();
-
-    let out_addr = wasi_try!(resolution.deref(memory));
-    platform_clock_res_get(clock_id, out_addr)
+) -> Result<__wasi_timestamp_t, __wasi_errno_t> {
+    platform_clock_res_get(clock_id)
 }
 
 /// ### `clock_time_get()`
@@ -239,17 +267,15 @@ pub fn clock_time_get(
     env: &WasiEnv,
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
-    time: WasmPtr<__wasi_timestamp_t>,
-) -> __wasi_errno_t {
-    let memory = env.memory();
-
-    let out_addr = wasi_try!(time.deref(memory));
-    let result = platform_clock_time_get(clock_id, precision, out_addr);
-    debug!(
-        "time: {} => {}",
-        wasi_try!(time.deref(memory)).get(),
-        result
-    );
+) -> Result<__wasi_timestamp_t, __wasi_errno_t> {
+    let result = platform_clock_time_get(clock_id, precision);
+    if let Ok(time) = &result {
+        trace!(
+            "time: {}",
+            time
+        );
+    }
+    
     result
 }
 
@@ -663,8 +689,7 @@ pub fn fd_pread(
                 Kind::File { handle, .. } => {
                     if let Some(h) = handle {
                         wasi_try!(
-                            h.seek(std::io::SeekFrom::Start(offset as u64)).ok(),
-                            __WASI_EIO
+                            h.seek(std::io::SeekFrom::Start(offset as u64)).map_err(|e| map_io_err(e))
                         );
                         wasi_try!(read_bytes(h, memory, &iov_cells))
                     } else {
@@ -1260,7 +1285,8 @@ pub fn fd_write(
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         handle.seek(std::io::SeekFrom::Start(offset as u64));
-                        wasi_try!(write_bytes(handle, memory, &iovs_arr_cell))
+                        let ret = wasi_try!(write_bytes(handle, memory, &iovs_arr_cell));
+                        ret
                     } else {
                         return __WASI_EINVAL;
                     }

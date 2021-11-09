@@ -17,6 +17,32 @@ use tracing::{debug, trace};
 use wasmer::{Memory, RuntimeError, Value, WasmCell};
 use wasmer_vfs::{FsError, VirtualFile};
 
+pub fn map_io_err(err: std::io::Error) -> __wasi_errno_t {
+    use std::io::ErrorKind;
+    match err.kind() {
+        ErrorKind::NotFound => __WASI_ENOENT,
+        ErrorKind::PermissionDenied => __WASI_EPERM,
+        ErrorKind::ConnectionRefused => __WASI_ECONNREFUSED,
+        ErrorKind::ConnectionReset => __WASI_ECONNRESET,
+        ErrorKind::ConnectionAborted => __WASI_ECONNABORTED,
+        ErrorKind::NotConnected => __WASI_ENOTCONN,
+        ErrorKind::AddrInUse => __WASI_EADDRINUSE,
+        ErrorKind::AddrNotAvailable => __WASI_EADDRNOTAVAIL,
+        ErrorKind::BrokenPipe => __WASI_EPIPE,
+        ErrorKind::AlreadyExists => __WASI_EEXIST,
+        ErrorKind::WouldBlock => __WASI_EAGAIN,
+        ErrorKind::InvalidInput => __WASI_EIO,
+        ErrorKind::InvalidData => __WASI_EIO,
+        ErrorKind::TimedOut => __WASI_ETIMEDOUT,
+        ErrorKind::WriteZero => __WASI_EIO,
+        ErrorKind::Interrupted => __WASI_EINTR,
+        ErrorKind::Other => __WASI_EIO,
+        ErrorKind::UnexpectedEof => __WASI_EIO,
+        ErrorKind::Unsupported => __WASI_ENOTSUP,
+        _ => __WASI_EIO
+    }
+}
+
 pub fn write_bytes_inner<T: Write>(
     mut write_loc: T,
     memory: &Memory,

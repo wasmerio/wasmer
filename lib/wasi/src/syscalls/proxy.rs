@@ -23,11 +23,11 @@ where Self: Send + Sync + std::fmt::Debug
     fn args_sizes_get(&self, env: &WasiEnv, argc: WasmPtr<u32>, argv_buf_size: WasmPtr<u32>) -> __wasi_errno_t {
         super::native::args_sizes_get(env, argc, argv_buf_size)
     }
-    fn clock_res_get(&self, env: &WasiEnv, clock_id: __wasi_clockid_t, resolution: WasmPtr<__wasi_timestamp_t>) -> __wasi_errno_t {
-        super::native::clock_res_get(env, clock_id, resolution)
+    fn clock_res_get(&self, env: &WasiEnv, clock_id: __wasi_clockid_t) -> Result<__wasi_timestamp_t, __wasi_errno_t> {
+        super::native::clock_res_get(env, clock_id)
     }
-    fn clock_time_get(&self, env: &WasiEnv, clock_id: __wasi_clockid_t, precision: __wasi_timestamp_t, time: WasmPtr<__wasi_timestamp_t>) -> __wasi_errno_t {
-        super::native::clock_time_get(env, clock_id, precision, time)
+    fn clock_time_get(&self, env: &WasiEnv, clock_id: __wasi_clockid_t, precision: __wasi_timestamp_t) -> Result<__wasi_timestamp_t, __wasi_errno_t> {
+        super::native::clock_time_get(env, clock_id, precision)
     }
     fn environ_get(&self, env: &WasiEnv, environ: WasmPtr<WasmPtr<u8, Array>, Array>, environ_buf: WasmPtr<u8, Array>) -> __wasi_errno_t {
         super::native::environ_get(env, environ, environ_buf)

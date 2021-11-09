@@ -21,6 +21,7 @@ mod types;
 pub use self::builder::*;
 pub use self::types::*;
 use crate::syscalls::types::*;
+use crate::syscalls::utils::map_io_err;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
@@ -790,7 +791,7 @@ impl WasiFs {
                                 }
                             } else if file_type.is_symlink() {
                                 should_insert = false;
-                                let link_value = file.read_link().ok().ok_or(__WASI_EIO)?;
+                                let link_value = file.read_link().map_err(|e| map_io_err(e))?;
                                 debug!("attempting to decompose path {:?}", link_value);
 
                                 let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
@@ -1190,7 +1191,7 @@ impl WasiFs {
                 match &mut inode.kind {
                     Kind::File { handle, .. } => {
                         if let Some(file) = handle {
-                            file.flush().map_err(|_| __WASI_EIO)?
+                            file.flush().map_err(|e| map_io_err(e))?
                         } else {
                             return Err(__WASI_EIO);
                         }

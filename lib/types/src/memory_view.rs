@@ -102,6 +102,23 @@ where
             *self.ptr.offset(i as isize) = *byte;
         }
     }
+
+    /// Copy the contents of the source `MemoryView` into this slice
+    ///
+    /// This function will efficiently copy the type array to the memory
+    /// within the wasm module’s own linear memory.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because the caller will need to make sure
+    /// there are no data races when copying memory from the view.
+    pub unsafe fn copy_to(&self, dst: &mut [T]) {
+        // We cap at a max length
+        let sliced_dst = &mut dst[..self.length];
+        for (i, byte) in sliced_dst.iter_mut().enumerate() {
+            *byte = *self.ptr.offset(i as isize);
+        }
+    }
 }
 
 impl<'a, T: Atomic> MemoryView<'a, T> {

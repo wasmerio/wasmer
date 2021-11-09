@@ -99,6 +99,7 @@ impl Config {
         }
     }
 
+    #[allow(unused_variables)]
     pub fn compiler_config(&self, canonicalize_nans: bool) -> Box<dyn CompilerConfig> {
         match &self.compiler {
             #[cfg(feature = "cranelift")]
@@ -135,6 +136,7 @@ impl Config {
         }
     }
 
+    #[allow(dead_code)]
     fn add_middlewares(&self, config: &mut dyn CompilerConfig) {
         for middleware in self.middlewares.iter() {
             config.push_middleware(middleware.clone());
