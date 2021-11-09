@@ -325,7 +325,8 @@ impl WasiFs {
                         | __WASI_RIGHT_SOCK_SHUTDOWN;
                 }
                 if *write {
-                    rights |= __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+                    rights |= __WASI_RIGHT_FD_DATASYNC
+                        | __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
                         | __WASI_RIGHT_FD_WRITE
                         | __WASI_RIGHT_FD_SYNC
                         | __WASI_RIGHT_FD_ALLOCATE
