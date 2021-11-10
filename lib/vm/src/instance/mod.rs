@@ -813,9 +813,9 @@ impl Instance {
         if src
             .checked_add(len)
             .map_or(true, |n| n as usize > data.len())
-            || dst
-                .checked_add(len)
-                .map_or(true, |m| m > memory.current_length)
+            || dst.checked_add(len).map_or(true, |m| {
+                usize::try_from(m).unwrap() > memory.current_length
+            })
         {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
