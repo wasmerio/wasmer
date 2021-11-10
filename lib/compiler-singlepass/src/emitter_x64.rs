@@ -1,3 +1,4 @@
+use crate::common_decl::Size;
 use crate::location::Location as AbstractLocation;
 pub use crate::location::Multiplier;
 pub use crate::x64_decl::{GPR, XMM};
@@ -51,14 +52,6 @@ pub enum Condition {
     NotEqual,
     Signed,
     Carry,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Size {
-    S8,
-    S16,
-    S32,
-    S64,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
