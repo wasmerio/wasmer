@@ -10533,7 +10533,7 @@
         <span class="comment">// Load bound into temporary register, if needed.</span>
         <span class="kw">if</span> <span class="ident">need_check</span> {
             <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_mov</span>(<span class="ident">Size::S32</span>, <span class="ident">bound_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>));
+                .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">bound_loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp_bound</span>));
 
             <span class="comment">// Wasm -&gt; Effective.</span>
             <span class="comment">// Assuming we never underflow - should always be true on Linux/macOS and Windows &gt;=8,</span>

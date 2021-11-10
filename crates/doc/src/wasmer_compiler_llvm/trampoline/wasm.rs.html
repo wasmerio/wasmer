@@ -507,6 +507,8 @@
 <span id="506">506</span>
 <span id="507">507</span>
 <span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::abi</span>::{<span class="ident">get_abi</span>, <span class="ident">Abi</span>};
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::config</span>::{<span class="ident">CompiledKind</span>, <span class="ident">LLVM</span>};
@@ -558,9 +560,10 @@
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">create_module</span>(<span class="string">&quot;&quot;</span>);
         <span class="kw">let</span> <span class="ident">target_machine</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">target_machine</span>;
         <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="ident">target_machine</span>.<span class="ident">get_triple</span>();
+        <span class="kw">let</span> <span class="ident">target_data</span> <span class="op">=</span> <span class="ident">target_machine</span>.<span class="ident">get_target_data</span>();
         <span class="ident">module</span>.<span class="ident">set_triple</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>);
-        <span class="ident">module</span>.<span class="ident">set_data_layout</span>(<span class="kw-2">&amp;</span><span class="ident">target_machine</span>.<span class="ident">get_target_data</span>().<span class="ident">get_data_layout</span>());
-        <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics::declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>);
+        <span class="ident">module</span>.<span class="ident">set_data_layout</span>(<span class="kw-2">&amp;</span><span class="ident">target_data</span>.<span class="ident">get_data_layout</span>());
+        <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics::declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">target_data</span>);
 
         <span class="kw">let</span> (<span class="ident">callee_ty</span>, <span class="ident">callee_attrs</span>) <span class="op">=</span>
             <span class="self">self</span>.<span class="ident">abi</span>
@@ -687,10 +690,11 @@
         <span class="kw">let</span> <span class="ident">function</span> <span class="op">=</span> <span class="ident">CompiledKind::DynamicFunctionTrampoline</span>(<span class="ident">ty</span>.<span class="ident">clone</span>());
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">create_module</span>(<span class="string">&quot;&quot;</span>);
         <span class="kw">let</span> <span class="ident">target_machine</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">target_machine</span>;
+        <span class="kw">let</span> <span class="ident">target_data</span> <span class="op">=</span> <span class="ident">target_machine</span>.<span class="ident">get_target_data</span>();
         <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="ident">target_machine</span>.<span class="ident">get_triple</span>();
         <span class="ident">module</span>.<span class="ident">set_triple</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>);
-        <span class="ident">module</span>.<span class="ident">set_data_layout</span>(<span class="kw-2">&amp;</span><span class="ident">target_machine</span>.<span class="ident">get_target_data</span>().<span class="ident">get_data_layout</span>());
-        <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics::declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>);
+        <span class="ident">module</span>.<span class="ident">set_data_layout</span>(<span class="kw-2">&amp;</span><span class="ident">target_data</span>.<span class="ident">get_data_layout</span>());
+        <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics::declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">target_data</span>);
 
         <span class="kw">let</span> (<span class="ident">trampoline_ty</span>, <span class="ident">trampoline_attrs</span>) <span class="op">=</span>
             <span class="self">self</span>.<span class="ident">abi</span>

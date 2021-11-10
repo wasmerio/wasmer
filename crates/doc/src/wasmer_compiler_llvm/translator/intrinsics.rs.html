@@ -1736,6 +1736,19 @@
 <span id="1735">1735</span>
 <span id="1736">1736</span>
 <span id="1737">1737</span>
+<span id="1738">1738</span>
+<span id="1739">1739</span>
+<span id="1740">1740</span>
+<span id="1741">1741</span>
+<span id="1742">1742</span>
+<span id="1743">1743</span>
+<span id="1744">1744</span>
+<span id="1745">1745</span>
+<span id="1746">1746</span>
+<span id="1747">1747</span>
+<span id="1748">1748</span>
+<span id="1749">1749</span>
+<span id="1750">1750</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.</span>
 <span class="doccomment">//!</span>
@@ -1750,6 +1763,7 @@
     <span class="ident">builder::Builder</span>,
     <span class="ident">context::Context</span>,
     <span class="ident">module</span>::{<span class="ident">Linkage</span>, <span class="ident">Module</span>},
+    <span class="ident">targets::TargetData</span>,
     <span class="ident">types</span>::{
         <span class="ident">BasicMetadataTypeEnum</span>, <span class="ident">BasicType</span>, <span class="ident">BasicTypeEnum</span>, <span class="ident">FloatType</span>, <span class="ident">IntType</span>, <span class="ident">PointerType</span>,
         <span class="ident">StructType</span>, <span class="ident">VectorType</span>, <span class="ident">VoidType</span>,
@@ -1907,6 +1921,7 @@
     <span class="kw">pub</span> <span class="ident">i32_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i64_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i128_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">isize_ty</span>: <span class="ident">IntType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f32_ty</span>: <span class="ident">FloatType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f64_ty</span>: <span class="ident">FloatType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
@@ -1924,6 +1939,7 @@
     <span class="kw">pub</span> <span class="ident">i32_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i64_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i128_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">isize_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f32_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f64_ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
 
@@ -1938,6 +1954,7 @@
     <span class="kw">pub</span> <span class="ident">i32_zero</span>: <span class="ident">IntValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i64_zero</span>: <span class="ident">IntValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">i128_zero</span>: <span class="ident">IntValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">isize_zero</span>: <span class="ident">IntValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f32_zero</span>: <span class="ident">FloatValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f64_zero</span>: <span class="ident">FloatValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">f32x4_zero</span>: <span class="ident">VectorValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
@@ -1999,7 +2016,11 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="ident">Intrinsics</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
     <span class="doccomment">/// Create an [`Intrinsics`] for the given [`Context`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">declare</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">Context</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">declare</span>(
+        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">Context</span>,
+        <span class="ident">target_data</span>: <span class="kw-2">&amp;</span><span class="ident">TargetData</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">void_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">void_type</span>();
         <span class="kw">let</span> <span class="ident">i1_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">bool_type</span>();
         <span class="kw">let</span> <span class="ident">i2_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">custom_width_int_type</span>(<span class="number">2</span>);
@@ -2009,6 +2030,7 @@
         <span class="kw">let</span> <span class="ident">i32_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">i32_type</span>();
         <span class="kw">let</span> <span class="ident">i64_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">i64_type</span>();
         <span class="kw">let</span> <span class="ident">i128_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">i128_type</span>();
+        <span class="kw">let</span> <span class="ident">isize_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">ptr_sized_int_type</span>(<span class="ident">target_data</span>, <span class="prelude-val">None</span>);
         <span class="kw">let</span> <span class="ident">f32_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">f32_type</span>();
         <span class="kw">let</span> <span class="ident">f64_ty</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">f64_type</span>();
 
@@ -2028,6 +2050,7 @@
         <span class="kw">let</span> <span class="ident">i32_ptr_ty</span> <span class="op">=</span> <span class="ident">i32_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
         <span class="kw">let</span> <span class="ident">i64_ptr_ty</span> <span class="op">=</span> <span class="ident">i64_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
         <span class="kw">let</span> <span class="ident">i128_ptr_ty</span> <span class="op">=</span> <span class="ident">i128_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
+        <span class="kw">let</span> <span class="ident">isize_ptr_ty</span> <span class="op">=</span> <span class="ident">isize_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
         <span class="kw">let</span> <span class="ident">f32_ptr_ty</span> <span class="op">=</span> <span class="ident">f32_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
         <span class="kw">let</span> <span class="ident">f64_ptr_ty</span> <span class="op">=</span> <span class="ident">f64_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
 
@@ -2036,6 +2059,7 @@
         <span class="kw">let</span> <span class="ident">i32_zero</span> <span class="op">=</span> <span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">0</span>, <span class="bool-val">false</span>);
         <span class="kw">let</span> <span class="ident">i64_zero</span> <span class="op">=</span> <span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">0</span>, <span class="bool-val">false</span>);
         <span class="kw">let</span> <span class="ident">i128_zero</span> <span class="op">=</span> <span class="ident">i128_ty</span>.<span class="ident">const_int</span>(<span class="number">0</span>, <span class="bool-val">false</span>);
+        <span class="kw">let</span> <span class="ident">isize_zero</span> <span class="op">=</span> <span class="ident">isize_ty</span>.<span class="ident">const_int</span>(<span class="number">0</span>, <span class="bool-val">false</span>);
         <span class="kw">let</span> <span class="ident">f32_zero</span> <span class="op">=</span> <span class="ident">f32_ty</span>.<span class="ident">const_float</span>(<span class="number">0.0</span>);
         <span class="kw">let</span> <span class="ident">f64_zero</span> <span class="op">=</span> <span class="ident">f64_ty</span>.<span class="ident">const_float</span>(<span class="number">0.0</span>);
         <span class="kw">let</span> <span class="ident">f32x4_zero</span> <span class="op">=</span> <span class="ident">f32x4_ty</span>.<span class="ident">const_zero</span>();
@@ -2442,6 +2466,7 @@
             <span class="ident">i32_ty</span>,
             <span class="ident">i64_ty</span>,
             <span class="ident">i128_ty</span>,
+            <span class="ident">isize_ty</span>,
             <span class="ident">f32_ty</span>,
             <span class="ident">f64_ty</span>,
 
@@ -2459,6 +2484,7 @@
             <span class="ident">i32_ptr_ty</span>,
             <span class="ident">i64_ptr_ty</span>,
             <span class="ident">i128_ptr_ty</span>,
+            <span class="ident">isize_ptr_ty</span>,
             <span class="ident">f32_ptr_ty</span>,
             <span class="ident">f64_ptr_ty</span>,
 
@@ -2473,6 +2499,7 @@
             <span class="ident">i32_zero</span>,
             <span class="ident">i64_zero</span>,
             <span class="ident">i128_zero</span>,
+            <span class="ident">isize_zero</span>,
             <span class="ident">f32_zero</span>,
             <span class="ident">f64_zero</span>,
             <span class="ident">f32x4_zero</span>,
@@ -2740,9 +2767,8 @@
             <span class="ident">vmfunction_import_body_element</span>: <span class="number">0</span>,
             <span class="ident">vmfunction_import_vmctx_element</span>: <span class="number">1</span>,
 
-            <span class="comment">// TODO: this i64 is actually a rust usize</span>
             <span class="ident">vmmemory_definition_ptr_ty</span>: <span class="ident">context</span>
-                .<span class="ident">struct_type</span>(<span class="kw-2">&amp;</span>[<span class="ident">i8_ptr_ty_basic</span>, <span class="ident">i32_ty</span>.<span class="ident">into</span>()], <span class="bool-val">false</span>)
+                .<span class="ident">struct_type</span>(<span class="kw-2">&amp;</span>[<span class="ident">i8_ptr_ty_basic</span>, <span class="ident">isize_ty</span>.<span class="ident">into</span>()], <span class="bool-val">false</span>)
                 .<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>),
             <span class="ident">vmmemory_definition_base_element</span>: <span class="number">0</span>,
             <span class="ident">vmmemory_definition_current_length_element</span>: <span class="number">1</span>,

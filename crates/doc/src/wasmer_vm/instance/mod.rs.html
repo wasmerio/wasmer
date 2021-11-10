@@ -2290,9 +2290,9 @@
         <span class="kw">if</span> <span class="ident">src</span>
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
             .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">data</span>.<span class="ident">len</span>())
-            <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>
-                .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-                .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>)
+            <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>.<span class="ident">checked_add</span>(<span class="ident">len</span>).<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> {
+                <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">current_length</span>
+            })
         {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
         }

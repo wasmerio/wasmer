@@ -11293,6 +11293,7 @@
 <span id="11292">11292</span>
 <span id="11293">11293</span>
 <span id="11294">11294</span>
+<span id="11295">11295</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
@@ -11379,8 +11380,9 @@
 
         <span class="kw">let</span> <span class="ident">target_machine</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">target_machine</span>;
         <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="ident">target_machine</span>.<span class="ident">get_triple</span>();
+        <span class="kw">let</span> <span class="ident">target_data</span> <span class="op">=</span> <span class="ident">target_machine</span>.<span class="ident">get_target_data</span>();
         <span class="ident">module</span>.<span class="ident">set_triple</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>);
-        <span class="ident">module</span>.<span class="ident">set_data_layout</span>(<span class="kw-2">&amp;</span><span class="ident">target_machine</span>.<span class="ident">get_target_data</span>().<span class="ident">get_data_layout</span>());
+        <span class="ident">module</span>.<span class="ident">set_data_layout</span>(<span class="kw-2">&amp;</span><span class="ident">target_data</span>.<span class="ident">get_data_layout</span>());
         <span class="kw">let</span> <span class="ident">wasm_fn_type</span> <span class="op">=</span> <span class="ident">wasm_module</span>
             .<span class="ident">signatures</span>
             .<span class="ident">get</span>(<span class="ident">wasm_module</span>.<span class="ident">functions</span>[<span class="ident">func_index</span>])
@@ -11388,7 +11390,7 @@
 
         <span class="comment">// TODO: pointer width</span>
         <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="number">8</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_module</span>);
-        <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics::declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>);
+        <span class="kw">let</span> <span class="ident">intrinsics</span> <span class="op">=</span> <span class="ident">Intrinsics::declare</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">target_data</span>);
         <span class="kw">let</span> (<span class="ident">func_type</span>, <span class="ident">func_attrs</span>) <span class="op">=</span>
             <span class="self">self</span>.<span class="ident">abi</span>
                 .<span class="ident">func_type_to_llvm</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">intrinsics</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">offsets</span>), <span class="ident">wasm_fn_type</span>)<span class="question-mark">?</span>;

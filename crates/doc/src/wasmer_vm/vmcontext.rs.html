@@ -1138,12 +1138,6 @@
 <span id="1135">1135</span>
 <span id="1136">1136</span>
 <span id="1137">1137</span>
-<span id="1138">1138</span>
-<span id="1139">1139</span>
-<span id="1140">1140</span>
-<span id="1141">1141</span>
-<span id="1142">1142</span>
-<span id="1143">1143</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1492,7 +1486,7 @@
     <span class="kw">pub</span> <span class="ident">base</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>,
 
     <span class="doccomment">/// The current logical size of this linear memory in bytes.</span>
-    <span class="kw">pub</span> <span class="ident">current_length</span>: <span class="ident">u32</span>,
+    <span class="kw">pub</span> <span class="ident">current_length</span>: <span class="ident">usize</span>,
 }
 
 <span class="doccomment">/// # Safety</span>
@@ -1509,7 +1503,7 @@
 <span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {
     <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">MemoryUsageTracker</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="kw">if</span> <span class="ident">tracker</span>.<span class="ident">track</span>(<span class="self">self</span>.<span class="ident">base</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> ()) {
-            <span class="ident">POINTER_BYTE_SIZE</span> <span class="op">*</span> (<span class="self">self</span>.<span class="ident">current_length</span> <span class="kw">as</span> <span class="ident">usize</span>)
+            <span class="ident">POINTER_BYTE_SIZE</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">current_length</span>
         } <span class="kw">else</span> {
             <span class="number">0</span>
         }
@@ -1531,10 +1525,10 @@
         <span class="comment">// https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy</span>
         <span class="kw">if</span> <span class="ident">src</span>
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">n</span> <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
+            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
             <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>
                 .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-                .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
+                .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
         {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
         }
@@ -1564,7 +1558,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_fill</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">u32</span>, <span class="ident">val</span>: <span class="ident">u32</span>, <span class="ident">len</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="ident">dst</span>
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span> <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
+            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">current_length</span>)
         {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
         }
@@ -1605,12 +1599,6 @@
             <span class="macro">offset_of!</span>(<span class="ident">VMMemoryDefinition</span>, <span class="ident">current_length</span>),
             <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_definition_current_length</span>())
         );
-        <span class="comment">/* TODO: Assert that the size of `current_length` matches.
-        assert_eq!(
-            size_of::&lt;VMMemoryDefinition::current_length&gt;(),
-            usize::from(offsets.size_of_vmmemory_definition_current_length())
-        );
-        */</span>
     }
 }
 
