@@ -10,24 +10,40 @@
 //!
 //! Ready?
 
+use std::fmt::Write;
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_singlepass::Singlepass;
 use wasmer_engine_universal::Universal;
 
+pub fn many_functions_contract(function_count: u32) -> Vec<u8> {
+    let mut functions = String::new();
+    for i in 0..function_count {
+        writeln!(
+            &mut functions,
+            "(func
+              i32.const {}
+              drop
+              return)",
+            i
+        )
+            .unwrap();
+    }
+
+    let code = format!(
+        r#"(module
+          (export "main" (func 0))
+          {})"#,
+        functions
+    );
+    wat2wasm(code.as_bytes()).unwrap().to_vec()
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_span_tree::span_tree().aggregate(true).enable();
+
     // Let's declare the Wasm module with the text representation.
-    let wasm_bytes = wat2wasm(
-        r#"
-(module
-  (type $sum_t (func (param i32 i32) (result i32)))
-  (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
-    local.get $x
-    local.get $y
-    i32.add)
-  (export "sum" (func $sum_f)))
-"#
-        .as_bytes(),
-    )?;
+    let wasm_bytes = many_functions_contract(150_000);
+    println!("code.len() = {:?}", wasm_bytes.len() / 1024);
 
     // Use Singlepass compiler with the default settings
     let compiler = Singlepass::default();
@@ -37,24 +53,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = Module::new(&store, wasm_bytes)?;
+    // let guard = pprof::ProfilerGuard::new(100).unwrap();
+    let module = {
+        let _span = tracing::debug_span!(target: "vm", "Module::new (compile)").entered();
+
+        Module::new(&store, wasm_bytes)?
+    };
+    // if let Ok(report) = guard.report().build() {
+    //     // println!("report: {:?}", &report);
+    //     let file = std::fs::File::create("flamegraph2.svg").unwrap();
+    //     report.flamegraph(file).unwrap();
+    // };
 
     // Create an empty import object.
     let import_object = imports! {};
 
     println!("Instantiating module...");
-    // Let's instantiate the Wasm module.
-    let instance = Instance::new(&module, &import_object)?;
+    let instance = {
+        // Let's instantiate the Wasm module.
+        let _span = tracing::debug_span!(target: "vm", "Instance::new").entered();
+        Instance::new(&module, &import_object)?
+    };
 
-    let sum = instance.exports.get_function("sum")?;
+    println!("Instantiating module... the second time");
+    let instance = {
+        // This one matches NEAR's execution model of initialization
+        let _span = tracing::debug_span!(target: "vm", "Instance::new").entered();
+        Instance::new(&module, &import_object)?
+    };
+    let main = instance.exports.get_function("main")?;
 
-    println!("Calling `sum` function...");
-    // Let's call the `sum` exported function. The parameters are a
-    // slice of `Value`s. The results are a boxed slice of `Value`s.
-    let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
+    println!("Calling `main` function...");
+    let results = main.call(&[])?;
 
     println!("Results: {:?}", results);
-    assert_eq!(results.to_vec(), vec![Value::I32(3)]);
+    // assert_eq!(results.to_vec(), vec![Value::I32(3)]);
 
     Ok(())
 }
