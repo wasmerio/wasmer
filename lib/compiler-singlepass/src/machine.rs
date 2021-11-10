@@ -586,7 +586,9 @@ impl Machine {
 #[cfg(test)]
 mod test {
     use super::*;
-    use dynasmrt::x64::Assembler;
+    use dynasmrt::x64::X64Relocation;
+    use dynasmrt::VecAssembler;
+    type Assembler = VecAssembler<X64Relocation>;
 
     #[test]
     fn test_release_locations_keep_state_nopanic() {
