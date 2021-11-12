@@ -63,6 +63,9 @@ pub enum TrapCode {
 
     /// An atomic memory access was attempted with an unaligned pointer.
     UnalignedAtomic = 11,
+
+    /// Hit the gas limit.
+    GasExceeded = 12,
 }
 
 impl TrapCode {
@@ -81,6 +84,7 @@ impl TrapCode {
             Self::BadConversionToInteger => "invalid conversion to integer",
             Self::UnreachableCodeReached => "unreachable",
             Self::UnalignedAtomic => "unaligned atomic access",
+            Self::GasExceeded => "gas limit exceeded",
         }
     }
 }
@@ -100,6 +104,7 @@ impl Display for TrapCode {
             Self::BadConversionToInteger => "bad_toint",
             Self::UnreachableCodeReached => "unreachable",
             Self::UnalignedAtomic => "unalign_atom",
+            Self::GasExceeded => "out_of_gas",
         };
         f.write_str(identifier)
     }

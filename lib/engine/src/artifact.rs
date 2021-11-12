@@ -9,7 +9,7 @@ use std::sync::Arc;
 use wasmer_compiler::Features;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    DataInitializer, FunctionIndex, InstanceConfig, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
@@ -92,9 +92,9 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
         tunables: &dyn Tunables,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
+        config: InstanceConfig,
     ) -> Result<InstanceHandle, InstantiationError> {
         self.preinstantiate()?;
-
         let module = self.module();
         let (imports, import_function_envs) = {
             let mut imports = resolve_imports(
@@ -145,6 +145,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             self.signatures().clone(),
             host_state,
             import_function_envs,
+            config,
         )
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
         Ok(handle)

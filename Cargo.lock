@@ -2682,6 +2682,7 @@ dependencies = [
  "hashbrown 0.11.2",
  "lazy_static",
  "loupe",
+ "memoffset",
  "more-asserts",
  "rayon",
  "smallvec",

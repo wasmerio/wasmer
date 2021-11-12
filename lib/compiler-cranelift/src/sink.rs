@@ -2,8 +2,6 @@
 
 use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
-#[cfg(target_arch = "x86_64")]
-use cranelift_codegen::ir::LibCall;
 use cranelift_codegen::ir::{self, ExternalName};
 use cranelift_entity::EntityRef as CraneliftEntityRef;
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};

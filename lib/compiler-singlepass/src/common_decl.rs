@@ -102,8 +102,6 @@ pub struct FunctionStateMap {
     pub loop_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
     /// Call offsets.
     pub call_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
-    /// Trappable offsets.
-    pub trappable_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
 }
 
 /// A kind of suspend offset.
@@ -113,8 +111,6 @@ pub enum SuspendOffset {
     _Loop(usize),
     /// A call.
     Call(usize),
-    /// A trappable.
-    Trappable(usize),
 }
 
 /// Description of a machine code range following an offset.
@@ -146,7 +142,6 @@ impl FunctionStateMap {
             wasm_offset_to_target_offset: BTreeMap::new(),
             loop_offsets: BTreeMap::new(),
             call_offsets: BTreeMap::new(),
-            trappable_offsets: BTreeMap::new(),
         }
     }
 }

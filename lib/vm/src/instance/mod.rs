@@ -44,9 +44,9 @@ use std::slice;
 use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
-    DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
+    DataIndex, DataInitializer, ElemIndex, ExportIndex, FastGasCounter, FunctionIndex, GlobalIndex,
+    GlobalInit, InstanceConfig, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex,
+    LocalTableIndex, MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
 };
 
 /// The function pointer to call with data and an [`Instance`] pointer to
@@ -65,6 +65,9 @@ pub type ImportInitializerFuncPtr<ResultErr = *mut ffi::c_void> =
 pub(crate) struct Instance {
     /// The `ModuleInfo` this `Instance` was instantiated from.
     module: Arc<ModuleInfo>,
+
+    /// External configuration for instance.
+    config: InstanceConfig,
 
     /// Offsets in the `vmctx` region.
     offsets: VMOffsets,
@@ -396,6 +399,11 @@ impl Instance {
     /// Return a pointer to the trap catcher.
     fn trap_catcher_ptr(&self) -> *mut *const u8 {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_trap_handler()) }
+    }
+
+    /// Return a pointer to the gas limiter.
+    pub fn gas_counter_ptr(&self) -> *mut *const FastGasCounter {
+        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_gas_limiter_pointer()) }
     }
 
     /// Invoke the WebAssembly start function of the instance, if one is present.
@@ -912,6 +920,7 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
         imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
+        instance_config: InstanceConfig,
     ) -> Result<Self, Trap> {
         let vmctx_globals = finished_globals
             .values()
@@ -927,6 +936,7 @@ impl InstanceHandle {
             // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
+                config: instance_config.clone(),
                 offsets,
                 memories: finished_memories,
                 tables: finished_tables,
@@ -955,6 +965,7 @@ impl InstanceHandle {
                     vmctx_ptr,
                 );
                 *(instance.trap_catcher_ptr()) = get_trap_handler();
+                *(instance.gas_counter_ptr()) = instance_config.gas_counter;
             }
 
             Self {
@@ -1244,7 +1255,6 @@ impl InstanceHandle {
         instance_ptr: *const ffi::c_void,
     ) -> Result<(), Err> {
         let instance_ref = self.instance.as_mut_unchecked();
-
         for import_function_env in instance_ref.imported_function_envs.values_mut() {
             match import_function_env {
                 ImportFunctionEnv::Env {

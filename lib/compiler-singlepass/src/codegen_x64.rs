@@ -1,7 +1,10 @@
 use crate::address_map::get_function_address_map;
+use crate::config::{Intrinsic, IntrinsicKind};
 use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
 use dynasmrt::{x64::Assembler, DynamicLabel};
+use memoffset::offset_of;
 use smallvec::{smallvec, SmallVec};
+use std::collections::HashMap;
 use std::iter;
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
@@ -13,13 +16,13 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
-    FunctionType,
+    FastGasCounter, FunctionType, ImportIndex,
 };
 use wasmer_types::{
     FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, ModuleInfo,
     SignatureIndex, TableIndex, Type,
 };
-use wasmer_vm::{MemoryStyle, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::{TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
@@ -34,7 +37,7 @@ pub struct FuncGen<'a> {
     vmoffsets: &'a VMOffsets,
 
     // // Memory plans.
-    memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
+    // memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
     // // Table plans.
     // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
@@ -85,6 +88,9 @@ pub struct FuncGen<'a> {
     ///
     // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
+
+    /// Imported functions names map.
+    import_map: HashMap<FunctionIndex, String>,
 }
 
 struct SpecialLabelSet {
@@ -95,6 +101,7 @@ struct SpecialLabelSet {
     table_access_oob: DynamicLabel,
     indirect_call_null: DynamicLabel,
     bad_signature: DynamicLabel,
+    gas_limit_exceeded: DynamicLabel,
 }
 
 /// Metadata about a floating-point value.
@@ -276,21 +283,205 @@ impl<'a> FuncGen<'a> {
         I2O1 { loc_a, loc_b, ret }
     }
 
-    fn mark_trappable(&mut self) {
-        let state_diff_id = self.get_state_diff();
-        let offset = self.assembler.get_offset().0;
-        self.fsm.trappable_offsets.insert(
-            offset,
-            OffsetInfo {
-                end_offset: offset + 1,
-                activate_offset: offset,
-                diff_id: state_diff_id,
-            },
-        );
-        self.fsm.wasm_offset_to_target_offset.insert(
-            self.machine.state.wasm_inst_offset,
-            SuspendOffset::Trappable(offset),
-        );
+    fn emit_call(&mut self, function_index: u32) -> Result<(), CodegenError> {
+        let function_index = function_index as usize;
+
+        let sig_index = *self
+            .module
+            .functions
+            .get(FunctionIndex::new(function_index))
+            .unwrap();
+        let sig = self.module.signatures.get(sig_index).unwrap();
+        let param_types: SmallVec<[WpType; 8]> =
+            sig.params().iter().cloned().map(type_to_wp_type).collect();
+        let return_types: SmallVec<[WpType; 1]> =
+            sig.results().iter().cloned().map(type_to_wp_type).collect();
+
+        let params: SmallVec<[_; 8]> = self
+            .value_stack
+            .drain(self.value_stack.len() - param_types.len()..)
+            .collect();
+        self.machine.release_locations_only_regs(&params);
+
+        self.machine.release_locations_only_osr_state(params.len());
+
+        // Pop arguments off the FP stack and canonicalize them if needed.
+        //
+        // Canonicalization state will be lost across function calls, so early canonicalization
+        // is necessary here.
+        while let Some(fp) = self.fp_stack.last() {
+            if fp.depth >= self.value_stack.len() {
+                let index = fp.depth - self.value_stack.len();
+                if self.assembler.arch_supports_canonicalize_nan()
+                    && self.config.enable_nan_canonicalization
+                    && fp.canonicalization.is_some()
+                {
+                    let size = fp.canonicalization.unwrap().to_size();
+                    self.canonicalize_nan(size, params[index], params[index]);
+                }
+                self.fp_stack.pop().unwrap();
+            } else {
+                break;
+            }
+        }
+
+        if let Some(intrinsic) = self.check_intrinsic(function_index) {
+            self.emit_intrinsic(intrinsic, &params)?
+        } else {
+            let reloc_at = self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
+            // Imported functions are called through trampolines placed as custom sections.
+            let reloc_target = if function_index < self.module.num_imported_functions {
+                RelocationTarget::CustomSection(SectionIndex::new(function_index))
+            } else {
+                RelocationTarget::LocalFunc(LocalFunctionIndex::new(
+                    function_index - self.module.num_imported_functions,
+                ))
+            };
+            self.relocations.push(Relocation {
+                kind: RelocationKind::Abs8,
+                reloc_target,
+                offset: reloc_at as u32,
+                addend: 0,
+            });
+
+            // RAX is preserved on entry to `emit_call_sysv` callback.
+            // The Imm64 value is relocated by the JIT linker.
+            self.assembler.emit_mov(
+                Size::S64,
+                Location::Imm64(std::u64::MAX),
+                Location::GPR(GPR::RAX),
+            );
+
+            self.emit_call_sysv(
+                |this| {
+                    this.assembler.emit_call_location(Location::GPR(GPR::RAX));
+                },
+                params.iter().copied(),
+            )?;
+
+            self.machine
+                .release_locations_only_stack(&mut self.assembler, &params);
+
+            if !return_types.is_empty() {
+                let ret = self.machine.acquire_locations(
+                    &mut self.assembler,
+                    &[(
+                        return_types[0],
+                        MachineValue::WasmStack(self.value_stack.len()),
+                    )],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                if return_types[0].is_float() {
+                    self.assembler
+                        .emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
+                    self.fp_stack
+                        .push(FloatValue::new(self.value_stack.len() - 1));
+                } else {
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn check_intrinsic(&mut self, index: usize) -> Option<Intrinsic> {
+        let function_index = FunctionIndex::new(index);
+        let signature_index = self.module.functions[function_index];
+        let signature = &self.module.signatures[signature_index];
+        // Returns None if not imported.
+        let import_name = self.import_map.get(&function_index)?;
+        // TODO: can keep intrinsics in above map, but not sure if we'll have
+        //   significant amount of them to make it important.
+        for intrinsic in &self.config.intrinsics {
+            if intrinsic.name == *import_name && intrinsic.signature == *signature {
+                return Some(intrinsic.clone());
+            }
+        }
+        None
+    }
+
+    fn emit_intrinsic(
+        &mut self,
+        intrinsic: Intrinsic,
+        params: &SmallVec<[Location; 8]>,
+    ) -> Result<(), CodegenError> {
+        match intrinsic.kind {
+            IntrinsicKind::Gas => {
+                let counter_offset = offset_of!(FastGasCounter, burnt_gas) as i32;
+                let gas_limit_offset = offset_of!(FastGasCounter, gas_limit) as i32;
+                let opcode_cost_offset = offset_of!(FastGasCounter, opcode_cost) as i32;
+                // Recheck offsets, to make sure offsets will never change.
+                assert_eq!(counter_offset, 0);
+                assert_eq!(gas_limit_offset, 8);
+                assert_eq!(opcode_cost_offset, 16);
+                assert_eq!(params.len(), 1);
+                let count_location = params[0];
+                let base_reg = self.machine.acquire_temp_gpr().unwrap();
+                // Load gas counter base.
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_gas_limiter_pointer() as i32,
+                    ),
+                    Location::GPR(base_reg),
+                );
+                let current_burnt_reg = self.machine.acquire_temp_gpr().unwrap();
+                // Read current gas counter.
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(base_reg, counter_offset),
+                    Location::GPR(current_burnt_reg),
+                );
+                // Read opcode cost.
+                let count_reg = self.machine.acquire_temp_gpr().unwrap();
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(base_reg, opcode_cost_offset),
+                    Location::GPR(count_reg),
+                );
+                // Multiply instruction count by opcode cost.
+                match count_location {
+                    Location::Imm32(imm) => self.assembler.emit_imul_imm32_gpr64(imm, count_reg),
+                    _ => self.assembler.emit_imul(
+                        Size::S32,
+                        count_location,
+                        Location::GPR(count_reg),
+                    ),
+                }
+                // Compute new cost.
+                self.assembler.emit_add(
+                    Size::S64,
+                    Location::GPR(count_reg),
+                    Location::GPR(current_burnt_reg),
+                );
+                self.assembler
+                    .emit_jmp(Condition::Overflow, self.special_labels.integer_overflow);
+                // Compare with the limit.
+                self.assembler.emit_cmp(
+                    Size::S64,
+                    Location::GPR(current_burnt_reg),
+                    Location::Memory(base_reg, gas_limit_offset),
+                );
+                // Write new gas counter unconditionally, so that runtime can sort out limits case.
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::GPR(current_burnt_reg),
+                    Location::Memory(base_reg, counter_offset),
+                );
+                self.assembler.emit_jmp(
+                    Condition::BelowEqual,
+                    self.special_labels.gas_limit_exceeded,
+                );
+                self.machine.release_temp_gpr(base_reg);
+                self.machine.release_temp_gpr(current_burnt_reg);
+                self.machine.release_temp_gpr(count_reg);
+            }
+        }
+        Ok(())
     }
 
     fn emit_trap(&mut self, code: TrapCode) {
@@ -1780,7 +1971,6 @@ impl<'a> FuncGen<'a> {
         module: &'a ModuleInfo,
         config: &'a Singlepass,
         vmoffsets: &'a VMOffsets,
-        memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
@@ -1814,13 +2004,13 @@ impl<'a> FuncGen<'a> {
             table_access_oob: assembler.get_label(),
             indirect_call_null: assembler.get_label(),
             bad_signature: assembler.get_label(),
+            gas_limit_exceeded: assembler.get_label(),
         };
 
         let mut fg = FuncGen {
             module,
             config,
             vmoffsets,
-            memory_styles,
             // table_styles,
             signature,
             assembler,
@@ -1836,9 +2026,26 @@ impl<'a> FuncGen<'a> {
             special_labels,
             src_loc: 0,
             instructions_address_map: vec![],
+            import_map: FuncGen::build_import_map(module),
         };
         fg.emit_head()?;
         Ok(fg)
+    }
+
+    fn build_import_map(module: &'a ModuleInfo) -> HashMap<FunctionIndex, String> {
+        let mut result = HashMap::<FunctionIndex, String>::new();
+        for key in module.imports.keys() {
+            let value = &module.imports[key];
+            match value {
+                ImportIndex::Function(index) => {
+                    result.insert(*index, key.1.clone());
+                }
+                _ => {
+                    // Non-function import.
+                }
+            }
+        }
+        result
     }
 
     pub fn has_control_frames(&self) -> bool {
@@ -5113,104 +5320,7 @@ impl<'a> FuncGen<'a> {
                 }
             }
 
-            Operator::Call { function_index } => {
-                let function_index = function_index as usize;
-
-                let sig_index = *self
-                    .module
-                    .functions
-                    .get(FunctionIndex::new(function_index))
-                    .unwrap();
-                let sig = self.module.signatures.get(sig_index).unwrap();
-                let param_types: SmallVec<[WpType; 8]> =
-                    sig.params().iter().cloned().map(type_to_wp_type).collect();
-                let return_types: SmallVec<[WpType; 1]> =
-                    sig.results().iter().cloned().map(type_to_wp_type).collect();
-
-                let params: SmallVec<[_; 8]> = self
-                    .value_stack
-                    .drain(self.value_stack.len() - param_types.len()..)
-                    .collect();
-                self.machine.release_locations_only_regs(&params);
-
-                self.machine.release_locations_only_osr_state(params.len());
-
-                // Pop arguments off the FP stack and canonicalize them if needed.
-                //
-                // Canonicalization state will be lost across function calls, so early canonicalization
-                // is necessary here.
-                while let Some(fp) = self.fp_stack.last() {
-                    if fp.depth >= self.value_stack.len() {
-                        let index = fp.depth - self.value_stack.len();
-                        if self.assembler.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                        {
-                            let size = fp.canonicalization.unwrap().to_size();
-                            self.canonicalize_nan(size, params[index], params[index]);
-                        }
-                        self.fp_stack.pop().unwrap();
-                    } else {
-                        break;
-                    }
-                }
-
-                let reloc_at =
-                    self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
-                // Imported functions are called through trampolines placed as custom sections.
-                let reloc_target = if function_index < self.module.num_imported_functions {
-                    RelocationTarget::CustomSection(SectionIndex::new(function_index))
-                } else {
-                    RelocationTarget::LocalFunc(LocalFunctionIndex::new(
-                        function_index - self.module.num_imported_functions,
-                    ))
-                };
-                self.relocations.push(Relocation {
-                    kind: RelocationKind::Abs8,
-                    reloc_target,
-                    offset: reloc_at as u32,
-                    addend: 0,
-                });
-
-                // RAX is preserved on entry to `emit_call_sysv` callback.
-                // The Imm64 value is relocated by the JIT linker.
-                self.assembler.emit_mov(
-                    Size::S64,
-                    Location::Imm64(std::u64::MAX),
-                    Location::GPR(GPR::RAX),
-                );
-
-                self.emit_call_sysv(
-                    |this| {
-                        this.assembler.emit_call_location(Location::GPR(GPR::RAX));
-                    },
-                    params.iter().copied(),
-                )?;
-
-                self.machine
-                    .release_locations_only_stack(&mut self.assembler, &params);
-
-                if !return_types.is_empty() {
-                    let ret = self.machine.acquire_locations(
-                        &mut self.assembler,
-                        &[(
-                            return_types[0],
-                            MachineValue::WasmStack(self.value_stack.len()),
-                        )],
-                        false,
-                    )[0];
-                    self.value_stack.push(ret);
-                    if return_types[0].is_float() {
-                        self.assembler
-                            .emit_mov(Size::S64, Location::XMM(XMM::XMM0), ret);
-                        self.fp_stack
-                            .push(FloatValue::new(self.value_stack.len() - 1));
-                    } else {
-                        self.assembler
-                            .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
-                    }
-                }
-            }
+            Operator::Call { function_index } => self.emit_call(function_index)?,
             Operator::CallIndirect { index, table_index } => {
                 // TODO: removed restriction on always being table idx 0;
                 // does any code depend on this?
@@ -6292,7 +6402,6 @@ impl<'a> FuncGen<'a> {
                 })?;
             }
             Operator::Unreachable => {
-                self.mark_trappable();
                 let offset = self.assembler.get_offset().0;
                 self.emit_trap(TrapCode::UnreachableCodeReached);
                 self.mark_instruction_address_end(offset);
@@ -8661,6 +8770,10 @@ impl<'a> FuncGen<'a> {
 
         self.assembler.emit_label(self.special_labels.bad_signature);
         self.emit_trap(TrapCode::BadSignature);
+
+        self.assembler
+            .emit_label(self.special_labels.gas_limit_exceeded);
+        self.emit_trap(TrapCode::GasExceeded);
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.assembler.finalize_function();

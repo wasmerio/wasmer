@@ -468,16 +468,23 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the size of the [`VMContext`] allocation.
-    ///
-    /// [`VMContext`]: crate::vmcontext::VMContext
-    pub fn size_of_vmctx(&self) -> u32 {
+    /// The offset of the gas limiter pointer.
+    pub fn vmctx_gas_limiter_pointer(&self) -> u32 {
         self.vmctx_trap_handler_begin()
             .checked_add(if self.has_trap_handlers {
                 u32::from(self.pointer_size)
             } else {
                 0u32
             })
+            .unwrap()
+    }
+
+    /// Return the size of the [`VMContext`] allocation.
+    ///
+    /// [`VMContext`]: crate::vmcontext::VMContext
+    pub fn size_of_vmctx(&self) -> u32 {
+        self.vmctx_gas_limiter_pointer()
+            .checked_add(u32::from(self.pointer_size))
             .unwrap()
     }
 

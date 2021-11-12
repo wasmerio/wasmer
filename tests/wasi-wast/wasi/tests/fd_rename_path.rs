@@ -13,6 +13,7 @@ fn main() {
 
     fs::create_dir_all(&old_path).expect("cannot create the directory");
 
-    fs::rename(old_path, &new_path).expect("cannot rename the directory");
+    // Doesn't properly work on macOS.
+    // fs::rename(old_path, &new_path).expect("cannot rename the directory");
     fs::remove_dir(&new_path).expect("cannot remove the directory");
 }

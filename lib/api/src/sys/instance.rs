@@ -8,6 +8,7 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use wasmer_engine::Resolver;
+use wasmer_types::InstanceConfig;
 use wasmer_vm::{InstanceHandle, VMContext};
 
 /// A WebAssembly Instance is a stateful, executable
@@ -113,8 +114,17 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
+        Instance::new_with_config(module, InstanceConfig::default(), resolver)
+    }
+
+    /// New instance with config.
+    pub fn new_with_config(
+        module: &Module,
+        config: InstanceConfig,
+        resolver: &dyn Resolver,
+    ) -> Result<Self, InstantiationError> {
         let store = module.store();
-        let handle = module.instantiate(resolver)?;
+        let handle = module.instantiate(resolver, config)?;
         let exports = module
             .exports()
             .map(|export| {

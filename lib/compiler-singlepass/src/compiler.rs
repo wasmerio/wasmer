@@ -73,7 +73,6 @@ impl Compiler for SinglepassCompiler {
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
-        let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
@@ -110,16 +109,9 @@ impl Compiler for SinglepassCompiler {
                     }
                 }
 
-                let mut generator = FuncGen::new(
-                    module,
-                    &self.config,
-                    &vmoffsets,
-                    &memory_styles,
-                    &table_styles,
-                    i,
-                    &locals,
-                )
-                .map_err(to_compile_error)?;
+                let mut generator =
+                    FuncGen::new(module, &self.config, &vmoffsets, &table_styles, i, &locals)
+                        .map_err(to_compile_error)?;
 
                 while generator.has_control_frames() {
                     generator.set_srcloc(reader.original_position() as u32);

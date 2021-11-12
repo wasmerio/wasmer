@@ -7,6 +7,8 @@ use crate::lib::std::vec::Vec;
 use crate::units::Pages;
 use crate::values::{Value, WasmValueType};
 use loupe::{MemoryUsage, MemoryUsageTracker};
+use std::cell::UnsafeCell;
+use std::rc::Rc;
 
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -642,6 +644,85 @@ impl<T> ExportType<T> {
     /// Returns the type of this export.
     pub fn ty(&self) -> &T {
         &self.ty
+    }
+}
+
+/// Fast gas counter with very simple structure, could be exposed to compiled code in the VM.
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FastGasCounter {
+    /// The following three fields must be put next to another to make sure
+    /// generated gas counting code can use and adjust them.
+    /// We will share counter to ensure we never miss synchronization.
+    /// This could change and in such a case synchronization required between compiled WASM code
+    /// and the host code.
+
+    /// The amount of gas that was irreversibly used for contract execution.
+    pub burnt_gas: u64,
+    /// Hard gas limit for execution
+    pub gas_limit: u64,
+    /// Single WASM opcode cost
+    pub opcode_cost: u64,
+}
+
+impl FastGasCounter {
+    /// New fast gas counter.
+    pub fn new(limit: u64, opcode: u64) -> Self {
+        FastGasCounter {
+            burnt_gas: 0,
+            gas_limit: limit,
+            opcode_cost: opcode,
+        }
+    }
+    /// Amount of gas burnt, maybe load as atomic to avoid aliasing issues.
+    pub fn burnt(&self) -> u64 {
+        self.burnt_gas
+    }
+}
+
+impl fmt::Display for FastGasCounter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "burnt: {} limit: {} op_cost: {} ",
+            self.burnt(),
+            self.gas_limit,
+            self.opcode_cost
+        )
+    }
+}
+
+/// External configuration of execution environment for Instance.
+#[derive(Clone, MemoryUsage)]
+pub struct InstanceConfig {
+    /// External gas counter pointer.
+    pub gas_counter: *mut FastGasCounter,
+    #[loupe(skip)]
+    default_gas_counter: Option<Rc<UnsafeCell<FastGasCounter>>>,
+}
+
+impl InstanceConfig {
+    /// Create default instance configuration.
+    pub fn default() -> Self {
+        let result = Rc::new(UnsafeCell::new(FastGasCounter {
+            burnt_gas: 0,
+            gas_limit: u64::MAX,
+            opcode_cost: 0,
+        }));
+        Self {
+            gas_counter: result.get(),
+            default_gas_counter: Some(result),
+        }
+    }
+
+    /// Create instance configuration with an external gas counter, unsafe as it creates
+    /// an alias on raw memory of gas_counter. This memory could be accessed until
+    /// instance configured with this `InstanceConfig` exists.
+    pub unsafe fn new_with_counter(gas_counter: *mut FastGasCounter) -> Self {
+        Self {
+            gas_counter,
+            default_gas_counter: None,
+        }
     }
 }
 

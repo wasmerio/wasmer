@@ -5,7 +5,19 @@ use crate::compiler::SinglepassCompiler;
 use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
-use wasmer_types::Features;
+use wasmer_types::{Features, FunctionType, Type};
+
+#[derive(Debug, Clone, MemoryUsage)]
+pub(crate) enum IntrinsicKind {
+    Gas,
+}
+
+#[derive(Debug, Clone, MemoryUsage)]
+pub(crate) struct Intrinsic {
+    pub(crate) kind: IntrinsicKind,
+    pub(crate) name: String,
+    pub(crate) signature: FunctionType,
+}
 
 #[derive(Debug, Clone, MemoryUsage)]
 pub struct Singlepass {
@@ -13,6 +25,8 @@ pub struct Singlepass {
     pub(crate) enable_stack_check: bool,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+    /// Compiler intrinsics.
+    pub(crate) intrinsics: Vec<Intrinsic>,
 }
 
 impl Singlepass {
@@ -23,6 +37,11 @@ impl Singlepass {
             enable_nan_canonicalization: true,
             enable_stack_check: false,
             middlewares: vec![],
+            intrinsics: vec![Intrinsic {
+                kind: IntrinsicKind::Gas,
+                name: "gas".to_string(),
+                signature: ([Type::I32], []).into(),
+            }],
         }
     }
 

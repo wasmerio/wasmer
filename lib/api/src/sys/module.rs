@@ -11,7 +11,7 @@ use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
 use wasmer_engine::{is_wasm_pc, Artifact, DeserializeError, Resolver, SerializeError};
-use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
+use wasmer_types::{ExportsIterator, ImportsIterator, InstanceConfig, ModuleInfo};
 use wasmer_vm::{init_traps, InstanceHandle};
 
 #[derive(Error, Debug)]
@@ -266,12 +266,14 @@ impl Module {
     pub(crate) fn instantiate(
         &self,
         resolver: &dyn Resolver,
+        config: InstanceConfig,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
             let instance_handle = self.artifact.instantiate(
                 self.store.tunables(),
                 resolver,
                 Box::new((self.store.clone(), self.artifact.clone())),
+                config,
             )?;
 
             // After the instance handle is created, we need to initialize
