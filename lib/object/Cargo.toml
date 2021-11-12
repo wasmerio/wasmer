@@ -11,8 +11,8 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", package = "wasmer-types-near", version = "2.0.2" }
-wasmer-compiler = { path = "../compiler", package = "wasmer-compiler-near", version = "2.0.2", default-features = false, features = [
+wasmer-types = { path = "../types", package = "wasmer-types-near", version = "2.0.3" }
+wasmer-compiler = { path = "../compiler", package = "wasmer-compiler-near", version = "2.0.3", default-features = false, features = [
     "std",
     "translator"
 ] }

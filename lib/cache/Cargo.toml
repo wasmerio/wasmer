@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cache"
-version = "2.0.2"
+version = "2.0.3"
 description = "Cache system for Wasmer WebAssembly runtime"
 categories = ["wasm", "caching"]
 keywords = ["wasm", "webassembly", "cache"]
@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../api", version = "2.0.2", package = "wasmer-near", default-features = false, features = ["sys"] }
+wasmer = { path = "../api", version = "2.0.3", package = "wasmer-near", default-features = false, features = ["sys"] }
 hex = "0.4"
 thiserror = "1"
 blake3 = "1.0"
@@ -20,8 +20,8 @@ blake3 = "1.0"
 criterion = "0.3"
 tempfile = "3"
 rand = "0.8.3"
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", package = "wasmer-compiler-singlepass-near", version = "2.0.2" }
-wasmer-engine-universal = { path = "../engine-universal", package = "wasmer-engine-universal-near", version = "2.0.2" }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", package = "wasmer-compiler-singlepass-near", version = "2.0.3" }
+wasmer-engine-universal = { path = "../engine-universal", package = "wasmer-engine-universal-near", version = "2.0.3" }
 wasmer-engine-dylib = { path = "../engine-dylib", version = "2.0.0" }
 
 [features]

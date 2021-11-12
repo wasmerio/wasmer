@@ -20,7 +20,7 @@ generational-arena = { version = "0.2", features = ["serde"] }
 tracing = "0.1"
 getrandom = "0.2"
 wasmer-wasi-types = { path = "../wasi-types", version = "2.0.0" }
-wasmer = { path = "../api", version = "2.0.2", default-features = false, package = "wasmer-near" }
+wasmer = { path = "../api", version = "2.0.3", default-features = false, package = "wasmer-near" }
 wasmer-vfs = { path = "../vfs", version = "2.0.0", default-features = false }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }

@@ -2032,6 +2032,7 @@ impl<'a> FuncGen<'a> {
         Ok(fg)
     }
 
+    // TODO: consider caching it as it only depends on module.
     fn build_import_map(module: &'a ModuleInfo) -> HashMap<FunctionIndex, String> {
         let mut result = HashMap::<FunctionIndex, String>::new();
         for key in module.imports.keys() {

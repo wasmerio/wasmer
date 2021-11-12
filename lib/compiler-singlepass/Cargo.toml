@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-singlepass-near"
-version = "2.0.2"
+version = "2.0.3"
 description = "Singlepass compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "singlepass"]
@@ -15,9 +15,9 @@ edition = "2018"
 name = "wasmer_compiler_singlepass"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", package = "wasmer-compiler-near", version = "2.0.2", features = ["translator"], default-features = false }
-wasmer-vm = { path = "../vm", package = "wasmer-vm-near", version = "2.0.2", features = ["avoid-tls-signals"] }
-wasmer-types = { path = "../types", package = "wasmer-types-near", version = "2.0.2", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", package = "wasmer-compiler-near", version = "2.0.3", features = ["translator"], default-features = false }
+wasmer-vm = { path = "../vm", package = "wasmer-vm-near", version = "2.0.3", features = ["avoid-tls-signals"] }
+wasmer-types = { path = "../types", package = "wasmer-types-near", version = "2.0.3", default-features = false, features = ["std"] }
 rayon = { version = "1.5", optional = true }
 hashbrown = { version = "0.11", optional = true }
 more-asserts = "0.2"

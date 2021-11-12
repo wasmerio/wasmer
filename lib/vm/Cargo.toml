@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-vm-near"
-version = "2.0.2"
+version = "2.0.3"
 description = "Runtime library support for Wasmer"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
@@ -14,7 +14,7 @@ edition = "2018"
 name = "wasmer_vm"
 
 [dependencies]
-wasmer-types = { path = "../types", package = "wasmer-types-near", version = "2.0.2" }
+wasmer-types = { path = "../types", package = "wasmer-types-near", version = "2.0.3" }
 region = "3.0"
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"
