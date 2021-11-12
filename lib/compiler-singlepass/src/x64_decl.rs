@@ -1,6 +1,7 @@
 //! X64 structures.
 
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
+use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
 use std::collections::BTreeMap;
 use wasmer_compiler::CallingConvention;
@@ -140,9 +141,9 @@ pub enum X64Register {
     XMM(XMM),
 }
 
-impl X64Register {
+impl CombinedRegister for X64Register {
     /// Returns the index of the register.
-    pub fn to_index(&self) -> RegisterIndex {
+    fn to_index(&self) -> RegisterIndex {
         match *self {
             X64Register::GPR(x) => RegisterIndex(x as usize),
             X64Register::XMM(x) => RegisterIndex(x as usize + 16),
@@ -150,7 +151,7 @@ impl X64Register {
     }
 
     /// Converts a DWARF regnum to X64Register.
-    pub fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
+    fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
         Some(match x {
             0..=15 => X64Register::GPR(GPR::from_index(x as usize).unwrap()),
             17..=24 => X64Register::XMM(XMM::from_index(x as usize - 17).unwrap()),
@@ -162,7 +163,7 @@ impl X64Register {
     ///
     /// To build an instruction, append the memory location as a 32-bit
     /// offset to the stack pointer to this prefix.
-    pub fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
+    fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
         Some(match *self {
             X64Register::GPR(gpr) => match gpr {
                 GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],

@@ -1,3 +1,4 @@
+use crate::common_decl::RegisterIndex;
 use crate::machine::*;
 use std::fmt::Debug;
 
@@ -58,4 +59,16 @@ pub trait Descriptor<R: Reg, S: Reg> {
     fn callee_param_location(n: usize) -> Location<R, S>;
     fn caller_arg_location(n: usize) -> Location<R, S>;
     fn return_location() -> Location<R, S>;
+}
+
+pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
+    /// Returns the index of the register.
+    fn to_index(&self) -> RegisterIndex;
+    /// Converts a DWARF regnum to CombinedRegister.
+    fn _from_dwarf_regnum(x: u16) -> Option<Self>;
+    /// Returns the instruction prefix for move to stack
+    /// for example `movq %this_reg, ?(%rsp)` on x86_64
+    /// To build an instruction, append the memory location as a 32-bit
+    /// offset to the stack pointer to this prefix.
+    fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]>;
 }

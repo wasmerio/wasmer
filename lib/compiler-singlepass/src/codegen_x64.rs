@@ -1,6 +1,7 @@
 use crate::address_map::get_function_address_map;
 use crate::{
-    common_decl::*, config::Singlepass, emitter_x64::*, machine_x64::Machine, x64_decl::*,
+    common_decl::*, config::Singlepass, emitter_x64::*, location::CombinedRegister,
+    machine_x64::Machine, x64_decl::*,
 };
 use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};

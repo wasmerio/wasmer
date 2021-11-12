@@ -1,5 +1,6 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
+use crate::location::CombinedRegister;
 use crate::x64_decl::{new_machine_state, X64Register};
 use smallvec::smallvec;
 use smallvec::SmallVec;
