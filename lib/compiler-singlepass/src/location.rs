@@ -1,6 +1,7 @@
 use crate::common_decl::RegisterIndex;
 use crate::machine::*;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -36,7 +37,7 @@ impl<R, S> MaybeImmediate for Location<R, S> {
     }
 }
 
-pub trait Reg: Copy + Clone + Eq + PartialEq + Debug {
+pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
     fn is_callee_save(self) -> bool;
     fn is_reserved(self) -> bool;
     fn into_index(self) -> usize;
@@ -66,6 +67,10 @@ pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
     fn to_index(&self) -> RegisterIndex;
     /// Converts a DWARF regnum to CombinedRegister.
     fn _from_dwarf_regnum(x: u16) -> Option<Self>;
+    /// Convert from a GPR register
+    fn from_gpr(x: u16) -> Self;
+    /// Convert from an SIMD register
+    fn from_simd(x: u16) -> Self;
     /// Returns the instruction prefix for move to stack
     /// for example `movq %this_reg, ?(%rsp)` on x86_64
     /// To build an instruction, append the memory location as a 32-bit

@@ -149,6 +149,14 @@ impl CombinedRegister for X64Register {
             X64Register::XMM(x) => RegisterIndex(x as usize + 16),
         }
     }
+    /// Convert from a GPR register
+    fn from_gpr(x: u16) -> Self {
+        X64Register::GPR(GPR::from_index(x as usize).unwrap())
+    }
+    /// Convert from an SIMD register
+    fn from_simd(x: u16) -> Self {
+        X64Register::XMM(XMM::from_index(x as usize).unwrap())
+    }
 
     /// Converts a DWARF regnum to X64Register.
     fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
