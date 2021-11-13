@@ -11,6 +11,7 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::{Linkage, Module},
+    targets::TargetData,
     types::{
         BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType, PointerType,
         StructType, VectorType, VoidType,
@@ -168,6 +169,7 @@ pub struct Intrinsics<'ctx> {
     pub i32_ty: IntType<'ctx>,
     pub i64_ty: IntType<'ctx>,
     pub i128_ty: IntType<'ctx>,
+    pub isize_ty: IntType<'ctx>,
     pub f32_ty: FloatType<'ctx>,
     pub f64_ty: FloatType<'ctx>,
 
@@ -185,6 +187,7 @@ pub struct Intrinsics<'ctx> {
     pub i32_ptr_ty: PointerType<'ctx>,
     pub i64_ptr_ty: PointerType<'ctx>,
     pub i128_ptr_ty: PointerType<'ctx>,
+    pub isize_ptr_ty: PointerType<'ctx>,
     pub f32_ptr_ty: PointerType<'ctx>,
     pub f64_ptr_ty: PointerType<'ctx>,
 
@@ -199,6 +202,7 @@ pub struct Intrinsics<'ctx> {
     pub i32_zero: IntValue<'ctx>,
     pub i64_zero: IntValue<'ctx>,
     pub i128_zero: IntValue<'ctx>,
+    pub isize_zero: IntValue<'ctx>,
     pub f32_zero: FloatValue<'ctx>,
     pub f64_zero: FloatValue<'ctx>,
     pub f32x4_zero: VectorValue<'ctx>,
@@ -260,7 +264,11 @@ pub struct Intrinsics<'ctx> {
 
 impl<'ctx> Intrinsics<'ctx> {
     /// Create an [`Intrinsics`] for the given [`Context`].
-    pub fn declare(module: &Module<'ctx>, context: &'ctx Context) -> Self {
+    pub fn declare(
+        module: &Module<'ctx>,
+        context: &'ctx Context,
+        target_data: &TargetData,
+    ) -> Self {
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
         let i2_ty = context.custom_width_int_type(2);
@@ -270,6 +278,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let i32_ty = context.i32_type();
         let i64_ty = context.i64_type();
         let i128_ty = context.i128_type();
+        let isize_ty = context.ptr_sized_int_type(target_data, None);
         let f32_ty = context.f32_type();
         let f64_ty = context.f64_type();
 
@@ -289,6 +298,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let i32_ptr_ty = i32_ty.ptr_type(AddressSpace::Generic);
         let i64_ptr_ty = i64_ty.ptr_type(AddressSpace::Generic);
         let i128_ptr_ty = i128_ty.ptr_type(AddressSpace::Generic);
+        let isize_ptr_ty = isize_ty.ptr_type(AddressSpace::Generic);
         let f32_ptr_ty = f32_ty.ptr_type(AddressSpace::Generic);
         let f64_ptr_ty = f64_ty.ptr_type(AddressSpace::Generic);
 
@@ -297,6 +307,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let i32_zero = i32_ty.const_int(0, false);
         let i64_zero = i64_ty.const_int(0, false);
         let i128_zero = i128_ty.const_int(0, false);
+        let isize_zero = isize_ty.const_int(0, false);
         let f32_zero = f32_ty.const_float(0.0);
         let f64_zero = f64_ty.const_float(0.0);
         let f32x4_zero = f32x4_ty.const_zero();
@@ -703,6 +714,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i32_ty,
             i64_ty,
             i128_ty,
+            isize_ty,
             f32_ty,
             f64_ty,
 
@@ -720,6 +732,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i32_ptr_ty,
             i64_ptr_ty,
             i128_ptr_ty,
+            isize_ptr_ty,
             f32_ptr_ty,
             f64_ptr_ty,
 
@@ -734,6 +747,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i32_zero,
             i64_zero,
             i128_zero,
+            isize_zero,
             f32_zero,
             f64_zero,
             f32x4_zero,
@@ -1001,9 +1015,8 @@ impl<'ctx> Intrinsics<'ctx> {
             vmfunction_import_body_element: 0,
             vmfunction_import_vmctx_element: 1,
 
-            // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
-                .struct_type(&[i8_ptr_ty_basic, i32_ty.into()], false)
+                .struct_type(&[i8_ptr_ty_basic, isize_ty.into()], false)
                 .ptr_type(AddressSpace::Generic),
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,

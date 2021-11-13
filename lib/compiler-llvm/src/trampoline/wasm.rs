@@ -48,9 +48,10 @@ impl FuncTrampoline {
         let module = self.ctx.create_module("");
         let target_machine = &self.target_machine;
         let target_triple = target_machine.get_triple();
+        let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
-        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx);
+        module.set_data_layout(&target_data.get_data_layout());
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
 
         let (callee_ty, callee_attrs) =
             self.abi
@@ -177,10 +178,11 @@ impl FuncTrampoline {
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");
         let target_machine = &self.target_machine;
+        let target_data = target_machine.get_target_data();
         let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
-        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
-        let intrinsics = Intrinsics::declare(&module, &self.ctx);
+        module.set_data_layout(&target_data.get_data_layout());
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
 
         let (trampoline_ty, trampoline_attrs) =
             self.abi

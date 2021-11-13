@@ -83,8 +83,9 @@ impl FuncTranslator {
 
         let target_machine = &self.target_machine;
         let target_triple = target_machine.get_triple();
+        let target_data = target_machine.get_target_data();
         module.set_triple(&target_triple);
-        module.set_data_layout(&target_machine.get_target_data().get_data_layout());
+        module.set_data_layout(&target_data.get_data_layout());
         let wasm_fn_type = wasm_module
             .signatures
             .get(wasm_module.functions[func_index])
@@ -92,7 +93,7 @@ impl FuncTranslator {
 
         // TODO: pointer width
         let offsets = VMOffsets::new(8, &wasm_module);
-        let intrinsics = Intrinsics::declare(&module, &self.ctx);
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
         let (func_type, func_attrs) =
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, Some(&offsets), wasm_fn_type)?;

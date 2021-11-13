@@ -1290,7 +1290,7 @@ impl<'a> FuncGen<'a> {
         // Load bound into temporary register, if needed.
         if need_check {
             self.assembler
-                .emit_mov(Size::S32, bound_loc, Location::GPR(tmp_bound));
+                .emit_mov(Size::S64, bound_loc, Location::GPR(tmp_bound));
 
             // Wasm -> Effective.
             // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,

@@ -131,7 +131,7 @@ impl Memory {
     pub fn data_size(&self) -> u64 {
         let definition = self.vm_memory.from.vmmemory();
         let def = unsafe { definition.as_ref() };
-        def.current_length.into()
+        def.current_length.try_into().unwrap()
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
