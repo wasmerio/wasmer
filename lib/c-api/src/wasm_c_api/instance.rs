@@ -1,9 +1,8 @@
-use super::externals::{wasm_extern_t, wasm_extern_vec_t};
+use super::externals::wasm_extern_vec_t;
 use super::module::wasm_module_t;
 use super::store::wasm_store_t;
 use super::trap::wasm_trap_t;
 use crate::ordered_resolver::OrderedResolver;
-use std::mem;
 use std::sync::Arc;
 use wasmer_api::{Extern, Instance, InstantiationError};
 
@@ -41,7 +40,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     _store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
     imports: Option<&wasm_extern_vec_t>,
-    trap: *mut *mut wasm_trap_t,
+    trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
     let module = module?;
     let imports = imports?;
@@ -50,10 +49,9 @@ pub unsafe extern "C" fn wasm_instance_new(
     let module_imports = wasm_module.imports();
     let module_import_count = module_imports.len();
     let resolver: OrderedResolver = imports
-        .into_slice()
-        .map(|imports| imports.iter())
-        .unwrap_or_else(|| [].iter())
-        .map(|imp| Extern::from((&**imp).clone()))
+        .as_slice()
+        .iter()
+        .map(|imp| Extern::from(imp.as_ref().unwrap().as_ref().clone()))
         .take(module_import_count)
         .collect();
 
@@ -67,8 +65,10 @@ pub unsafe extern "C" fn wasm_instance_new(
         }
 
         Err(InstantiationError::Start(runtime_error)) => {
-            let this_trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
-            *trap = Box::into_raw(this_trap);
+            if let Some(trap) = trap {
+                let this_trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
+                *trap = Box::into_raw(this_trap);
+            }
 
             return None;
         }
@@ -181,17 +181,13 @@ pub unsafe extern "C" fn wasm_instance_exports(
     out: &mut wasm_extern_vec_t,
 ) {
     let instance = &instance.inner;
-    let mut extern_vec = instance
+    let extern_vec = instance
         .exports
         .iter()
-        .map(|(_name, r#extern)| Box::into_raw(Box::new(r#extern.clone().into())))
-        .collect::<Vec<*mut wasm_extern_t>>();
-    extern_vec.shrink_to_fit();
+        .map(|(_name, r#extern)| Some(Box::new(r#extern.clone().into())))
+        .collect();
 
-    out.size = extern_vec.len();
-    out.data = extern_vec.as_mut_ptr();
-
-    mem::forget(extern_vec);
+    out.set_buffer(extern_vec);
 }
 
 #[cfg(test)]

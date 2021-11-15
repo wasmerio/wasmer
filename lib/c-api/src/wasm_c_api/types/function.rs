@@ -1,22 +1,30 @@
-use super::{wasm_externtype_t, wasm_valtype_vec_delete, wasm_valtype_vec_t, WasmExternType};
+use super::{wasm_externtype_t, wasm_valtype_vec_t, WasmExternType};
+use std::fmt;
 use wasmer_api::{ExternType, FunctionType, ValType};
 
-#[derive(Debug)]
 pub(crate) struct WasmFunctionType {
     pub(crate) function_type: FunctionType,
-    params: Box<wasm_valtype_vec_t>,
-    results: Box<wasm_valtype_vec_t>,
+    params: wasm_valtype_vec_t,
+    results: wasm_valtype_vec_t,
 }
 
 impl WasmFunctionType {
     pub(crate) fn new(function_type: FunctionType) -> Self {
-        let params: Box<wasm_valtype_vec_t> = Box::new(function_type.params().into());
-        let results: Box<wasm_valtype_vec_t> = Box::new(function_type.results().into());
+        let params: Vec<_> = function_type
+            .params()
+            .iter()
+            .map(|&valtype| Some(Box::new(valtype.into())))
+            .collect();
+        let results: Vec<_> = function_type
+            .results()
+            .iter()
+            .map(|&valtype| Some(Box::new(valtype.into())))
+            .collect();
 
         Self {
             function_type,
-            params,
-            results,
+            params: params.into(),
+            results: results.into(),
         }
     }
 }
@@ -24,6 +32,12 @@ impl WasmFunctionType {
 impl Clone for WasmFunctionType {
     fn clone(&self) -> Self {
         Self::new(self.function_type.clone())
+    }
+}
+
+impl fmt::Debug for WasmFunctionType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.function_type.fmt(f)
     }
 }
 
@@ -52,6 +66,7 @@ impl wasm_functype_t {
 }
 
 wasm_declare_boxed_vec!(functype);
+wasm_impl_copy_delete!(functype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_new(
@@ -62,18 +77,15 @@ pub unsafe extern "C" fn wasm_functype_new(
     let results = results?;
 
     let params_as_valtype: Vec<ValType> = params
-        .into_slice()?
+        .take()
         .into_iter()
-        .map(|val| val.as_ref().into())
+        .map(|val| val.as_ref().unwrap().as_ref().into())
         .collect::<Vec<_>>();
     let results_as_valtype: Vec<ValType> = results
-        .into_slice()?
-        .iter()
-        .map(|val| val.as_ref().into())
+        .take()
+        .into_iter()
+        .map(|val| val.as_ref().unwrap().as_ref().into())
         .collect::<Vec<_>>();
-
-    wasm_valtype_vec_delete(Some(params));
-    wasm_valtype_vec_delete(Some(results));
 
     Some(Box::new(wasm_functype_t::new(FunctionType::new(
         params_as_valtype,
@@ -82,24 +94,12 @@ pub unsafe extern "C" fn wasm_functype_new(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_functype_delete(_function_type: Option<Box<wasm_functype_t>>) {}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_functype_copy(
-    function_type: Option<&wasm_functype_t>,
-) -> Option<Box<wasm_functype_t>> {
-    let function_type = function_type?;
-
-    Some(Box::new(function_type.clone()))
-}
-
-#[no_mangle]
 pub unsafe extern "C" fn wasm_functype_params(
     function_type: Option<&wasm_functype_t>,
 ) -> Option<&wasm_valtype_vec_t> {
     let function_type = function_type?;
 
-    Some(function_type.inner().params.as_ref())
+    Some(&function_type.inner().params)
 }
 
 #[no_mangle]
@@ -108,5 +108,5 @@ pub unsafe extern "C" fn wasm_functype_results(
 ) -> Option<&wasm_valtype_vec_t> {
     let function_type = function_type?;
 
-    Some(function_type.inner().results.as_ref())
+    Some(&function_type.inner().results)
 }

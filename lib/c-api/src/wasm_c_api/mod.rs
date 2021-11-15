@@ -23,7 +23,7 @@
 
 /// Private Rust macros.
 #[macro_use]
-pub mod macros;
+mod macros;
 
 /// An engine drives the compilation and the runtime.
 ///

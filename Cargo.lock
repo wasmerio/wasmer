@@ -2723,7 +2723,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "paste",
- "rayon",
  "serde",
  "thiserror",
  "typetag",
