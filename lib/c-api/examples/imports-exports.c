@@ -63,6 +63,7 @@ int main(int argc, const char* argv[]) {
 
     printf("Instantiating module...\n");
     wasm_instance_t* instance = wasm_instance_new(store, module, &import_object, NULL);
+    wasm_extern_vec_delete(&import_object);
 
     if (!instance) {
       printf("> Error instantiating module!\n");
