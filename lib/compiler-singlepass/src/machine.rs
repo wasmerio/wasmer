@@ -593,7 +593,7 @@ mod test {
     #[test]
     fn test_release_locations_keep_state_nopanic() {
         let mut machine = Machine::new();
-        let mut assembler = Assembler::new().unwrap();
+        let mut assembler = Assembler::new(0);
         let locs = machine.acquire_locations(
             &mut assembler,
             &(0..10)
