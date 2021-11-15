@@ -27,7 +27,6 @@ wasmer-cache = { version = "2.0.0", path = "lib/cache", optional = true }
 wasmer-types = { version = "2.0.0", path = "lib/types" }
 wasmer-middlewares = { version = "2.0.0", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
-tracing-span-tree = "0.1"
 
 [workspace]
 members = [
