@@ -30,6 +30,7 @@ _lightweight containers_ to run anywhere: from *Desktop* to the *Cloud*, *Edge* 
 [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
 [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
 [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
+[🇰🇷 한국인 -Korean](https://github.com/wasmerio/wasmer/blob/master/docs/ko/README.md)_.
 
 ### Features
 
