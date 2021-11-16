@@ -123,6 +123,12 @@ impl Instance {
         config: InstanceConfig,
         resolver: &dyn Resolver,
     ) -> Result<Self, InstantiationError> {
+        unsafe {
+            if (*config.gas_counter).opcode_cost > i32::MAX as u64 {
+                // Fast gas counter logic assumes that individual opcode cost is not too big.
+                return Err(InstantiationError::HostEnvInitialization(HostEnvInitError::IncorrectGasMeteringConfig))
+            }
+        }
         let store = module.store();
         let handle = module.instantiate(resolver, config)?;
         let exports = module

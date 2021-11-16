@@ -3,10 +3,12 @@ use thiserror::Error;
 
 /// An error while initializing the user supplied host env with the `WasmerEnv` trait.
 #[derive(Error, Debug)]
-#[error("Host env initialization error: {0}")]
+#[error("Host env initialization error")]
 pub enum HostEnvInitError {
     /// An error occurred when accessing an export
     Export(ExportError),
+    /// Incorrect gas metering config
+    IncorrectGasMeteringConfig,
 }
 
 impl From<ExportError> for HostEnvInitError {
