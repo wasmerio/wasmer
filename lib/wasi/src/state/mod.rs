@@ -1383,9 +1383,15 @@ impl WasiFs {
                         ..__wasi_filestat_t::default()
                     })
                 }
-                None => self.fs_backing.metadata(path).map_err(fs_error_into_wasi_err)?,
+                None => self
+                    .fs_backing
+                    .metadata(path)
+                    .map_err(fs_error_into_wasi_err)?,
             },
-            Kind::Dir { path, .. } => self.fs_backing.metadata(path).map_err(fs_error_into_wasi_err)?,
+            Kind::Dir { path, .. } => self
+                .fs_backing
+                .metadata(path)
+                .map_err(fs_error_into_wasi_err)?,
             Kind::Symlink {
                 base_po_dir,
                 path_to_symlink,

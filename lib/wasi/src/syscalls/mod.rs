@@ -694,7 +694,9 @@ pub fn fd_pread(
             match &mut state.fs.inodes[inode].kind {
                 Kind::File { handle, .. } => {
                     if let Some(h) = handle {
-                        wasi_try!(h.seek(std::io::SeekFrom::Start(offset as u64)).map_err(map_io_err));
+                        wasi_try!(h
+                            .seek(std::io::SeekFrom::Start(offset as u64))
+                            .map_err(map_io_err));
                         wasi_try!(read_bytes(h, memory, &iov_cells))
                     } else {
                         return __WASI_EINVAL;
@@ -2387,21 +2389,24 @@ pub fn poll_oneoff(
 
         if let Some(fd) = fd {
             let wasi_file_ref: &dyn VirtualFile = match fd {
-                __WASI_STDERR_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stderr().map_err(fs_error_into_wasi_err)).as_ref()
-                    .ok_or(__WASI_EBADF)
-                )
-                .as_ref(),
-                __WASI_STDIN_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stdin().map_err(fs_error_into_wasi_err)).as_ref()
-                    .ok_or(__WASI_EBADF)
-                )
-                .as_ref(),
-                __WASI_STDOUT_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stdout().map_err(fs_error_into_wasi_err)).as_ref()
-                    .ok_or(__WASI_EBADF)
-                )
-                .as_ref(),
+                __WASI_STDERR_FILENO => {
+                    wasi_try!(wasi_try!(state.fs.stderr().map_err(fs_error_into_wasi_err))
+                        .as_ref()
+                        .ok_or(__WASI_EBADF))
+                    .as_ref()
+                }
+                __WASI_STDIN_FILENO => {
+                    wasi_try!(wasi_try!(state.fs.stdin().map_err(fs_error_into_wasi_err))
+                        .as_ref()
+                        .ok_or(__WASI_EBADF))
+                    .as_ref()
+                }
+                __WASI_STDOUT_FILENO => {
+                    wasi_try!(wasi_try!(state.fs.stdout().map_err(fs_error_into_wasi_err))
+                        .as_ref()
+                        .ok_or(__WASI_EBADF))
+                    .as_ref()
+                }
                 _ => {
                     let fd_entry = wasi_try!(state.fs.get_fd(fd));
                     let inode = fd_entry.inode;

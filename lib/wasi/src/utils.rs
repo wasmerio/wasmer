@@ -1,6 +1,6 @@
+use super::types::*;
 use std::collections::BTreeSet;
 use wasmer::Module;
-use super::types::*;
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
@@ -31,7 +31,7 @@ pub fn map_io_err(err: std::io::Error) -> __wasi_errno_t {
         ErrorKind::Other => __WASI_EIO,
         ErrorKind::UnexpectedEof => __WASI_EIO,
         ErrorKind::Unsupported => __WASI_ENOTSUP,
-        _ => __WASI_EIO
+        _ => __WASI_EIO,
     }
 }
 
