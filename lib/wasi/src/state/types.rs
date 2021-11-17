@@ -235,7 +235,10 @@ pub(crate) fn poll(
 
         let file = files[n];
         let can_read = file.bytes_available_read()?.map(|s| s > 0).unwrap_or(false);
-        let can_write = file.bytes_available_write()?.map(|s| s > 0).unwrap_or(false);
+        let can_write = file
+            .bytes_available_write()?
+            .map(|s| s > 0)
+            .unwrap_or(false);
         let is_closed = file.is_open() == false;
 
         for event in iterate_poll_events(events[n]) {

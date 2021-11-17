@@ -85,9 +85,7 @@ fn write_bytes_inner<T: Write>(
                 .copy_to(&mut raw_bytes);
         }
 
-        write_loc
-            .write_all(&raw_bytes)
-            .map_err(|e| map_io_err(e))?;
+        write_loc.write_all(&raw_bytes).map_err(|e| map_io_err(e))?;
 
         bytes_written += iov_inner.buf_len;
     }
@@ -2517,13 +2515,17 @@ pub fn poll_oneoff(
                 PollEvent::PollHangUp => flags = __WASI_EVENT_FD_READWRITE_HANGUP,
                 PollEvent::PollInvalid => error = __WASI_EINVAL,
                 PollEvent::PollIn => {
-                    bytes_available =
-                        wasi_try!(fds[i].bytes_available_read().map_err(fs_error_into_wasi_err)).unwrap_or(0usize);
+                    bytes_available = wasi_try!(fds[i]
+                        .bytes_available_read()
+                        .map_err(fs_error_into_wasi_err))
+                    .unwrap_or(0usize);
                     error = __WASI_ESUCCESS;
                 }
                 PollEvent::PollOut => {
-                    bytes_available =
-                        wasi_try!(fds[i].bytes_available_write().map_err(fs_error_into_wasi_err)).unwrap_or(0usize);
+                    bytes_available = wasi_try!(fds[i]
+                        .bytes_available_write()
+                        .map_err(fs_error_into_wasi_err))
+                    .unwrap_or(0usize);
                     error = __WASI_ESUCCESS;
                 }
             }

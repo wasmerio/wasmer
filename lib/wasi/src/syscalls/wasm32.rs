@@ -1,6 +1,6 @@
 use crate::syscalls::types::*;
-use std::mem;
 use chrono::prelude::*;
+use std::mem;
 use wasmer::WasmCell;
 
 pub fn platform_clock_res_get(
@@ -19,9 +19,8 @@ pub fn platform_clock_time_get(
     precision: __wasi_timestamp_t,
     time: WasmCell<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-
     let new_time: DateTime<Local> = Local::now();
     time.set(new_time.timestamp_nanos() as __wasi_timestamp_t);
-    
+
     __WASI_ESUCCESS
 }
