@@ -651,6 +651,9 @@
 <span id="650">650</span>
 <span id="651">651</span>
 <span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::abi::Abi</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::translator::intrinsics</span>::{<span class="ident">type_to_llvm</span>, <span class="ident">Intrinsics</span>};
@@ -658,7 +661,7 @@
     <span class="ident">attributes</span>::{<span class="ident">Attribute</span>, <span class="ident">AttributeLoc</span>},
     <span class="ident">builder::Builder</span>,
     <span class="ident">context::Context</span>,
-    <span class="ident">types</span>::{<span class="ident">BasicMetadataTypeEnum</span>, <span class="ident">BasicType</span>, <span class="ident">FunctionType</span>, <span class="ident">StructType</span>},
+    <span class="ident">types</span>::{<span class="ident">AnyType</span>, <span class="ident">BasicMetadataTypeEnum</span>, <span class="ident">BasicType</span>, <span class="ident">FunctionType</span>, <span class="ident">StructType</span>},
     <span class="ident">values</span>::{
         <span class="ident">BasicValue</span>, <span class="ident">BasicValueEnum</span>, <span class="ident">CallSiteValue</span>, <span class="ident">FloatValue</span>, <span class="ident">FunctionValue</span>, <span class="ident">IntValue</span>,
         <span class="ident">PointerValue</span>, <span class="ident">VectorValue</span>,
@@ -917,14 +920,17 @@
                     .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">ty</span><span class="op">|</span> <span class="ident">type_to_llvm</span>(<span class="ident">intrinsics</span>, <span class="ident">ty</span>))
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="ident">sret</span> <span class="op">=</span> <span class="ident">context</span>
-                    .<span class="ident">struct_type</span>(<span class="kw-2">&amp;</span><span class="ident">basic_types</span>, <span class="bool-val">false</span>)
-                    .<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
+                <span class="kw">let</span> <span class="ident">sret</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">struct_type</span>(<span class="kw-2">&amp;</span><span class="ident">basic_types</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">sret_ptr</span> <span class="op">=</span> <span class="ident">sret</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
 
-                <span class="kw">let</span> <span class="ident">param_types</span> <span class="op">=</span> <span class="ident">std::iter::once</span>(<span class="prelude-val">Ok</span>(<span class="ident">sret</span>.<span class="ident">as_basic_type_enum</span>())).<span class="ident">chain</span>(<span class="ident">param_types</span>);
+                <span class="kw">let</span> <span class="ident">param_types</span> <span class="op">=</span>
+                    <span class="ident">std::iter::once</span>(<span class="prelude-val">Ok</span>(<span class="ident">sret_ptr</span>.<span class="ident">as_basic_type_enum</span>())).<span class="ident">chain</span>(<span class="ident">param_types</span>);
 
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">attributes</span> <span class="op">=</span> <span class="macro">vec!</span>[(
-                    <span class="ident">context</span>.<span class="ident">create_enum_attribute</span>(<span class="ident">Attribute::get_named_enum_kind_id</span>(<span class="string">&quot;sret&quot;</span>), <span class="number">0</span>),
+                    <span class="ident">context</span>.<span class="ident">create_type_attribute</span>(
+                        <span class="ident">Attribute::get_named_enum_kind_id</span>(<span class="string">&quot;sret&quot;</span>),
+                        <span class="ident">sret</span>.<span class="ident">as_any_type_enum</span>(),
+                    ),
                     <span class="ident">AttributeLoc::Param</span>(<span class="number">0</span>),
                 )];
                 <span class="ident">attributes</span>.<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vmctx_attributes</span>(<span class="number">1</span>));
