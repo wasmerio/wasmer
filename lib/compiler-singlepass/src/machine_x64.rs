@@ -4,16 +4,20 @@ use crate::machine::Machine as AbstractMachine;
 use crate::machine::MachineSpecific;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{X64Register, GPR};
+use dynasmrt::x64::Assembler;
 use std::collections::HashSet;
 use wasmer_compiler::CallingConvention;
 
-pub struct MachineX86_64 {}
+pub struct MachineX86_64 {
+    pub assembler: Assembler, //temporary public
+}
 
 impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn new() -> Self {
-        MachineX86_64 {}
+        MachineX86_64 {
+            assembler: Assembler::new().unwrap(),
+        }
     }
-
     fn get_vmctx_reg() -> GPR {
         GPR::R15
     }
@@ -66,21 +70,21 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
 
     // Memory location for a local on the stack
-    fn local_on_stack(&self, stack_offset: i32) -> Location {
+    fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         Location::Memory(GPR::RBP, -stack_offset)
     }
 
     // Adjust stack for locals
-    fn adjust_stack<E: Emitter>(&self, assembler: &mut E, delta_stack_offset: u32) {
-        assembler.emit_sub(
+    fn adjust_stack(&mut self, delta_stack_offset: u32) {
+        self.assembler.emit_sub(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         );
     }
     // Pop stack of locals
-    fn pop_stack_locals<E: Emitter>(&self, assembler: &mut E, delta_stack_offset: u32) {
-        assembler.emit_add(
+    fn pop_stack_locals(&mut self, delta_stack_offset: u32) {
+        self.assembler.emit_add(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
@@ -88,8 +92,8 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
 
     // Zero a location that is 32bits
-    fn zero_location<E: Emitter>(&self, assembler: &mut E, size: Size, location: Location) {
-        assembler.emit_mov(size, Location::Imm32(0), location);
+    fn zero_location(&mut self, size: Size, location: Location) {
+        self.assembler.emit_mov(size, Location::Imm32(0), location);
     }
 
     // GPR Reg used for local pointer on the stack
@@ -114,8 +118,8 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         }
     }
     // Move a local to the stack
-    fn move_local<E: Emitter>(&self, assembler: &mut E, stack_offset: i32, location: Location) {
-        assembler.emit_mov(
+    fn move_local(&mut self, stack_offset: i32, location: Location) {
+        self.assembler.emit_mov(
             Size::S64,
             location,
             Location::Memory(GPR::RBP, -stack_offset),
@@ -154,56 +158,141 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         }
     }
     // move a location to another
-    fn move_location<E: Emitter>(&self, assembler: &mut E, source: Location, dest: Location) {
+    fn move_location(&mut self, size: Size, source: Location, dest: Location) {
         match source {
             Location::GPR(_) => {
-                assembler.emit_mov(Size::S64, source, dest);
+                self.assembler.emit_mov(size, source, dest);
             }
             Location::Memory(_, _) => match dest {
-                Location::GPR(_) => {
-                    assembler.emit_mov(Size::S64, source, dest);
+                Location::GPR(_) | Location::SIMD(_) => {
+                    self.assembler.emit_mov(size, source, dest);
                 }
-                Location::Memory(_, _) => {
-                    assembler.emit_mov(Size::S64, source, Location::GPR(GPR::RAX));
-                    assembler.emit_mov(Size::S64, Location::GPR(GPR::RAX), dest);
+                Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                    self.assembler
+                        .emit_mov(size, source, Location::GPR(GPR::RAX));
+                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
                 }
                 _ => unreachable!(),
             },
+            Location::Memory2(_, _, _, _) => match dest {
+                Location::GPR(_) | Location::SIMD(_) => {
+                    self.assembler.emit_mov(size, source, dest);
+                }
+                Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                    self.assembler
+                        .emit_mov(size, source, Location::GPR(GPR::RAX));
+                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                }
+                _ => unreachable!(),
+            },
+            Location::Imm8(_) | Location::Imm32(_) | Location::Imm64(_) => match dest {
+                Location::GPR(_) | Location::SIMD(_) => {
+                    self.assembler.emit_mov(size, source, dest);
+                }
+                Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                    self.assembler
+                        .emit_mov(size, source, Location::GPR(GPR::RAX));
+                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                }
+                _ => unreachable!(),
+            },
+            Location::SIMD(_) => {
+                self.assembler.emit_mov(size, source, dest);
+            }
             _ => unreachable!(),
         }
     }
     // Init the stack loc counter
-    fn init_stack_loc<E: Emitter>(
-        &self,
-        assembler: &mut E,
-        init_stack_loc_cnt: u64,
-        last_stack_loc: Location,
-    ) {
+    fn init_stack_loc(&mut self, init_stack_loc_cnt: u64, last_stack_loc: Location) {
         // Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.
-        assembler.emit_mov(
+        self.assembler.emit_mov(
             Size::S64,
             Location::Imm64(init_stack_loc_cnt),
             Location::GPR(GPR::RCX),
         );
-        assembler.emit_xor(Size::S64, Location::GPR(GPR::RAX), Location::GPR(GPR::RAX));
-        assembler.emit_lea(Size::S64, last_stack_loc, Location::GPR(GPR::RDI));
-        assembler.emit_rep_stosq();
+        self.assembler
+            .emit_xor(Size::S64, Location::GPR(GPR::RAX), Location::GPR(GPR::RAX));
+        self.assembler
+            .emit_lea(Size::S64, last_stack_loc, Location::GPR(GPR::RDI));
+        self.assembler.emit_rep_stosq();
     }
     // Restore save_area
-    fn restore_saved_area<E: Emitter>(&self, assembler: &mut E, saved_area_offset: i32) {
-        assembler.emit_lea(
+    fn restore_saved_area(&mut self, saved_area_offset: i32) {
+        self.assembler.emit_lea(
             Size::S64,
             Location::Memory(GPR::RBP, -saved_area_offset),
             Location::GPR(GPR::RSP),
         );
     }
     // Pop a location
-    fn pop_location<E: Emitter>(&self, assembler: &mut E, location: Location) {
-        assembler.emit_pop(Size::S64, location);
+    fn pop_location(&mut self, location: Location) {
+        self.assembler.emit_pop(Size::S64, location);
     }
     // Create a new `MachineState` with default values.
     fn new_machine_state() -> MachineState {
         new_machine_state()
+    }
+
+    // assembler finalize
+    fn assembler_finalize(self) -> Vec<u8> {
+        self.assembler.finalize().unwrap().to_vec()
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.assembler.get_offset()
+    }
+
+    fn finalize_function(&mut self) {
+        self.assembler.finalize_function();
+    }
+
+    fn emit_illegal_op(&mut self) {
+        self.assembler.emit_ud2();
+    }
+    fn get_label(&mut self) -> Label {
+        self.assembler.new_dynamic_label()
+    }
+    fn emit_label(&mut self, label: Label) {
+        self.assembler.emit_label(label);
+    }
+    fn get_grp_for_call(&self) -> GPR {
+        GPR::RAX
+    }
+    fn emit_call_register(&mut self, reg: GPR) {
+        self.assembler.emit_call_register(reg);
+    }
+    fn get_gpr_for_ret(&self) -> GPR {
+        GPR::RAX
+    }
+    fn location_address(&mut self, size: Size, source: Location, dest: Location) {
+        self.assembler.emit_lea(size, source, dest);
+    }
+    // logic
+    fn location_and(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+        self.assembler.emit_and(size, source, dest);
+    }
+    fn location_test(&mut self, size: Size, source: Location, dest: Location) {
+        self.assembler.emit_test(size, source, dest);
+    }
+    // math
+    fn location_add(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+        self.assembler.emit_add(size, source, dest);
+    }
+    fn location_cmp(&mut self, size: Size, source: Location, dest: Location) {
+        self.assembler.emit_cmp(size, source, dest);
+    }
+    // (un)conditionnal jmp
+    fn jmp_on_equal(&mut self, label: Label) {
+        self.assembler.emit_jmp(Condition::Equal, label);
+    }
+    fn jmp_on_different(&mut self, label: Label) {
+        self.assembler.emit_jmp(Condition::NotEqual, label);
+    }
+    fn jmp_on_above(&mut self, label: Label) {
+        self.assembler.emit_jmp(Condition::Above, label);
+    }
+    fn jmp_on_overflow(&mut self, label: Label) {
+        self.assembler.emit_jmp(Condition::Carry, label);
     }
 }
 

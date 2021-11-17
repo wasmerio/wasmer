@@ -23,18 +23,6 @@ macro_rules! dynasm {
     };
 }
 
-//#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-//pub enum Location {
-//    Imm8(u8),
-//    Imm32(u32),
-//    Imm64(u64),
-//    // Imm128(u128),
-//    GPR(GPR),
-//    XMM(XMM),
-//    Memory(GPR, i32),
-//    MemoryAddTriple(GPR, GPR, i32),
-//}
-
 pub type Location = AbstractLocation<GPR, XMM>;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -68,12 +56,12 @@ pub enum GPROrMemory {
     Memory(GPR, i32),
 }
 
-pub trait Emitter {
-    type Label;
-    type Offset;
+pub type Label = DynamicLabel;
+pub type Offset = AssemblyOffset;
 
-    fn get_label(&mut self) -> Self::Label;
-    fn get_offset(&self) -> Self::Offset;
+pub trait Emitter {
+    fn get_label(&mut self) -> Label;
+    fn get_offset(&self) -> Offset;
     fn get_jmp_instr_size(&self) -> u8;
 
     fn finalize_function(&mut self) {}
@@ -81,7 +69,7 @@ pub trait Emitter {
     fn emit_u64(&mut self, x: u64);
     fn emit_bytes(&mut self, bytes: &[u8]);
 
-    fn emit_label(&mut self, label: Self::Label);
+    fn emit_label(&mut self, label: Label);
 
     fn emit_nop(&mut self);
 
@@ -91,11 +79,11 @@ pub trait Emitter {
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_lea_label(&mut self, label: Self::Label, dst: Location);
+    fn emit_lea_label(&mut self, label: Label, dst: Location);
     fn emit_cdq(&mut self);
     fn emit_cqo(&mut self);
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
+    fn emit_jmp(&mut self, condition: Condition, label: Label);
     fn emit_jmp_location(&mut self, loc: Location);
     fn emit_set(&mut self, condition: Condition, dst: GPR);
     fn emit_push(&mut self, sz: Size, src: Location);
@@ -114,6 +102,7 @@ pub trait Emitter {
     fn emit_rol(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_ror(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_test(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_bsr(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_bsf(&mut self, sz: Size, src: Location, dst: Location);
@@ -208,7 +197,7 @@ pub trait Emitter {
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
-    fn emit_call_label(&mut self, label: Self::Label);
+    fn emit_call_label(&mut self, label: Label);
     fn emit_call_location(&mut self, loc: Location);
 
     fn emit_call_register(&mut self, reg: GPR);
@@ -632,9 +621,6 @@ macro_rules! avx_round_fn {
 }
 
 impl Emitter for Assembler {
-    type Label = DynamicLabel;
-    type Offset = AssemblyOffset;
-
     fn get_label(&mut self) -> DynamicLabel {
         self.new_dynamic_label()
     }
@@ -669,7 +655,7 @@ impl Emitter for Assembler {
         }
     }
 
-    fn emit_label(&mut self, label: Self::Label) {
+    fn emit_label(&mut self, label: Label) {
         dynasm!(self ; => label);
     }
 
@@ -840,7 +826,7 @@ impl Emitter for Assembler {
             _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
         }
     }
-    fn emit_lea_label(&mut self, label: Self::Label, dst: Location) {
+    fn emit_lea_label(&mut self, label: Label, dst: Location) {
         match dst {
             Location::GPR(x) => {
                 dynasm!(self ; lea Rq(x as u8), [=>label]);
@@ -859,7 +845,7 @@ impl Emitter for Assembler {
             panic!("singlepass can't emit XOR {:?} {:?} {:?}", sz, src, dst)
         });
     }
-    fn emit_jmp(&mut self, condition: Condition, label: Self::Label) {
+    fn emit_jmp(&mut self, condition: Condition, label: Label) {
         match condition {
             Condition::None => jmp_op!(jmp, self, label),
             Condition::Above => jmp_op!(ja, self, label),
@@ -1030,6 +1016,11 @@ impl Emitter for Assembler {
     fn emit_and(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(and, self, sz, src, dst, {
             panic!("singlepass can't emit AND {:?} {:?} {:?}", sz, src, dst)
+        });
+    }
+    fn emit_test(&mut self, sz: Size, src: Location, dst: Location) {
+        binop_all_nofp!(test, self, sz, src, dst, {
+            panic!("singlepass can't emit TEST {:?} {:?} {:?}", sz, src, dst)
         });
     }
     fn emit_or(&mut self, sz: Size, src: Location, dst: Location) {
@@ -1418,7 +1409,7 @@ impl Emitter for Assembler {
         dynasm!(self ; ret);
     }
 
-    fn emit_call_label(&mut self, label: Self::Label) {
+    fn emit_call_label(&mut self, label: Label) {
         dynasm!(self ; call =>label);
     }
     fn emit_call_location(&mut self, loc: Location) {
