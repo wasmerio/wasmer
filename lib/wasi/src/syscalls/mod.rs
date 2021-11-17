@@ -225,7 +225,7 @@ pub fn clock_res_get(
     clock_id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    debug!("wasi::clock_res_get");
+    trace!("wasi::clock_res_get");
     let memory = env.memory();
 
     let out_addr = wasi_try!(resolution.deref(memory));
@@ -248,7 +248,7 @@ pub fn clock_time_get(
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    debug!(
+    trace!(
         "wasi::clock_time_get clock_id: {}, precision: {}",
         clock_id, precision
     );
@@ -256,7 +256,7 @@ pub fn clock_time_get(
 
     let out_addr = wasi_try!(time.deref(memory));
     let result = platform_clock_time_get(clock_id, precision, out_addr);
-    debug!(
+    trace!(
         "time: {} => {}",
         wasi_try!(time.deref(memory)).get(),
         result
@@ -807,7 +807,7 @@ pub fn fd_pwrite(
     offset: __wasi_filesize_t,
     nwritten: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_pwrite");
+    trace!("wasi::fd_pwrite");
     // TODO: refactor, this is just copied from `fd_write`...
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
@@ -894,7 +894,7 @@ pub fn fd_read(
     iovs_len: u32,
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::fd_read: fd={}", fd);
+    trace!("wasi::fd_read: fd={}", fd);
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
@@ -1265,14 +1265,7 @@ pub fn fd_write(
     iovs_len: u32,
     nwritten: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    // If we are writing to stdout or stderr
-    // we skip debug to not pollute the stdout/err
-    // and do debugging happily after :)
-    if fd != __WASI_STDOUT_FILENO && fd != __WASI_STDERR_FILENO {
-        debug!("wasi::fd_write: fd={}", fd);
-    } else {
-        trace!("wasi::fd_write: fd={}", fd);
-    }
+    trace!("wasi::fd_write: fd={}", fd);
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
@@ -2327,8 +2320,8 @@ pub fn poll_oneoff(
     nsubscriptions: u32,
     nevents: WasmPtr<u32>,
 ) -> __wasi_errno_t {
-    debug!("wasi::poll_oneoff");
-    debug!("  => nsubscriptions = {}", nsubscriptions);
+    trace!("wasi::poll_oneoff");
+    trace!("  => nsubscriptions = {}", nsubscriptions);
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let subscription_array = wasi_try!(in_.deref(memory, 0, nsubscriptions));
@@ -2561,7 +2554,7 @@ pub fn random_get(env: &WasiEnv, buf: u32, buf_len: u32) -> __wasi_errno_t {
 /// ### `sched_yield()`
 /// Yields execution of the thread
 pub fn sched_yield(env: &WasiEnv) -> __wasi_errno_t {
-    debug!("wasi::sched_yield");
+    trace!("wasi::sched_yield");
     ::std::thread::yield_now();
     __WASI_ESUCCESS
 }
