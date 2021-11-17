@@ -2375,7 +2375,6 @@ pub fn path_unlink_file(
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-#[cfg(not(feature = "js"))]
 pub fn poll_oneoff(
     env: &WasiEnv,
     in_: WasmPtr<__wasi_subscription_t, Array>,
@@ -2519,12 +2518,12 @@ pub fn poll_oneoff(
                 PollEvent::PollInvalid => error = __WASI_EINVAL,
                 PollEvent::PollIn => {
                     bytes_available =
-                        wasi_try!(fds[i].bytes_available().map_err(fs_error_into_wasi_err));
+                        wasi_try!(fds[i].bytes_available_read().map_err(fs_error_into_wasi_err)).unwrap_or(0usize);
                     error = __WASI_ESUCCESS;
                 }
                 PollEvent::PollOut => {
                     bytes_available =
-                        wasi_try!(fds[i].bytes_available().map_err(fs_error_into_wasi_err));
+                        wasi_try!(fds[i].bytes_available_write().map_err(fs_error_into_wasi_err)).unwrap_or(0usize);
                     error = __WASI_ESUCCESS;
                 }
             }
@@ -2565,17 +2564,6 @@ pub fn poll_oneoff(
     }
     out_ptr.set(events_seen as u32);
     __WASI_ESUCCESS
-}
-
-#[cfg(feature = "js")]
-pub fn poll_oneoff(
-    env: &WasiEnv,
-    in_: WasmPtr<__wasi_subscription_t, Array>,
-    out_: WasmPtr<__wasi_event_t, Array>,
-    nsubscriptions: u32,
-    nevents: WasmPtr<u32>,
-) -> __wasi_errno_t {
-    unimplemented!();
 }
 
 pub fn proc_exit(env: &WasiEnv, code: __wasi_exitcode_t) {

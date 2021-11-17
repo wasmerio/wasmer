@@ -221,11 +221,55 @@ pub(crate) fn poll(
 
 #[cfg(not(unix))]
 pub(crate) fn poll(
-    _selfs: &[&dyn VirtualFile],
-    _events: &[PollEventSet],
-    _seen_events: &mut [PollEventSet],
-) -> Result<(), FsError> {
-    unimplemented!("VirtualFile::poll is not implemented for non-Unix-like targets yet");
+    files: &[&dyn VirtualFile],
+    events: &[PollEventSet],
+    seen_events: &mut [PollEventSet],
+) -> Result<u32, FsError> {
+    if !(files.len() == events.len() && events.len() == seen_events.len()) {
+        return Err(FsError::InvalidInput);
+    }
+
+    let mut ret = 0;
+    for n in 0..files.len() {
+        let mut builder = PollEventBuilder::new();
+
+        let file = files[n];
+        let can_read = file.bytes_available_read()?.map(|s| s > 0).unwrap_or(false);
+        let can_write = file.bytes_available_write()?.map(|s| s > 0).unwrap_or(false);
+        let is_closed = file.is_open() == false;
+
+        for event in iterate_poll_events(events[n]) {
+            match event {
+                PollEvent::PollIn if can_read => {
+                    builder = builder.add(PollEvent::PollIn);
+                }
+                PollEvent::PollOut if can_write => {
+                    builder = builder.add(PollEvent::PollOut);
+                }
+                PollEvent::PollHangUp if is_closed => {
+                    builder = builder.add(PollEvent::PollHangUp);
+                }
+                PollEvent::PollInvalid if is_closed => {
+                    builder = builder.add(PollEvent::PollInvalid);
+                }
+                PollEvent::PollError if is_closed => {
+                    builder = builder.add(PollEvent::PollError);
+                }
+                _ => {}
+            }
+        }
+        let revents = builder.build();
+        if revents != 0 {
+            ret += 1;
+        }
+        seen_events[n] = revents;
+    }
+
+    if ret == 0 {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+
+    Ok(ret)
 }
 
 pub trait WasiPath {}
