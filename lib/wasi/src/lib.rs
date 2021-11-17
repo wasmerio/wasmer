@@ -60,7 +60,7 @@ use wasmer::{
     NamedResolver, Store, WasmerEnv,
 };
 
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{atomic::AtomicU32, atomic::Ordering, Arc, Mutex, MutexGuard};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
@@ -72,9 +72,15 @@ pub enum WasiError {
     UnknownWasiVersion,
 }
 
+pub(crate) const TERMINATE_NOOP: u32 = u32::MAX;
+
 /// The environment provided to the WASI imports.
 #[derive(Debug, Clone, WasmerEnv)]
 pub struct WasiEnv {
+    /// Watched variable used to forcefully terminate a WASI program
+    /// externally from the running thread (via ::terminate(code);)
+    /// (this can not be in the state object for performance reasons)
+    terminate: Arc<AtomicU32>,
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
     ///
@@ -89,9 +95,14 @@ pub struct WasiEnv {
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
+            terminate: Arc::new(AtomicU32::new(TERMINATE_NOOP)),
             state: Arc::new(Mutex::new(state)),
             memory: LazyInit::new(),
         }
+    }
+
+    pub fn terminate(&self, code: u32) {
+        self.terminate.store(code, Ordering::Relaxed);
     }
 
     /// Get an `ImportObject` for a specific version of WASI detected in the module.
