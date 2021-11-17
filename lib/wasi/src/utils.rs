@@ -1,11 +1,38 @@
 use std::collections::BTreeSet;
 use wasmer::Module;
+use super::types::*;
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
 /// Use [`get_wasi_version`] to find out which version of WASI the module is.
 pub fn is_wasi_module(module: &Module) -> bool {
     get_wasi_version(module, false).is_some()
+}
+
+pub fn map_io_err(err: std::io::Error) -> __wasi_errno_t {
+    use std::io::ErrorKind;
+    match err.kind() {
+        ErrorKind::NotFound => __WASI_ENOENT,
+        ErrorKind::PermissionDenied => __WASI_EPERM,
+        ErrorKind::ConnectionRefused => __WASI_ECONNREFUSED,
+        ErrorKind::ConnectionReset => __WASI_ECONNRESET,
+        ErrorKind::ConnectionAborted => __WASI_ECONNABORTED,
+        ErrorKind::NotConnected => __WASI_ENOTCONN,
+        ErrorKind::AddrInUse => __WASI_EADDRINUSE,
+        ErrorKind::AddrNotAvailable => __WASI_EADDRNOTAVAIL,
+        ErrorKind::BrokenPipe => __WASI_EPIPE,
+        ErrorKind::AlreadyExists => __WASI_EEXIST,
+        ErrorKind::WouldBlock => __WASI_EAGAIN,
+        ErrorKind::InvalidInput => __WASI_EIO,
+        ErrorKind::InvalidData => __WASI_EIO,
+        ErrorKind::TimedOut => __WASI_ETIMEDOUT,
+        ErrorKind::WriteZero => __WASI_EIO,
+        ErrorKind::Interrupted => __WASI_EINTR,
+        ErrorKind::Other => __WASI_EIO,
+        ErrorKind::UnexpectedEof => __WASI_EIO,
+        ErrorKind::Unsupported => __WASI_ENOTSUP,
+        _ => __WASI_EIO
+    }
 }
 
 /// The version of WASI. This is determined by the imports namespace

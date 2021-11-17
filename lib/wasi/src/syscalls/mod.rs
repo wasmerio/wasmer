@@ -19,6 +19,7 @@ pub mod windows;
 pub mod legacy;
 
 use self::types::*;
+use crate::utils::map_io_err;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
@@ -60,7 +61,7 @@ fn write_bytes_inner<T: Write>(
         let bytes = WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len)?;
         write_loc
             .write_all(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
-            .map_err(|_| __WASI_EIO)?;
+            .map_err(|e| map_io_err(e))?;
 
         // TODO: handle failure more accurately
         bytes_written += iov_inner.buf_len;
@@ -93,7 +94,7 @@ fn read_bytes<T: Read>(
         let iov_inner = iov.get();
         raw_bytes.clear();
         raw_bytes.resize(iov_inner.buf_len as usize, 0);
-        bytes_read += reader.read(&mut raw_bytes).map_err(|_| __WASI_EIO)? as u32;
+        bytes_read += reader.read(&mut raw_bytes).map_err(|e| map_io_err(e))? as u32;
         unsafe {
             memory
                 .uint8view()
@@ -365,7 +366,7 @@ pub fn fd_allocate(
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_ALLOCATE) {
         return __WASI_EACCES;
     }
-    let new_size = wasi_try!(offset.checked_add(len), __WASI_EINVAL);
+    let new_size = wasi_try!(offset.checked_add(len).ok_or(__WASI_EINVAL));
 
     match &mut state.fs.inodes[inode].kind {
         Kind::File { handle, .. } => {
@@ -693,10 +694,7 @@ pub fn fd_pread(
             match &mut state.fs.inodes[inode].kind {
                 Kind::File { handle, .. } => {
                     if let Some(h) = handle {
-                        wasi_try!(
-                            h.seek(std::io::SeekFrom::Start(offset as u64)).ok(),
-                            __WASI_EIO
-                        );
+                        wasi_try!(h.seek(std::io::SeekFrom::Start(offset as u64)).map_err(map_io_err));
                         wasi_try!(read_bytes(h, memory, &iov_cells))
                     } else {
                         return __WASI_EINVAL;
@@ -998,14 +996,14 @@ pub fn fd_readdir(
             // maintain consistent order via lexacographic sorting
             let fs_info = wasi_try!(wasi_try!(state.fs_read_dir(path))
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| __WASI_EIO));
+                .map_err(|e| fs_error_into_wasi_err(e)));
             let mut entry_vec = wasi_try!(fs_info
                 .into_iter()
                 .map(|entry| {
                     let filename = entry.file_name().to_string_lossy().to_string();
                     debug!("Getting file: {:?}", filename);
                     let filetype = virtual_file_type_to_wasi_file_type(
-                        entry.file_type().map_err(|_| __WASI_EIO)?,
+                        entry.file_type().map_err(fs_error_into_wasi_err)?,
                     );
                     Ok((
                         filename, filetype, 0, // TODO: inode
@@ -1147,7 +1145,7 @@ pub fn fd_seek(
             match state.fs.inodes[inode_idx].kind {
                 Kind::File { ref mut handle, .. } => {
                     if let Some(handle) = handle {
-                        let end = wasi_try!(handle.seek(SeekFrom::End(0)).ok().ok_or(__WASI_EIO));
+                        let end = wasi_try!(handle.seek(SeekFrom::End(0)).map_err(map_io_err));
                         // TODO: handle case if fd_entry.offset uses 64 bits of a u64
 
                         // reborrow
@@ -1487,8 +1485,7 @@ pub fn path_filestat_get(
     } else {
         wasi_try!(state
             .fs
-            .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
-            .ok_or(__WASI_EIO))
+            .get_stat_for_kind(&state.fs.inodes[file_inode].kind))
     };
 
     let buf_cell = wasi_try!(buf.deref(memory));
@@ -1548,8 +1545,7 @@ pub fn path_filestat_set_times(
     ));
     let stat = wasi_try!(state
         .fs
-        .get_stat_for_kind(&state.fs.inodes[file_inode].kind)
-        .ok_or(__WASI_EIO));
+        .get_stat_for_kind(&state.fs.inodes[file_inode].kind));
 
     let inode = &mut state.fs.inodes[fd_inode];
 
@@ -1956,7 +1952,7 @@ pub fn path_remove_directory(
     debug!("wasi::path_remove_directory");
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
-    let base_dir = wasi_try!(state.fs.fd_map.get(&fd), __WASI_EBADF);
+    let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
     let path_str = unsafe { get_input_str!(memory, path, path_len) };
 
     let inode = wasi_try!(state.fs.get_inode_at_path(fd, &path_str, false));
@@ -1990,7 +1986,7 @@ pub fn path_remove_directory(
         ),
     }
 
-    if state.fs_remove_dir(host_path_to_remove).is_err() {
+    if let Err(err) = state.fs_remove_dir(host_path_to_remove) {
         // reinsert to prevent FS from being in bad state
         if let Kind::Dir {
             ref mut entries, ..
@@ -1998,8 +1994,7 @@ pub fn path_remove_directory(
         {
             entries.insert(childs_name, inode);
         }
-        // TODO: more intelligently return error value by inspecting returned error value
-        return __WASI_EIO;
+        return err;
     }
 
     __WASI_ESUCCESS
@@ -2073,7 +2068,7 @@ pub fn path_rename(
 
     let source_entry = match &mut state.fs.inodes[source_parent_inode].kind {
         Kind::Dir { entries, .. } => {
-            wasi_try!(entries.remove(&source_entry_name), __WASI_ENOENT)
+            wasi_try!(entries.remove(&source_entry_name).ok_or(__WASI_ENOENT))
         }
         Kind::Root { .. } => return __WASI_ENOTCAPABLE,
         Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
@@ -2393,18 +2388,18 @@ pub fn poll_oneoff(
         if let Some(fd) = fd {
             let wasi_file_ref: &dyn VirtualFile = match fd {
                 __WASI_STDERR_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stderr().map_err(fs_error_into_wasi_err)).as_ref(),
-                    __WASI_EBADF
+                    wasi_try!(state.fs.stderr().map_err(fs_error_into_wasi_err)).as_ref()
+                    .ok_or(__WASI_EBADF)
                 )
                 .as_ref(),
                 __WASI_STDIN_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stdin().map_err(fs_error_into_wasi_err)).as_ref(),
-                    __WASI_EBADF
+                    wasi_try!(state.fs.stdin().map_err(fs_error_into_wasi_err)).as_ref()
+                    .ok_or(__WASI_EBADF)
                 )
                 .as_ref(),
                 __WASI_STDOUT_FILENO => wasi_try!(
-                    wasi_try!(state.fs.stdout().map_err(fs_error_into_wasi_err)).as_ref(),
-                    __WASI_EBADF
+                    wasi_try!(state.fs.stdout().map_err(fs_error_into_wasi_err)).as_ref()
+                    .ok_or(__WASI_EBADF)
                 )
                 .as_ref(),
                 _ => {

@@ -16,10 +16,6 @@ macro_rules! wasi_try {
             }
         }
     }};
-    ($expr:expr, $e:expr) => {{
-        let opt: Option<_> = $expr;
-        wasi_try!(opt.ok_or($e))
-    }};
 }
 
 /// Reads a string from Wasm memory and returns the invalid argument error
@@ -31,6 +27,6 @@ macro_rules! wasi_try {
 /// corrupted.
 macro_rules! get_input_str {
     ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try!($data.get_utf8_string($memory, $len), __WASI_EINVAL)
+        wasi_try!($data.get_utf8_string($memory, $len).ok_or(__WASI_EINVAL))
     }};
 }
