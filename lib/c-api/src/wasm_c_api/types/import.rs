@@ -7,7 +7,7 @@ use wasmer_api::ImportType;
 pub struct wasm_importtype_t {
     module: wasm_name_t,
     name: wasm_name_t,
-    extern_type: Box<wasm_externtype_t>,
+    extern_type: wasm_externtype_t,
 }
 
 wasm_declare_boxed_vec!(importtype);
@@ -21,7 +21,7 @@ pub extern "C" fn wasm_importtype_new(
     Some(Box::new(wasm_importtype_t {
         name: *name?,
         module: *module?,
-        extern_type: extern_type?,
+        extern_type: *extern_type?,
     }))
 }
 
@@ -37,7 +37,7 @@ pub extern "C" fn wasm_importtype_name(import_type: &wasm_importtype_t) -> &wasm
 
 #[no_mangle]
 pub extern "C" fn wasm_importtype_type(import_type: &wasm_importtype_t) -> &wasm_externtype_t {
-    import_type.extern_type.as_ref()
+    &import_type.extern_type
 }
 
 #[no_mangle]
@@ -53,7 +53,7 @@ impl From<&ImportType> for wasm_importtype_t {
     fn from(other: &ImportType) -> Self {
         let module: wasm_name_t = other.module().to_string().into();
         let name: wasm_name_t = other.name().to_string().into();
-        let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
+        let extern_type: wasm_externtype_t = other.ty().into();
 
         wasm_importtype_t {
             module,

@@ -3,6 +3,7 @@ macro_rules! wasm_declare_vec_inner {
         name: $name:ident,
         ty: $elem_ty:ty,
         c_ty: $c_ty:expr,
+        c_val: $c_val:expr,
         new: $new:ident,
         empty: $empty:ident,
         uninit: $uninit:ident,
@@ -21,10 +22,8 @@ Read the documentation of [`", $c_ty, "`] to see more concrete examples.
 #    (assert_c! {
 # #include \"tests/wasmer.h\"
 #
-int main() {
+void example(", $c_ty, " x, ", $c_ty, " y) {
     // Create a vector of 2 `", $c_ty, "`.
-    ", $c_ty, " x;
-    ", $c_ty, " y;
     ", $c_ty, " items[2] = {x, y};
 
     ", stringify!($name), " vector;
@@ -36,6 +35,8 @@ int main() {
     // Free it.
     ", stringify!($delete), "(&vector);
 }
+#
+# int main() { example(", $c_val, ", ", $c_val, "); return 0; }
 #    })
 #    .success();
 # }
@@ -134,6 +135,8 @@ int main() {
 
     // Free it.
     ", stringify!($delete), "(&vector);
+
+    return 0;
 }
 #    })
 #    .success();
@@ -165,6 +168,8 @@ int main() {
 
     // Free it.
     ", stringify!($delete), "(&vector);
+
+    return 0;
 }
 #    })
 #    .success();
@@ -215,6 +220,11 @@ macro_rules! wasm_declare_vec {
                 name: [<$prefix _ $name _vec_t>],
                 ty: [<$prefix _ $name _t>],
                 c_ty: stringify!([<$prefix _ $name _t>]),
+                c_val: concat!("({ ",
+                    stringify!([<$prefix _ $name _t>]), " foo;\n",
+                    "memset(&foo, 0, sizeof(foo));\n",
+                    "foo;\n",
+                "})"),
                 new: [<$prefix _ $name _vec_new>],
                 empty: [<$prefix _ $name _vec_new_empty>],
                 uninit: [<$prefix _ $name _vec_new_uninitialized>],
@@ -236,6 +246,7 @@ macro_rules! wasm_declare_boxed_vec {
                 name: [<$prefix _ $name _vec_t>],
                 ty: Option<Box<[<$prefix _ $name _t>]>>,
                 c_ty: stringify!([<$prefix _ $name _t>] *),
+                c_val: "NULL",
                 new: [<$prefix _ $name _vec_new>],
                 empty: [<$prefix _ $name _vec_new_empty>],
                 uninit: [<$prefix _ $name _vec_new_uninitialized>],

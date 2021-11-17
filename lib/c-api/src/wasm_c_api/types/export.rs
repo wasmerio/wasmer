@@ -5,7 +5,7 @@ use wasmer_api::ExportType;
 #[derive(Clone)]
 pub struct wasm_exporttype_t {
     name: wasm_name_t,
-    extern_type: Box<wasm_externtype_t>,
+    extern_type: wasm_externtype_t,
 }
 
 wasm_declare_boxed_vec!(exporttype);
@@ -18,7 +18,7 @@ pub extern "C" fn wasm_exporttype_new(
 ) -> Box<wasm_exporttype_t> {
     Box::new(wasm_exporttype_t {
         name: name.clone(),
-        extern_type,
+        extern_type: *extern_type,
     })
 }
 
@@ -29,7 +29,7 @@ pub extern "C" fn wasm_exporttype_name(export_type: &wasm_exporttype_t) -> &wasm
 
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_type(export_type: &wasm_exporttype_t) -> &wasm_externtype_t {
-    export_type.extern_type.as_ref()
+    &export_type.extern_type
 }
 
 impl From<ExportType> for wasm_exporttype_t {
@@ -41,7 +41,7 @@ impl From<ExportType> for wasm_exporttype_t {
 impl From<&ExportType> for wasm_exporttype_t {
     fn from(other: &ExportType) -> Self {
         let name: wasm_name_t = other.name().to_string().into();
-        let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
+        let extern_type: wasm_externtype_t = other.ty().into();
 
         wasm_exporttype_t { name, extern_type }
     }

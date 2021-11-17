@@ -70,7 +70,7 @@ pub unsafe extern "C" fn wasmer_module_name(
         }
     };
 
-    *out = name.as_bytes().to_vec().into();
+    out.set_buffer(name.as_bytes().to_vec());
 }
 
 /// Unstable non-standard Wasmer-specific API to set the module's
