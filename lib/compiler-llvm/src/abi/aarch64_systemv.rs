@@ -4,7 +4,7 @@ use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    types::{BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
+    types::{AnyType, BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
     values::{BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
@@ -206,17 +206,16 @@ impl Abi for Aarch64SystemV {
                             .map(|&ty| type_to_llvm(intrinsics, ty))
                             .collect::<Result<_, _>>()?;
 
-                        let sret = context
-                            .struct_type(&basic_types, false)
-                            .ptr_type(AddressSpace::Generic);
+                        let sret = context.struct_type(&basic_types, false);
+                        let sret_ptr = sret.ptr_type(AddressSpace::Generic);
 
                         let param_types =
-                            std::iter::once(Ok(sret.as_basic_type_enum())).chain(param_types);
+                            std::iter::once(Ok(sret_ptr.as_basic_type_enum())).chain(param_types);
 
                         let mut attributes = vec![(
-                            context.create_enum_attribute(
+                            context.create_type_attribute(
                                 Attribute::get_named_enum_kind_id("sret"),
-                                0,
+                                sret.as_any_type_enum(),
                             ),
                             AttributeLoc::Param(0),
                         )];
