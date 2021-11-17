@@ -1,6 +1,6 @@
 use crate::address_map::get_function_address_map;
 use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
-use dynasmrt::{x64::Assembler, DynamicLabel};
+use dynasmrt::{x64::X64Relocation, DynamicLabel, VecAssembler};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
@@ -21,6 +21,8 @@ use wasmer_types::{
     SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+
+type Assembler = VecAssembler<X64Relocation>;
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
@@ -1844,7 +1846,7 @@ impl<'a> FuncGen<'a> {
                 .collect(),
         );
 
-        let mut assembler = Assembler::new().unwrap();
+        let mut assembler = Assembler::new(0);
         let special_labels = SpecialLabelSet {
             integer_division_by_zero: assembler.get_label(),
             heap_access_oob: assembler.get_label(),
@@ -8811,7 +8813,7 @@ pub fn gen_std_trampoline(
     sig: &FunctionType,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let mut a = Assembler::new().unwrap();
+    let mut a = Assembler::new(0);
 
     // Calculate stack offset.
     let mut stack_offset: u32 = 0;
@@ -8921,7 +8923,7 @@ pub fn gen_std_dynamic_import_trampoline(
     sig: &FunctionType,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let mut a = Assembler::new().unwrap();
+    let mut a = Assembler::new(0);
 
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
@@ -9043,7 +9045,7 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     calling_convention: CallingConvention,
 ) -> CustomSection {
-    let mut a = Assembler::new().unwrap();
+    let mut a = Assembler::new(0);
 
     // TODO: ARM entry trampoline is not emitted.
 
