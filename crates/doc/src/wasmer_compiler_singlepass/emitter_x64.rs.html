@@ -1419,10 +1419,18 @@
 <span id="1416">1416</span>
 <span id="1417">1417</span>
 <span id="1418">1418</span>
+<span id="1419">1419</span>
+<span id="1420">1420</span>
+<span id="1421">1421</span>
+<span id="1422">1422</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::x64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasm::dynasm</span>;
-<span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">x64::Assembler</span>, <span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>, <span class="ident">DynasmApi</span>, <span class="ident">DynasmLabelApi</span>};
+<span class="kw">use</span> <span class="ident">dynasmrt</span>::{
+    <span class="ident">x64::X64Relocation</span>, <span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>, <span class="ident">DynasmApi</span>, <span class="ident">DynasmLabelApi</span>, <span class="ident">VecAssembler</span>,
+};
+
+<span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">X64Relocation</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// Force `dynasm!` to use the correct arch (x64) when cross-compiling.</span>
 <span class="doccomment">/// `dynasm!` proc-macro tries to auto-detect it by default by looking at the</span>

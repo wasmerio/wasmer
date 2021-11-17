@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Condition",""],["GPROrMemory",""],["Location",""],["Size",""],["XMMOrMemory",""]],"trait":[["Emitter",""]]});
+initSidebarItems({"enum":[["Condition",""],["GPROrMemory",""],["Location",""],["Size",""],["XMMOrMemory",""]],"trait":[["Emitter",""]],"type":[["Assembler",""]]});

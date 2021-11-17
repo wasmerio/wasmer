@@ -606,6 +606,8 @@
 <span id="603">603</span>
 <span id="604">604</span>
 <span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::emitter_x64</span>::<span class="kw-2">*</span>;
@@ -1195,12 +1197,14 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">dynasmrt::x64::Assembler</span>;
+    <span class="kw">use</span> <span class="ident">dynasmrt::x64::X64Relocation</span>;
+    <span class="kw">use</span> <span class="ident">dynasmrt::VecAssembler</span>;
+    <span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">X64Relocation</span><span class="op">&gt;</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_release_locations_keep_state_nopanic</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">Machine::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">assembler</span> <span class="op">=</span> <span class="ident">Assembler::new</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">assembler</span> <span class="op">=</span> <span class="ident">Assembler::new</span>(<span class="number">0</span>);
         <span class="kw">let</span> <span class="ident">locs</span> <span class="op">=</span> <span class="ident">machine</span>.<span class="ident">acquire_locations</span>(
             <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">assembler</span>,
             <span class="kw-2">&amp;</span>(<span class="number">0</span>..<span class="number">10</span>)
