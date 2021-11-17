@@ -1,13 +1,121 @@
-#[doc(hidden)]
-#[macro_export]
 macro_rules! wasm_declare_vec_inner {
-    ($name:ident) => {
-        wasm_declare_vec_inner!($name, wasm);
-    };
+    (
+        name: $name:ident,
+        ty: $elem_ty:ty,
+        c_ty: $c_ty:expr,
+        c_val: $c_val:expr,
+        new: $new:ident,
+        empty: $empty:ident,
+        uninit: $uninit:ident,
+        copy: $copy:ident,
+        delete: $delete:ident,
+    ) => {
+        #[doc = concat!("Represents a vector of `", $c_ty, "`.
 
-    ($name:ident, $prefix:ident) => {
-        paste::paste! {
-            #[doc = "Creates an empty vector of [`" $prefix "_" $name "_t`].
+Read the documentation of [`", $c_ty, "`] to see more concrete examples.
+
+# Example
+
+```rust
+# use inline_c::assert_c;
+# fn main() {
+#    (assert_c! {
+# #include \"tests/wasmer.h\"
+#
+void example(", $c_ty, " x, ", $c_ty, " y) {
+    // Create a vector of 2 `", $c_ty, "`.
+    ", $c_ty, " items[2] = {x, y};
+
+    ", stringify!($name), " vector;
+    ", stringify!($new), "(&vector, 2, items);
+
+    // Check that it contains 2 items.
+    assert(vector.size == 2);
+
+    // Free it.
+    ", stringify!($delete), "(&vector);
+}
+#
+# int main() { example(", $c_val, ", ", $c_val, "); return 0; }
+#    })
+#    .success();
+# }
+```")]
+        #[repr(C)]
+        pub struct $name {
+            pub size: usize,
+            pub data: *mut $elem_ty,
+        }
+
+        impl $name {
+            // Note that this does not free any existing buffer.
+            pub fn set_buffer(&mut self, buffer: Vec<$elem_ty>) {
+                let mut vec = buffer.into_boxed_slice();
+                self.size = vec.len();
+                self.data = vec.as_mut_ptr();
+                std::mem::forget(vec);
+            }
+
+            pub fn as_slice(&self) -> &[$elem_ty] {
+                // Note that we're careful to not create a slice with a null
+                // pointer as the data pointer, since that isn't defined
+                // behavior in Rust.
+                if self.size == 0 {
+                    &[]
+                } else {
+                    assert!(!self.data.is_null());
+                    unsafe { std::slice::from_raw_parts(self.data, self.size) }
+                }
+            }
+
+            pub fn as_uninit_slice(&mut self) -> &mut [std::mem::MaybeUninit<$elem_ty>] {
+                // Note that we're careful to not create a slice with a null
+                // pointer as the data pointer, since that isn't defined
+                // behavior in Rust.
+                if self.size == 0 {
+                    &mut []
+                } else {
+                    assert!(!self.data.is_null());
+                    unsafe { std::slice::from_raw_parts_mut(self.data as _, self.size) }
+                }
+            }
+
+            pub fn take(&mut self) -> Vec<$elem_ty> {
+                if self.data.is_null() {
+                    return Vec::new();
+                }
+                let vec = unsafe { Vec::from_raw_parts(self.data, self.size, self.size) };
+                self.data = std::ptr::null_mut();
+                self.size = 0;
+                return vec;
+            }
+        }
+
+        impl From<Vec<$elem_ty>> for $name {
+            fn from(vec: Vec<$elem_ty>) -> Self {
+                let mut vec = vec.into_boxed_slice();
+                let result = $name {
+                    size: vec.len(),
+                    data: vec.as_mut_ptr(),
+                };
+                std::mem::forget(vec);
+                result
+            }
+        }
+
+        impl Clone for $name {
+            fn clone(&self) -> Self {
+                self.as_slice().to_vec().into()
+            }
+        }
+
+        impl Drop for $name {
+            fn drop(&mut self) {
+                drop(self.take());
+            }
+        }
+
+        #[doc = concat!("Creates an empty vector of [`", $c_ty, "`].
 
 # Example
 
@@ -18,31 +126,89 @@ macro_rules! wasm_declare_vec_inner {
 # #include \"tests/wasmer.h\"
 #
 int main() {
-    // Creates an empty vector of `" $prefix "_" $name "_t`.
-    " $prefix "_" $name "_vec_t vector;
-    " $prefix "_" $name "_vec_new_empty(&vector);
+    // Creates an empty vector of `", $c_ty, "`.
+    ", stringify!($name), " vector;
+    ", stringify!($empty), "(&vector);
 
     // Check that it is empty.
     assert(vector.size == 0);
 
     // Free it.
-    " $prefix "_" $name "_vec_delete(&vector);
+    ", stringify!($delete), "(&vector);
+
+    return 0;
 }
 #    })
 #    .success();
 # }
-```"]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_new_empty>](out: *mut [<$prefix _ $name _vec_t>]) {
-                // TODO: actually implement this
-                [<$prefix _ $name _vec_new_uninitialized>](out, 0);
-            }
+```")]
+        #[no_mangle]
+        pub extern "C" fn $empty(out: &mut $name) {
+            out.size = 0;
+            out.data = std::ptr::null_mut();
         }
-    }
+
+        #[doc = concat!("Creates a new uninitialized vector of [`", $c_ty, "`].
+
+# Example
+
+```rust
+# use inline_c::assert_c;
+# fn main() {
+#    (assert_c! {
+# #include \"tests/wasmer.h\"
+#
+int main() {
+    // Creates an empty vector of `", $c_ty, "`.
+    ", stringify!($name), " vector;
+    ", stringify!($uninit), "(&vector, 3);
+
+    // Check that it contains 3 items.
+    assert(vector.size == 3);
+
+    // Free it.
+    ", stringify!($delete), "(&vector);
+
+    return 0;
+}
+#    })
+#    .success();
+# }
+```")]
+        #[no_mangle]
+        pub extern "C" fn $uninit(out: &mut $name, size: usize) {
+            out.set_buffer(vec![Default::default(); size]);
+        }
+
+        #[doc = concat!("Creates a new vector of [`", $c_ty, "`].
+
+# Example
+
+See the [`", stringify!($name), "`] type to get an example.")]
+        #[no_mangle]
+        pub unsafe extern "C" fn $new(out: &mut $name, size: usize, ptr: *const $elem_ty) {
+            let vec = (0..size).map(|i| ptr.add(i).read()).collect();
+            out.set_buffer(vec);
+        }
+
+        #[doc = concat!("Performs a deep copy of a vector of [`", $c_ty, "`].")]
+        #[no_mangle]
+        pub extern "C" fn $copy(out: &mut $name, src: &$name) {
+            out.set_buffer(src.as_slice().to_vec());
+        }
+
+        #[doc = concat!("Deletes a vector of [`", $c_ty, "`].
+
+# Example
+
+See the [`", stringify!($name), "`] type to get an example.")]
+        #[no_mangle]
+        pub extern "C" fn $delete(out: &mut $name) {
+            out.take();
+        }
+    };
 }
 
-#[doc(hidden)]
-#[macro_export]
 macro_rules! wasm_declare_vec {
     ($name:ident) => {
         wasm_declare_vec!($name, wasm);
@@ -50,218 +216,25 @@ macro_rules! wasm_declare_vec {
 
     ($name:ident, $prefix:ident) => {
         paste::paste! {
-            #[doc = "Represents a vector of `" $prefix "_" $name "_t`.
-
-Read the documentation of [`" $prefix "_" $name "_t`] to see more concrete examples.
-
-# Example
-
-```rust
-# use inline_c::assert_c;
-# fn main() {
-#    (assert_c! {
-# #include \"tests/wasmer.h\"
-#
-int main() {
-    // Create a vector of 2 `" $prefix "_" $name "_t`.
-    " $prefix "_" $name "_t x;
-    " $prefix "_" $name "_t y;
-    " $prefix "_" $name "_t* items[2] = {&x, &y};
-
-    " $prefix "_" $name "_vec_t vector;
-    " $prefix "_" $name "_vec_new(&vector, 2, (" $prefix "_" $name "_t*) items);
-
-    // Check that it contains 2 items.
-    assert(vector.size == 2);
-
-    // Free it.
-    " $prefix "_" $name "_vec_delete(&vector);
-}
-#    })
-#    .success();
-# }
-```"]
-            #[derive(Debug)]
-            #[repr(C)]
-            pub struct [<$prefix _ $name _vec_t>] {
-                pub size: usize,
-                pub data: *mut [<$prefix _ $name _t>],
-            }
-
-            impl Clone for [<$prefix _ $name _vec_t>] {
-                fn clone(&self) -> Self {
-                    if self.data.is_null() {
-                        return Self {
-                            size: self.size,
-                            data: ::std::ptr::null_mut(),
-                        };
-                    }
-                    let data =
-                        unsafe {
-                            let vec = Vec::from_raw_parts(self.data, self.size, self.size);
-                            let mut vec_copy = vec.clone().into_boxed_slice();
-                            let new_ptr = vec_copy.as_mut_ptr();
-
-                            ::std::mem::forget(vec);
-                            ::std::mem::forget(vec_copy);
-
-                            new_ptr
-                        };
-
-                    Self {
-                        size: self.size,
-                        data,
-                    }
-                }
-            }
-
-            impl<'a> From<Vec<[<$prefix _ $name _t>]>> for [<$prefix _ $name _vec_t>] {
-                fn from(mut vec: Vec<[<$prefix _ $name _t>]>) -> Self {
-                    vec.shrink_to_fit();
-
-                    let length = vec.len();
-                    let pointer = vec.as_mut_ptr();
-
-                    ::std::mem::forget(vec);
-
-                    Self {
-                        size: length,
-                        data: pointer,
-                    }
-                }
-            }
-
-            impl<'a, T: Into<[<$prefix _ $name _t>]> + Clone> From<&'a [T]> for [<$prefix _ $name _vec_t>] {
-                fn from(other: &'a [T]) -> Self {
-                    let size = other.len();
-                    let mut copied_data = other
-                        .iter()
-                        .cloned()
-                        .map(Into::into)
-                        .collect::<Vec<[<$prefix _ $name _t>]>>()
-                        .into_boxed_slice();
-                    let data = copied_data.as_mut_ptr();
-                    ::std::mem::forget(copied_data);
-
-                    Self {
-                        size,
-                        data,
-                    }
-                }
-            }
-
-            impl [<$prefix _ $name _vec_t>] {
-                pub unsafe fn into_slice(&self) -> Option<&[[<$prefix _ $name _t>]]>{
-                    if self.is_uninitialized() {
-                        return None;
-                    }
-
-                    Some(::std::slice::from_raw_parts(self.data, self.size))
-                }
-
-                pub unsafe fn into_slice_mut(&mut self) -> Option<&mut [[<$prefix _ $name _t>]]>{
-                    if self.is_uninitialized() {
-                        return None;
-                    }
-
-                    Some(::std::slice::from_raw_parts_mut(self.data, self.size))
-                }
-
-                pub fn is_uninitialized(&self) -> bool {
-                    self.data.is_null()
-                }
-            }
-
-            // TODO: investigate possible memory leak on `init` (owned pointer)
-            #[doc = "Creates a new vector of [`" $prefix "_" $name "_t`].
-
-# Example
-
-See the [`" $prefix "_" $name "_vec_t`] type to get an example."]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_new>](out: *mut [<$prefix _ $name _vec_t>], length: usize, init: *mut [<$prefix _ $name _t>]) {
-                let mut bytes: Vec<[<$prefix _ $name _t>]> = Vec::with_capacity(length);
-
-                for i in 0..length {
-                    bytes.push(::std::ptr::read(init.add(i)));
-                }
-
-                let pointer = bytes.as_mut_ptr();
-                debug_assert!(bytes.len() == bytes.capacity());
-
-                (*out).data = pointer;
-                (*out).size = length;
-                ::std::mem::forget(bytes);
-            }
-
-            #[doc = "Creates a new uninitialized vector of [`" $prefix "_" $name "_t`].
-
-# Example
-
-```rust
-# use inline_c::assert_c;
-# fn main() {
-#    (assert_c! {
-# #include \"tests/wasmer.h\"
-#
-int main() {
-    // Creates an empty vector of `" $prefix "_" $name "_t`.
-    " $prefix "_" $name "_vec_t vector;
-    " $prefix "_" $name "_vec_new_uninitialized(&vector, 3);
-
-    // Check that it contains 3 items.
-    assert(vector.size == 3);
-
-    // Free it.
-    " $prefix "_" $name "_vec_delete(&vector);
-}
-#    })
-#    .success();
-# }
-```"]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_new_uninitialized>](out: *mut [<$prefix _ $name _vec_t>], length: usize) {
-                let mut bytes: Vec<[<$prefix _ $name _t>]> = Vec::with_capacity(length);
-                let pointer = bytes.as_mut_ptr();
-
-                (*out).data = pointer;
-                (*out).size = length;
-
-                ::std::mem::forget(bytes);
-            }
-
-            #[doc = "Performs a deep copy of a vector of [`" $prefix "_" $name "_t`]."]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_copy>](
-                out_ptr: &mut [<$prefix _ $name _vec_t>],
-                in_ptr: & [<wasm _$name _vec_t>])
-            {
-                *out_ptr = in_ptr.clone();
-            }
-
-            #[doc = "Deletes a vector of [`" $prefix "_" $name "_t`].
-
-# Example
-
-See the [`" $prefix "_" $name "_vec_t`] type to get an example."]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_delete>](ptr: Option<&mut [<$prefix _ $name _vec_t>]>) {
-                if let Some(vec) = ptr {
-                    if !vec.data.is_null() {
-                        Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                        vec.data = ::std::ptr::null_mut();
-                        vec.size = 0;
-                    }
-                }
-            }
+            wasm_declare_vec_inner!(
+                name: [<$prefix _ $name _vec_t>],
+                ty: [<$prefix _ $name _t>],
+                c_ty: stringify!([<$prefix _ $name _t>]),
+                c_val: concat!("({ ",
+                    stringify!([<$prefix _ $name _t>]), " foo;\n",
+                    "memset(&foo, 0, sizeof(foo));\n",
+                    "foo;\n",
+                "})"),
+                new: [<$prefix _ $name _vec_new>],
+                empty: [<$prefix _ $name _vec_new_empty>],
+                uninit: [<$prefix _ $name _vec_new_uninitialized>],
+                copy: [<$prefix _ $name _vec_copy>],
+                delete: [<$prefix _ $name _vec_delete>],
+            );
         }
-
-        wasm_declare_vec_inner!($name, $prefix);
     };
 }
 
-#[doc(hidden)]
-#[macro_export]
 macro_rules! wasm_declare_boxed_vec {
     ($name:ident) => {
         wasm_declare_boxed_vec!($name, wasm);
@@ -269,223 +242,60 @@ macro_rules! wasm_declare_boxed_vec {
 
     ($name:ident, $prefix:ident) => {
         paste::paste! {
-            #[doc = "Represents a vector of `" $prefix "_" $name "_t`.
-
-Read the documentation of [`" $prefix "_" $name "_t`] to see more concrete examples."]
-            #[derive(Debug)]
-            #[repr(C)]
-            pub struct [<$prefix _ $name _vec_t>] {
-                pub size: usize,
-                pub data: *mut *mut [<$prefix _ $name _t>],
-            }
-
-            impl Clone for [<$prefix _ $name _vec_t>] {
-                fn clone(&self) -> Self {
-                    if self.data.is_null() {
-                        return Self {
-                            size: self.size,
-                            data: ::std::ptr::null_mut(),
-                        };
-                    }
-                    let data =
-                        unsafe {
-                            let data: *mut Option<Box<[<$prefix _ $name _t>]>> = self.data as _;
-                            let vec = Vec::from_raw_parts(data, self.size, self.size);
-                            let mut vec_copy = vec.clone().into_boxed_slice();
-                            let new_ptr = vec_copy.as_mut_ptr() as *mut *mut [<$prefix _ $name _t>];
-
-                            ::std::mem::forget(vec);
-                            ::std::mem::forget(vec_copy);
-
-                            new_ptr
-                        };
-
-                    Self {
-                        size: self.size,
-                        data,
-                    }
-                }
-            }
-
-            impl<'a> From<Vec<Box<[<$prefix _ $name _t>]>>> for [<$prefix _ $name _vec_t>] {
-                fn from(other: Vec<Box<[<$prefix _ $name _t>]>>) -> Self {
-                    let boxed_slice: Box<[Box<[<$prefix _ $name _t>]>]> = other.into_boxed_slice();
-                    let mut boxed_slice: Box<[*mut [<$prefix _ $name _t>]]> = unsafe { ::std::mem::transmute(boxed_slice) };
-                    let size = boxed_slice.len();
-                    let data = boxed_slice.as_mut_ptr();
-
-                    ::std::mem::forget(boxed_slice);
-                    Self {
-                        size,
-                        data,
-                    }
-                }
-            }
-
-            impl<'a, T: Into<[<$prefix _ $name _t>]> + Clone> From<&'a [T]> for [<$prefix _ $name _vec_t>] {
-                fn from(other: &'a [T]) -> Self {
-                    let size = other.len();
-                    let mut copied_data = other
-                        .iter()
-                        .cloned()
-                        .map(Into::into)
-                        .map(Box::new)
-                        .map(Box::into_raw)
-                        .collect::<Vec<*mut [<$prefix _ $name _t>]>>()
-                        .into_boxed_slice();
-                    let data = copied_data.as_mut_ptr();
-                    ::std::mem::forget(copied_data);
-
-                    Self {
-                        size,
-                        data,
-                    }
-                }
-            }
-
-            // TODO: do this properly
-            impl [<$prefix _ $name _vec_t>] {
-                pub unsafe fn into_slice(&self) -> Option<&[Box<[<$prefix _ $name _t>]>]>{
-                    if self.data.is_null() {
-                        return None;
-                    }
-
-                    let slice: &[*mut [<$prefix _ $name _t>]] = ::std::slice::from_raw_parts(self.data, self.size);
-                    let slice: &[Box<[<$prefix _ $name _t>]>] = ::std::mem::transmute(slice);
-                    Some(slice)
-                }
-            }
-
-            // TODO: investigate possible memory leak on `init` (owned pointer)
-            #[doc = "Creates a new vector of [`" $prefix "_" $name "_t`]."]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_new>](out: *mut [<$prefix _ $name _vec_t>], length: usize, init: *const *mut [<$prefix _ $name _t>]) {
-                let mut bytes: Vec<*mut [<$prefix _ $name _t>]> = Vec::with_capacity(length);
-
-                for i in 0..length {
-                    bytes.push(*init.add(i));
-                }
-
-                let mut boxed_vec = bytes.into_boxed_slice();
-                let pointer = boxed_vec.as_mut_ptr();
-
-                (*out).data = pointer;
-                (*out).size = length;
-
-                ::std::mem::forget(boxed_vec);
-            }
-
-            #[doc = "Creates a new uninitialized vector of [`" $prefix "_" $name "_t`].
-
-# Example
-
-```rust
-# use inline_c::assert_c;
-# fn main() {
-#    (assert_c! {
-# #include \"tests/wasmer.h\"
-#
-int main() {
-    // Creates an empty vector of `" $prefix "_" $name "_t`.
-    " $prefix "_" $name "_vec_t vector;
-    " $prefix "_" $name "_vec_new_uninitialized(&vector, 3);
-
-    // Check that it contains 3 items.
-    assert(vector.size == 3);
-
-    // Free it.
-    " $prefix "_" $name "_vec_delete(&vector);
-}
-#    })
-#    .success();
-# }
-```"]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_new_uninitialized>](out: *mut [<$prefix _ $name _vec_t>], length: usize) {
-                let mut bytes: Vec<*mut [<$prefix _ $name _t>]> = vec![::std::ptr::null_mut(); length];
-                let pointer = bytes.as_mut_ptr();
-
-                (*out).data = pointer;
-                (*out).size = length;
-
-                ::std::mem::forget(bytes);
-            }
-
-            #[doc = "Performs a deep copy of a vector of [`" $prefix "_" $name "_t`]."]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_copy>](
-                out_ptr: &mut [<$prefix _ $name _vec_t>],
-                in_ptr: & [<$prefix _ $name _vec_t>])
-            {
-                *out_ptr = in_ptr.clone();
-            }
-
-            #[doc = "Deletes a vector of [`" $prefix "_" $name "_t`].
-
-# Example
-
-See the [`" $prefix "_" $name "_vec_t`] type to get an example."]
-            #[no_mangle]
-            pub unsafe extern "C" fn [<$prefix _ $name _vec_delete>](ptr: Option<&mut [<$prefix _ $name _vec_t>]>) {
-               if let Some(vec) = ptr {
-                    if !vec.data.is_null() {
-                        let data = vec.data as *mut Option<Box<[<$prefix _ $name _t>]>>;
-                        let _data: Vec<Option<Box<[<$prefix _ $name _t>]>>> = Vec::from_raw_parts(data, vec.size, vec.size);
-
-                        vec.data = ::std::ptr::null_mut();
-                        vec.size = 0;
-                    }
-                }
-            }
-        }
-
-        wasm_declare_vec_inner!($name, $prefix);
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wasm_declare_ref_base {
-    ($name:ident) => {
-        wasm_declare_ref_base!($name, wasm);
-    };
-
-    ($name:ident, $prefix:ident) => {
-        wasm_declare_own!($name, $prefix);
-
-        paste::paste! {
-            #[no_mangle]
-            pub extern "C" fn [<$prefix _ $name _copy>](_arg: *const [<$prefix _ $name _t>]) -> *mut [<$prefix _ $name _t>] {
-                todo!("in generated declare ref base");
-                //ptr::null_mut()
-            }
-
-            // TODO: finish this...
+            wasm_declare_vec_inner!(
+                name: [<$prefix _ $name _vec_t>],
+                ty: Option<Box<[<$prefix _ $name _t>]>>,
+                c_ty: stringify!([<$prefix _ $name _t>] *),
+                c_val: "NULL",
+                new: [<$prefix _ $name _vec_new>],
+                empty: [<$prefix _ $name _vec_new_empty>],
+                uninit: [<$prefix _ $name _vec_new_uninitialized>],
+                copy: [<$prefix _ $name _vec_copy>],
+                delete: [<$prefix _ $name _vec_delete>],
+            );
         }
     };
 }
 
-#[doc(hidden)]
-#[macro_export]
-macro_rules! wasm_declare_own {
+macro_rules! wasm_impl_copy {
     ($name:ident) => {
-        wasm_declare_own!($name, $prefix);
+        wasm_impl_copy!($name, wasm);
     };
 
     ($name:ident, $prefix:ident) => {
         paste::paste! {
-            #[repr(C)]
-            pub struct [<$prefix _ $name _t>] {}
-
             #[no_mangle]
-            pub extern "C" fn [<$prefix _ $name _delete>](_arg: *mut [<$prefix _ $name _t>]) {
-                todo!("in generated delete")
+            pub extern "C" fn [<$prefix _ $name _copy>](src: Option<&[<$prefix _ $name _t>]>) -> Option<Box<[<$prefix _ $name _t>]>> {
+                Some(Box::new(src?.clone()))
             }
         }
     };
 }
 
-#[macro_export]
+macro_rules! wasm_impl_delete {
+    ($name:ident) => {
+        wasm_impl_delete!($name, wasm);
+    };
+
+    ($name:ident, $prefix:ident) => {
+        paste::paste! {
+            #[no_mangle]
+            pub extern "C" fn [<$prefix _ $name _delete>](_: Option<Box<[<$prefix _ $name _t>]>>) {}
+        }
+    };
+}
+
+macro_rules! wasm_impl_copy_delete {
+    ($name:ident) => {
+        wasm_impl_copy_delete!($name, wasm);
+    };
+
+    ($name:ident, $prefix:ident) => {
+        wasm_impl_copy!($name, $prefix);
+        wasm_impl_delete!($name, $prefix);
+    };
+}
+
 macro_rules! c_try {
     ($expr:expr; otherwise $return:expr) => {{
         let res: Result<_, _> = $expr;

@@ -15,6 +15,7 @@ int main(int argc, const char* argv[]) {
     wasm_byte_vec_new(&wat, strlen(wat_string), wat_string);
     wasm_byte_vec_t wasm_bytes;
     wat2wasm(&wat, &wasm_bytes);
+    wasm_byte_vec_delete(&wat);
 
     printf("Creating the store...\n");
     wasm_engine_t* engine = wasm_engine_new();

@@ -10,21 +10,21 @@ const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
 
 #[derive(Debug, Clone)]
 pub(crate) struct WasmTableType {
-    pub(crate) table_type: TableType,
-    limits: Box<wasm_limits_t>,
-    content: Box<wasm_valtype_t>,
+    pub(crate) _table_type: TableType,
+    limits: wasm_limits_t,
+    content: wasm_valtype_t,
 }
 
 impl WasmTableType {
     pub(crate) fn new(table_type: TableType) -> Self {
-        let limits = Box::new(wasm_limits_t {
+        let limits = wasm_limits_t {
             min: table_type.minimum as _,
             max: table_type.maximum.unwrap_or(LIMITS_MAX_SENTINEL),
-        });
-        let content = Box::new(table_type.ty.into());
+        };
+        let content = table_type.ty.into();
 
         Self {
-            table_type,
+            _table_type: table_type,
             limits,
             content,
         }
@@ -79,12 +79,12 @@ pub unsafe extern "C" fn wasm_tabletype_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_limits(table_type: &wasm_tabletype_t) -> &wasm_limits_t {
-    table_type.inner().limits.as_ref()
+    &table_type.inner().limits
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_element(table_type: &wasm_tabletype_t) -> &wasm_valtype_t {
-    table_type.inner().content.as_ref()
+    &table_type.inner().content
 }
 
 #[no_mangle]

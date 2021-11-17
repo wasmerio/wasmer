@@ -121,6 +121,15 @@ impl Clone for wasm_val_t {
     }
 }
 
+impl Default for wasm_val_t {
+    fn default() -> Self {
+        Self {
+            kind: wasm_valkind_enum::WASM_I64 as _,
+            of: wasm_val_inner { int64_t: 0 },
+        }
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn wasm_val_copy(
     // own

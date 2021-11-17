@@ -38,7 +38,6 @@ pub unsafe extern "C" fn wasm_memory_new(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_delete(_memory: Option<Box<wasm_memory_t>>) {}
 
-// TODO: figure out if these should be deep or shallow copies
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_copy(memory: &wasm_memory_t) -> Box<wasm_memory_t> {
     // do shallow copy

@@ -48,7 +48,6 @@ pub unsafe extern "C" fn wasm_global_new(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_delete(_global: Option<Box<wasm_global_t>>) {}
 
-// TODO: figure out if these should be deep or shallow copies
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_global_t> {
     // do shallow copy
