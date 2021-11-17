@@ -170,6 +170,7 @@ fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     peb.build()
 }
 
+#[allow(dead_code)]
 impl PollEventBuilder {
     pub fn new() -> PollEventBuilder {
         PollEventBuilder { inner: 0 }
