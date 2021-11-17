@@ -347,7 +347,8 @@ impl WasiFs {
                         | __WASI_RIGHT_PATH_CREATE_FILE
                         | __WASI_RIGHT_PATH_LINK_TARGET
                         | __WASI_RIGHT_PATH_OPEN
-                        | __WASI_RIGHT_PATH_RENAME_TARGET;
+                        | __WASI_RIGHT_PATH_RENAME_TARGET
+                        | __WASI_RIGHT_PATH_SYMLINK;
                 }
 
                 rights
