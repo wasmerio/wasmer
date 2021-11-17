@@ -66,14 +66,29 @@ fn write_bytes_inner<T: Write>(
     iovs_arr_cell: &[WasmCell<__wasi_ciovec_t>],
 ) -> Result<u32, __wasi_errno_t> {
     let mut bytes_written = 0;
+
+    // We allocate the raw_bytes first once instead of
+    // N times in the loop.
+    let mut raw_bytes: Vec<u8> = vec![0; 4096];
+
     for iov in iovs_arr_cell {
         let iov_inner = iov.get();
-        let bytes = WasmPtr::<u8, Array>::new(iov_inner.buf).deref(memory, 0, iov_inner.buf_len)?;
+        raw_bytes.clear();
+        raw_bytes.resize(iov_inner.buf_len as usize, 0);
+        unsafe {
+            let src = &memory
+                .uint8view()
+                .subarray(
+                    iov_inner.buf as u32,
+                    iov_inner.buf as u32 + iov_inner.buf_len as u32,
+                )
+                .copy_to(&mut raw_bytes);
+        }
+
         write_loc
-            .write_all(&bytes.iter().map(|b_cell| b_cell.get()).collect::<Vec<u8>>())
+            .write_all(&raw_bytes)
             .map_err(|e| map_io_err(e))?;
 
-        // TODO: handle failure more accurately
         bytes_written += iov_inner.buf_len;
     }
     Ok(bytes_written)
