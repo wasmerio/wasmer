@@ -1,6 +1,10 @@
 pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
-use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::{
+    x64::X64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
+};
+
+type Assembler = VecAssembler<X64Relocation>;
 
 /// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the
