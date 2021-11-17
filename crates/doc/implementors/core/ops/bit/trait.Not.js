@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["wasmer_compiler"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/bit/trait.Not.html\" title=\"trait core::ops::bit::Not\">Not</a> for <a class=\"enum\" href=\"wasmer_compiler/target/enum.CpuFeature.html\" title=\"enum wasmer_compiler::target::CpuFeature\">CpuFeature</a>","synthetic":false,"types":["wasmer_compiler::target::CpuFeature"]}];
+implementors["wasmer_compiler"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.56.1/core/ops/bit/trait.Not.html\" title=\"trait core::ops::bit::Not\">Not</a> for <a class=\"enum\" href=\"wasmer_compiler/target/enum.CpuFeature.html\" title=\"enum wasmer_compiler::target::CpuFeature\">CpuFeature</a>","synthetic":false,"types":["wasmer_compiler::target::CpuFeature"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

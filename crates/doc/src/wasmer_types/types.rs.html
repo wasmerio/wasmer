@@ -1,7 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;types&#x2F;src&#x2F;types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -681,15 +678,14 @@
 <span id="678">678</span>
 <span id="679">679</span>
 <span id="680">680</span>
-</pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::indexes</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>};
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::borrow::ToOwned</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::fmt</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::format</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::vec::Vec</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::units::Pages</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::values</span>::{<span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::indexes</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::borrow::ToOwned</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::format</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::units::Pages</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::values</span>::{<span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
@@ -731,13 +727,13 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_num</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="macro">matches!</span>(
             <span class="self">self</span>,
-            <span class="self">Self</span><span class="ident">::I32</span> <span class="op">|</span> <span class="self">Self</span><span class="ident">::I64</span> <span class="op">|</span> <span class="self">Self</span><span class="ident">::F32</span> <span class="op">|</span> <span class="self">Self</span><span class="ident">::F64</span> <span class="op">|</span> <span class="self">Self</span><span class="ident">::V128</span>
+            <span class="ident"><span class="self">Self</span>::I32</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I64</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::F32</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::F64</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::V128</span>
         )
     }
 
     <span class="doccomment">/// Returns true if `Type` matches either of the reference types.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_ref</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span><span class="ident">::ExternRef</span> <span class="op">|</span> <span class="self">Self</span><span class="ident">::FuncRef</span>)
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::ExternRef</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::FuncRef</span>)
     }
 }
 
@@ -910,10 +906,10 @@
     <span class="doccomment">/// Check if two externs are compatible</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_compatible_with</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">other</span>) {
-            (<span class="self">Self</span><span class="ident">::Function</span>(<span class="ident">a</span>), <span class="self">Self</span><span class="ident">::Function</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">b</span>,
-            (<span class="self">Self</span><span class="ident">::Global</span>(<span class="ident">a</span>), <span class="self">Self</span><span class="ident">::Global</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">is_global_compatible</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="kw-2">*</span><span class="ident">b</span>),
-            (<span class="self">Self</span><span class="ident">::Table</span>(<span class="ident">a</span>), <span class="self">Self</span><span class="ident">::Table</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">is_table_compatible</span>(<span class="ident">a</span>, <span class="ident">b</span>),
-            (<span class="self">Self</span><span class="ident">::Memory</span>(<span class="ident">a</span>), <span class="self">Self</span><span class="ident">::Memory</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">is_memory_compatible</span>(<span class="ident">a</span>, <span class="ident">b</span>),
+            (<span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">a</span> <span class="op">=</span><span class="op">=</span> <span class="ident">b</span>,
+            (<span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">is_global_compatible</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="kw-2">*</span><span class="ident">b</span>),
+            (<span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">is_table_compatible</span>(<span class="ident">a</span>, <span class="ident">b</span>),
+            (<span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">is_memory_compatible</span>(<span class="ident">a</span>, <span class="ident">b</span>),
             <span class="comment">// The rest of possibilities, are not compatible</span>
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="bool-val">false</span>,
         }
@@ -988,7 +984,7 @@
         $(
             <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span>([<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">N</span>], [<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">M</span>])<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FunctionType</span> {
                 <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">pair</span>: ([<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">N</span>], [<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">M</span>])) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-                    <span class="self">Self</span><span class="ident">::new</span>(<span class="ident">pair</span>.<span class="number">0</span>, <span class="ident">pair</span>.<span class="number">1</span>)
+                    <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">pair</span>.<span class="number">0</span>, <span class="ident">pair</span>.<span class="number">1</span>)
                 }
             }
         )<span class="op">+</span>
@@ -1038,9 +1034,9 @@
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mutability</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">if</span> <span class="ident">value</span> {
-            <span class="self">Self</span><span class="ident">::Var</span>
+            <span class="ident"><span class="self">Self</span>::Var</span>
         } <span class="kw">else</span> {
-            <span class="self">Self</span><span class="ident">::Const</span>
+            <span class="ident"><span class="self">Self</span>::Const</span>
         }
     }
 }
@@ -1136,20 +1132,20 @@
     <span class="doccomment">/// Get the `GlobalInit` from a given `Value`</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_value</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">value</span> {
-            <span class="ident">Value::I32</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::I32Const</span>(<span class="ident">i</span>),
-            <span class="ident">Value::I64</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::I64Const</span>(<span class="ident">i</span>),
-            <span class="ident">Value::F32</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::F32Const</span>(<span class="ident">f</span>),
-            <span class="ident">Value::F64</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::F64Const</span>(<span class="ident">f</span>),
+            <span class="ident">Value::I32</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::I32Const</span>(<span class="ident">i</span>),
+            <span class="ident">Value::I64</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::I64Const</span>(<span class="ident">i</span>),
+            <span class="ident">Value::F32</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::F32Const</span>(<span class="ident">f</span>),
+            <span class="ident">Value::F64</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::F64Const</span>(<span class="ident">f</span>),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented!</span>(<span class="string">&quot;GlobalInit from_value for {:?}&quot;</span>, <span class="ident">value</span>),
         }
     }
     <span class="doccomment">/// Get the `Value` from the Global init value</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_value</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span><span class="ident">::I32Const</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::I32</span>(<span class="kw-2">*</span><span class="ident">i</span>),
-            <span class="self">Self</span><span class="ident">::I64Const</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::I64</span>(<span class="kw-2">*</span><span class="ident">i</span>),
-            <span class="self">Self</span><span class="ident">::F32Const</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::F32</span>(<span class="kw-2">*</span><span class="ident">f</span>),
-            <span class="self">Self</span><span class="ident">::F64Const</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::F64</span>(<span class="kw-2">*</span><span class="ident">f</span>),
+            <span class="ident"><span class="self">Self</span>::I32Const</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::I32</span>(<span class="kw-2">*</span><span class="ident">i</span>),
+            <span class="ident"><span class="self">Self</span>::I64Const</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::I64</span>(<span class="kw-2">*</span><span class="ident">i</span>),
+            <span class="ident"><span class="self">Self</span>::F32Const</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::F32</span>(<span class="kw-2">*</span><span class="ident">f</span>),
+            <span class="ident"><span class="self">Self</span>::F64Const</span>(<span class="ident">f</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value::F64</span>(<span class="kw-2">*</span><span class="ident">f</span>),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented!</span>(<span class="string">&quot;GlobalInit to_value for {:?}&quot;</span>, <span class="self">self</span>),
         }
     }
@@ -1362,6 +1358,7 @@
         <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">results</span>().<span class="ident">len</span>(), <span class="number">9</span>);
     }
 }
-</pre></div>
+</code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</body></html>

@@ -1,1 +1,1 @@
-initSidebarItems({});
+initSidebarItems({"macro":[["get_input_str","Reads a string from Wasm memory and returns the invalid argument error code if it fails."],["wasi_try","Like the `try!` macro or `?` syntax: returns the value if the computation succeeded or returns the error value."]]});

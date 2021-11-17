@@ -1,7 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/export.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>export.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;vm&#x2F;src&#x2F;export.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>export.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -237,15 +234,14 @@
 <span id="234">234</span>
 <span id="235">235</span>
 <span id="236">236</span>
-</pre><div class="example-wrap"><pre class="rust ">
-<span class="comment">// This file contains code from external sources.</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::global::Global</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::instance::WeakOrStrongInstanceRef</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryStyle</span>};
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::table</span>::{<span class="ident">Table</span>, <span class="ident">TableStyle</span>};
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::vmcontext</span>::{<span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMTrampoline</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::global::Global</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::instance::WeakOrStrongInstanceRef</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryStyle</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::table</span>::{<span class="ident">Table</span>, <span class="ident">TableStyle</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{<span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMTrampoline</span>};
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">MemoryType</span>, <span class="ident">TableType</span>};
@@ -316,7 +312,7 @@
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMExtern</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">func</span>: <span class="ident">VMFunction</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::Function</span>(<span class="ident">func</span>)
+        <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">func</span>)
     }
 }
 
@@ -371,7 +367,7 @@
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMExtern</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">table</span>: <span class="ident">VMTable</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::Table</span>(<span class="ident">table</span>)
+        <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">table</span>)
     }
 }
 
@@ -426,7 +422,7 @@
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMExtern</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">memory</span>: <span class="ident">VMMemory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::Memory</span>(<span class="ident">memory</span>)
+        <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">memory</span>)
     }
 }
 
@@ -471,9 +467,10 @@
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMExtern</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">global</span>: <span class="ident">VMGlobal</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::Global</span>(<span class="ident">global</span>)
+        <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">global</span>)
     }
 }
-</pre></div>
+</code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</body></html>

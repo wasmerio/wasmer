@@ -1,7 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/values.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>values.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings"></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
-<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
-<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
-                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;types&#x2F;src&#x2F;values.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>values.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../wasmer_types/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -477,13 +474,12 @@
 <span id="474">474</span>
 <span id="475">475</span>
 <span id="476">476</span>
-</pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::extern_ref::ExternRef</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::fmt</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::ptr</span>;
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
-<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::types::Type</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::extern_ref::ExternRef</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::convert::TryFrom</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::ptr</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::types::Type</span>;
 
 <span class="doccomment">/// Possible runtime values that a WebAssembly module can either consume or</span>
 <span class="doccomment">/// produce.</span>
@@ -569,19 +565,19 @@
 {
     <span class="doccomment">/// Returns a null `externref` value.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">null</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::ExternRef</span>(<span class="ident">ExternRef::null</span>())
+        <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="ident">ExternRef::null</span>())
     }
 
     <span class="doccomment">/// Returns the corresponding [`Type`] for this `Value`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Type</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span><span class="ident">::I32</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::I32</span>,
-            <span class="self">Self</span><span class="ident">::I64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::I64</span>,
-            <span class="self">Self</span><span class="ident">::F32</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::F32</span>,
-            <span class="self">Self</span><span class="ident">::F64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::F64</span>,
-            <span class="self">Self</span><span class="ident">::ExternRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::ExternRef</span>,
-            <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::FuncRef</span>,
-            <span class="self">Self</span><span class="ident">::V128</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::V128</span>,
+            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::I32</span>,
+            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::I64</span>,
+            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::F32</span>,
+            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::F64</span>,
+            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::ExternRef</span>,
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::FuncRef</span>,
+            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Type::V128</span>,
         }
     }
 
@@ -593,15 +589,15 @@
     <span class="doccomment">/// - Non-null and pointing to valid, mutable memory</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">write_value_to</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">p</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i128</span>) {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span><span class="ident">::I32</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i32</span>, <span class="kw-2">*</span><span class="ident">i</span>),
-            <span class="self">Self</span><span class="ident">::I64</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i64</span>, <span class="kw-2">*</span><span class="ident">i</span>),
-            <span class="self">Self</span><span class="ident">::F32</span>(<span class="ident">u</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">f32</span>, <span class="kw-2">*</span><span class="ident">u</span>),
-            <span class="self">Self</span><span class="ident">::F64</span>(<span class="ident">u</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">f64</span>, <span class="kw-2">*</span><span class="ident">u</span>),
-            <span class="self">Self</span><span class="ident">::V128</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u128</span>, <span class="kw-2">*</span><span class="ident">b</span>),
-            <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">T::write_value_to</span>(<span class="ident">b</span>, <span class="ident">p</span>),
-            <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">usize</span>, <span class="number">0</span>),
+            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i32</span>, <span class="kw-2">*</span><span class="ident">i</span>),
+            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i64</span>, <span class="kw-2">*</span><span class="ident">i</span>),
+            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">u</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">f32</span>, <span class="kw-2">*</span><span class="ident">u</span>),
+            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">u</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">f64</span>, <span class="kw-2">*</span><span class="ident">u</span>),
+            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">b</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u128</span>, <span class="kw-2">*</span><span class="ident">b</span>),
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">b</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">T::write_value_to</span>(<span class="ident">b</span>, <span class="ident">p</span>),
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">usize</span>, <span class="number">0</span>),
             <span class="comment">// TODO(reftypes): review clone here</span>
-            <span class="self">Self</span><span class="ident">::ExternRef</span>(<span class="ident">extern_ref</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ExternRef</span>, <span class="ident">extern_ref</span>.<span class="ident">clone</span>()),
+            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="ident">extern_ref</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr::write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ExternRef</span>, <span class="ident">extern_ref</span>.<span class="ident">clone</span>()),
         }
     }
 
@@ -613,22 +609,22 @@
     <span class="doccomment">/// - Non-null and pointing to valid memory</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">read_value_from</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::any::Any</span>, <span class="ident">p</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">i128</span>, <span class="ident">ty</span>: <span class="ident">Type</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">ty</span> {
-            <span class="ident">Type::I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::I32</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">i32</span>)),
-            <span class="ident">Type::I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::I64</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">i64</span>)),
-            <span class="ident">Type::F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::F32</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">f32</span>)),
-            <span class="ident">Type::F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::F64</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">f64</span>)),
-            <span class="ident">Type::V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span><span class="ident">::V128</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u128</span>)),
+            <span class="ident">Type::I32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">i32</span>)),
+            <span class="ident">Type::I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">i64</span>)),
+            <span class="ident">Type::F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">f32</span>)),
+            <span class="ident">Type::F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">f64</span>)),
+            <span class="ident">Type::V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">ptr::read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u128</span>)),
             <span class="ident">Type::FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// We do the null check ourselves</span>
                 <span class="kw">if</span> (<span class="kw-2">*</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">usize</span>)) <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
-                    <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="prelude-val">None</span>)
+                    <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>)
                 } <span class="kw">else</span> {
-                    <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">T::read_value_from</span>(<span class="ident">store</span>, <span class="ident">p</span>)))
+                    <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">T::read_value_from</span>(<span class="ident">store</span>, <span class="ident">p</span>)))
                 }
             }
             <span class="ident">Type::ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">extern_ref</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ExternRef</span>)).<span class="ident">clone</span>();
-                <span class="self">Self</span><span class="ident">::ExternRef</span>(<span class="ident">extern_ref</span>)
+                <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="ident">extern_ref</span>)
             }
         }
     }
@@ -651,14 +647,14 @@
 {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span><span class="ident">::I32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;I32({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="self">Self</span><span class="ident">::I64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;I64({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="self">Self</span><span class="ident">::F32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;F32({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="self">Self</span><span class="ident">::F64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;F64({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="self">Self</span><span class="ident">::ExternRef</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ExternRef({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Null FuncRef&quot;</span>),
-            <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">v</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;FuncRef({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="self">Self</span><span class="ident">::V128</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;V128({:?})&quot;</span>, <span class="ident">v</span>),
+            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;I32({:?})&quot;</span>, <span class="ident">v</span>),
+            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;I64({:?})&quot;</span>, <span class="ident">v</span>),
+            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;F32({:?})&quot;</span>, <span class="ident">v</span>),
+            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;F64({:?})&quot;</span>, <span class="ident">v</span>),
+            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ExternRef({:?})&quot;</span>, <span class="ident">v</span>),
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Null FuncRef&quot;</span>),
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">v</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;FuncRef({:?})&quot;</span>, <span class="ident">v</span>),
+            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;V128({:?})&quot;</span>, <span class="ident">v</span>),
         }
     }
 }
@@ -669,13 +665,13 @@
 {
     <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="self">Self</span><span class="ident">::I32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="self">Self</span><span class="ident">::I64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="self">Self</span><span class="ident">::F32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="self">Self</span><span class="ident">::F64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="self">Self</span><span class="ident">::ExternRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;externref&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="self">Self</span><span class="ident">::FuncRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;funcref&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="self">Self</span><span class="ident">::V128</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
+            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
+            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
+            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
+            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
+            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;externref&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;funcref&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>.<span class="ident">to_string</span>(),
         }
     }
 }
@@ -685,7 +681,7 @@
     <span class="ident">T</span>: <span class="ident">WasmValueType</span>,
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::I32</span>(<span class="ident">val</span>)
+        <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">val</span>)
     }
 }
 
@@ -695,7 +691,7 @@
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="comment">// In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.</span>
-        <span class="self">Self</span><span class="ident">::I32</span>(<span class="ident">val</span> <span class="kw">as</span> <span class="ident">i32</span>)
+        <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">val</span> <span class="kw">as</span> <span class="ident">i32</span>)
     }
 }
 
@@ -704,7 +700,7 @@
     <span class="ident">T</span>: <span class="ident">WasmValueType</span>,
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">i64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::I64</span>(<span class="ident">val</span>)
+        <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">val</span>)
     }
 }
 
@@ -714,7 +710,7 @@
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="comment">// In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.</span>
-        <span class="self">Self</span><span class="ident">::I64</span>(<span class="ident">val</span> <span class="kw">as</span> <span class="ident">i64</span>)
+        <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">val</span> <span class="kw">as</span> <span class="ident">i64</span>)
     }
 }
 
@@ -723,7 +719,7 @@
     <span class="ident">T</span>: <span class="ident">WasmValueType</span>,
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">f32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::F32</span>(<span class="ident">val</span>)
+        <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">val</span>)
     }
 }
 
@@ -732,7 +728,7 @@
     <span class="ident">T</span>: <span class="ident">WasmValueType</span>,
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">f64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::F64</span>(<span class="ident">val</span>)
+        <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">val</span>)
     }
 }
 
@@ -741,7 +737,7 @@
     <span class="ident">T</span>: <span class="ident">WasmValueType</span>,
 {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">ExternRef</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="self">Self</span><span class="ident">::ExternRef</span>(<span class="ident">val</span>)
+        <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="ident">val</span>)
     }
 }
 
@@ -762,7 +758,7 @@
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span><span class="ident">::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="ident">value</span>.<span class="ident">i32</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I32</span>)
     }
 }
@@ -773,7 +769,7 @@
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span><span class="ident">::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="ident">value</span>.<span class="ident">i32</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I32</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">int</span><span class="op">|</span> <span class="ident">int</span> <span class="kw">as</span> <span class="self">Self</span>)
     }
 }
@@ -784,7 +780,7 @@
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span><span class="ident">::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="ident">value</span>.<span class="ident">i64</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I64</span>)
     }
 }
@@ -795,7 +791,7 @@
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span><span class="ident">::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="ident">value</span>.<span class="ident">i64</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I64</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">int</span><span class="op">|</span> <span class="ident">int</span> <span class="kw">as</span> <span class="self">Self</span>)
     }
 }
@@ -806,7 +802,7 @@
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span><span class="ident">::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="ident">value</span>.<span class="ident">f32</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_F32</span>)
     }
 }
@@ -817,7 +813,7 @@
 {
     <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span><span class="ident">::Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
         <span class="ident">value</span>.<span class="ident">f64</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_F64</span>)
     }
 }
@@ -954,6 +950,7 @@
         <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type f64&quot;</span>);
     }
 }
-</pre></div>
+</code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script></body></html>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</body></html>
