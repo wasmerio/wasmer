@@ -42,7 +42,7 @@ jobs:
         include:
           - build: linux-x64
             os: ubuntu-18.04
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/linux-amd64.tar.gz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_test: true
@@ -51,7 +51,7 @@ jobs:
             use_sccache: true
           - build: macos-x64
             os: macos-11
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/darwin-amd64.tar.gz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_test: true
@@ -69,7 +69,7 @@ jobs:
           - build: windows-x64
             os: windows-latest
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
-            llvm_choco_version: 12.0.1
+            llvm_choco_version: 13.0.0
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
@@ -131,10 +131,10 @@ jobs:
         if: matrix.llvm_url
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.gz
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
-          tar xf llvm.tar.gz --strip-components=1 -C ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
