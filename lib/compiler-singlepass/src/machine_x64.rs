@@ -45,6 +45,10 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         None
     }
 
+    fn get_cmpxchg_temp_gprs(&self) -> Vec<GPR> {
+        vec![GPR::RAX]
+    }
+
     // Picks an unused XMM register.
     fn pick_simd(&self, used_simd: &HashSet<XMM>) -> Option<XMM> {
         use XMM::*;
@@ -293,6 +297,76 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn jmp_on_overflow(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::Carry, label);
+    }
+
+    fn emit_atomic_cmpxchg(
+        &mut self,
+        size_op: Size,
+        size_val: Size,
+        signed: bool,
+        new: Location,
+        cmp: Location,
+        addr: GPR,
+        ret: Location,
+        used_gprs: &mut HashSet<GPR>,
+    ) {
+        let compare = GPR::RAX;
+        // we have to take into account that there maybe no free tmp register
+        let val = self.pick_temp_gpr(used_gprs);
+        let value = match val {
+            Some(value) => {
+                used_gprs.insert(value);
+                value
+            }
+            _ => {
+                if cmp == Location::GPR(GPR::R14) {
+                    if new == Location::GPR(GPR::R13) {
+                        GPR::R12
+                    } else {
+                        GPR::R13
+                    }
+                } else {
+                    GPR::R14
+                }
+            }
+        };
+        if val.is_none() {
+            self.assembler.emit_push(Size::S64, Location::GPR(value));
+        }
+
+        self.assembler
+            .emit_mov(size_op, cmp, Location::GPR(compare));
+        self.assembler.emit_mov(size_op, new, Location::GPR(value));
+        self.assembler
+            .emit_lock_cmpxchg(size_val, Location::GPR(value), Location::Memory(addr, 0));
+        match size_val {
+            Size::S64 => self
+                .assembler
+                .emit_mov(size_val, Location::GPR(compare), ret),
+            Size::S32 => {
+                if signed && size_op == Size::S64 {
+                    self.assembler
+                        .emit_movsx(size_val, Location::GPR(compare), size_op, ret);
+                } else {
+                    self.assembler
+                        .emit_mov(size_val, Location::GPR(compare), ret);
+                }
+            }
+            Size::S16 | Size::S8 => {
+                if signed {
+                    self.assembler
+                        .emit_movsx(size_val, Location::GPR(compare), size_op, ret);
+                } else {
+                    self.assembler
+                        .emit_movzx(size_val, Location::GPR(compare), size_op, ret);
+                }
+            }
+        }
+        if val.is_none() {
+            self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        } else {
+            used_gprs.remove(&value);
+        }
     }
 }
 

@@ -44,6 +44,8 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     ///
     /// This method does not mark the register as used, but needs the used vector
     fn pick_temp_gpr(&self, used_gpr: &HashSet<R>) -> Option<R>;
+    /// Get the list of GPR to reserve for a "cmpxchg" type of operation
+    fn get_cmpxchg_temp_gprs(&self) -> Vec<R>;
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used, but needs the used vector
@@ -147,6 +149,19 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// jmp on overflow
     /// like Carry set on x86_64
     fn jmp_on_overflow(&mut self, label: Label);
+
+    /// cmpxchg
+    fn emit_atomic_cmpxchg(
+        &mut self,
+        size_op: Size,
+        size_val: Size,
+        signed: bool,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        addr: R,
+        ret: Location<R, S>,
+        used_gpr: &mut HashSet<R>,
+    );
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
@@ -209,6 +224,19 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         assert!(!self.used_gprs.contains(&gpr));
         self.used_gprs.insert(gpr);
         gpr
+    }
+    /// Reserve the gpr needed for a cmpxchg operation (if any)
+    pub fn reserve_cmpxchg_temp_gpr(&mut self) {
+        for gpr in self.specific.get_cmpxchg_temp_gprs().iter() {
+            assert!(!self.used_gprs.contains(gpr));
+            self.used_gprs.insert(*gpr);
+        }
+    }
+    /// Release the gpr needed fpr a cmpxchg operation
+    pub fn release_cmpxchg_temp_gpr(&mut self) {
+        for gpr in self.specific.get_cmpxchg_temp_gprs().iter() {
+            assert_eq!(!self.used_gprs.remove(gpr), true);
+        }
     }
 
     /// Acquires a temporary XMM register.
@@ -579,5 +607,28 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
 
     pub fn assembler_finalize(self) -> Vec<u8> {
         self.specific.assembler_finalize()
+    }
+
+    /// Emit a atomic cmpxchg kind of opcode
+    pub fn emit_atomic_cmpxchg(
+        &mut self,
+        size_op: Size,
+        size_val: Size,
+        signed: bool,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        addr: R,
+        ret: Location<R, S>,
+    ) {
+        self.specific.emit_atomic_cmpxchg(
+            size_op,
+            size_val,
+            signed,
+            new,
+            cmp,
+            addr,
+            ret,
+            &mut self.used_gprs,
+        );
     }
 }

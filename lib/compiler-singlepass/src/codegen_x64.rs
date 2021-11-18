@@ -9398,8 +9398,7 @@ impl<'a> FuncGen<'a> {
                 let value = self.machine.acquire_temp_gpr().unwrap();
                 self.machine
                     .specific
-                    .assembler
-                    .emit_mov(Size::S32, loc, Location::GPR(value));
+                    .move_location(Size::S32, loc, Location::GPR(value));
                 self.emit_memory_op(target, memarg, true, 4, |this, addr| {
                     this.machine.specific.assembler.emit_xchg(
                         Size::S32,
@@ -9424,47 +9423,20 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-                let value = if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                };
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_push(Size::S64, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, cmp, Location::GPR(compare));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, new, Location::GPR(value));
-
+                self.machine.reserve_cmpxchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_cmpxchg(
+                    this.machine.emit_atomic_cmpxchg(
                         Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    this.machine.specific.assembler.emit_mov(
                         Size::S32,
-                        Location::GPR(compare),
+                        false,
+                        new,
+                        cmp,
+                        addr,
                         ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
+                self.machine.release_cmpxchg_temp_gpr();
             }
             Operator::I64AtomicRmwCmpxchg { ref memarg } => {
                 let new = self.pop_value_released();
@@ -9476,47 +9448,20 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-                let value = if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                };
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_push(Size::S64, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, new, Location::GPR(value));
-
+                self.machine.reserve_cmpxchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 8, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_cmpxchg(
+                    this.machine.emit_atomic_cmpxchg(
                         Size::S64,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    this.machine.specific.assembler.emit_mov(
                         Size::S64,
-                        Location::GPR(compare),
+                        false,
+                        new,
+                        cmp,
+                        addr,
                         ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
+                self.machine.release_cmpxchg_temp_gpr();
             }
             Operator::I32AtomicRmw8CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -9528,48 +9473,20 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-                let value = if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                };
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_push(Size::S64, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, cmp, Location::GPR(compare));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, new, Location::GPR(value));
-
+                self.machine.reserve_cmpxchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_cmpxchg(
-                        Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    this.machine.specific.assembler.emit_movzx(
-                        Size::S8,
-                        Location::GPR(compare),
+                    this.machine.emit_atomic_cmpxchg(
                         Size::S32,
+                        Size::S8,
+                        false,
+                        new,
+                        cmp,
+                        addr,
                         ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
+                self.machine.release_cmpxchg_temp_gpr();
             }
             Operator::I32AtomicRmw16CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -9581,48 +9498,20 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-                let value = if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                };
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_push(Size::S64, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, cmp, Location::GPR(compare));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, new, Location::GPR(value));
-
+                self.machine.reserve_cmpxchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_cmpxchg(
-                        Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    this.machine.specific.assembler.emit_movzx(
-                        Size::S16,
-                        Location::GPR(compare),
+                    this.machine.emit_atomic_cmpxchg(
                         Size::S32,
+                        Size::S16,
+                        false,
+                        new,
+                        cmp,
+                        addr,
                         ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
+                self.machine.release_cmpxchg_temp_gpr();
             }
             Operator::I64AtomicRmw8CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -9634,48 +9523,20 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-                let value = if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                };
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_push(Size::S64, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, new, Location::GPR(value));
-
+                self.machine.reserve_cmpxchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_cmpxchg(
-                        Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    this.machine.specific.assembler.emit_movzx(
-                        Size::S8,
-                        Location::GPR(compare),
+                    this.machine.emit_atomic_cmpxchg(
                         Size::S64,
+                        Size::S8,
+                        false,
+                        new,
+                        cmp,
+                        addr,
                         ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
+                self.machine.release_cmpxchg_temp_gpr();
             }
             Operator::I64AtomicRmw16CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -9687,48 +9548,20 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-                let value = if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                };
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_push(Size::S64, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, new, Location::GPR(value));
-
+                self.machine.reserve_cmpxchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_cmpxchg(
-                        Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    this.machine.specific.assembler.emit_movzx(
-                        Size::S16,
-                        Location::GPR(compare),
+                    this.machine.emit_atomic_cmpxchg(
                         Size::S64,
+                        Size::S16,
+                        false,
+                        new,
+                        cmp,
+                        addr,
                         ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
+                self.machine.release_cmpxchg_temp_gpr();
             }
             Operator::I64AtomicRmw32CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -9740,47 +9573,20 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-                let value = if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                };
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_push(Size::S64, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, cmp, Location::GPR(compare));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, new, Location::GPR(value));
-
+                self.machine.reserve_cmpxchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_cmpxchg(
+                    this.machine.emit_atomic_cmpxchg(
+                        Size::S64,
                         Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    this.machine.specific.assembler.emit_mov(
-                        Size::S32,
-                        Location::GPR(compare),
+                        false,
+                        new,
+                        cmp,
+                        addr,
                         ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_pop(Size::S64, Location::GPR(value));
-                self.machine.release_temp_gpr(compare);
+                self.machine.release_cmpxchg_temp_gpr();
             }
 
             Operator::RefNull { .. } => {
