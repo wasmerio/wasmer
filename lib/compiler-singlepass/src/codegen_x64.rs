@@ -9219,24 +9219,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, loc, Location::GPR(value));
+                self.machine.reserve_xchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.specific.assembler.emit_xchg(
+                    this.machine.emit_atomic_xchg(
                         Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
+                        Size::S32,
+                        false,
+                        loc,
+                        addr,
+                        ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                self.machine.release_xchg_temp_gpr();
             }
             Operator::I64AtomicRmwXchg { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -9247,24 +9242,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, loc, Location::GPR(value));
+                self.machine.reserve_xchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 8, |this, addr| {
-                    this.machine.specific.assembler.emit_xchg(
+                    this.machine.emit_atomic_xchg(
                         Size::S64,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
+                        Size::S64,
+                        false,
+                        loc,
+                        addr,
+                        ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                self.machine.release_xchg_temp_gpr();
             }
             Operator::I32AtomicRmw8XchgU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -9275,26 +9265,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S8,
-                    loc,
-                    Size::S32,
-                    Location::GPR(value),
-                );
+                self.machine.reserve_xchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_xchg(
+                    this.machine.emit_atomic_xchg(
                         Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
+                        Size::S32,
+                        false,
+                        loc,
+                        addr,
+                        ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                self.machine.release_xchg_temp_gpr();
             }
             Operator::I32AtomicRmw16XchgU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -9305,26 +9288,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S16,
-                    loc,
-                    Size::S32,
-                    Location::GPR(value),
-                );
+                self.machine.reserve_xchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.assembler.emit_xchg(
+                    this.machine.emit_atomic_xchg(
                         Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
+                        Size::S32,
+                        false,
+                        loc,
+                        addr,
+                        ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                self.machine.release_xchg_temp_gpr();
             }
             Operator::I64AtomicRmw8XchgU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -9335,26 +9311,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S8,
-                    loc,
-                    Size::S64,
-                    Location::GPR(value),
-                );
+                self.machine.reserve_xchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_xchg(
+                    this.machine.emit_atomic_xchg(
                         Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
+                        Size::S64,
+                        false,
+                        loc,
+                        addr,
+                        ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                self.machine.release_xchg_temp_gpr();
             }
             Operator::I64AtomicRmw16XchgU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -9365,26 +9334,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S16,
-                    loc,
-                    Size::S64,
-                    Location::GPR(value),
-                );
+                self.machine.reserve_xchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.assembler.emit_xchg(
+                    this.machine.emit_atomic_xchg(
                         Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
+                        Size::S64,
+                        false,
+                        loc,
+                        addr,
+                        ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                self.machine.release_xchg_temp_gpr();
             }
             Operator::I64AtomicRmw32XchgU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -9395,23 +9357,19 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .move_location(Size::S32, loc, Location::GPR(value));
+                self.machine.reserve_xchg_temp_gpr();
                 self.emit_memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.specific.assembler.emit_xchg(
+                    this.machine.emit_atomic_xchg(
                         Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
+                        Size::S64,
+                        false,
+                        loc,
+                        addr,
+                        ret,
                     );
                     Ok(())
                 })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                self.machine.release_xchg_temp_gpr();
             }
             Operator::I32AtomicRmwCmpxchg { ref memarg } => {
                 let new = self.pop_value_released();
