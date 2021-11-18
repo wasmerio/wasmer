@@ -1008,6 +1008,9 @@
 <span id="1008">1008</span>
 <span id="1009">1009</span>
 <span id="1010">1010</span>
+<span id="1011">1011</span>
+<span id="1012">1012</span>
+<span id="1013">1013</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1109,13 +1112,16 @@
         <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">thread_stack</span>() <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">usize</span>, <span class="ident">usize</span>) {
             <span class="kw">let</span> <span class="ident">this_thread</span> <span class="op">=</span> <span class="ident">libc::pthread_self</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">thread_attrs</span>: <span class="ident">libc::pthread_attr_t</span> <span class="op">=</span> <span class="ident">mem::zeroed</span>();
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>))]</span>
-            <span class="ident">libc::pthread_getattr_np</span>(<span class="ident">this_thread</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_attrs</span>);
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
-            <span class="ident">libc::pthread_attr_get_np</span>(<span class="ident">this_thread</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_attrs</span>);
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stackaddr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">libc::c_void</span> <span class="op">=</span> <span class="ident">ptr::null_mut</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stacksize</span>: <span class="ident">libc::size_t</span> <span class="op">=</span> <span class="number">0</span>;
-            <span class="ident">libc::pthread_attr_getstack</span>(<span class="kw-2">&amp;</span><span class="ident">thread_attrs</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stackaddr</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stacksize</span>);
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>))]</span>
+            <span class="kw">let</span> <span class="ident">ok</span> <span class="op">=</span> <span class="ident">libc::pthread_getattr_np</span>(<span class="ident">this_thread</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_attrs</span>);
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
+            <span class="kw">let</span> <span class="ident">ok</span> <span class="op">=</span> <span class="ident">libc::pthread_attr_get_np</span>(<span class="ident">this_thread</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_attrs</span>);
+            <span class="kw">if</span> <span class="ident">ok</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
+                <span class="ident">libc::pthread_attr_getstack</span>(<span class="kw-2">&amp;</span><span class="ident">thread_attrs</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stackaddr</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stacksize</span>);
+                <span class="ident">libc::pthread_attr_destroy</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_attrs</span>);
+            }
             (<span class="ident">stackaddr</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">stacksize</span>)
         }
 
