@@ -5,6 +5,7 @@ use super::super::value::{wasm_val_inner, wasm_val_t, wasm_val_vec_t};
 use super::CApiExternTag;
 use std::convert::TryInto;
 use std::ffi::c_void;
+use std::mem::MaybeUninit;
 use std::sync::Arc;
 use wasmer_api::{Function, RuntimeError, Val};
 
@@ -27,16 +28,16 @@ impl wasm_func_t {
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_t = unsafe extern "C" fn(
-    args: *const wasm_val_vec_t,
-    results: *mut wasm_val_vec_t,
-) -> *mut wasm_trap_t;
+    args: &wasm_val_vec_t,
+    results: &mut wasm_val_vec_t,
+) -> Option<Box<wasm_trap_t>>;
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
     env: *mut c_void,
-    args: *const wasm_val_vec_t,
-    results: *mut wasm_val_vec_t,
-) -> *mut wasm_trap_t;
+    args: &wasm_val_vec_t,
+    results: &mut wasm_val_vec_t,
+) -> Option<Box<wasm_trap_t>>;
 
 #[allow(non_camel_case_types)]
 pub type wasm_env_finalizer_t = unsafe extern "C" fn(*mut c_void);
@@ -72,15 +73,12 @@ pub unsafe extern "C" fn wasm_func_new(
 
         let trap = callback(&processed_args, &mut results);
 
-        if !trap.is_null() {
-            let trap: Box<wasm_trap_t> = Box::from_raw(trap);
-
+        if let Some(trap) = trap {
             return Err(trap.inner);
         }
 
         let processed_results = results
-            .into_slice()
-            .expect("Failed to convert `results` into a slice")
+            .take()
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<Val>, _>>()
@@ -124,12 +122,8 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     impl Drop for WrapperEnv {
         fn drop(&mut self) {
-            if let Some(env_finalizer) =
-                Arc::get_mut(&mut self.env_finalizer).and_then(Option::take)
-            {
-                if !self.env.is_null() {
-                    unsafe { (env_finalizer)(self.env as _) }
-                }
+            if let Some(env_finalizer) = *self.env_finalizer {
+                unsafe { (env_finalizer)(self.env as _) }
             }
         }
     }
@@ -153,15 +147,12 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
         let trap = callback(env.env, &processed_args, &mut results);
 
-        if !trap.is_null() {
-            let trap: Box<wasm_trap_t> = Box::from_raw(trap);
-
+        if let Some(trap) = trap {
             return Err(trap.inner);
         }
 
         let processed_results = results
-            .into_slice()
-            .expect("Failed to convert `results` into a slice")
+            .take()
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<Val>, _>>()
@@ -201,39 +192,21 @@ pub unsafe extern "C" fn wasm_func_call(
     let args = args?;
 
     let params = args
-        .into_slice()
-        .map(|slice| {
-            slice
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<Val>, _>>()
-                .expect("Arguments conversion failed")
-        })
-        .unwrap_or_default();
+        .as_slice()
+        .iter()
+        .cloned()
+        .map(TryInto::try_into)
+        .collect::<Result<Vec<Val>, _>>()
+        .expect("Arguments conversion failed");
 
     match func.inner.call(&params) {
         Ok(wasm_results) => {
-            let vals = wasm_results
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<wasm_val_t>, _>>()
-                .expect("Results conversion failed");
-
-            // `results` is an uninitialized vector. Set a new value.
-            if results.is_uninitialized() {
-                *results = vals.into();
-            }
-            // `results` is an initialized but empty vector. Fill it
-            // item per item.
-            else {
-                let slice = results
-                    .into_slice_mut()
-                    .expect("`wasm_func_call`, results' size is greater than 0 but data is NULL");
-
-                for (result, value) in slice.iter_mut().zip(vals.iter()) {
-                    (*result).kind = value.kind;
-                    (*result).of = value.of;
-                }
+            for (slot, val) in results
+                .as_uninit_slice()
+                .iter_mut()
+                .zip(wasm_results.into_iter())
+            {
+                *slot = MaybeUninit::new(val.try_into().expect("Results conversion failed"));
             }
 
             None

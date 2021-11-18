@@ -6,7 +6,7 @@ mod table;
 pub use function::*;
 pub use global::*;
 pub use memory::*;
-use std::mem;
+use std::mem::{self, ManuallyDrop};
 pub use table::*;
 use wasmer_api::{Extern, ExternType};
 
@@ -150,13 +150,23 @@ impl From<Extern> for wasm_extern_t {
 }
 
 impl From<wasm_extern_t> for Extern {
-    fn from(other: wasm_extern_t) -> Self {
-        match other.get_tag() {
-            CApiExternTag::Function => unsafe { (&*other.inner.function.inner).clone().into() },
-            CApiExternTag::Memory => unsafe { (&*other.inner.memory.inner).clone().into() },
-            CApiExternTag::Table => unsafe { (&*other.inner.table.inner).clone().into() },
-            CApiExternTag::Global => unsafe { (&*other.inner.global.inner).clone().into() },
-        }
+    fn from(mut other: wasm_extern_t) -> Self {
+        let out = match other.get_tag() {
+            CApiExternTag::Function => unsafe {
+                (*ManuallyDrop::take(&mut other.inner.function).inner).into()
+            },
+            CApiExternTag::Memory => unsafe {
+                (*ManuallyDrop::take(&mut other.inner.memory).inner).into()
+            },
+            CApiExternTag::Table => unsafe {
+                (*ManuallyDrop::take(&mut other.inner.table).inner).into()
+            },
+            CApiExternTag::Global => unsafe {
+                (*ManuallyDrop::take(&mut other.inner.global).inner).into()
+            },
+        };
+        mem::forget(other);
+        out
     }
 }
 

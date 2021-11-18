@@ -356,11 +356,11 @@ fn wasi_get_imports_inner(
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
-    *imports = module
+    imports.set_buffer(c_try!(module
         .inner
         .imports()
         .map(|import_type| {
-            let export = c_try!(import_object
+            let export = import_object
                 .resolve_by_name(import_type.module(), import_type.name())
                 .ok_or_else(|| CApiError {
                     msg: format!(
@@ -368,13 +368,12 @@ fn wasi_get_imports_inner(
                         import_type.module(),
                         import_type.name()
                     ),
-                }));
+                })?;
             let inner = Extern::from_vm_export(store, export);
 
-            Some(Box::new(inner.into()))
+            Ok(Some(Box::new(inner.into())))
         })
-        .collect::<Option<Vec<_>>>()?
-        .into();
+        .collect::<Result<Vec<_>, CApiError>>()));
 
     Some(())
 }

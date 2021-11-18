@@ -69,13 +69,7 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_importtype_vec_t import_types;
-  wasm_module_imports(module, &import_types);
-
   wasm_extern_vec_t imports;
-  wasm_extern_vec_new_uninitialized(&imports, import_types.size);
-  wasm_importtype_vec_delete(&import_types);
-
   bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
 
   if (!get_imports_result) {
@@ -153,6 +147,7 @@ int main(int argc, const char* argv[]) {
     fclose(memory_stream);
 
     printf("WASI Stdout: `%.*s`\n", (int) stdout_size, stdout);
+    free(stdout);
   }
 
 
