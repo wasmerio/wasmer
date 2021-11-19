@@ -23,7 +23,7 @@ leb128 = "0.2"
 libloading = "0.7"
 tempfile = "3.1"
 which = "4.0"
-rkyv = "0.6.1"
+rkyv = "0.7.20"
 loupe = "0.1"
 
 [features]

@@ -15,18 +15,17 @@ use crate::{
 };
 use indexmap::IndexMap;
 use loupe::MemoryUsage;
+use rkyv::ser::ScratchSpace;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{
-    de::SharedDeserializer, ser::Serializer, ser::SharedSerializer, Archive, Archived,
-    Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
+    de::SharedDeserializeRegistry, ser::Serializer, ser::SharedSerializeRegistry, Archive,
+    Archived, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
-#[cfg(feature = "enable-rkyv")]
-use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 
@@ -228,20 +227,22 @@ impl Archive for ModuleInfo {
     type Archived = <ArchivableModuleInfo as Archive>::Archived;
     type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
 
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivableModuleInfo::from(self).resolve(pos, resolver, out)
     }
 }
 
 #[cfg(feature = "enable-rkyv")]
-impl<S: Serializer + SharedSerializer + ?Sized> RkyvSerialize<S> for ModuleInfo {
+impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerialize<S>
+    for ModuleInfo
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivableModuleInfo::from(self).serialize(serializer)
     }
 }
 
 #[cfg(feature = "enable-rkyv")]
-impl<D: Fallible + ?Sized + SharedDeserializer> RkyvDeserialize<ModuleInfo, D>
+impl<D: Fallible + ?Sized + SharedDeserializeRegistry> RkyvDeserialize<ModuleInfo, D>
     for Archived<ModuleInfo>
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {

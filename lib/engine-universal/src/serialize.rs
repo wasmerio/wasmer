@@ -1,10 +1,8 @@
 use loupe::MemoryUsage;
 use rkyv::{
-    archived_value,
-    de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
-    ser::adapters::SharedSerializerAdapter,
-    ser::{serializers::WriteSerializer, Serializer as RkyvSerializer},
-    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
+    ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
+    Serialize as RkyvSerialize,
 };
 use wasmer_compiler::{
     CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody,
@@ -49,13 +47,13 @@ impl SerializableModule {
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![]));
+        let mut serializer = AllocSerializer::<4096>::default();
         let pos = serializer
             .serialize_value(self)
             .map_err(to_serialize_error)? as u64;
-        let mut serialized_data = serializer.into_inner().into_inner();
+        let mut serialized_data = serializer.into_serializer().into_inner();
         serialized_data.extend_from_slice(&pos.to_le_bytes());
-        Ok(serialized_data)
+        Ok(serialized_data.to_vec())
     }
 
     /// Deserialize a Module from a slice.
@@ -98,7 +96,7 @@ impl SerializableModule {
     pub fn deserialize_from_archive(
         archived: &ArchivedSerializableModule,
     ) -> Result<Self, DeserializeError> {
-        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        let mut deserializer = SharedDeserializeMap::new();
         RkyvDeserialize::deserialize(archived, &mut deserializer)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
     }
