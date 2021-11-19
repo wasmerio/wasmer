@@ -99,13 +99,16 @@ cfg_if::cfg_if! {
         unsafe fn thread_stack() -> (usize, usize) {
             let this_thread = libc::pthread_self();
             let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
-            #[cfg(not(target_os = "freebsd"))]
-            libc::pthread_getattr_np(this_thread, &mut thread_attrs);
-            #[cfg(target_os = "freebsd")]
-            libc::pthread_attr_get_np(this_thread, &mut thread_attrs);
             let mut stackaddr: *mut libc::c_void = ptr::null_mut();
             let mut stacksize: libc::size_t = 0;
-            libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+            #[cfg(not(target_os = "freebsd"))]
+            let ok = libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+            #[cfg(target_os = "freebsd")]
+            let ok = libc::pthread_attr_get_np(this_thread, &mut thread_attrs);
+            if ok == 0 {
+                libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+                libc::pthread_attr_destroy(&mut thread_attrs);
+            }
             (stackaddr as usize, stacksize)
         }
 
