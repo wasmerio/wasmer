@@ -15,15 +15,17 @@ use crate::{
 };
 use indexmap::IndexMap;
 use loupe::MemoryUsage;
-use rkyv::ser::ScratchSpace;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{
-    de::SharedDeserializeRegistry, ser::Serializer, ser::SharedSerializeRegistry, Archive,
-    Archived, Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
+    de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
+    ser::SharedSerializeRegistry, Archive, Archived, Deserialize as RkyvDeserialize, Fallible,
+    Serialize as RkyvSerialize,
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+#[cfg(feature = "enable-rkyv")]
+use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
