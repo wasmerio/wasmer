@@ -70,7 +70,7 @@ cranelift spec::simd::simd_i8x16_arith2
 cranelift spec::simd::simd_int_to_int_extend
 
 # Windows doesn't overcommit and fails to allocate 4GB of memory
-windows wast::wasmer::max_size_of_memory
+windows wasmer::max_size_of_memory
 
 # Frontends
 
