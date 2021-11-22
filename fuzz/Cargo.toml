@@ -61,4 +61,4 @@ required-features = ["dylib", "cranelift"]
 [[bin]]
 name = "deterministic"
 path = "fuzz_targets/deterministic.rs"
-required-features = ["dylib", "cranelift"]
+required-features = ["universal", "dylib", "cranelift", "llvm", "singlepass"]
