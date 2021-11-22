@@ -1288,7 +1288,7 @@ mod inner {
 
         #[test]
         fn test_into_array() {
-            assert_eq!(().into_array(), []);
+            assert_eq!(().into_array(), [0i128; 0]);
             assert_eq!((1).into_array(), [1]);
             assert_eq!((1i32, 2i64).into_array(), [1, 2]);
             assert_eq!(

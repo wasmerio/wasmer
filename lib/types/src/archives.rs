@@ -18,10 +18,8 @@ impl<K: Hash + Ord + Archive + Clone, V: Archive> From<IndexMap<K, V>>
         let mut r = ArchivableIndexMap {
             entries: Vec::new(),
         };
-        let mut i: u64 = 0;
         for (k, v) in it.into_iter() {
             r.entries.push((k, v));
-            i += 1;
         }
         r
     }
