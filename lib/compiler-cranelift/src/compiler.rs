@@ -207,7 +207,13 @@ impl Compiler for CraneliftCompiler {
                             (None, None)
                         }
                     }
+                    #[cfg(feature = "unwind")]
                     other => (other.maybe_into_to_windows_unwind(), None),
+
+                    // This is a bit hacky, but necessary since gimli is not
+                    // available when the "unwind" feature is disabled.
+                    #[cfg(not(feature = "unwind"))]
+                    other => (other.maybe_into_to_windows_unwind(), None::<()>),
                 };
 
                 let range = reader.range();
