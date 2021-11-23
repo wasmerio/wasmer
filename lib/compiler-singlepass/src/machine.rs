@@ -4,8 +4,8 @@ use crate::location::{CombinedRegister, Location, Reg};
 use smallvec::smallvec;
 use smallvec::SmallVec;
 use std::cmp;
-use std::collections::HashSet;
 use std::marker::PhantomData;
+pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::CallingConvention;
 
@@ -17,6 +17,11 @@ pub enum Value {
     I64(i64),
     F32(f32),
     F64(f64),
+}
+
+#[derive(Debug)]
+pub struct CodegenError {
+    pub message: String,
 }
 
 pub trait MaybeImmediate {
@@ -38,24 +43,50 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn get_vmctx_reg() -> R;
     /// Picks an unused general purpose register for local/stack/argument use.
     ///
-    /// This method does not mark the register as used, but needs the used vector
-    fn pick_gpr(&self, used_gpr: &HashSet<R>) -> Option<R>;
+    /// This method does not mark the register as used
+    fn pick_gpr(&self) -> Option<R>;
     /// Picks an unused general purpose register for internal temporary use.
     ///
-    /// This method does not mark the register as used, but needs the used vector
-    fn pick_temp_gpr(&self, used_gpr: &HashSet<R>) -> Option<R>;
+    /// This method does not mark the register as used
+    fn pick_temp_gpr(&self) -> Option<R>;
+    /// Get all used GPR
+    fn get_used_gprs(&self) -> Vec<R>;
+    /// Get all used SIMD regs
+    fn get_used_simd(&self) -> Vec<S>;
+    /// Picks an unused general pupose register and mark it as used
+    fn acquire_temp_gpr(&mut self) -> Option<R>;
+    /// Releases a temporary GPR.
+    fn release_gpr(&mut self, gpr: R);
+    /// Specify that a given register is in use.
+    fn reserve_unused_temp_gpr(&mut self, gpr: R) -> R;
     /// Get the list of GPR to reserve for a "cmpxchg" type of operation
     fn get_cmpxchg_temp_gprs(&self) -> Vec<R>;
+    /// Reserve the gpr needed for a cmpxchg operation (if any)
+    fn reserve_cmpxchg_temp_gpr(&mut self);
+    /// Release the gpr needed fpr a xchg operation
+    fn release_xchg_temp_gpr(&mut self);
+    /// Reserve the gpr needed for a xchg operation (if any)
+    fn reserve_xchg_temp_gpr(&mut self);
+    /// Release the gpr needed fpr a cmpxchg operation
+    fn release_cmpxchg_temp_gpr(&mut self);
     /// Get the list of GPR to reserve for a "xchg" type of operation
     fn get_xchg_temp_gprs(&self) -> Vec<R>;
+    /// reserve a GPR
+    fn reserve_gpr(&mut self, gpr: R);
     /// Picks an unused SIMD register.
     ///
-    /// This method does not mark the register as used, but needs the used vector
-    fn pick_simd(&self, used_simd: &HashSet<S>) -> Option<S>;
+    /// This method does not mark the register as used
+    fn pick_simd(&self) -> Option<S>;
     /// Picks an unused SIMD register for internal temporary use.
     ///
-    /// This method does not mark the register as used, but needs the used vector
-    fn pick_temp_simd(&self, used_simd: &HashSet<S>) -> Option<S>;
+    /// This method does not mark the register as used
+    fn pick_temp_simd(&self) -> Option<S>;
+    /// Acquires a temporary XMM register.
+    fn acquire_temp_simd(&mut self) -> Option<S>;
+    /// reserve a SIMD register
+    fn reserve_simd(&mut self, simd: S);
+    /// Releases a temporary XMM register.
+    fn release_simd(&mut self, simd: S);
     /// Memory location for a local on the stack
     /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
     fn local_on_stack(&mut self, stack_offset: i32) -> Location<R, S>;
@@ -82,6 +113,9 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn get_param_location(idx: usize, calling_convention: CallingConvention) -> Location<R, S>;
     /// move a location to another
     fn move_location(&mut self, size: Size, source: Location<R, S>, dest: Location<R, S>);
+    /// Load a memory value to a register, zero extending to 64bits.
+    /// Panic if gpr is not a Location::GPR or if mem is not a Memory(2)
+    fn load_address(&mut self, size: Size, gpr: Location<R, S>, mem: Location<R, S>);
     /// Init the stack loc counter
     fn init_stack_loc(&mut self, init_stack_loc_cnt: u64, last_stack_loc: Location<R, S>);
     /// Restore save_area
@@ -99,6 +133,22 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
 
     /// finalize a function
     fn finalize_function(&mut self);
+
+    /// prepare to do a memory opcode
+    fn memory_op_begin(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        check_alignment: bool,
+        value_size: usize,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+        tmp_addr: R,
+    ) -> usize;
+    /// finished do a memory opcode
+    fn memory_op_end(&mut self, tmp_addr: R) -> usize;
 
     /// emit an Illegal Opcode
     fn emit_illegal_op(&mut self);
@@ -162,7 +212,6 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         cmp: Location<R, S>,
         addr: R,
         ret: Location<R, S>,
-        used_gpr: &mut HashSet<R>,
     );
     /// xchg
     fn emit_atomic_xchg(
@@ -173,32 +222,31 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         new: Location<R, S>,
         addr: R,
         ret: Location<R, S>,
-        used_gpr: &mut HashSet<R>,
     );
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
-    used_gprs: HashSet<R>,
-    used_simd: HashSet<S>,
     stack_offset: MachineStackOffset,
     save_area_offset: Option<MachineStackOffset>,
     pub state: MachineState,
     pub(crate) track_state: bool,
     pub specific: M,
-    phantom: PhantomData<C>,
+    phantom_c: PhantomData<C>,
+    phantom_r: PhantomData<R>,
+    phantom_s: PhantomData<S>,
 }
 
 impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S, M, C> {
     pub fn new() -> Self {
         Machine {
-            used_gprs: HashSet::new(),
-            used_simd: HashSet::new(),
             stack_offset: MachineStackOffset(0),
             save_area_offset: None,
             state: M::new_machine_state(),
             track_state: true,
             specific: M::new(),
-            phantom: PhantomData,
+            phantom_c: PhantomData,
+            phantom_r: PhantomData,
+            phantom_s: PhantomData,
         }
     }
 
@@ -207,11 +255,11 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
     }
 
     pub fn get_used_gprs(&self) -> Vec<R> {
-        self.used_gprs.iter().cloned().collect()
+        self.specific.get_used_gprs()
     }
 
     pub fn get_used_simd(&self) -> Vec<S> {
-        self.used_simd.iter().cloned().collect()
+        self.specific.get_used_simd()
     }
 
     pub fn get_vmctx_reg() -> R {
@@ -220,63 +268,51 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
 
     /// Acquires a temporary GPR.
     pub fn acquire_temp_gpr(&mut self) -> Option<R> {
-        let gpr = self.specific.pick_temp_gpr(&self.used_gprs);
-        if let Some(x) = gpr {
-            self.used_gprs.insert(x);
-        }
-        gpr
+        self.specific.acquire_temp_gpr()
     }
 
     /// Releases a temporary GPR.
     pub fn release_temp_gpr(&mut self, gpr: R) {
-        assert!(self.used_gprs.remove(&gpr));
+        self.specific.release_gpr(gpr);
+    }
+    /// Releases a GPR.
+    pub fn release_gpr(&mut self, gpr: R) {
+        self.specific.release_gpr(gpr);
     }
 
     /// Specify that a given register is in use.
     pub fn reserve_unused_temp_gpr(&mut self, gpr: R) -> R {
-        assert!(!self.used_gprs.contains(&gpr));
-        self.used_gprs.insert(gpr);
-        gpr
+        self.specific.reserve_unused_temp_gpr(gpr)
     }
     /// Reserve the gpr needed for a cmpxchg operation (if any)
     pub fn reserve_cmpxchg_temp_gpr(&mut self) {
-        for gpr in self.specific.get_cmpxchg_temp_gprs().iter() {
-            assert!(!self.used_gprs.contains(gpr));
-            self.used_gprs.insert(*gpr);
-        }
+        self.specific.reserve_cmpxchg_temp_gpr();
     }
     /// Release the gpr needed fpr a xchg operation
     pub fn release_xchg_temp_gpr(&mut self) {
-        for gpr in self.specific.get_xchg_temp_gprs().iter() {
-            assert_eq!(!self.used_gprs.remove(gpr), true);
-        }
+        self.specific.release_xchg_temp_gpr();
     }
     /// Reserve the gpr needed for a xchg operation (if any)
     pub fn reserve_xchg_temp_gpr(&mut self) {
-        for gpr in self.specific.get_xchg_temp_gprs().iter() {
-            assert!(!self.used_gprs.contains(gpr));
-            self.used_gprs.insert(*gpr);
-        }
+        self.specific.reserve_xchg_temp_gpr();
     }
     /// Release the gpr needed fpr a cmpxchg operation
     pub fn release_cmpxchg_temp_gpr(&mut self) {
-        for gpr in self.specific.get_cmpxchg_temp_gprs().iter() {
-            assert_eq!(!self.used_gprs.remove(gpr), true);
-        }
+        self.specific.release_cmpxchg_temp_gpr();
     }
 
     /// Acquires a temporary XMM register.
     pub fn acquire_temp_simd(&mut self) -> Option<S> {
-        let simd = self.specific.pick_temp_simd(&self.used_simd);
-        if let Some(x) = simd {
-            self.used_simd.insert(x);
-        }
-        simd
+        self.specific.acquire_temp_simd()
     }
 
     /// Releases a temporary XMM register.
     pub fn release_temp_simd(&mut self, simd: S) {
-        assert_eq!(self.used_simd.remove(&simd), true);
+        self.specific.release_simd(simd);
+    }
+    /// Releases a XMM register.
+    pub fn release_simd(&mut self, simd: S) {
+        self.specific.release_simd(simd);
     }
 
     /// Get param location
@@ -298,15 +334,9 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
 
         for (ty, mv) in tys {
             let loc = match *ty {
-                WpType::F32 | WpType::F64 => {
-                    self.specific.pick_simd(&self.used_simd).map(Location::SIMD)
-                }
-                WpType::I32 | WpType::I64 => {
-                    self.specific.pick_gpr(&self.used_gprs).map(Location::GPR)
-                }
-                WpType::FuncRef | WpType::ExternRef => {
-                    self.specific.pick_gpr(&self.used_gprs).map(Location::GPR)
-                }
+                WpType::F32 | WpType::F64 => self.specific.pick_simd().map(Location::SIMD),
+                WpType::I32 | WpType::I64 => self.specific.pick_gpr().map(Location::GPR),
+                WpType::FuncRef | WpType::ExternRef => self.specific.pick_gpr().map(Location::GPR),
                 _ => unreachable!("can't acquire location for type {:?}", ty),
             };
 
@@ -318,11 +348,11 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
                 self.specific.local_on_stack(self.stack_offset.0 as i32)
             };
             if let Location::GPR(x) = loc {
-                self.used_gprs.insert(x);
+                self.specific.reserve_gpr(x);
                 self.state.register_values[C::from_gpr(x.into_index() as u16).to_index().0] =
                     mv.clone();
             } else if let Location::SIMD(x) = loc {
-                self.used_simd.insert(x);
+                self.specific.reserve_simd(x);
                 self.state.register_values[C::from_simd(x.into_index() as u16).to_index().0] =
                     mv.clone();
             } else {
@@ -350,12 +380,12 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         for loc in locs.iter().rev() {
             match *loc {
                 Location::GPR(ref x) => {
-                    assert_eq!(self.used_gprs.remove(x), true);
+                    self.release_gpr(*x);
                     self.state.register_values[C::from_gpr(x.into_index() as u16).to_index().0] =
                         MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
-                    assert_eq!(self.used_simd.remove(x), true);
+                    self.release_simd(*x);
                     self.state.register_values[C::from_simd(x.into_index() as u16).to_index().0] =
                         MachineValue::Undefined;
                 }
@@ -387,12 +417,12 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         for loc in locs.iter().rev() {
             match *loc {
                 Location::GPR(ref x) => {
-                    assert_eq!(self.used_gprs.remove(x), true);
+                    self.release_gpr(*x);
                     self.state.register_values[C::from_gpr(x.into_index() as u16).to_index().0] =
                         MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
-                    assert_eq!(self.used_simd.remove(x), true);
+                    self.release_simd(*x);
                     self.state.register_values[C::from_simd(x.into_index() as u16).to_index().0] =
                         MachineValue::Undefined;
                 }
@@ -646,16 +676,8 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         addr: R,
         ret: Location<R, S>,
     ) {
-        self.specific.emit_atomic_cmpxchg(
-            size_op,
-            size_val,
-            signed,
-            new,
-            cmp,
-            addr,
-            ret,
-            &mut self.used_gprs,
-        );
+        self.specific
+            .emit_atomic_cmpxchg(size_op, size_val, signed, new, cmp, addr, ret);
     }
     /// Emit a atomic xchg kind of opcode
     pub fn emit_atomic_xchg(
@@ -667,14 +689,7 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         addr: R,
         ret: Location<R, S>,
     ) {
-        self.specific.emit_atomic_xchg(
-            size_op,
-            size_val,
-            signed,
-            new,
-            addr,
-            ret,
-            &mut self.used_gprs,
-        );
+        self.specific
+            .emit_atomic_xchg(size_op, size_val, signed, new, addr, ret);
     }
 }

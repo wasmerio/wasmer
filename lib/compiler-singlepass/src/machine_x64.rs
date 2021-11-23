@@ -1,7 +1,7 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
 use crate::machine::Machine as AbstractMachine;
-use crate::machine::MachineSpecific;
+use crate::machine::{MachineSpecific, MemoryImmediate};
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{X64Register, GPR};
 use dynasmrt::x64::Assembler;
@@ -10,23 +10,35 @@ use wasmer_compiler::CallingConvention;
 
 pub struct MachineX86_64 {
     pub assembler: Assembler, //temporary public
+    used_gprs: HashSet<GPR>,
+    used_simd: HashSet<XMM>,
 }
 
 impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn new() -> Self {
         MachineX86_64 {
             assembler: Assembler::new().unwrap(),
+            used_gprs: HashSet::new(),
+            used_simd: HashSet::new(),
         }
     }
     fn get_vmctx_reg() -> GPR {
         GPR::R15
     }
 
-    fn pick_gpr(&self, used_gprs: &HashSet<GPR>) -> Option<GPR> {
+    fn get_used_gprs(&self) -> Vec<GPR> {
+        self.used_gprs.iter().cloned().collect()
+    }
+
+    fn get_used_simd(&self) -> Vec<XMM> {
+        self.used_simd.iter().cloned().collect()
+    }
+
+    fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[RSI, RDI, R8, R9, R10, R11];
         for r in REGS {
-            if !used_gprs.contains(r) {
+            if !self.used_gprs.contains(r) {
                 return Some(*r);
             }
         }
@@ -34,30 +46,79 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
 
     // Picks an unused general purpose register for internal temporary use.
-    fn pick_temp_gpr(&self, used_gprs: &HashSet<GPR>) -> Option<GPR> {
+    fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[RAX, RCX, RDX];
         for r in REGS {
-            if !used_gprs.contains(r) {
+            if !self.used_gprs.contains(r) {
                 return Some(*r);
             }
         }
         None
     }
 
+    fn acquire_temp_gpr(&mut self) -> Option<GPR> {
+        let gpr = self.pick_temp_gpr();
+        if let Some(x) = gpr {
+            self.used_gprs.insert(x);
+        }
+        gpr
+    }
+
+    fn release_gpr(&mut self, gpr: GPR) {
+        assert!(self.used_gprs.remove(&gpr));
+    }
+
+    fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
+        assert!(!self.used_gprs.contains(&gpr));
+        self.used_gprs.insert(gpr);
+        gpr
+    }
+
+    fn reserve_gpr(&mut self, gpr: GPR) {
+        self.used_gprs.insert(gpr);
+    }
+
     fn get_cmpxchg_temp_gprs(&self) -> Vec<GPR> {
         vec![GPR::RAX]
     }
+
+    fn reserve_cmpxchg_temp_gpr(&mut self) {
+        for gpr in self.get_cmpxchg_temp_gprs().iter() {
+            assert!(!self.used_gprs.contains(gpr));
+            self.used_gprs.insert(*gpr);
+        }
+    }
+
     fn get_xchg_temp_gprs(&self) -> Vec<GPR> {
         vec![]
     }
 
+    fn release_xchg_temp_gpr(&mut self) {
+        for gpr in self.get_xchg_temp_gprs().iter() {
+            assert_eq!(!self.used_gprs.remove(gpr), true);
+        }
+    }
+
+    fn reserve_xchg_temp_gpr(&mut self) {
+        for gpr in self.get_xchg_temp_gprs().iter() {
+            assert!(!self.used_gprs.contains(gpr));
+            self.used_gprs.insert(*gpr);
+        }
+    }
+
+    fn release_cmpxchg_temp_gpr(&mut self) {
+        for gpr in self.get_cmpxchg_temp_gprs().iter() {
+            assert_eq!(!self.used_gprs.remove(gpr), true);
+        }
+    }
+
     // Picks an unused XMM register.
-    fn pick_simd(&self, used_simd: &HashSet<XMM>) -> Option<XMM> {
+    fn pick_simd(&self) -> Option<XMM> {
         use XMM::*;
         static REGS: &[XMM] = &[XMM3, XMM4, XMM5, XMM6, XMM7];
         for r in REGS {
-            if !used_simd.contains(r) {
+            if !self.used_simd.contains(r) {
                 return Some(*r);
             }
         }
@@ -65,15 +126,33 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
 
     // Picks an unused XMM register for internal temporary use.
-    fn pick_temp_simd(&self, used_simd: &HashSet<XMM>) -> Option<XMM> {
+    fn pick_temp_simd(&self) -> Option<XMM> {
         use XMM::*;
         static REGS: &[XMM] = &[XMM0, XMM1, XMM2];
         for r in REGS {
-            if !used_simd.contains(r) {
+            if !self.used_simd.contains(r) {
                 return Some(*r);
             }
         }
         None
+    }
+
+    // Acquires a temporary XMM register.
+    fn acquire_temp_simd(&mut self) -> Option<XMM> {
+        let simd = self.pick_temp_simd();
+        if let Some(x) = simd {
+            self.used_simd.insert(x);
+        }
+        simd
+    }
+
+    fn reserve_simd(&mut self, simd: XMM) {
+        self.used_simd.insert(simd);
+    }
+
+    // Releases a temporary XMM register.
+    fn release_simd(&mut self, simd: XMM) {
+        assert_eq!(self.used_simd.remove(&simd), true);
     }
 
     // Memory location for a local on the stack
@@ -209,6 +288,23 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             _ => unreachable!(),
         }
     }
+    fn load_address(&mut self, size: Size, reg: Location, mem: Location) {
+        match reg {
+            Location::GPR(_) => {
+                match mem {
+                    Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                        // Memory moves with size < 32b do not zero upper bits.
+                        if size < Size::S32 {
+                            self.assembler.emit_xor(Size::S32, reg, reg);
+                        }
+                        self.assembler.emit_mov(size, mem, reg);
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
     // Init the stack loc counter
     fn init_stack_loc(&mut self, init_stack_loc_cnt: u64, last_stack_loc: Location) {
         // Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.
@@ -302,6 +398,120 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.emit_jmp(Condition::Carry, label);
     }
 
+    fn memory_op_begin(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        check_alignment: bool,
+        value_size: usize,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+        tmp_addr: GPR,
+    ) -> usize {
+        self.reserve_gpr(tmp_addr);
+
+        // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
+        let (base_loc, bound_loc) = if imported_memories {
+            // Imported memories require one level of indirection.
+            self.move_location(
+                Size::S64,
+                Location::Memory(Machine::get_vmctx_reg(), offset),
+                Location::GPR(tmp_addr),
+            );
+            (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
+        } else {
+            (
+                Location::Memory(Machine::get_vmctx_reg(), offset),
+                Location::Memory(Machine::get_vmctx_reg(), offset + 8),
+            )
+        };
+
+        let tmp_base = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp_base);
+        let tmp_bound = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp_bound);
+
+        // Load base into temporary register.
+        self.move_location(Size::S64, base_loc, Location::GPR(tmp_base));
+
+        // Load bound into temporary register, if needed.
+        if need_check {
+            self.move_location(Size::S64, bound_loc, Location::GPR(tmp_bound));
+
+            // Wasm -> Effective.
+            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+
+            // This `lea` calculates the upper bound allowed for the beginning of the word.
+            // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
+            // the maximum allowed beginning of word is (inclusively)
+            // `tmp_bound + tmp_base - value_size`.
+            self.location_address(
+                Size::S64,
+                Location::Memory2(tmp_bound, tmp_base, Multiplier::One, -(value_size as i32)),
+                Location::GPR(tmp_bound),
+            );
+        }
+
+        // Load effective address.
+        // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
+        // might be reused.
+        self.move_location(Size::S32, addr, Location::GPR(tmp_addr));
+
+        // Add offset to memory address.
+        if memarg.offset != 0 {
+            self.location_add(
+                Size::S32,
+                Location::Imm32(memarg.offset),
+                Location::GPR(tmp_addr),
+                true,
+            );
+
+            // Trap if offset calculation overflowed.
+            self.jmp_on_overflow(heap_access_oob);
+        }
+
+        // Wasm linear memory -> real memory
+        self.location_add(
+            Size::S64,
+            Location::GPR(tmp_base),
+            Location::GPR(tmp_addr),
+            false,
+        );
+
+        if need_check {
+            // Trap if the end address of the requested area is above that of the linear memory.
+            self.location_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+
+            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
+            self.jmp_on_above(heap_access_oob);
+        }
+
+        self.release_gpr(tmp_bound);
+        self.release_gpr(tmp_base);
+
+        let align = memarg.align;
+        if check_alignment && align != 1 {
+            self.location_test(
+                Size::S32,
+                Location::Imm32((align - 1).into()),
+                Location::GPR(tmp_addr),
+            );
+            self.jmp_on_different(heap_access_oob);
+        }
+
+        self.get_offset().0
+    }
+
+    fn memory_op_end(&mut self, tmp_addr: GPR) -> usize {
+        let end = self.get_offset().0;
+        self.release_gpr(tmp_addr);
+
+        end
+    }
+
     fn emit_atomic_cmpxchg(
         &mut self,
         size_op: Size,
@@ -311,14 +521,13 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         cmp: Location,
         addr: GPR,
         ret: Location,
-        used_gprs: &mut HashSet<GPR>,
     ) {
         let compare = GPR::RAX;
         // we have to take into account that there maybe no free tmp register
-        let val = self.pick_temp_gpr(used_gprs);
+        let val = self.pick_temp_gpr();
         let value = match val {
             Some(value) => {
-                used_gprs.insert(value);
+                self.release_gpr(value);
                 value
             }
             _ => {
@@ -368,7 +577,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         if val.is_none() {
             self.assembler.emit_pop(Size::S64, Location::GPR(value));
         } else {
-            used_gprs.remove(&value);
+            self.used_gprs.remove(&value);
         }
     }
     fn emit_atomic_xchg(
@@ -379,14 +588,12 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         new: Location,
         addr: GPR,
         ret: Location,
-        used_gprs: &mut HashSet<GPR>,
     ) {
-        let compare = GPR::RAX;
         // we have to take into account that there maybe no free tmp register
-        let val = self.pick_temp_gpr(used_gprs);
+        let val = self.pick_temp_gpr();
         let value = match val {
             Some(value) => {
-                used_gprs.insert(value);
+                self.release_gpr(value);
                 value
             }
             _ => {
@@ -402,16 +609,13 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         }
 
         match size_val {
-            Size::S64 => self
-                .assembler
-                .emit_mov(size_val, new, Location::GPR(value)),
+            Size::S64 => self.assembler.emit_mov(size_val, new, Location::GPR(value)),
             Size::S32 => {
                 if signed && size_op == Size::S64 {
                     self.assembler
                         .emit_movsx(size_val, new, size_op, Location::GPR(value));
                 } else {
-                    self.assembler
-                        .emit_mov(size_val, new, Location::GPR(value));
+                    self.assembler.emit_mov(size_val, new, Location::GPR(value));
                 }
             }
             Size::S16 | Size::S8 => {
@@ -426,12 +630,11 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         }
         self.assembler
             .emit_xchg(size_val, Location::GPR(value), Location::Memory(addr, 0));
-        self.assembler
-            .emit_mov(size_val, Location::GPR(value), ret);
+        self.assembler.emit_mov(size_val, Location::GPR(value), ret);
         if val.is_none() {
             self.assembler.emit_pop(Size::S64, Location::GPR(value));
         } else {
-            used_gprs.remove(&value);
+            self.used_gprs.remove(&value);
         }
     }
 }

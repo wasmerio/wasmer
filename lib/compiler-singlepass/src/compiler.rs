@@ -3,10 +3,10 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::codegen_x64::{
-    gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
-    CodegenError, FuncGen,
+    gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline, FuncGen,
 };
 use crate::config::Singlepass;
+use crate::machine::CodegenError;
 use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
