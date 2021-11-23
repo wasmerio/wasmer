@@ -4,9 +4,7 @@
 use crate::compiler::SinglepassCompiler;
 use loupe::MemoryUsage;
 use std::sync::Arc;
-use wasmer_compiler::{
-    CallingConvention, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target,
-};
+use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
 use wasmer_types::Features;
 
 #[derive(Debug, Clone, MemoryUsage)]
@@ -15,8 +13,6 @@ pub struct Singlepass {
     pub(crate) enable_stack_check: bool,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
-    #[loupe(skip)]
-    pub(crate) calling_convention: CallingConvention,
 }
 
 impl Singlepass {
@@ -27,12 +23,6 @@ impl Singlepass {
             enable_nan_canonicalization: true,
             enable_stack_check: false,
             middlewares: vec![],
-            calling_convention: match Target::default().triple().default_calling_convention() {
-                Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
-                Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
-                //Ok(CallingConvention::AppleAarch64) => AppleAarch64,
-                _ => panic!("Unsupported Calling convention for Singlepass"),
-            },
         }
     }
 
