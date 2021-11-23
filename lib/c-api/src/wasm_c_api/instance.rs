@@ -74,7 +74,7 @@ pub unsafe extern "C" fn wasm_instance_new(
         }
 
         Err(e @ InstantiationError::CpuFeature(_)) => {
-            crate::error::update_last_error(e.to_string());
+            crate::error::update_last_error(e);
 
             return None;
         }

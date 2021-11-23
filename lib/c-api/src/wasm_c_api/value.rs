@@ -1,5 +1,5 @@
 use super::types::{wasm_ref_t, wasm_valkind_enum};
-use crate::error::{update_last_error, CApiError};
+use crate::error::update_last_error;
 use std::convert::{TryFrom, TryInto};
 use wasmer_api::Val;
 
@@ -156,7 +156,7 @@ pub unsafe extern "C" fn wasm_val_copy(
         },
 
         Err(e) => {
-            update_last_error(CApiError { msg: e.to_string() });
+            update_last_error(e);
 
             return;
         }
