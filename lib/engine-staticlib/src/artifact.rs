@@ -3,12 +3,15 @@
 
 use crate::engine::{StaticlibEngine, StaticlibEngineInner};
 use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
+use enumset::EnumSet;
 use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
 use std::sync::Arc;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, SymbolRegistry, Triple};
+use wasmer_compiler::{
+    CompileError, CpuFeature, Features, OperatingSystem, SymbolRegistry, Triple,
+};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
@@ -182,6 +185,7 @@ impl StaticlibArtifact {
             prefix: engine_inner.get_prefix(&data),
             data_initializers,
             function_body_lengths,
+            cpu_features: target.cpu_features().as_u64(),
         };
 
         /*
@@ -451,6 +455,10 @@ impl Artifact for StaticlibArtifact {
 
     fn features(&self) -> &Features {
         &self.metadata.compile_info.features
+    }
+
+    fn cpu_features(&self) -> EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.metadata.cpu_features)
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {

@@ -1,12 +1,13 @@
 use crate::{
     resolve_imports, InstantiationError, Resolver, RuntimeError, SerializeError, Tunables,
 };
+use enumset::EnumSet;
 use loupe::MemoryUsage;
 use std::any::Any;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use wasmer_compiler::Features;
+use wasmer_compiler::{CpuFeature, Features};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
@@ -42,6 +43,9 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
 
     /// Returns the features for this Artifact
     fn features(&self) -> &Features;
+
+    /// Returns the CPU features for this Artifact
+    fn cpu_features(&self) -> EnumSet<CpuFeature>;
 
     /// Returns the memory styles associated with this `Artifact`.
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle>;
@@ -96,6 +100,16 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
+        // Validate the CPU features this module was compiled with against the
+        // host CPU features.
+        let host_cpu_features = CpuFeature::for_host();
+        if !host_cpu_features.is_superset(self.cpu_features()) {
+            Err(InstantiationError::CpuFeature(format!(
+                "{:?}",
+                self.cpu_features().difference(host_cpu_features)
+            )))?;
+        }
+
         self.preinstantiate()?;
 
         let module = self.module();

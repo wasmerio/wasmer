@@ -12,6 +12,7 @@ pub struct ModuleMetadata {
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // The function body lengths (used to find function by address)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
+    pub cpu_features: u64,
 }
 
 #[derive(MemoryUsage)]

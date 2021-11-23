@@ -2,13 +2,14 @@
 //! done as separate steps.
 
 use crate::engine::DummyEngine;
+use enumset::EnumSet;
 use loupe::MemoryUsage;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
+use wasmer_compiler::{CompileError, CpuFeature};
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
@@ -30,6 +31,7 @@ pub struct DummyArtifactMetadata {
     // Plans for that module
     pub memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
     pub table_styles: PrimaryMap<TableIndex, TableStyle>,
+    pub cpu_features: u64,
 }
 
 /// A Dummy artifact.
@@ -104,6 +106,7 @@ impl DummyArtifact {
             data_initializers,
             memory_styles,
             table_styles,
+            cpu_features: engine.target().cpu_features().as_u64(),
         };
         Self::from_parts(&engine, metadata)
     }
@@ -209,6 +212,10 @@ impl Artifact for DummyArtifact {
 
     fn features(&self) -> &Features {
         &self.metadata.features
+    }
+
+    fn cpu_features(&self) -> EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.metadata.cpu_features)
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {
