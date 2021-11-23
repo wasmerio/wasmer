@@ -46,6 +46,7 @@ pub struct StaticlibArtifact {
     /// Length of the serialized metadata
     metadata_length: usize,
     symbol_registry: ModuleMetadataSymbolRegistry,
+    is_compiled: bool,
 }
 
 #[allow(dead_code)]
@@ -295,6 +296,7 @@ impl StaticlibArtifact {
             func_data_registry: engine_inner.func_data().clone(),
             metadata_length,
             symbol_registry,
+            is_compiled: true,
         })
     }
 
@@ -415,6 +417,7 @@ impl StaticlibArtifact {
             func_data_registry,
             metadata_length: 0,
             symbol_registry,
+            is_compiled: false,
         })
     }
 
@@ -483,6 +486,12 @@ impl Artifact for StaticlibArtifact {
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
+        if self.is_compiled {
+            panic!(
+                "a module built with the staticlib engine must be linked \
+                into the current executable"
+            );
+        }
         Ok(())
     }
 
