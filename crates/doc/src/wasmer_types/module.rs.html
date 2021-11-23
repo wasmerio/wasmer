@@ -596,6 +596,9 @@
 <span id="596">596</span>
 <span id="597">597</span>
 <span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -615,16 +618,17 @@
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
-    <span class="ident">de::SharedDeserializer</span>, <span class="ident">ser::Serializer</span>, <span class="ident">ser::SharedSerializer</span>, <span class="ident">Archive</span>, <span class="ident">Archived</span>,
-    <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Fallible</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>,
+    <span class="ident">de::SharedDeserializeRegistry</span>, <span class="ident">ser::ScratchSpace</span>, <span class="ident">ser::Serializer</span>,
+    <span class="ident">ser::SharedSerializeRegistry</span>, <span class="ident">Archive</span>, <span class="ident">Archived</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Fallible</span>,
+    <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>,
 };
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::iter::ExactSizeIterator</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
 <span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering::SeqCst</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
@@ -740,10 +744,10 @@
     <span class="ident">exports</span>: <span class="ident">ArchivableIndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ExportIndex</span><span class="op">&gt;</span>,
     <span class="ident">start_function</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span><span class="op">&gt;</span>,
     <span class="ident">table_initializers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TableInitializer</span><span class="op">&gt;</span>,
-    <span class="ident">passive_elements</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">passive_data</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">passive_elements</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">passive_data</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">global_initializers</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">GlobalInit</span><span class="op">&gt;</span>,
-    <span class="ident">function_names</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="ident">function_names</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">String</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionType</span><span class="op">&gt;</span>,
     <span class="ident">functions</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">SignatureIndex</span><span class="op">&gt;</span>,
     <span class="ident">tables</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableType</span><span class="op">&gt;</span>,
@@ -766,10 +770,10 @@
             <span class="ident">exports</span>: <span class="ident">ArchivableIndexMap::from</span>(<span class="ident">it</span>.<span class="ident">exports</span>),
             <span class="ident">start_function</span>: <span class="ident">it</span>.<span class="ident">start_function</span>,
             <span class="ident">table_initializers</span>: <span class="ident">it</span>.<span class="ident">table_initializers</span>,
-            <span class="ident">passive_elements</span>: <span class="ident">it</span>.<span class="ident">passive_elements</span>,
-            <span class="ident">passive_data</span>: <span class="ident">it</span>.<span class="ident">passive_data</span>,
+            <span class="ident">passive_elements</span>: <span class="ident">it</span>.<span class="ident">passive_elements</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
+            <span class="ident">passive_data</span>: <span class="ident">it</span>.<span class="ident">passive_data</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
             <span class="ident">global_initializers</span>: <span class="ident">it</span>.<span class="ident">global_initializers</span>,
-            <span class="ident">function_names</span>: <span class="ident">it</span>.<span class="ident">function_names</span>,
+            <span class="ident">function_names</span>: <span class="ident">it</span>.<span class="ident">function_names</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
             <span class="ident">signatures</span>: <span class="ident">it</span>.<span class="ident">signatures</span>,
             <span class="ident">functions</span>: <span class="ident">it</span>.<span class="ident">functions</span>,
             <span class="ident">tables</span>: <span class="ident">it</span>.<span class="ident">tables</span>,
@@ -795,10 +799,10 @@
             <span class="ident">exports</span>: <span class="ident">it</span>.<span class="ident">exports</span>.<span class="ident">into</span>(),
             <span class="ident">start_function</span>: <span class="ident">it</span>.<span class="ident">start_function</span>,
             <span class="ident">table_initializers</span>: <span class="ident">it</span>.<span class="ident">table_initializers</span>,
-            <span class="ident">passive_elements</span>: <span class="ident">it</span>.<span class="ident">passive_elements</span>,
-            <span class="ident">passive_data</span>: <span class="ident">it</span>.<span class="ident">passive_data</span>,
+            <span class="ident">passive_elements</span>: <span class="ident">it</span>.<span class="ident">passive_elements</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
+            <span class="ident">passive_data</span>: <span class="ident">it</span>.<span class="ident">passive_data</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
             <span class="ident">global_initializers</span>: <span class="ident">it</span>.<span class="ident">global_initializers</span>,
-            <span class="ident">function_names</span>: <span class="ident">it</span>.<span class="ident">function_names</span>,
+            <span class="ident">function_names</span>: <span class="ident">it</span>.<span class="ident">function_names</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
             <span class="ident">signatures</span>: <span class="ident">it</span>.<span class="ident">signatures</span>,
             <span class="ident">functions</span>: <span class="ident">it</span>.<span class="ident">functions</span>,
             <span class="ident">tables</span>: <span class="ident">it</span>.<span class="ident">tables</span>,
@@ -826,20 +830,22 @@
     <span class="kw">type</span> <span class="ident">Archived</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ArchivableModuleInfo</span> <span class="kw">as</span> <span class="ident">Archive</span><span class="op">&gt;</span><span class="ident">::Archived</span>;
     <span class="kw">type</span> <span class="ident">Resolver</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ArchivableModuleInfo</span> <span class="kw">as</span> <span class="ident">Archive</span><span class="op">&gt;</span><span class="ident">::Resolver</span>;
 
-    <span class="kw">fn</span> <span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">resolver</span>: <span class="ident"><span class="self">Self</span>::Resolver</span>, <span class="ident">out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Archived</span><span class="op">&gt;</span>) {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">resolver</span>: <span class="ident"><span class="self">Self</span>::Resolver</span>, <span class="ident">out</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident"><span class="self">Self</span>::Archived</span>) {
         <span class="ident">ArchivableModuleInfo::from</span>(<span class="self">self</span>).<span class="ident">resolve</span>(<span class="ident">pos</span>, <span class="ident">resolver</span>, <span class="ident">out</span>)
     }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">Serializer</span> <span class="op">+</span> <span class="ident">SharedSerializer</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="ident">RkyvSerialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ModuleInfo</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">Serializer</span> <span class="op">+</span> <span class="ident">SharedSerializeRegistry</span> <span class="op">+</span> <span class="ident">ScratchSpace</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="ident">RkyvSerialize</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
+    <span class="kw">for</span> <span class="ident">ModuleInfo</span>
+{
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">serializer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">S</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Resolver</span>, <span class="ident">S::Error</span><span class="op">&gt;</span> {
         <span class="ident">ArchivableModuleInfo::from</span>(<span class="self">self</span>).<span class="ident">serialize</span>(<span class="ident">serializer</span>)
     }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">D</span>: <span class="ident">Fallible</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span> <span class="op">+</span> <span class="ident">SharedDeserializer</span><span class="op">&gt;</span> <span class="ident">RkyvDeserialize</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span>, <span class="ident">D</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">D</span>: <span class="ident">Fallible</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span> <span class="op">+</span> <span class="ident">SharedDeserializeRegistry</span><span class="op">&gt;</span> <span class="ident">RkyvDeserialize</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span>, <span class="ident">D</span><span class="op">&gt;</span>
     <span class="kw">for</span> <span class="ident">Archived</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>
 {
     <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">deserializer</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">D</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span>, <span class="ident">D::Error</span><span class="op">&gt;</span> {

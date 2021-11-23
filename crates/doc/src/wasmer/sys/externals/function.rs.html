@@ -3056,7 +3056,7 @@
 
         <span class="attribute">#[<span class="ident">test</span>]</span>
         <span class="kw">fn</span> <span class="ident">test_into_array</span>() {
-            <span class="macro">assert_eq!</span>(().<span class="ident">into_array</span>(), []);
+            <span class="macro">assert_eq!</span>(().<span class="ident">into_array</span>(), [<span class="number">0i128</span>; <span class="number">0</span>]);
             <span class="macro">assert_eq!</span>((<span class="number">1</span>).<span class="ident">into_array</span>(), [<span class="number">1</span>]);
             <span class="macro">assert_eq!</span>((<span class="number">1i32</span>, <span class="number">2i64</span>).<span class="ident">into_array</span>(), [<span class="number">1</span>, <span class="number">2</span>]);
             <span class="macro">assert_eq!</span>(
