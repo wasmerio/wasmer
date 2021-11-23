@@ -47,7 +47,7 @@
 //! # }
 //! ```
 
-use libc::c_char;
+use libc::{c_char, c_int};
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::ptr::{self, NonNull};
@@ -86,10 +86,11 @@ pub(crate) fn take_last_error() -> Option<String> {
 /// # Example
 ///
 /// See this module's documentation to get a complete example.
+// TODO(Amanieu): This should use size_t
 #[no_mangle]
-pub extern "C" fn wasmer_last_error_length() -> usize {
+pub extern "C" fn wasmer_last_error_length() -> c_int {
     LAST_ERROR.with(|prev| match *prev.borrow() {
-        Some(ref err) => err.len() + 1,
+        Some(ref err) => err.len() as c_int + 1,
         None => 0,
     })
 }
@@ -116,11 +117,12 @@ pub extern "C" fn wasmer_last_error_length() -> usize {
 /// # Example
 ///
 /// See this module's documentation to get a complete example.
+// TODO(Amanieu): This should use size_t
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_last_error_message(
     buffer: Option<NonNull<c_char>>,
-    length: usize,
-) -> isize {
+    length: c_int,
+) -> c_int {
     let buffer = if let Some(buffer_inner) = buffer {
         buffer_inner
     } else {
@@ -132,6 +134,8 @@ pub unsafe extern "C" fn wasmer_last_error_message(
         Some(err) => err.to_string(),
         None => return 0,
     };
+
+    let length = length as usize;
 
     if error_message.len() >= length {
         // buffer is too small to hold the error message
@@ -150,5 +154,5 @@ pub unsafe extern "C" fn wasmer_last_error_message(
     // accidentally read into garbage.
     buffer[error_message.len()] = 0;
 
-    error_message.len() as isize + 1
+    error_message.len() as c_int + 1
 }
