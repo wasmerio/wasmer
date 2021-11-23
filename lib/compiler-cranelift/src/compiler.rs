@@ -112,10 +112,8 @@ impl Compiler for CraneliftCompiler {
 
         let probestack_trampoline_relocation_target = if target.triple().operating_system
             == OperatingSystem::Linux
-            && matches!(
-                target.triple().architecture,
-                Architecture::X86_32(_) | Architecture::X86_64
-            ) {
+            && target.triple().architecture == Architecture::X86_64
+        {
             let probestack_trampoline = CustomSection {
                 protection: CustomSectionProtection::ReadExecute,
                 // We create a jump to an absolute 64bits address
