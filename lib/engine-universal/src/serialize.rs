@@ -36,6 +36,7 @@ pub struct SerializableModule {
     pub compilation: SerializableCompilation,
     pub compile_info: CompileModuleInfo,
     pub data_initializers: Box<[OwnedDataInitializer]>,
+    pub cpu_features: u64,
 }
 
 fn to_serialize_error(err: impl std::error::Error) -> SerializeError {

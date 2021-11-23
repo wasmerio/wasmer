@@ -483,7 +483,7 @@ macro_rules! binop_shift {
 
 macro_rules! jmp_op {
     ($ins:ident, $assembler:tt, $label:ident) => {
-        dynasm!($assembler ; $ins =>$label);
+        dynasm!($assembler ; $ins =>$label)
     }
 }
 

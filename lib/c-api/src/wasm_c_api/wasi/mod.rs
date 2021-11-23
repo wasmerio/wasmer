@@ -11,7 +11,7 @@ use super::{
     module::wasm_module_t,
     store::wasm_store_t,
 };
-use crate::error::{update_last_error, CApiError};
+use crate::error::update_last_error;
 use std::cmp::min;
 use std::convert::TryFrom;
 use std::ffi::CStr;
@@ -212,9 +212,7 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
         if let Some(stdout) = stdout.as_mut() {
             stdout
         } else {
-            update_last_error(CApiError {
-                msg: "could not find a file handle for `stdout`".to_string(),
-            });
+            update_last_error("could not find a file handle for `stdout`");
             return -1;
         }
     } else {
@@ -235,15 +233,11 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
         if let Some(stderr) = stderr.as_mut() {
             stderr
         } else {
-            update_last_error(CApiError {
-                msg: "could not find a file handle for `stderr`".to_string(),
-            });
+            update_last_error("could not find a file handle for `stderr`");
             return -1;
         }
     } else {
-        update_last_error(CApiError {
-            msg: "could not find a file handle for `stderr`".to_string(),
-        });
+        update_last_error("could not find a file handle for `stderr`");
         return -1;
     };
     read_inner(stderr, inner_buffer)
@@ -348,11 +342,8 @@ fn wasi_get_imports_inner(
 
     let store = &store.inner;
 
-    let version = c_try!(
-        get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {
-            msg: "could not detect a WASI version on the given module".to_string(),
-        })
-    );
+    let version = c_try!(get_wasi_version(&module.inner, false)
+        .ok_or("could not detect a WASI version on the given module"));
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
@@ -362,18 +353,18 @@ fn wasi_get_imports_inner(
         .map(|import_type| {
             let export = import_object
                 .resolve_by_name(import_type.module(), import_type.name())
-                .ok_or_else(|| CApiError {
-                    msg: format!(
+                .ok_or_else(|| {
+                    format!(
                         "Failed to resolve import \"{}\" \"{}\"",
                         import_type.module(),
                         import_type.name()
-                    ),
+                    )
                 })?;
             let inner = Extern::from_vm_export(store, export);
 
             Ok(Some(Box::new(inner.into())))
         })
-        .collect::<Result<Vec<_>, CApiError>>()));
+        .collect::<Result<Vec<_>, String>>()));
 
     Some(())
 }

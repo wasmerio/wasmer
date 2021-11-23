@@ -5,7 +5,6 @@ use super::super::{
     externals::wasm_extern_t, module::wasm_module_t, store::wasm_store_t, types::wasm_name_t,
     wasi::wasi_env_t,
 };
-use crate::error::CApiError;
 use wasmer_api::Extern;
 use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 
@@ -168,11 +167,8 @@ fn wasi_get_unordered_imports_inner(
 
     let store = &store.inner;
 
-    let version = c_try!(
-        get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {
-            msg: "could not detect a WASI version on the given module".to_string(),
-        })
-    );
+    let version = c_try!(get_wasi_version(&module.inner, false)
+        .ok_or("could not detect a WASI version on the given module"));
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 

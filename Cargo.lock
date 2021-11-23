@@ -2932,6 +2932,7 @@ name = "wasmer-engine"
 version = "2.0.0"
 dependencies = [
  "backtrace",
+ "enumset",
  "lazy_static",
  "loupe",
  "memmap2",
@@ -2951,6 +2952,7 @@ name = "wasmer-engine-dummy"
 version = "2.0.0"
 dependencies = [
  "bincode",
+ "enumset",
  "loupe",
  "serde",
  "serde_bytes",
@@ -2965,6 +2967,7 @@ name = "wasmer-engine-dylib"
 version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
+ "enumset",
  "leb128",
  "libloading",
  "loupe",
@@ -2986,6 +2989,7 @@ version = "2.0.0"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
+ "enumset",
  "leb128",
  "libloading",
  "loupe",
@@ -3004,6 +3008,7 @@ name = "wasmer-engine-universal"
 version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
+ "enumset",
  "leb128",
  "loupe",
  "region",
