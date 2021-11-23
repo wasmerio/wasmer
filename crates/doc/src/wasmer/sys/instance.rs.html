@@ -176,6 +176,12 @@
 <span id="176">176</span>
 <span id="177">177</span>
 <span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports::Exports</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::module::Module</span>;
@@ -236,6 +242,11 @@
     <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
     <span class="ident">Start</span>(<span class="ident">RuntimeError</span>),
 
+    <span class="doccomment">/// The module was compiled with a CPU feature that is not available on</span>
+    <span class="doccomment">/// the current host.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;missing requires CPU features: {0:?}&quot;</span>)]</span>
+    <span class="ident">CpuFeature</span>(<span class="ident">String</span>),
+
     <span class="doccomment">/// Error occurred when initializing the host environment.</span>
     <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
     <span class="ident">HostEnvInitialization</span>(<span class="ident">HostEnvInitError</span>),
@@ -246,6 +257,7 @@
         <span class="kw">match</span> <span class="ident">other</span> {
             <span class="ident">wasmer_engine::InstantiationError::Link</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Link</span>(<span class="ident">e</span>),
             <span class="ident">wasmer_engine::InstantiationError::Start</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Start</span>(<span class="ident">e</span>),
+            <span class="ident">wasmer_engine::InstantiationError::CpuFeature</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::CpuFeature</span>(<span class="ident">e</span>),
         }
     }
 }

@@ -156,21 +156,6 @@
 <span id="156">156</span>
 <span id="157">157</span>
 <span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Utilities to read errors.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Only one error can be registered at a time. Error are registered</span>
@@ -222,13 +207,12 @@
 
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>};
 <span class="kw">use</span> <span class="ident">std::cell::RefCell</span>;
-<span class="kw">use</span> <span class="ident">std::error::Error</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>};
+<span class="kw">use</span> <span class="ident">std::fmt::Display</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">std::slice</span>;
 
 <span class="macro">thread_local!</span> {
-    <span class="kw">static</span> <span class="ident">LAST_ERROR</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">RefCell::new</span>(<span class="prelude-val">None</span>);
+    <span class="kw">static</span> <span class="ident">LAST_ERROR</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">RefCell::new</span>(<span class="prelude-val">None</span>);
 }
 
 <span class="doccomment">/// Rust function to register a new error.</span>
@@ -236,24 +220,23 @@
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust,no_run</span>
-<span class="doccomment">/// # use wasmer::error::{update_last_error, CApiError};</span>
+<span class="doccomment">/// # use wasmer::error::update_last_error;</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// update_last_error(CApiError {</span>
-<span class="doccomment">///     msg: &quot;Hello, World!&quot;.to_string(),</span>
-<span class="doccomment">/// });</span>
+<span class="doccomment">/// update_last_error(&quot;Hello, World!&quot;);</span>
 <span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">update_last_error</span><span class="op">&lt;</span><span class="ident">E</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(<span class="ident">err</span>: <span class="ident">E</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">update_last_error</span><span class="op">&lt;</span><span class="ident">E</span>: <span class="ident">Display</span><span class="op">&gt;</span>(<span class="ident">err</span>: <span class="ident">E</span>) {
     <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> {
-        <span class="kw-2">*</span><span class="ident">prev</span>.<span class="ident">borrow_mut</span>() <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">err</span>));
+        <span class="kw-2">*</span><span class="ident">prev</span>.<span class="ident">borrow_mut</span>() <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">to_string</span>());
     });
 }
 
 <span class="doccomment">/// Retrieve the most recent error, clearing it in the process.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">take_last_error</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">take_last_error</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
     <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> <span class="ident">prev</span>.<span class="ident">borrow_mut</span>().<span class="ident">take</span>())
 }
 
-<span class="doccomment">/// Gets the length in bytes of the last error if any, zero otherwise.</span>
+<span class="doccomment">/// Gets the length in bytes of the last error if any, zero otherwise. This</span>
+<span class="doccomment">/// includes th NUL terminator byte.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// This can be used to dynamically allocate a buffer with the correct number of</span>
 <span class="doccomment">/// bytes needed to store a message.</span>
@@ -261,10 +244,11 @@
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// See this module&#39;s documentation to get a complete example.</span>
+<span class="comment">// TODO(Amanieu): This should use size_t</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_last_error_length</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
     <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">prev</span>.<span class="ident">borrow</span>() {
-        <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>.<span class="ident">to_string</span>().<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">c_int</span> <span class="op">+</span> <span class="number">1</span>,
+        <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">err</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">c_int</span> <span class="op">+</span> <span class="number">1</span>,
         <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
     })
 }
@@ -291,6 +275,7 @@
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// See this module&#39;s documentation to get a complete example.</span>
+<span class="comment">// TODO(Amanieu): This should use size_t</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_last_error_message</span>(
     <span class="ident">buffer</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -329,21 +314,6 @@
 
     <span class="ident">error_message</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">c_int</span> <span class="op">+</span> <span class="number">1</span>
 }
-
-<span class="doccomment">/// Rust type to represent a C API error.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CApiError</span> {
-    <span class="doccomment">/// The error message.</span>
-    <span class="kw">pub</span> <span class="ident">msg</span>: <span class="ident">String</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">CApiError</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt::Result</span> {
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">msg</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Error</span> <span class="kw">for</span> <span class="ident">CApiError</span> {}
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_c_api" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
     <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>

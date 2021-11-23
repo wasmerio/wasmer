@@ -631,11 +631,6 @@
 <span id="631">631</span>
 <span id="632">632</span>
 <span id="633">633</span>
-<span id="634">634</span>
-<span id="635">635</span>
-<span id="636">636</span>
-<span id="637">637</span>
-<span id="638">638</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine::wasmer_is_compiler_available</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine</span>::{
@@ -647,7 +642,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::middlewares::wasmer_middleware_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::target_lexicon::wasmer_target_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{<span class="ident">update_last_error</span>, <span class="ident">CApiError</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>;
 <span class="kw">use</span> <span class="ident">cfg_if::cfg_if</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_api::Engine</span>;
@@ -1071,13 +1066,8 @@
     <span class="ident">config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_config_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">return_with_error</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="ident">msg</span>: <span class="ident">M</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">M</span>: <span class="ident">ToString</span>,
-    {
-        <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> {
-            <span class="ident">msg</span>: <span class="ident">msg</span>.<span class="ident">to_string</span>(),
-        });
+    <span class="kw">fn</span> <span class="ident">return_with_error</span>(<span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">update_last_error</span>(<span class="ident">msg</span>);
 
         <span class="kw">return</span> <span class="prelude-val">None</span>;
     }

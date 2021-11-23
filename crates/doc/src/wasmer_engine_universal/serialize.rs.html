@@ -101,6 +101,7 @@
 <span id="101">101</span>
 <span id="102">102</span>
 <span id="103">103</span>
+<span id="104">104</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
     <span class="ident">archived_value</span>, <span class="ident">de::deserializers::SharedDeserializeMap</span>, <span class="ident">ser::serializers::AllocSerializer</span>,
@@ -139,6 +140,7 @@
     <span class="kw">pub</span> <span class="ident">compilation</span>: <span class="ident">SerializableCompilation</span>,
     <span class="kw">pub</span> <span class="ident">compile_info</span>: <span class="ident">CompileModuleInfo</span>,
     <span class="kw">pub</span> <span class="ident">data_initializers</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">OwnedDataInitializer</span>]<span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">cpu_features</span>: <span class="ident">u64</span>,
 }
 
 <span class="kw">fn</span> <span class="ident">to_serialize_error</span>(<span class="ident">err</span>: <span class="kw">impl</span> <span class="ident">std::error::Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SerializeError</span> {

@@ -245,7 +245,7 @@
 <span id="245">245</span>
 <span id="246">246</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types</span>::{<span class="ident">wasm_ref_t</span>, <span class="ident">wasm_valkind_enum</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{<span class="ident">update_last_error</span>, <span class="ident">CApiError</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>;
 <span class="kw">use</span> <span class="ident">std::convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
 <span class="kw">use</span> <span class="ident">wasmer_api::Val</span>;
 
@@ -402,7 +402,7 @@
         },
 
         <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="ident">update_last_error</span>(<span class="ident">CApiError</span> { <span class="ident">msg</span>: <span class="ident">e</span>.<span class="ident">to_string</span>() });
+            <span class="ident">update_last_error</span>(<span class="ident">e</span>);
 
             <span class="kw">return</span>;
         }

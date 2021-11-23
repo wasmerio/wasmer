@@ -145,6 +145,7 @@
 <span id="145">145</span>
 <span id="146">146</span>
 <span id="147">147</span>
+<span id="148">148</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
     <span class="ident">archived_value</span>, <span class="ident">de::deserializers::SharedDeserializeMap</span>, <span class="ident">ser::serializers::AllocSerializer</span>,
@@ -180,6 +181,7 @@
     <span class="kw">pub</span> <span class="ident">data_initializers</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">OwnedDataInitializer</span>]<span class="op">&gt;</span>,
     <span class="comment">// The function body lengths (used to find function by address)</span>
     <span class="kw">pub</span> <span class="ident">function_body_lengths</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">u64</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">cpu_features</span>: <span class="ident">u64</span>,
 }
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleMetadataSymbolRegistry</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {

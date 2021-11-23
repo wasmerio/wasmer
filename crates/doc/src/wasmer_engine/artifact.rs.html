@@ -214,15 +214,30 @@
 <span id="214">214</span>
 <span id="215">215</span>
 <span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">resolve_imports</span>, <span class="ident">InstantiationError</span>, <span class="ident">Resolver</span>, <span class="ident">RuntimeError</span>, <span class="ident">SerializeError</span>, <span class="ident">Tunables</span>,
 };
+<span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>;
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::Features</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CpuFeature</span>, <span class="ident">Features</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">DataInitializer</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>,
@@ -258,6 +273,9 @@
 
     <span class="doccomment">/// Returns the features for this Artifact</span>
     <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Features</span>;
+
+    <span class="doccomment">/// Returns the CPU features for this Artifact</span>
+    <span class="kw">fn</span> <span class="ident">cpu_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Returns the memory styles associated with this `Artifact`.</span>
     <span class="kw">fn</span> <span class="ident">memory_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span>;
@@ -312,6 +330,16 @@
         <span class="ident">resolver</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Resolver</span>,
         <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+        <span class="comment">// Validate the CPU features this module was compiled with against the</span>
+        <span class="comment">// host CPU features.</span>
+        <span class="kw">let</span> <span class="ident">host_cpu_features</span> <span class="op">=</span> <span class="ident">CpuFeature::for_host</span>();
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">host_cpu_features</span>.<span class="ident">is_superset</span>(<span class="self">self</span>.<span class="ident">cpu_features</span>()) {
+            <span class="prelude-val">Err</span>(<span class="ident">InstantiationError::CpuFeature</span>(<span class="macro">format!</span>(
+                <span class="string">&quot;{:?}&quot;</span>,
+                <span class="self">self</span>.<span class="ident">cpu_features</span>().<span class="ident">difference</span>(<span class="ident">host_cpu_features</span>)
+            )))<span class="question-mark">?</span>;
+        }
+
         <span class="self">self</span>.<span class="ident">preinstantiate</span>()<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>();

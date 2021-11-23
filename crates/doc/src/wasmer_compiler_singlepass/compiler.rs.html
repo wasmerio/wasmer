@@ -261,6 +261,14 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -276,7 +284,7 @@
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">Compilation</span>, <span class="ident">CompileError</span>, <span class="ident">CompileModuleInfo</span>,
-    <span class="ident">CompiledFunction</span>, <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBody</span>,
+    <span class="ident">CompiledFunction</span>, <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">CpuFeature</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBody</span>,
     <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>,
     <span class="ident">ModuleTranslationState</span>, <span class="ident">OperatingSystem</span>, <span class="ident">SectionIndex</span>, <span class="ident">Target</span>, <span class="ident">TrapInformation</span>,
 };
@@ -325,8 +333,15 @@
                 OperatingSystem::Windows.to_string(),
             ));
         }*/</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Architecture::X86_32</span>(<span class="ident">arch</span>) <span class="op">=</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(<span class="ident">arch</span>.<span class="ident">to_string</span>()));
+        <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Architecture::X86_64</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(
+                <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span>.<span class="ident">to_string</span>(),
+            ));
+        }
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX</span>) {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(
+                <span class="string">&quot;x86_64 without AVX&quot;</span>.<span class="ident">to_string</span>(),
+            ));
         }
         <span class="kw">if</span> <span class="ident">compile_info</span>.<span class="ident">features</span>.<span class="ident">multi_value</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedFeature</span>(<span class="string">&quot;multivalue&quot;</span>.<span class="ident">to_string</span>()));
@@ -388,6 +403,7 @@
                     <span class="kw-2">&amp;</span><span class="ident">table_styles</span>,
                     <span class="ident">i</span>,
                     <span class="kw-2">&amp;</span><span class="ident">locals</span>,
+                    <span class="ident">calling_convention</span>,
                 )
                 .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
 

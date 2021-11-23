@@ -1905,7 +1905,7 @@
 
 <span class="macro">macro_rules!</span> <span class="ident">jmp_op</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ins</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">assembler</span>:<span class="ident">tt</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">label</span>:<span class="ident">ident</span>) <span class="op">=</span><span class="op">&gt;</span> {
-        <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">assembler</span> ; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ins</span> <span class="op">=</span><span class="op">&gt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">label</span>);
+        <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">assembler</span> ; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ins</span> <span class="op">=</span><span class="op">&gt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">label</span>)
     }
 }
 
