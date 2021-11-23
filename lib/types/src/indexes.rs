@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct LocalFunctionIndex(u32);
 entity_impl!(LocalFunctionIndex);
@@ -44,7 +44,7 @@ entity_impl!(LocalMemoryIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct LocalGlobalIndex(u32);
 entity_impl!(LocalGlobalIndex);
@@ -60,7 +60,7 @@ entity_impl!(ArchivedLocalGlobalIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct FunctionIndex(u32);
 entity_impl!(FunctionIndex);
@@ -76,7 +76,7 @@ entity_impl!(ArchivedFunctionIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct TableIndex(u32);
 entity_impl!(TableIndex);
@@ -92,7 +92,7 @@ entity_impl!(ArchivedTableIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct GlobalIndex(u32);
 entity_impl!(GlobalIndex);
@@ -108,7 +108,7 @@ entity_impl!(ArchivedGlobalIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct MemoryIndex(u32);
 entity_impl!(MemoryIndex);
@@ -124,7 +124,7 @@ entity_impl!(ArchivedMemoryIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct SignatureIndex(u32);
 entity_impl!(SignatureIndex);
@@ -140,7 +140,7 @@ entity_impl!(ArchivedSignatureIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct DataIndex(u32);
 entity_impl!(DataIndex);
@@ -156,7 +156,7 @@ entity_impl!(ArchivedDataIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct ElemIndex(u32);
 entity_impl!(ElemIndex);
@@ -172,7 +172,7 @@ entity_impl!(ArchivedElemIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub struct CustomSectionIndex(u32);
 entity_impl!(CustomSectionIndex);
@@ -188,7 +188,7 @@ entity_impl!(ArchivedCustomSectionIndex);
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub enum ExportIndex {
     /// Function export.
@@ -210,7 +210,7 @@ pub enum ExportIndex {
 )]
 #[cfg_attr(
     feature = "enable-rkyv",
-    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+    archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
 )]
 pub enum ImportIndex {
     /// Function import.
