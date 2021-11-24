@@ -1,38 +1,26 @@
 use crate::js::{Export, ExternType, Module, NamedResolver};
 use std::collections::HashMap;
 
-/// All of the import data used when instantiating.
-///
-/// It's suggested that you use the [`imports!`] macro
-/// instead of creating an `ImportObject` by hand.
-///
-/// [`imports!`]: macro.imports.html
-///
-/// # Usage:
-/// ```ignore
-/// use wasmer::{Exports, ImportObject, Function};
-///
-/// let mut import_object = ImportObject::new();
-/// let mut env = Exports::new();
-///
-/// env.insert("foo", Function::new_native(foo));
-/// import_object.register("env", env);
-///
-/// fn foo(n: i32) -> i32 {
-///     n
-/// }
-/// ```
+/// This struct is used in case you want to create an `Instance`
+/// of a `Module` with imports that are provided directly from
+/// Javascript with a JS Object.
 #[derive(Clone, Default)]
-pub struct JSObjectResolver {
+pub struct JsImportObject {
     module_imports: HashMap<(String, String), ExternType>,
     object: js_sys::Object,
 }
 
-unsafe impl Send for JSObjectResolver {}
-unsafe impl Sync for JSObjectResolver {}
+unsafe impl Send for JsImportObject {}
+unsafe impl Sync for JsImportObject {}
 
-impl JSObjectResolver {
-    /// Create a new `ImportObject`.
+impl JsImportObject {
+    /// Create a new `JsImportObject`.
+    ///
+    /// # Usage
+    /// ```ignore
+    /// # use wasmer::JsImportObject;
+    /// let import_object = JsImportObject::new(&module, js_object);
+    /// ```
     pub fn new(module: &Module, object: js_sys::Object) -> Self {
         let module_imports = module
             .imports()
@@ -53,8 +41,8 @@ impl JSObjectResolver {
     ///
     /// # Usage
     /// ```ignore
-    /// # use wasmer::{ImportObject, Instance, Namespace};
-    /// let mut import_object = ImportObject::new();
+    /// # use wasmer::JsImportObject;
+    /// let import_object = JsImportObject::new(&module, js_object);
     /// import_object.get_export("module", "name");
     /// ```
     pub fn get_export(&self, module: &str, name: &str) -> Option<Export> {
@@ -70,13 +58,13 @@ impl JSObjectResolver {
     }
 }
 
-impl Into<js_sys::Object> for JSObjectResolver {
+impl Into<js_sys::Object> for JsImportObject {
     fn into(self) -> js_sys::Object {
         self.object
     }
 }
 
-impl NamedResolver for JSObjectResolver {
+impl NamedResolver for JsImportObject {
     fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
         self.get_export(module, name)
     }

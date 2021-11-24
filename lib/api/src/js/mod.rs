@@ -31,7 +31,7 @@ mod exports;
 mod externals;
 mod import_object;
 mod instance;
-mod jsobjectresolver;
+mod js_import_object;
 mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
@@ -59,7 +59,7 @@ pub use crate::js::externals::{
 };
 pub use crate::js::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::js::instance::{Instance, InstantiationError};
-pub use crate::js::jsobjectresolver::JSObjectResolver;
+pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::NativeFunc;
 pub use crate::js::ptr::{Array, Item, WasmPtr};
