@@ -113,6 +113,15 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn get_param_location(idx: usize, calling_convention: CallingConvention) -> Location<R, S>;
     /// move a location to another
     fn move_location(&mut self, size: Size, source: Location<R, S>, dest: Location<R, S>);
+    /// move a location to another, with zero or sign extension
+    fn move_location_extend(
+        &mut self,
+        size_val: Size,
+        signed: bool,
+        source: Location<R, S>,
+        size_op: Size,
+        dest: Location<R, S>,
+    );
     /// Load a memory value to a register, zero extending to 64bits.
     /// Panic if gpr is not a Location::GPR or if mem is not a Memory(2)
     fn load_address(&mut self, size: Size, gpr: Location<R, S>, mem: Location<R, S>);
@@ -192,7 +201,6 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         flags: bool,
     );
 
-
     /// Add src+dst -> dst (with or without flags)
     fn location_add(
         &mut self,
@@ -201,6 +209,24 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         dest: Location<R, S>,
         flags: bool,
     );
+    /// Sub dst-src -> dst (with or without flags)
+    fn location_sub(
+        &mut self,
+        size: Size,
+        source: Location<R, S>,
+        dest: Location<R, S>,
+        flags: bool,
+    );
+    /// -src -> dst
+    fn location_neg(
+        &mut self,
+        size_val: Size, // size of src
+        signed: bool,
+        source: Location<R, S>,
+        size_op: Size,
+        dest: Location<R, S>,
+    );
+
     /// Cmp src - dst and set flags
     fn location_cmp(&mut self, size: Size, source: Location<R, S>, dest: Location<R, S>);
     /// Test src & dst and set flags
@@ -240,7 +266,10 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         addr: R,
         ret: Location<R, S>,
     );
-
+    /// does lock_xadd exist?
+    fn has_atomic_xadd(&mut self) -> bool;
+    /// lock xadd (or panic if it does not exist)
+    fn emit_atomic_xadd(&mut self, size_op: Size, new: Location<R, S>, ret: Location<R, S>);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {

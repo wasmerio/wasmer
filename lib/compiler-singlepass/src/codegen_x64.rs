@@ -8122,24 +8122,42 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, loc, Location::GPR(value));
-                self.memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, loc, Location::GPR(value));
+                    self.memory_op(target, memarg, true, 4, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
                         Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                        Size::S32,
+                        |this, src, dst| {
+                            this.machine.specific.location_add(
+                                Size::S32,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmwAdd { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8150,24 +8168,42 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, loc, Location::GPR(value));
-                self.memory_op(target, memarg, true, 8, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, loc, Location::GPR(value));
+                    self.memory_op(target, memarg, true, 8, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S64,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
                         Size::S64,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_add(
+                                Size::S64,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I32AtomicRmw8AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8178,26 +8214,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S8,
-                    loc,
-                    Size::S32,
-                    Location::GPR(value),
-                );
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.move_location_extend(
                         Size::S8,
+                        false,
+                        loc,
+                        Size::S32,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 1, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S8,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S8,
+                        Size::S32,
+                        |this, src, dst| {
+                            this.machine.specific.location_add(
+                                Size::S8,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I32AtomicRmw16AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8208,26 +8264,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S16,
-                    loc,
-                    Size::S32,
-                    Location::GPR(value),
-                );
-                self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.move_location_extend(
                         Size::S16,
+                        false,
+                        loc,
+                        Size::S32,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 2, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S16,
+                        Size::S32,
+                        |this, src, dst| {
+                            this.machine.specific.location_add(
+                                Size::S16,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmw8AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8238,26 +8314,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S8,
-                    loc,
-                    Size::S64,
-                    Location::GPR(value),
-                );
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.move_location_extend(
                         Size::S8,
+                        false,
+                        loc,
+                        Size::S64,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 1, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S8,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S8,
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_add(
+                                Size::S8,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmw16AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8268,26 +8364,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S16,
-                    loc,
-                    Size::S64,
-                    Location::GPR(value),
-                );
-                self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.move_location_extend(
                         Size::S16,
+                        false,
+                        loc,
+                        Size::S64,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 2, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S16,
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_add(
+                                Size::S16,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmw32AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8298,24 +8414,42 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, loc, Location::GPR(value));
-                self.memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, loc, Location::GPR(value));
+                    self.memory_op(target, memarg, true, 4, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
                         Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_add(
+                                Size::S32,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I32AtomicRmwSub { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8326,28 +8460,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, loc, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_neg(Size::S32, Location::GPR(value));
-                self.memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.location_neg(
+                        Size::S32,
+                        false,
+                        loc,
                         Size::S32,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 4, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S32,
+                        Size::S32,
+                        |this, src, dst| {
+                            this.machine.specific.location_sub(
+                                Size::S32,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmwSub { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8358,28 +8510,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, loc, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_neg(Size::S64, Location::GPR(value));
-                self.memory_op(target, memarg, true, 8, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.location_neg(
+                        Size::S64,
+                        false,
+                        loc,
                         Size::S64,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 8, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S64,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S64,
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_sub(
+                                Size::S64,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I32AtomicRmw8SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8390,30 +8560,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S8,
-                    loc,
-                    Size::S32,
-                    Location::GPR(value),
-                );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_neg(Size::S8, Location::GPR(value));
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.location_neg(
                         Size::S8,
+                        false,
+                        loc,
+                        Size::S32,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 1, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S8,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S8,
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_sub(
+                                Size::S8,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I32AtomicRmw16SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8424,30 +8610,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S16,
-                    loc,
-                    Size::S32,
-                    Location::GPR(value),
-                );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_neg(Size::S16, Location::GPR(value));
-                self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.location_neg(
                         Size::S16,
+                        false,
+                        loc,
+                        Size::S32,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 2, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S32, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S16,
+                        Size::S32,
+                        |this, src, dst| {
+                            this.machine.specific.location_sub(
+                                Size::S16,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmw8SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8458,30 +8660,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S8,
-                    loc,
-                    Size::S64,
-                    Location::GPR(value),
-                );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_neg(Size::S8, Location::GPR(value));
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.location_neg(
                         Size::S8,
+                        false,
+                        loc,
+                        Size::S64,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 1, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S8,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S8,
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_sub(
+                                Size::S8,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmw16SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8492,30 +8710,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine.specific.assembler.emit_movzx(
-                    Size::S16,
-                    loc,
-                    Size::S64,
-                    Location::GPR(value),
-                );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_neg(Size::S16, Location::GPR(value));
-                self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.location_neg(
                         Size::S16,
+                        false,
+                        loc,
+                        Size::S64,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 2, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S16,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S16,
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_sub(
+                                Size::S16,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I64AtomicRmw32SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -8526,28 +8760,46 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let value = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, loc, Location::GPR(value));
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_neg(Size::S32, Location::GPR(value));
-                self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.assembler.emit_lock_xadd(
+                if self.machine.specific.has_atomic_xadd() {
+                    let value = self.machine.acquire_temp_gpr().unwrap();
+                    self.machine.specific.location_neg(
+                        Size::S32,
+                        false,
+                        loc,
                         Size::S32,
                         Location::GPR(value),
-                        Location::Memory(addr, 0),
                     );
-                    Ok(())
-                })?;
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(value), ret);
-                self.machine.release_temp_gpr(value);
+                    self.memory_op(target, memarg, true, 2, |this, addr| {
+                        this.machine.specific.emit_atomic_xadd(
+                            Size::S32,
+                            Location::GPR(value),
+                            Location::Memory(addr, 0),
+                        );
+                        Ok(())
+                    })?;
+                    self.machine
+                        .specific
+                        .move_location(Size::S64, Location::GPR(value), ret);
+                    self.machine.release_temp_gpr(value);
+                } else {
+                    self.emit_compare_and_swap(
+                        loc,
+                        target,
+                        ret,
+                        memarg,
+                        4,
+                        Size::S32,
+                        Size::S64,
+                        |this, src, dst| {
+                            this.machine.specific.location_sub(
+                                Size::S32,
+                                Location::GPR(src),
+                                Location::GPR(dst),
+                                false,
+                            );
+                        },
+                    )?;
+                }
             }
             Operator::I32AtomicRmwAnd { ref memarg } => {
                 let loc = self.pop_value_released();

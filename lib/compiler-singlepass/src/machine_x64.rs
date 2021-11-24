@@ -288,6 +288,31 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             _ => unreachable!(),
         }
     }
+    // move a location to another
+    fn move_location_extend(
+        &mut self,
+        size_val: Size,
+        signed: bool,
+        source: Location,
+        size_op: Size,
+        dest: Location,
+    ) {
+        match source {
+            Location::GPR(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                match size_val {
+                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dest),
+                    Size::S16 | Size::S8 => {
+                        if signed {
+                            self.assembler.emit_movsx(size_val, source, size_op, dest)
+                        } else {
+                            self.assembler.emit_movzx(size_val, source, size_op, dest)
+                        }
+                    }
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
     fn load_address(&mut self, size: Size, reg: Location, mem: Location) {
         match reg {
             Location::GPR(_) => {
@@ -386,6 +411,9 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     // math
     fn location_add(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
         self.assembler.emit_add(size, source, dest);
+    }
+    fn location_sub(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+        self.assembler.emit_sub(size, source, dest);
     }
     fn location_cmp(&mut self, size: Size, source: Location, dest: Location) {
         self.assembler.emit_cmp(size, source, dest);
@@ -557,29 +585,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.emit_mov(size_op, new, Location::GPR(value));
         self.assembler
             .emit_lock_cmpxchg(size_val, Location::GPR(value), Location::Memory(addr, 0));
-        match size_val {
-            Size::S64 => self
-                .assembler
-                .emit_mov(size_val, Location::GPR(compare), ret),
-            Size::S32 => {
-                if signed && size_op == Size::S64 {
-                    self.assembler
-                        .emit_movsx(size_val, Location::GPR(compare), size_op, ret);
-                } else {
-                    self.assembler
-                        .emit_mov(size_val, Location::GPR(compare), ret);
-                }
-            }
-            Size::S16 | Size::S8 => {
-                if signed {
-                    self.assembler
-                        .emit_movsx(size_val, Location::GPR(compare), size_op, ret);
-                } else {
-                    self.assembler
-                        .emit_movzx(size_val, Location::GPR(compare), size_op, ret);
-                }
-            }
-        }
+        self.move_location_extend(size_val, signed, Location::GPR(compare), size_op, ret);
         if val.is_none() {
             self.assembler.emit_pop(Size::S64, Location::GPR(value));
         } else {
@@ -614,26 +620,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             self.assembler.emit_push(Size::S64, Location::GPR(value));
         }
 
-        match size_val {
-            Size::S64 => self.assembler.emit_mov(size_val, new, Location::GPR(value)),
-            Size::S32 => {
-                if signed && size_op == Size::S64 {
-                    self.assembler
-                        .emit_movsx(size_val, new, size_op, Location::GPR(value));
-                } else {
-                    self.assembler.emit_mov(size_val, new, Location::GPR(value));
-                }
-            }
-            Size::S16 | Size::S8 => {
-                if signed {
-                    self.assembler
-                        .emit_movsx(size_val, new, size_op, Location::GPR(value));
-                } else {
-                    self.assembler
-                        .emit_movzx(size_val, new, size_op, Location::GPR(value));
-                }
-            }
-        }
+        self.move_location_extend(size_val, signed, new, size_op, Location::GPR(value));
         self.assembler
             .emit_xchg(size_val, Location::GPR(value), Location::Memory(addr, 0));
         self.assembler.emit_mov(size_val, Location::GPR(value), ret);
@@ -642,6 +629,25 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         } else {
             self.used_gprs.remove(&value);
         }
+    }
+    // atomic xadd if it exist
+    fn has_atomic_xadd(&mut self) -> bool {
+        true
+    }
+    fn emit_atomic_xadd(&mut self, size_op: Size, new: Location, ret: Location) {
+        self.assembler.emit_lock_xadd(size_op, new, ret);
+    }
+
+    fn location_neg(
+        &mut self,
+        size_val: Size, // size of src
+        signed: bool,
+        source: Location,
+        size_op: Size,
+        dest: Location,
+    ) {
+        self.move_location_extend(size_val, signed, source, size_op, dest);
+        self.assembler.emit_neg(size_val, dest);
     }
 }
 
