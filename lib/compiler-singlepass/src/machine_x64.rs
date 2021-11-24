@@ -374,6 +374,12 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn location_and(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
         self.assembler.emit_and(size, source, dest);
     }
+    fn location_xor(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+        self.assembler.emit_xor(size, source, dest);
+    }
+    fn location_or(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+        self.assembler.emit_or(size, source, dest);
+    }
     fn location_test(&mut self, size: Size, source: Location, dest: Location) {
         self.assembler.emit_test(size, source, dest);
     }

@@ -8567,10 +8567,11 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_and(
+                        this.machine.specific.location_and(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8593,10 +8594,11 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_and(
+                        this.machine.specific.location_and(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8619,10 +8621,11 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_and(
+                        this.machine.specific.location_and(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8645,10 +8648,11 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_and(
+                        this.machine.specific.location_and(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8671,10 +8675,11 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_and(
+                        this.machine.specific.location_and(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8697,10 +8702,11 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_and(
+                        this.machine.specific.location_and(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8723,10 +8729,11 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_and(
+                        this.machine.specific.location_and(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8749,10 +8756,11 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_or(
+                        this.machine.specific.location_or(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8775,10 +8783,11 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_or(
+                        this.machine.specific.location_or(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8801,10 +8810,11 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_or(
+                        this.machine.specific.location_or(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8827,10 +8837,11 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_or(
+                        this.machine.specific.location_or(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8853,10 +8864,11 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_or(
+                        this.machine.specific.location_or(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8879,10 +8891,11 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_or(
+                        this.machine.specific.location_or(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8905,10 +8918,11 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_or(
+                        this.machine.specific.location_or(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8931,10 +8945,11 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_xor(
+                        this.machine.specific.location_xor(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8957,10 +8972,11 @@ impl<'a> FuncGen<'a> {
                     Size::S64,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_xor(
+                        this.machine.specific.location_xor(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -8983,10 +8999,11 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_xor(
+                        this.machine.specific.location_xor(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -9009,10 +9026,11 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S32,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_xor(
+                        this.machine.specific.location_xor(
                             Size::S32,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -9035,10 +9053,11 @@ impl<'a> FuncGen<'a> {
                     Size::S8,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_xor(
+                        this.machine.specific.location_xor(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -9061,10 +9080,11 @@ impl<'a> FuncGen<'a> {
                     Size::S16,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_xor(
+                        this.machine.specific.location_xor(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;
@@ -9087,10 +9107,11 @@ impl<'a> FuncGen<'a> {
                     Size::S32,
                     Size::S64,
                     |this, src, dst| {
-                        this.machine.specific.assembler.emit_xor(
+                        this.machine.specific.location_xor(
                             Size::S64,
                             Location::GPR(src),
                             Location::GPR(dst),
+                            false,
                         );
                     },
                 )?;

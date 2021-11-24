@@ -175,6 +175,23 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         dest: Location<R, S>,
         flags: bool,
     );
+    /// Xor src & dst -> dst (with or without flags)
+    fn location_xor(
+        &mut self,
+        size: Size,
+        source: Location<R, S>,
+        dest: Location<R, S>,
+        flags: bool,
+    );
+    /// Or src & dst -> dst (with or without flags)
+    fn location_or(
+        &mut self,
+        size: Size,
+        source: Location<R, S>,
+        dest: Location<R, S>,
+        flags: bool,
+    );
+
 
     /// Add src+dst -> dst (with or without flags)
     fn location_add(
@@ -223,6 +240,7 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         addr: R,
         ret: Location<R, S>,
     );
+
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
