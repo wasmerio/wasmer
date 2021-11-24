@@ -1,9 +1,6 @@
 use super::store::wasm_store_t;
-use super::types::{
-    wasm_byte_vec_t, wasm_exporttype_t, wasm_exporttype_vec_t, wasm_importtype_t,
-    wasm_importtype_vec_t,
-};
-use crate::error::{update_last_error, CApiError};
+use super::types::{wasm_byte_vec_t, wasm_exporttype_vec_t, wasm_importtype_vec_t};
+use crate::error::update_last_error;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer_api::Module;
@@ -36,8 +33,7 @@ pub unsafe extern "C" fn wasm_module_new(
     let store = store?;
     let bytes = bytes?;
 
-    let bytes = bytes.into_slice()?;
-    let module = c_try!(Module::from_binary(&store.inner, bytes));
+    let module = c_try!(Module::from_binary(&store.inner, bytes.as_slice()));
 
     Some(Box::new(wasm_module_t {
         inner: Arc::new(module),
@@ -107,12 +103,7 @@ pub unsafe extern "C" fn wasm_module_validate(
         None => return false,
     };
 
-    let bytes = match bytes.into_slice() {
-        Some(bytes) => bytes,
-        None => return false,
-    };
-
-    if let Err(error) = Module::validate(&store.inner, bytes) {
+    if let Err(error) = Module::validate(&store.inner, bytes.as_slice()) {
         update_last_error(error);
 
         false
@@ -238,11 +229,10 @@ pub unsafe extern "C" fn wasm_module_exports(
     let exports = module
         .inner
         .exports()
-        .map(Into::into)
-        .map(Box::new)
-        .collect::<Vec<Box<wasm_exporttype_t>>>();
+        .map(|export| Some(Box::new(export.into())))
+        .collect();
 
-    *out = exports.into();
+    out.set_buffer(exports);
 }
 
 /// Returns an array of the imported types in the module.
@@ -379,11 +369,10 @@ pub unsafe extern "C" fn wasm_module_imports(
     let imports = module
         .inner
         .imports()
-        .map(Into::into)
-        .map(Box::new)
-        .collect::<Vec<Box<wasm_importtype_t>>>();
+        .map(|import| Some(Box::new(import.into())))
+        .collect();
 
-    *out = imports.into();
+    out.set_buffer(imports);
 }
 
 /// Deserializes a serialized module binary into a `wasm_module_t`.
@@ -472,21 +461,11 @@ pub unsafe extern "C" fn wasm_module_imports(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_deserialize(
     store: &wasm_store_t,
-    bytes: *const wasm_byte_vec_t,
+    bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<NonNull<wasm_module_t>> {
-    // TODO: read config from store and use that to decide which compiler to use
+    let bytes = bytes?;
 
-    let byte_slice = if bytes.is_null() || (&*bytes).into_slice().is_none() {
-        update_last_error(CApiError {
-            msg: "`bytes` is null or represents an empty slice".to_string(),
-        });
-
-        return None;
-    } else {
-        (&*bytes).into_slice().unwrap()
-    };
-
-    let module = c_try!(Module::deserialize(&store.inner, byte_slice));
+    let module = c_try!(Module::deserialize(&store.inner, bytes.as_slice()));
 
     Some(NonNull::new_unchecked(Box::into_raw(Box::new(
         wasm_module_t {
@@ -503,10 +482,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 ///
 /// See [`wasm_module_deserialize`].
 #[no_mangle]
-pub unsafe extern "C" fn wasm_module_serialize(
-    module: &wasm_module_t,
-    out_ptr: &mut wasm_byte_vec_t,
-) {
+pub unsafe extern "C" fn wasm_module_serialize(module: &wasm_module_t, out: &mut wasm_byte_vec_t) {
     let byte_vec = match module.inner.serialize() {
         Ok(byte_vec) => byte_vec,
         Err(err) => {
@@ -514,7 +490,7 @@ pub unsafe extern "C" fn wasm_module_serialize(
             return;
         }
     };
-    *out_ptr = byte_vec.into();
+    out.set_buffer(byte_vec);
 }
 
 #[cfg(test)]

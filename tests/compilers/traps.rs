@@ -257,7 +257,9 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
     .err()
     .unwrap();
     match err {
-        InstantiationError::Link(_) | InstantiationError::HostEnvInitialization(_) => {
+        InstantiationError::Link(_)
+        | InstantiationError::HostEnvInitialization(_)
+        | InstantiationError::CpuFeature(_) => {
             panic!("It should be a start error")
         }
         InstantiationError::Start(err) => {

@@ -70,7 +70,7 @@ pub unsafe extern "C" fn wasmer_module_name(
         }
     };
 
-    *out = name.as_bytes().to_vec().into();
+    out.set_buffer(name.as_bytes().to_vec());
 }
 
 /// Unstable non-standard Wasmer-specific API to set the module's
@@ -144,12 +144,9 @@ pub unsafe extern "C" fn wasmer_module_set_name(
     // own
     name: &wasm_name_t,
 ) -> bool {
-    let name = match name.into_slice() {
-        Some(name) => match str::from_utf8(name) {
-            Ok(name) => name,
-            Err(_) => return false, // not ideal!
-        },
-        None => return false,
+    let name = match str::from_utf8(name.as_slice()) {
+        Ok(name) => name,
+        Err(_) => return false, // not ideal!
     };
 
     match Arc::get_mut(&mut module.inner) {

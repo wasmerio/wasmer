@@ -2,13 +2,9 @@
 //! API.
 
 use super::super::{
-    externals::wasm_extern_t,
-    module::wasm_module_t,
-    store::wasm_store_t,
-    types::{owned_wasm_name_t, wasm_name_t},
+    externals::wasm_extern_t, module::wasm_module_t, store::wasm_store_t, types::wasm_name_t,
     wasi::wasi_env_t,
 };
-use crate::error::CApiError;
 use wasmer_api::Extern;
 use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 
@@ -22,8 +18,8 @@ use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
 pub struct wasmer_named_extern_t {
-    module: owned_wasm_name_t,
-    name: owned_wasm_name_t,
+    module: wasm_name_t,
+    name: wasm_name_t,
     r#extern: Box<wasm_extern_t>,
 }
 
@@ -121,7 +117,7 @@ mod __cbindgen_hack__ {
 pub extern "C" fn wasmer_named_extern_module(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
-    Some(named_extern?.module.as_ref())
+    Some(&named_extern?.module)
 }
 
 /// Non-standard function to get the name of a `wasmer_named_extern_t`.
@@ -131,7 +127,7 @@ pub extern "C" fn wasmer_named_extern_module(
 pub extern "C" fn wasmer_named_extern_name(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
-    Some(named_extern?.name.as_ref())
+    Some(&named_extern?.name)
 }
 
 /// Non-standard function to get the wrapped extern of a
@@ -171,29 +167,27 @@ fn wasi_get_unordered_imports_inner(
 
     let store = &store.inner;
 
-    let version = c_try!(
-        get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {
-            msg: "could not detect a WASI version on the given module".to_string(),
-        })
-    );
+    let version = c_try!(get_wasi_version(&module.inner, false)
+        .ok_or("could not detect a WASI version on the given module"));
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
-    *imports = import_object
-        .into_iter()
-        .map(|((module, name), export)| {
-            let module = module.into();
-            let name = name.into();
-            let extern_inner = Extern::from_vm_export(store, export);
+    imports.set_buffer(
+        import_object
+            .into_iter()
+            .map(|((module, name), export)| {
+                let module = module.into();
+                let name = name.into();
+                let extern_inner = Extern::from_vm_export(store, export);
 
-            Box::new(wasmer_named_extern_t {
-                module,
-                name,
-                r#extern: Box::new(extern_inner.into()),
+                Some(Box::new(wasmer_named_extern_t {
+                    module,
+                    name,
+                    r#extern: Box::new(extern_inner.into()),
+                }))
             })
-        })
-        .collect::<Vec<_>>()
-        .into();
+            .collect::<Vec<_>>(),
+    );
 
     Some(())
 }

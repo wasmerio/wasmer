@@ -1,5 +1,5 @@
 use super::types::{wasm_ref_t, wasm_valkind_enum};
-use crate::error::{update_last_error, CApiError};
+use crate::error::update_last_error;
 use std::convert::{TryFrom, TryInto};
 use wasmer_api::Val;
 
@@ -121,6 +121,15 @@ impl Clone for wasm_val_t {
     }
 }
 
+impl Default for wasm_val_t {
+    fn default() -> Self {
+        Self {
+            kind: wasm_valkind_enum::WASM_I64 as _,
+            of: wasm_val_inner { int64_t: 0 },
+        }
+    }
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn wasm_val_copy(
     // own
@@ -147,7 +156,7 @@ pub unsafe extern "C" fn wasm_val_copy(
         },
 
         Err(e) => {
-            update_last_error(CApiError { msg: e.to_string() });
+            update_last_error(e);
 
             return;
         }

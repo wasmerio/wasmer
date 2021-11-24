@@ -3,6 +3,7 @@
 
 use crate::engine::{DylibEngine, DylibEngineInner};
 use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata};
+use enumset::EnumSet;
 use libloading::{Library, Symbol as LibrarySymbol};
 use loupe::MemoryUsage;
 use std::error::Error;
@@ -17,8 +18,8 @@ use tracing::log::error;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasmer_compiler::{
-    Architecture, CompileError, CompiledFunctionFrameInfo, Features, FunctionAddressMap,
-    OperatingSystem, Symbol, SymbolRegistry, Triple,
+    Architecture, CompileError, CompiledFunctionFrameInfo, CpuFeature, Features,
+    FunctionAddressMap, OperatingSystem, Symbol, SymbolRegistry, Triple,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
@@ -211,6 +212,7 @@ impl DylibArtifact {
             prefix: engine_inner.get_prefix(&data),
             data_initializers,
             function_body_lengths,
+            cpu_features: target.cpu_features().as_u64(),
         };
 
         let serialized_data = metadata.serialize()?;
@@ -798,6 +800,10 @@ impl Artifact for DylibArtifact {
 
     fn features(&self) -> &Features {
         &self.metadata.compile_info.features
+    }
+
+    fn cpu_features(&self) -> enumset::EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.metadata.cpu_features)
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {

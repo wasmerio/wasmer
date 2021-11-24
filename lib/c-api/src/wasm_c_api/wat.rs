@@ -11,16 +11,8 @@ use super::types::wasm_byte_vec_t;
 #[cfg(feature = "wat")]
 #[no_mangle]
 pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
-    let wat: &[u8] = match wat.into_slice() {
-        Some(v) => v,
-        _ => {
-            out.data = std::ptr::null_mut();
-            out.size = 0;
-            return;
-        }
-    };
-    let result: wasm_byte_vec_t = match wasmer_api::wat2wasm(wat) {
-        Ok(val) => val.into_owned().into(),
+    match wasmer_api::wat2wasm(wat.as_slice()) {
+        Ok(val) => out.set_buffer(val.into_owned()),
         Err(err) => {
             crate::error::update_last_error(err);
             out.data = std::ptr::null_mut();
@@ -28,8 +20,6 @@ pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec
             return;
         }
     };
-
-    *out = result;
 }
 
 #[cfg(test)]

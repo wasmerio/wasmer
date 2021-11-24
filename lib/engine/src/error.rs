@@ -91,6 +91,11 @@ pub enum InstantiationError {
     #[error(transparent)]
     Link(LinkError),
 
+    /// The module was compiled with a CPU feature that is not available on
+    /// the current host.
+    #[error("module compiled with CPU feature that is missing from host")]
+    CpuFeature(String),
+
     /// A runtime error occured while invoking the start function
     #[error(transparent)]
     Start(RuntimeError),

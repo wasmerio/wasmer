@@ -1,6 +1,6 @@
 use crate::address_map::get_function_address_map;
 use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
-use dynasmrt::{x64::Assembler, DynamicLabel};
+use dynasmrt::{x64::X64Relocation, DynamicLabel, VecAssembler};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
@@ -21,6 +21,8 @@ use wasmer_types::{
     SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+
+type Assembler = VecAssembler<X64Relocation>;
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
@@ -89,6 +91,9 @@ pub struct FuncGen<'a> {
     ///
     // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
+
+    /// Calling convention to use.
+    calling_convention: CallingConvention,
 }
 
 struct SpecialLabelSet {
@@ -1010,7 +1015,7 @@ impl<'a> FuncGen<'a> {
                 self.machine.state.stack_values.push(content);
             }
         }
-        let calling_convention = self.config.calling_convention;
+        let calling_convention = self.calling_convention;
 
         let stack_padding: usize = match calling_convention {
             CallingConvention::WindowsFastcall => 32,
@@ -1756,7 +1761,7 @@ impl<'a> FuncGen<'a> {
             &mut self.assembler,
             self.local_types.len(),
             self.signature.params().len(),
-            self.config.calling_convention,
+            self.calling_convention,
         );
 
         // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
@@ -1823,6 +1828,7 @@ impl<'a> FuncGen<'a> {
         _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
+        calling_convention: CallingConvention,
     ) -> Result<FuncGen<'a>, CodegenError> {
         let func_index = module.func_index(local_func_index);
         let sig_index = module.functions[func_index];
@@ -1844,7 +1850,7 @@ impl<'a> FuncGen<'a> {
                 .collect(),
         );
 
-        let mut assembler = Assembler::new().unwrap();
+        let mut assembler = Assembler::new(0);
         let special_labels = SpecialLabelSet {
             integer_division_by_zero: assembler.get_label(),
             heap_access_oob: assembler.get_label(),
@@ -1874,6 +1880,7 @@ impl<'a> FuncGen<'a> {
             special_labels,
             src_loc: 0,
             instructions_address_map: vec![],
+            calling_convention,
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5404,7 +5411,7 @@ impl<'a> FuncGen<'a> {
                     self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
                 let vmcaller_checked_anyfunc_vmctx =
                     self.vmoffsets.vmcaller_checked_anyfunc_vmctx() as usize;
-                let calling_convention = self.config.calling_convention;
+                let calling_convention = self.calling_convention;
 
                 self.emit_call_native(
                     |this| {
@@ -6698,7 +6705,7 @@ impl<'a> FuncGen<'a> {
                     self.machine.finalize_locals(
                         &mut self.assembler,
                         &self.locals,
-                        self.config.calling_convention,
+                        self.calling_convention,
                     );
                     self.assembler.emit_mov(
                         Size::S64,
@@ -8811,7 +8818,7 @@ pub fn gen_std_trampoline(
     sig: &FunctionType,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let mut a = Assembler::new().unwrap();
+    let mut a = Assembler::new(0);
 
     // Calculate stack offset.
     let mut stack_offset: u32 = 0;
@@ -8921,7 +8928,7 @@ pub fn gen_std_dynamic_import_trampoline(
     sig: &FunctionType,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let mut a = Assembler::new().unwrap();
+    let mut a = Assembler::new(0);
 
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
@@ -9043,7 +9050,7 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     calling_convention: CallingConvention,
 ) -> CustomSection {
-    let mut a = Assembler::new().unwrap();
+    let mut a = Assembler::new(0);
 
     // TODO: ARM entry trampoline is not emitted.
 

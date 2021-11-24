@@ -103,12 +103,15 @@ int main(int argc, const char* argv[]) {
         wasmer_last_error_message(error_message, error_length);
 
         printf("Attempted to set an immutable global: `%s`\n", error_message);
+        free(error_message);
     }
 
     wasm_val_t some_set_value = WASM_F32_VAL(21);
     wasm_global_set(some, &some_set_value);
     printf("`some` value: %.1f\n", some_value.of.f32);
 
+    wasm_globaltype_delete(one_type);
+    wasm_globaltype_delete(some_type);
     wasm_module_delete(module);
     wasm_extern_vec_delete(&exports);
     wasm_instance_delete(instance);
