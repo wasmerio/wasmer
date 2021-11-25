@@ -241,6 +241,9 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// jmp on above (src>dst)
     /// like Above set on x86_64
     fn jmp_on_above(&mut self, label: Label);
+    /// jmp on above (src>=dst)
+    /// like Above or Equal set on x86_64
+    fn jmp_on_aboveequal(&mut self, label: Label);
     /// jmp on overflow
     /// like Carry set on x86_64
     fn jmp_on_overflow(&mut self, label: Label);
@@ -270,6 +273,12 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn has_atomic_xadd(&mut self) -> bool;
     /// lock xadd (or panic if it does not exist)
     fn emit_atomic_xadd(&mut self, size_op: Size, new: Location<R, S>, ret: Location<R, S>);
+    /// relaxed mov: move from anywhere to anywhere
+    fn emit_relaxed_mov(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
+    /// relaxed cmp: compare from anywhere and anywhere
+    fn emit_relaxed_cmp(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
+    /// relaxed atomic xchg: atomic exchange of anywhere and anywhere
+    fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {

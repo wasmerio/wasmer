@@ -14,6 +14,83 @@ pub struct MachineX86_64 {
     used_simd: HashSet<XMM>,
 }
 
+impl MachineX86_64 {
+    pub fn emit_relaxed_binop(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location),
+        sz: Size,
+        src: Location,
+        dst: Location,
+    ) {
+        enum RelaxMode {
+            Direct,
+            SrcToGPR,
+            DstToGPR,
+            BothToGPR,
+        }
+        let mode = match (src, dst) {
+            (Location::GPR(_), Location::GPR(_))
+                if (op as *const u8 == Assembler::emit_imul as *const u8) =>
+            {
+                RelaxMode::Direct
+            }
+            _ if (op as *const u8 == Assembler::emit_imul as *const u8) => RelaxMode::BothToGPR,
+
+            (Location::Memory(_, _), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
+            (Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => {
+                RelaxMode::BothToGPR
+            }
+            (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,
+            (Location::Imm64(_), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
+            (Location::Imm64(_), Location::GPR(_))
+                if (op as *const u8 != Assembler::emit_mov as *const u8) =>
+            {
+                RelaxMode::SrcToGPR
+            }
+            (_, Location::SIMD(_)) => RelaxMode::SrcToGPR,
+            _ => RelaxMode::Direct,
+        };
+
+        match mode {
+            RelaxMode::SrcToGPR => {
+                let temp = self.acquire_temp_gpr().unwrap();
+                self.move_location(sz, src, Location::GPR(temp));
+                op(&mut self.assembler, sz, Location::GPR(temp), dst);
+                self.release_gpr(temp);
+            }
+            RelaxMode::DstToGPR => {
+                let temp = self.acquire_temp_gpr().unwrap();
+                self.move_location(sz, dst, Location::GPR(temp));
+                op(&mut self.assembler, sz, src, Location::GPR(temp));
+                self.release_gpr(temp);
+            }
+            RelaxMode::BothToGPR => {
+                let temp_src = self.acquire_temp_gpr().unwrap();
+                let temp_dst = self.acquire_temp_gpr().unwrap();
+                self.move_location(sz, src, Location::GPR(temp_src));
+                self.move_location(sz, dst, Location::GPR(temp_dst));
+                op(
+                    &mut self.assembler,
+                    sz,
+                    Location::GPR(temp_src),
+                    Location::GPR(temp_dst),
+                );
+                match dst {
+                    Location::Memory(_, _) | Location::GPR(_) => {
+                        self.move_location(sz, Location::GPR(temp_dst), dst);
+                    }
+                    _ => {}
+                }
+                self.release_gpr(temp_dst);
+                self.release_gpr(temp_src);
+            }
+            RelaxMode::Direct => {
+                op(&mut self.assembler, sz, src, dst);
+            }
+        }
+    }
+}
+
 impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn new() -> Self {
         MachineX86_64 {
@@ -428,6 +505,9 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn jmp_on_above(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::Above, label);
     }
+    fn jmp_on_aboveequal(&mut self, label: Label) {
+        self.assembler.emit_jmp(Condition::AboveEqual, label);
+    }
     fn jmp_on_overflow(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::Carry, label);
     }
@@ -648,6 +728,17 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     ) {
         self.move_location_extend(size_val, signed, source, size_op, dest);
         self.assembler.emit_neg(size_val, dest);
+    }
+
+    // relaxed binop based...
+    fn emit_relaxed_mov(&mut self, sz: Size, src: Location, dst: Location) {
+        self.emit_relaxed_binop(Assembler::emit_mov, sz, src, dst);
+    }
+    fn emit_relaxed_cmp(&mut self, sz: Size, src: Location, dst: Location) {
+        self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst);
+    }
+    fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location, dst: Location) {
+        self.emit_relaxed_binop(Assembler::emit_xchg, sz, src, dst);
     }
 }
 
