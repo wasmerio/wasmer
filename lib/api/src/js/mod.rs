@@ -31,6 +31,7 @@ mod exports;
 mod externals;
 mod import_object;
 mod instance;
+mod js_import_object;
 mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
@@ -50,6 +51,7 @@ pub use wasmer_derive::WasmerEnv;
 
 pub use crate::js::cell::WasmCell;
 pub use crate::js::env::{HostEnvInitError, LazyInit, WasmerEnv};
+pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, Table,
@@ -57,6 +59,7 @@ pub use crate::js::externals::{
 };
 pub use crate::js::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::js::instance::{Instance, InstantiationError};
+pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::NativeFunc;
 pub use crate::js::ptr::{Array, Item, WasmPtr};

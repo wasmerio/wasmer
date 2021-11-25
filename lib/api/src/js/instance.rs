@@ -100,7 +100,7 @@ impl Instance {
             .instantiate(resolver)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(module, instance);
+        let self_instance = Self::from_module_and_instance(module, instance)?;
         self_instance.init_envs(&imports)?;
         Ok(self_instance)
     }
@@ -112,7 +112,12 @@ impl Instance {
     /// Is expected that the function [`Instance::init_envs`] is run manually
     /// by the user in case the instance has any Wasmer imports, so the function
     /// environments are properly initiated.
-    pub fn from_module_and_instance(module: &Module, instance: WebAssembly::Instance) -> Self {
+    ///
+    /// *This method is only available when targeting JS environments*
+    pub fn from_module_and_instance(
+        module: &Module,
+        instance: WebAssembly::Instance,
+    ) -> Result<Self, InstantiationError> {
         let store = module.store();
         let instance_exports = instance.exports();
         let exports = module
@@ -120,21 +125,35 @@ impl Instance {
             .map(|export_type| {
                 let name = export_type.name();
                 let extern_type = export_type.ty().clone();
-                let js_export = js_sys::Reflect::get(&instance_exports, &name.into()).unwrap();
+                let js_export =
+                    js_sys::Reflect::get(&instance_exports, &name.into()).map_err(|_e| {
+                        InstantiationError::Link(format!(
+                            "Can't get {} from the instance exports",
+                            &name
+                        ))
+                    })?;
                 let export: Export = (js_export, extern_type).into();
                 let extern_ = Extern::from_vm_export(store, export);
-                (name.to_string(), extern_)
+                Ok((name.to_string(), extern_))
             })
-            .collect::<Exports>();
+            .collect::<Result<Exports, InstantiationError>>()?;
 
-        Self {
+        Ok(Self {
             instance,
             module: module.clone(),
             exports,
-        }
+        })
     }
 
-    /// Initialize the given extern imports with the Instance
+    /// Initialize the given extern imports with the `Instance`.
+    ///
+    /// # Important
+    ///
+    /// This method should be called if the Wasmer `Instance` is initialized
+    /// from Javascript with an already existing `WebAssembly.Instance` but with
+    /// a imports from the Rust side.
+    ///
+    /// *This method is only available when targeting JS environments*
     pub fn init_envs(&self, imports: &[Export]) -> Result<(), InstantiationError> {
         for import in imports {
             if let Export::Function(func) = import {
