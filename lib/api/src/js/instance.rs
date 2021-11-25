@@ -112,7 +112,8 @@ impl Instance {
     /// Is expected that the function [`Instance::init_envs`] is run manually
     /// by the user in case the instance has any Wasmer imports, so the function
     /// environments are properly initiated.
-    #[doc(hidden)]
+    /// 
+    /// *This method is only available when targeting JS environments*
     pub fn from_module_and_instance(
         module: &Module,
         instance: WebAssembly::Instance,
@@ -144,8 +145,15 @@ impl Instance {
         })
     }
 
-    /// Initialize the given extern imports with the Instance
-    #[doc(hidden)]
+    /// Initialize the given extern imports with the `Instance`.
+    ///
+    /// # Important
+    ///
+    /// This method should be called if the Wasmer `Instance` is initialized
+    /// from Javascript with an already existing `WebAssembly.Instance` but with
+    /// a imports from the Rust side.
+    /// 
+    /// *This method is only available when targeting JS environments*
     pub fn init_envs(&self, imports: &[Export]) -> Result<(), InstantiationError> {
         for import in imports {
             if let Export::Function(func) = import {

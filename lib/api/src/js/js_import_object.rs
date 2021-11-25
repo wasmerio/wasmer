@@ -10,11 +10,15 @@ pub struct JsImportObject {
     object: js_sys::Object,
 }
 
+/// JS Objects with wasm-bindgen are not currently Send/Sync (although they
+/// are in Javascript, since we can use them safely between webworkers).
 unsafe impl Send for JsImportObject {}
 unsafe impl Sync for JsImportObject {}
 
 impl JsImportObject {
-    /// Create a new `JsImportObject`.
+    /// Create a new `JsImportObject`, it receives a reference to a `Module` to
+    /// map and assign the types of each import and the JS Object
+    /// that contains the values of imports.
     ///
     /// # Usage
     /// ```ignore
