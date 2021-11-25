@@ -146,7 +146,6 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             finished_globals,
             imports,
             self.signatures().clone(),
-            self.func_data_registry(),
             host_state,
             import_function_envs,
         )
