@@ -182,8 +182,16 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn get_grp_for_call(&self) -> R;
     /// Emit a call using the value in register
     fn emit_call_register(&mut self, register: R);
+    /// Does an trampoline is neededfor indirect call
+    fn arch_requires_indirect_call_trampoline(&self) -> bool;
+    /// indirect call with trampoline
+    fn arch_emit_indirect_call_with_trampoline(&mut self, location: Location<R, S>);
+    /// emit a call to a location
+    fn emit_call_location(&mut self, location: Location<R, S>);
     /// get the gpr for the return of generic values
     fn get_gpr_for_ret(&self) -> R;
+    /// get the simd for the return of float/double values
+    fn get_simd_for_ret(&self) -> S;
     /// load the address of a memory location (will panic if src is not a memory)
     /// like LEA opcode on x86_64
     fn location_address(&mut self, size: Size, source: Location<R, S>, dest: Location<R, S>);
@@ -258,12 +266,18 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// jmp on above (src>=dst)
     /// like Above or Equal set on x86_64
     fn jmp_on_aboveequal(&mut self, label: Label);
+    /// jmp on above (src<=dst)
+    /// like Below or Equal set on x86_64
+    fn jmp_on_belowequal(&mut self, label: Label);
     /// jmp on overflow
     /// like Carry set on x86_64
     fn jmp_on_overflow(&mut self, label: Label);
 
     /// jmp using a jump table at lable with cond as the indice
     fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location<R, S>);
+
+    /// Align for Loop (may do nothing, depending on the arch)
+    fn align_for_loop(&mut self);
 
     /// ret (from a Call)
     fn emit_ret(&mut self);
@@ -320,6 +334,8 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         sz_dst: Size,
         dst: Location<R, S>,
     );
+    /// Multiply location with immedita
+    fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: R);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {

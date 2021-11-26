@@ -5806,7 +5806,7 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_native(
                     |this| {
-                        let offset = this.machine.specific.assembler.get_offset().0;
+                        let offset = this.machine.assembler_get_offset().0;
                         this.trap_table
                             .offset_to_code
                             .insert(offset, TrapCode::StackOverflow);
@@ -5934,28 +5934,29 @@ impl<'a> FuncGen<'a> {
                     );
                 }
 
-                self.machine.specific.assembler.emit_cmp(
+                self.machine.specific.location_cmp(
                     Size::S32,
                     func_index,
                     Location::GPR(table_count),
                 );
                 self.machine
                     .specific
-                    .assembler
-                    .emit_jmp(Condition::BelowEqual, self.special_labels.table_access_oob);
+                    .jmp_on_belowequal(self.special_labels.table_access_oob);
                 self.machine.specific.move_location(
                     Size::S32,
                     func_index,
                     Location::GPR(table_count),
                 );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_imul_imm32_gpr64(self.vmoffsets.size_of_vm_funcref() as u32, table_count);
-                self.machine.specific.assembler.emit_add(
+                self.machine.specific.emit_imul_imm32(
+                    Size::S64,
+                    self.vmoffsets.size_of_vm_funcref() as u32,
+                    table_count,
+                );
+                self.machine.specific.location_add(
                     Size::S64,
                     Location::GPR(table_base),
                     Location::GPR(table_count),
+                    false,
                 );
 
                 // deref the table to get a VMFuncRef
@@ -5965,7 +5966,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(table_count),
                 );
                 // Trap if the FuncRef is null
-                self.machine.specific.assembler.emit_cmp(
+                self.machine.specific.location_cmp(
                     Size::S64,
                     Location::Imm32(0),
                     Location::GPR(table_count),
@@ -5983,7 +5984,7 @@ impl<'a> FuncGen<'a> {
                 );
 
                 // Trap if signature mismatches.
-                self.machine.specific.assembler.emit_cmp(
+                self.machine.specific.location_cmp(
                     Size::S32,
                     Location::GPR(sigidx),
                     Location::Memory(
@@ -5993,18 +5994,18 @@ impl<'a> FuncGen<'a> {
                 );
                 self.machine
                     .specific
-                    .assembler
-                    .emit_jmp(Condition::NotEqual, self.special_labels.bad_signature);
+                    .jmp_on_different(self.special_labels.bad_signature);
 
                 self.machine.release_temp_gpr(sigidx);
                 self.machine.release_temp_gpr(table_count);
                 self.machine.release_temp_gpr(table_base);
 
-                if table_count != GPR::RAX {
+                let gpr_for_call = self.machine.specific.get_grp_for_call();
+                if table_count != gpr_for_call {
                     self.machine.specific.move_location(
                         Size::S64,
                         Location::GPR(table_count),
-                        Location::GPR(GPR::RAX),
+                        Location::GPR(gpr_for_call),
                     );
                 }
 
@@ -6021,36 +6022,34 @@ impl<'a> FuncGen<'a> {
                         if this
                             .machine
                             .specific
-                            .assembler
                             .arch_requires_indirect_call_trampoline()
                         {
                             this.machine
                                 .specific
-                                .assembler
                                 .arch_emit_indirect_call_with_trampoline(Location::Memory(
-                                    GPR::RAX,
+                                    gpr_for_call,
                                     vmcaller_checked_anyfunc_func_ptr as i32,
                                 ));
                         } else {
-                            let offset = this.machine.specific.assembler.get_offset().0;
+                            let offset = this.machine.assembler_get_offset().0;
                             this.trap_table
                                 .offset_to_code
                                 .insert(offset, TrapCode::StackOverflow);
 
                             // We set the context pointer
-                            this.machine.specific.assembler.emit_mov(
+                            this.machine.specific.move_location(
                                 Size::S64,
-                                Location::Memory(GPR::RAX, vmcaller_checked_anyfunc_vmctx as i32),
+                                Location::Memory(
+                                    gpr_for_call,
+                                    vmcaller_checked_anyfunc_vmctx as i32,
+                                ),
                                 Machine::get_param_location(0, calling_convention),
                             );
 
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_call_location(Location::Memory(
-                                    GPR::RAX,
-                                    vmcaller_checked_anyfunc_func_ptr as i32,
-                                ));
+                            this.machine.specific.emit_call_location(Location::Memory(
+                                gpr_for_call,
+                                vmcaller_checked_anyfunc_func_ptr as i32,
+                            ));
                             this.mark_instruction_address_end(offset);
                         }
                     },
@@ -6071,7 +6070,7 @@ impl<'a> FuncGen<'a> {
                     if return_types[0].is_float() {
                         self.machine.specific.move_location(
                             Size::S64,
-                            Location::SIMD(XMM::XMM0),
+                            Location::SIMD(self.machine.specific.get_simd_for_ret()),
                             ret,
                         );
                         self.fp_stack
@@ -6079,15 +6078,15 @@ impl<'a> FuncGen<'a> {
                     } else {
                         self.machine.specific.move_location(
                             Size::S64,
-                            Location::GPR(GPR::RAX),
+                            Location::GPR(self.machine.specific.get_gpr_for_ret()),
                             ret,
                         );
                     }
                 }
             }
             Operator::If { ty } => {
-                let label_end = self.machine.specific.assembler.get_label();
-                let label_else = self.machine.specific.assembler.get_label();
+                let label_end = self.machine.specific.get_label();
+                let label_else = self.machine.specific.get_label();
 
                 let cond = self.pop_value_released();
 
@@ -6199,8 +6198,8 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let end_label = self.machine.specific.assembler.get_label();
-                let zero_label = self.machine.specific.assembler.get_label();
+                let end_label = self.machine.specific.get_label();
+                let zero_label = self.machine.specific.get_label();
 
                 self.machine
                     .specific
@@ -6219,10 +6218,7 @@ impl<'a> FuncGen<'a> {
                         }
                     }
                 }
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp(Condition::None, end_label);
+                self.machine.specific.jmp_unconditionnal(end_label);
                 self.machine.specific.emit_label(zero_label);
                 match cncl {
                     Some((_, Some(fp)))
@@ -6241,7 +6237,7 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Block { ty } => {
                 let frame = ControlFrame {
-                    label: self.machine.specific.assembler.get_label(),
+                    label: self.machine.specific.get_label(),
                     loop_like: false,
                     if_else: IfElseState::None,
                     returns: match ty {
@@ -6262,18 +6258,8 @@ impl<'a> FuncGen<'a> {
                 self.control_stack.push(frame);
             }
             Operator::Loop { ty } => {
-                // Pad with NOPs to the next 16-byte boundary.
-                // Here we don't use the dynasm `.align 16` attribute because it pads the alignment with single-byte nops
-                // which may lead to efficiency problems.
-                match self.machine.specific.assembler.get_offset().0 % 16 {
-                    0 => {}
-                    x => {
-                        self.machine.specific.assembler.emit_nop_n(16 - x);
-                    }
-                }
-                assert_eq!(self.machine.specific.assembler.get_offset().0 % 16, 0);
-
-                let label = self.machine.specific.assembler.get_label();
+                self.machine.specific.align_for_loop();
+                let label = self.machine.specific.get_label();
                 let state_diff_id = self.get_state_diff();
                 let _activate_offset = self.machine.assembler_get_offset().0;
 
@@ -6838,7 +6824,7 @@ impl<'a> FuncGen<'a> {
                     match ret {
                         Location::GPR(_) => {}
                         Location::Memory(base, offset) => {
-                            this.machine.specific.assembler.emit_mov(
+                            this.machine.specific.move_location(
                                 Size::S32,
                                 Location::Imm32(0),
                                 Location::Memory(base, offset + 4),
@@ -7028,7 +7014,7 @@ impl<'a> FuncGen<'a> {
                 self.unreachable_depth = 1;
             }
             Operator::BrIf { relative_depth } => {
-                let after = self.machine.specific.assembler.get_label();
+                let after = self.machine.specific.get_label();
                 let cond = self.pop_value_released();
                 self.machine
                     .specific

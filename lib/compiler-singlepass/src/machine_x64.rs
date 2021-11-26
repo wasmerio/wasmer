@@ -3,7 +3,7 @@ use crate::emitter_x64::*;
 use crate::machine::Machine as AbstractMachine;
 use crate::machine::{MachineSpecific, MemoryImmediate};
 use crate::x64_decl::new_machine_state;
-use crate::x64_decl::{X64Register, GPR};
+use crate::x64_decl::{X64Register, GPR, XMM};
 use dynasmrt::x64::Assembler;
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
@@ -620,6 +620,23 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn get_gpr_for_ret(&self) -> GPR {
         GPR::RAX
     }
+    fn get_simd_for_ret(&self) -> XMM {
+        XMM::XMM0
+    }
+
+    fn arch_requires_indirect_call_trampoline(&self) -> bool {
+        self.assembler.arch_requires_indirect_call_trampoline()
+    }
+
+    fn arch_emit_indirect_call_with_trampoline(&mut self, location: Location) {
+        self.assembler
+            .arch_emit_indirect_call_with_trampoline(location);
+    }
+
+    fn emit_call_location(&mut self, location: Location) {
+        self.assembler.emit_call_location(location);
+    }
+
     fn location_address(&mut self, size: Size, source: Location, dest: Location) {
         self.assembler.emit_lea(size, source, dest);
     }
@@ -663,6 +680,9 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn jmp_on_aboveequal(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::AboveEqual, label);
     }
+    fn jmp_on_belowequal(&mut self, label: Label) {
+        self.assembler.emit_jmp(Condition::BelowEqual, label);
+    }
     fn jmp_on_overflow(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::Carry, label);
     }
@@ -684,6 +704,19 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.emit_jmp_location(Location::GPR(tmp2));
         self.release_gpr(tmp2);
         self.release_gpr(tmp1);
+    }
+
+    fn align_for_loop(&mut self) {
+        // Pad with NOPs to the next 16-byte boundary.
+        // Here we don't use the dynasm `.align 16` attribute because it pads the alignment with single-byte nops
+        // which may lead to efficiency problems.
+        match self.assembler.get_offset().0 % 16 {
+            0 => {}
+            x => {
+                self.assembler.emit_nop_n(16 - x);
+            }
+        }
+        assert_eq!(self.assembler.get_offset().0 % 16, 0);
     }
 
     fn emit_ret(&mut self) {
@@ -913,6 +946,17 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     ) {
         self.move_location_extend(size_val, signed, source, size_op, dest);
         self.assembler.emit_neg(size_val, dest);
+    }
+
+    fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) {
+        match size {
+            Size::S64 => {
+                self.assembler.emit_imul_imm32_gpr64(imm32, gpr);
+            }
+            _ => {
+                unreachable!();
+            }
+        }
     }
 
     // relaxed binop based...
