@@ -143,6 +143,18 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// finalize a function
     fn finalize_function(&mut self);
 
+    /// emit native function prolog (depending on the calling Convention, like "PUSH RBP / MOV RSP, RBP")
+    fn emit_function_prolog(&mut self);
+    /// emit native function epilog (depending on the calling Convention, like "MOV RBP, RSP / POP RBP")
+    fn emit_function_epilog(&mut self);
+    /// handle return value, with optionnal cannonicalization if wanted
+    fn emit_function_return_value(&mut self, ty: WpType, cannonicalize: bool, loc: Location<R, S>);
+    /// Handle copy to SIMD register from ret value (if needed by the arch/calling convention)
+    fn emit_function_return_float(&mut self);
+    /// Is NaN canonicalization supported
+    fn arch_supports_canonicalize_nan(&self) -> bool;
+    /// Cannonicalize a NaN (or panic if not supported)
+    fn canonicalize_nan(&mut self, sz: Size, input: Location<R, S>, output: Location<R, S>);
     /// prepare to do a memory opcode
     fn memory_op_begin(
         &mut self,
@@ -247,6 +259,14 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// jmp on overflow
     /// like Carry set on x86_64
     fn jmp_on_overflow(&mut self, label: Label);
+
+    /// ret (from a Call)
+    fn emit_ret(&mut self);
+
+    /// Stack push of a location
+    fn emit_push(&mut self, size: Size, loc: Location<R, S>);
+    /// Stack pop of a location
+    fn emit_pop(&mut self, size: Size, loc: Location<R, S>);
 
     /// cmpxchg
     fn emit_atomic_cmpxchg(
@@ -735,6 +755,15 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
 
     pub fn assembler_finalize(self) -> Vec<u8> {
         self.specific.assembler_finalize()
+    }
+
+    /// Is NaN canonicalization supported
+    pub fn arch_supports_canonicalize_nan(&self) -> bool {
+        self.specific.arch_supports_canonicalize_nan()
+    }
+    /// Cannonicalize a NaN (or panic if not supported)
+    pub fn canonicalize_nan(&mut self, sz: Size, input: Location<R, S>, output: Location<R, S>) {
+        self.specific.canonicalize_nan(sz, input, output);
     }
 
     /// Emit a atomic cmpxchg kind of opcode

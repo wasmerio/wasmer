@@ -6,6 +6,7 @@ use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{X64Register, GPR};
 use dynasmrt::x64::Assembler;
 use std::collections::HashSet;
+use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::CallingConvention;
 
 pub struct MachineX86_64 {
@@ -520,6 +521,87 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.finalize_function();
     }
 
+    fn emit_function_prolog(&mut self) {
+        self.emit_push(Size::S64, Location::GPR(GPR::RBP));
+        self.move_location(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
+    }
+
+    fn emit_function_epilog(&mut self) {
+        self.move_location(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP));
+        self.emit_pop(Size::S64, Location::GPR(GPR::RBP));
+    }
+
+    fn emit_function_return_value(&mut self, ty: WpType, canonicalize: bool, loc: Location) {
+        if canonicalize {
+            self.canonicalize_nan(
+                match ty {
+                    WpType::F32 => Size::S32,
+                    WpType::F64 => Size::S64,
+                    _ => unreachable!(),
+                },
+                loc,
+                Location::GPR(GPR::RAX),
+            );
+        } else {
+            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+        }
+    }
+
+    fn emit_function_return_float(&mut self) {
+        self.move_location(
+            Size::S64,
+            Location::GPR(GPR::RAX),
+            Location::SIMD(XMM::XMM0),
+        );
+    }
+
+    fn arch_supports_canonicalize_nan(&self) -> bool {
+        self.assembler.arch_supports_canonicalize_nan()
+    }
+    fn canonicalize_nan(&mut self, sz: Size, input: Location, output: Location) {
+        let tmp1 = self.acquire_temp_simd().unwrap();
+        let tmp2 = self.acquire_temp_simd().unwrap();
+        let tmp3 = self.acquire_temp_simd().unwrap();
+
+        self.emit_relaxed_mov(sz, input, Location::SIMD(tmp1));
+        let tmpg1 = self.acquire_temp_gpr().unwrap();
+
+        match sz {
+            Size::S32 => {
+                self.assembler
+                    .emit_vcmpunordss(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
+                self.move_location(
+                    Size::S32,
+                    Location::Imm32(0x7FC0_0000), // Canonical NaN
+                    Location::GPR(tmpg1),
+                );
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp3));
+                self.assembler
+                    .emit_vblendvps(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
+            }
+            Size::S64 => {
+                self.assembler
+                    .emit_vcmpunordsd(tmp1, XMMOrMemory::XMM(tmp1), tmp2);
+                self.move_location(
+                    Size::S64,
+                    Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
+                    Location::GPR(tmpg1),
+                );
+                self.move_location(Size::S64, Location::GPR(tmpg1), Location::SIMD(tmp3));
+                self.assembler
+                    .emit_vblendvpd(tmp2, XMMOrMemory::XMM(tmp3), tmp1, tmp1);
+            }
+            _ => unreachable!(),
+        }
+
+        self.emit_relaxed_mov(sz, Location::SIMD(tmp1), output);
+
+        self.release_gpr(tmpg1);
+        self.release_simd(tmp3);
+        self.release_simd(tmp2);
+        self.release_simd(tmp1);
+    }
+
     fn emit_illegal_op(&mut self) {
         self.assembler.emit_ud2();
     }
@@ -579,6 +661,17 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn jmp_on_overflow(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::Carry, label);
+    }
+
+    fn emit_ret(&mut self) {
+        self.assembler.emit_ret();
+    }
+
+    fn emit_push(&mut self, size: Size, loc: Location) {
+        self.assembler.emit_push(size, loc);
+    }
+    fn emit_pop(&mut self, size: Size, loc: Location) {
+        self.assembler.emit_pop(size, loc);
     }
 
     fn memory_op_begin(

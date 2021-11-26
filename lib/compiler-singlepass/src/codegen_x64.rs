@@ -314,77 +314,6 @@ impl<'a> FuncGen<'a> {
         self.mark_instruction_address_end(offset);
     }
 
-    /// Canonicalizes the floating point value at `input` into `output`.
-    fn canonicalize_nan(&mut self, sz: Size, input: Location, output: Location) {
-        let tmp1 = self.machine.acquire_temp_simd().unwrap();
-        let tmp2 = self.machine.acquire_temp_simd().unwrap();
-        let tmp3 = self.machine.acquire_temp_simd().unwrap();
-
-        self.machine
-            .specific
-            .emit_relaxed_mov(sz, input, Location::SIMD(tmp1));
-        let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-
-        match sz {
-            Size::S32 => {
-                self.machine.specific.assembler.emit_vcmpunordss(
-                    tmp1,
-                    XMMOrMemory::XMM(tmp1),
-                    tmp2,
-                );
-                self.machine.specific.move_location(
-                    Size::S32,
-                    Location::Imm32(0x7FC0_0000), // Canonical NaN
-                    Location::GPR(tmpg1),
-                );
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::GPR(tmpg1),
-                    Location::SIMD(tmp3),
-                );
-                self.machine.specific.assembler.emit_vblendvps(
-                    tmp2,
-                    XMMOrMemory::XMM(tmp3),
-                    tmp1,
-                    tmp1,
-                );
-            }
-            Size::S64 => {
-                self.machine.specific.assembler.emit_vcmpunordsd(
-                    tmp1,
-                    XMMOrMemory::XMM(tmp1),
-                    tmp2,
-                );
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
-                    Location::GPR(tmpg1),
-                );
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::GPR(tmpg1),
-                    Location::SIMD(tmp3),
-                );
-                self.machine.specific.assembler.emit_vblendvpd(
-                    tmp2,
-                    XMMOrMemory::XMM(tmp3),
-                    tmp1,
-                    tmp1,
-                );
-            }
-            _ => unreachable!(),
-        }
-
-        self.machine
-            .specific
-            .emit_relaxed_mov(sz, Location::SIMD(tmp1), output);
-
-        self.machine.release_temp_gpr(tmpg1);
-        self.machine.release_temp_simd(tmp3);
-        self.machine.release_temp_simd(tmp2);
-        self.machine.release_temp_simd(tmp1);
-    }
-
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         &mut self,
@@ -1866,15 +1795,7 @@ impl<'a> FuncGen<'a> {
         // TODO: Patchpoint is not emitted for now, and ARM trampoline is not prepended.
 
         // Normal x86 entry prologue.
-        self.machine
-            .specific
-            .assembler
-            .emit_push(Size::S64, Location::GPR(GPR::RBP));
-        self.machine.specific.move_location(
-            Size::S64,
-            Location::GPR(GPR::RSP),
-            Location::GPR(GPR::RBP),
-        );
+        self.machine.specific.emit_function_prolog();
 
         // Initialize locals.
         self.locals = self.machine.init_locals(
@@ -2120,15 +2041,11 @@ impl<'a> FuncGen<'a> {
                 let loc = self.pop_value_released();
                 if ty.is_float() {
                     let fp = self.fp_stack.pop1()?;
-                    if self
-                        .machine
-                        .specific
-                        .assembler
-                        .arch_supports_canonicalize_nan()
+                    if self.machine.arch_supports_canonicalize_nan()
                         && self.config.enable_nan_canonicalization
                         && fp.canonicalization.is_some()
                     {
-                        self.canonicalize_nan(
+                        self.machine.canonicalize_nan(
                             match ty {
                                 WpType::F32 => Size::S32,
                                 WpType::F64 => Size::S64,
@@ -2166,15 +2083,11 @@ impl<'a> FuncGen<'a> {
 
                 if self.local_types[local_index].is_float() {
                     let fp = self.fp_stack.pop1()?;
-                    if self
-                        .machine
-                        .specific
-                        .assembler
-                        .arch_supports_canonicalize_nan()
+                    if self.machine.arch_supports_canonicalize_nan()
                         && self.config.enable_nan_canonicalization
                         && fp.canonicalization.is_some()
                     {
-                        self.canonicalize_nan(
+                        self.machine.canonicalize_nan(
                             match self.local_types[local_index] {
                                 WpType::F32 => Size::S32,
                                 WpType::F64 => Size::S64,
@@ -2204,15 +2117,11 @@ impl<'a> FuncGen<'a> {
 
                 if self.local_types[local_index].is_float() {
                     let fp = self.fp_stack.peek1()?;
-                    if self
-                        .machine
-                        .specific
-                        .assembler
-                        .arch_supports_canonicalize_nan()
+                    if self.machine.arch_supports_canonicalize_nan()
                         && self.config.enable_nan_canonicalization
                         && fp.canonicalization.is_some()
                     {
-                        self.canonicalize_nan(
+                        self.machine.canonicalize_nan(
                             match self.local_types[local_index] {
                                 WpType::F32 => Size::S32,
                                 WpType::F64 => Size::S64,
@@ -2968,12 +2877,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
-                if !self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
-                {
+                if !self.machine.arch_supports_canonicalize_nan() {
                     self.emit_fp_binop_avx(Assembler::emit_vmaxss)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
@@ -3177,12 +3081,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
-                if !self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
-                {
+                if !self.machine.arch_supports_canonicalize_nan() {
                     self.emit_fp_binop_avx(Assembler::emit_vminss)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
@@ -3453,17 +3352,14 @@ impl<'a> FuncGen<'a> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
+                if self.machine.arch_supports_canonicalize_nan()
                     && self.config.enable_nan_canonicalization
                 {
                     for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
                         match fp.canonicalization {
                             Some(_) => {
-                                self.canonicalize_nan(Size::S32, *loc, Location::GPR(*tmp));
+                                self.machine
+                                    .canonicalize_nan(Size::S32, *loc, Location::GPR(*tmp));
                             }
                             None => {
                                 self.machine.specific.move_location(
@@ -3604,12 +3500,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
 
-                if !self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
-                {
+                if !self.machine.arch_supports_canonicalize_nan() {
                     self.emit_fp_binop_avx(Assembler::emit_vmaxsd)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
@@ -3814,12 +3705,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
 
-                if !self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
-                {
+                if !self.machine.arch_supports_canonicalize_nan() {
                     self.emit_fp_binop_avx(Assembler::emit_vminsd)?;
                 } else {
                     let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
@@ -4090,17 +3976,14 @@ impl<'a> FuncGen<'a> {
                 let tmp1 = self.machine.acquire_temp_gpr().unwrap();
                 let tmp2 = self.machine.acquire_temp_gpr().unwrap();
 
-                if self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
+                if self.machine.arch_supports_canonicalize_nan()
                     && self.config.enable_nan_canonicalization
                 {
                     for (fp, loc, tmp) in [(fp_src1, loc_a, tmp1), (fp_src2, loc_b, tmp2)].iter() {
                         match fp.canonicalization {
                             Some(_) => {
-                                self.canonicalize_nan(Size::S64, *loc, Location::GPR(*tmp));
+                                self.machine
+                                    .canonicalize_nan(Size::S64, *loc, Location::GPR(*tmp));
                             }
                             None => {
                                 self.machine.specific.move_location(
@@ -4249,11 +4132,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 let fp = self.fp_stack.pop1()?;
 
-                if !self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
+                if !self.machine.arch_supports_canonicalize_nan()
                     || !self.config.enable_nan_canonicalization
                     || fp.canonicalization.is_none()
                 {
@@ -4261,7 +4140,7 @@ impl<'a> FuncGen<'a> {
                         self.machine.specific.emit_relaxed_mov(Size::S32, loc, ret);
                     }
                 } else {
-                    self.canonicalize_nan(Size::S32, loc, ret);
+                    self.machine.canonicalize_nan(Size::S32, loc, ret);
                 }
             }
             Operator::F32ReinterpretI32 => {
@@ -4288,11 +4167,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 let fp = self.fp_stack.pop1()?;
 
-                if !self
-                    .machine
-                    .specific
-                    .assembler
-                    .arch_supports_canonicalize_nan()
+                if !self.machine.arch_supports_canonicalize_nan()
                     || !self.config.enable_nan_canonicalization
                     || fp.canonicalization.is_none()
                 {
@@ -4300,7 +4175,7 @@ impl<'a> FuncGen<'a> {
                         self.machine.specific.emit_relaxed_mov(Size::S64, loc, ret);
                     }
                 } else {
-                    self.canonicalize_nan(Size::S64, loc, ret);
+                    self.machine.canonicalize_nan(Size::S64, loc, ret);
                 }
             }
             Operator::F64ReinterpretI64 => {
@@ -5890,16 +5765,13 @@ impl<'a> FuncGen<'a> {
                 while let Some(fp) = self.fp_stack.last() {
                     if fp.depth >= self.value_stack.len() {
                         let index = fp.depth - self.value_stack.len();
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
                             let size = fp.canonicalization.unwrap().to_size();
-                            self.canonicalize_nan(size, params[index], params[index]);
+                            self.machine
+                                .canonicalize_nan(size, params[index], params[index]);
                         }
                         self.fp_stack.pop().unwrap();
                     } else {
@@ -6001,16 +5873,13 @@ impl<'a> FuncGen<'a> {
                 while let Some(fp) = self.fp_stack.last() {
                     if fp.depth >= self.value_stack.len() {
                         let index = fp.depth - self.value_stack.len();
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
                             let size = fp.canonicalization.unwrap().to_size();
-                            self.canonicalize_nan(size, params[index], params[index]);
+                            self.machine
+                                .canonicalize_nan(size, params[index], params[index]);
                         }
                         self.fp_stack.pop().unwrap();
                     } else {
@@ -6254,15 +6123,11 @@ impl<'a> FuncGen<'a> {
                     let loc = *self.value_stack.last().unwrap();
                     if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(
+                            self.machine.canonicalize_nan(
                                 match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
@@ -6343,14 +6208,10 @@ impl<'a> FuncGen<'a> {
                 self.machine.specific.jmp_on_equal(zero_label);
                 match cncl {
                     Some((Some(fp), _))
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization =>
                     {
-                        self.canonicalize_nan(fp.to_size(), v_a, ret);
+                        self.machine.canonicalize_nan(fp.to_size(), v_a, ret);
                     }
                     _ => {
                         if v_a != ret {
@@ -6365,14 +6226,10 @@ impl<'a> FuncGen<'a> {
                 self.machine.specific.emit_label(zero_label);
                 match cncl {
                     Some((_, Some(fp)))
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization =>
                     {
-                        self.canonicalize_nan(fp.to_size(), v_b, ret);
+                        self.machine.canonicalize_nan(fp.to_size(), v_b, ret);
                     }
                     _ => {
                         if v_b != ret {
@@ -6815,11 +6672,7 @@ impl<'a> FuncGen<'a> {
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
 
                 self.memory_op(target_addr, memarg, false, 4, |this, addr| {
-                    if !this
-                        .machine
-                        .specific
-                        .assembler
-                        .arch_supports_canonicalize_nan()
+                    if !this.machine.arch_supports_canonicalize_nan()
                         || !config_nan_canonicalization
                         || fp.canonicalization.is_none()
                     {
@@ -6829,7 +6682,11 @@ impl<'a> FuncGen<'a> {
                             Location::Memory(addr, 0),
                         );
                     } else {
-                        this.canonicalize_nan(Size::S32, target_value, Location::Memory(addr, 0));
+                        this.machine.canonicalize_nan(
+                            Size::S32,
+                            target_value,
+                            Location::Memory(addr, 0),
+                        );
                     }
 
                     Ok(())
@@ -7039,11 +6896,7 @@ impl<'a> FuncGen<'a> {
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
 
                 self.memory_op(target_addr, memarg, false, 8, |this, addr| {
-                    if !this
-                        .machine
-                        .specific
-                        .assembler
-                        .arch_supports_canonicalize_nan()
+                    if !this.machine.arch_supports_canonicalize_nan()
                         || !config_nan_canonicalization
                         || fp.canonicalization.is_none()
                     {
@@ -7053,7 +6906,11 @@ impl<'a> FuncGen<'a> {
                             Location::Memory(addr, 0),
                         );
                     } else {
-                        this.canonicalize_nan(Size::S64, target_value, Location::Memory(addr, 0));
+                        this.machine.canonicalize_nan(
+                            Size::S64,
+                            target_value,
+                            Location::Memory(addr, 0),
+                        );
                     }
                     Ok(())
                 })?;
@@ -7119,15 +6976,11 @@ impl<'a> FuncGen<'a> {
                     let loc = *self.value_stack.last().unwrap();
                     if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(
+                            self.machine.canonicalize_nan(
                                 match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
@@ -7174,15 +7027,11 @@ impl<'a> FuncGen<'a> {
 
                     if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(
+                            self.machine.canonicalize_nan(
                                 match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
@@ -7238,15 +7087,11 @@ impl<'a> FuncGen<'a> {
                     let loc = *self.value_stack.last().unwrap();
                     if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        if self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(
+                            self.machine.canonicalize_nan(
                                 match first_return {
                                     WpType::F32 => Size::S32,
                                     WpType::F64 => Size::S64,
@@ -7343,15 +7188,11 @@ impl<'a> FuncGen<'a> {
                         let loc = *self.value_stack.last().unwrap();
                         if first_return.is_float() {
                             let fp = self.fp_stack.peek1()?;
-                            if self
-                                .machine
-                                .specific
-                                .assembler
-                                .arch_supports_canonicalize_nan()
+                            if self.machine.arch_supports_canonicalize_nan()
                                 && self.config.enable_nan_canonicalization
                                 && fp.canonicalization.is_some()
                             {
-                                self.canonicalize_nan(
+                                self.machine.canonicalize_nan(
                                     match first_return {
                                         WpType::F32 => Size::S32,
                                         WpType::F64 => Size::S64,
@@ -7400,15 +7241,11 @@ impl<'a> FuncGen<'a> {
                         let loc = *self.value_stack.last().unwrap();
                         if first_return.is_float() {
                             let fp = self.fp_stack.peek1()?;
-                            if self
-                                .machine
-                                .specific
-                                .assembler
-                                .arch_supports_canonicalize_nan()
+                            if self.machine.arch_supports_canonicalize_nan()
                                 && self.config.enable_nan_canonicalization
                                 && fp.canonicalization.is_some()
                             {
-                                self.canonicalize_nan(
+                                self.machine.canonicalize_nan(
                                     match first_return {
                                         WpType::F32 => Size::S32,
                                         WpType::F64 => Size::S64,
@@ -7461,67 +7298,35 @@ impl<'a> FuncGen<'a> {
 
                 if !was_unreachable && !frame.returns.is_empty() {
                     let loc = *self.value_stack.last().unwrap();
-                    if frame.returns[0].is_float() {
+                    let canonicalize = if frame.returns[0].is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self
-                            .machine
-                            .specific
-                            .assembler
-                            .arch_supports_canonicalize_nan()
+                        self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
-                        {
-                            self.canonicalize_nan(
-                                match frame.returns[0] {
-                                    WpType::F32 => Size::S32,
-                                    WpType::F64 => Size::S64,
-                                    _ => unreachable!(),
-                                },
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        } else {
-                            self.machine.specific.emit_relaxed_mov(
-                                Size::S64,
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        }
                     } else {
-                        self.machine.specific.emit_relaxed_mov(
-                            Size::S64,
-                            loc,
-                            Location::GPR(GPR::RAX),
-                        );
-                    }
+                        false
+                    };
+                    self.machine.specific.emit_function_return_value(
+                        frame.returns[0],
+                        canonicalize,
+                        loc,
+                    );
                 }
 
                 if self.control_stack.is_empty() {
                     self.machine.specific.emit_label(frame.label);
                     self.machine
                         .finalize_locals(&self.locals, self.config.calling_convention);
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(GPR::RBP),
-                        Location::GPR(GPR::RSP),
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_pop(Size::S64, Location::GPR(GPR::RBP));
+                    self.machine.specific.emit_function_epilog();
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
                     match self.signature.results() {
                         [x] if *x == Type::F32 || *x == Type::F64 => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(GPR::RAX),
-                                Location::SIMD(XMM::XMM0),
-                            );
+                            self.machine.specific.emit_function_return_float();
                         }
                         _ => {}
                     }
-                    self.machine.specific.assembler.emit_ret();
+                    self.machine.specific.emit_ret();
                 } else {
                     let released = &self.value_stack[frame.value_stack_depth..];
                     self.machine.release_locations(released);
@@ -7551,7 +7356,7 @@ impl<'a> FuncGen<'a> {
                         )[0];
                         self.machine.specific.move_location(
                             Size::S64,
-                            Location::GPR(GPR::RAX),
+                            Location::GPR(self.machine.specific.get_gpr_for_ret()),
                             loc,
                         );
                         self.value_stack.push(loc);
