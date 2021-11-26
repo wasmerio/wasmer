@@ -89,6 +89,75 @@ impl MachineX86_64 {
             }
         }
     }
+    pub fn emit_relaxed_zx_sx(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Size, Location),
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) {
+        match src {
+            Location::Imm32(_) | Location::Imm64(_) => {
+                let tmp_src = self.acquire_temp_gpr().unwrap();
+                self.assembler
+                    .emit_mov(Size::S64, src, Location::GPR(tmp_src));
+                let src = Location::GPR(tmp_src);
+
+                match dst {
+                    Location::Imm32(_) | Location::Imm64(_) => unreachable!(),
+                    Location::Memory(_, _) => {
+                        let tmp_dst = self.acquire_temp_gpr().unwrap();
+                        op(
+                            &mut self.assembler,
+                            sz_src,
+                            src,
+                            sz_dst,
+                            Location::GPR(tmp_dst),
+                        );
+                        self.move_location(Size::S64, Location::GPR(tmp_dst), dst);
+
+                        self.release_gpr(tmp_dst);
+                    }
+                    Location::GPR(_) => {
+                        op(&mut self.assembler, sz_src, src, sz_dst, dst);
+                    }
+                    _ => {
+                        unreachable!();
+                    }
+                };
+
+                self.release_gpr(tmp_src);
+            }
+            Location::GPR(_) | Location::Memory(_, _) => {
+                match dst {
+                    Location::Imm32(_) | Location::Imm64(_) => unreachable!(),
+                    Location::Memory(_, _) => {
+                        let tmp_dst = self.acquire_temp_gpr().unwrap();
+                        op(
+                            &mut self.assembler,
+                            sz_src,
+                            src,
+                            sz_dst,
+                            Location::GPR(tmp_dst),
+                        );
+                        self.move_location(Size::S64, Location::GPR(tmp_dst), dst);
+
+                        self.release_gpr(tmp_dst);
+                    }
+                    Location::GPR(_) => {
+                        op(&mut self.assembler, sz_src, src, sz_dst, dst);
+                    }
+                    _ => {
+                        unreachable!();
+                    }
+                };
+            }
+            _ => {
+                unreachable!();
+            }
+        }
+    }
 }
 
 impl MachineSpecific<GPR, XMM> for MachineX86_64 {
@@ -739,6 +808,28 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location, dst: Location) {
         self.emit_relaxed_binop(Assembler::emit_xchg, sz, src, dst);
+    }
+    fn emit_relaxed_zero_extension(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) {
+        if (sz_src == Size::S32 || sz_src == Size::S64) && sz_dst == Size::S64 {
+            self.emit_relaxed_binop(Assembler::emit_mov, sz_src, src, dst);
+        } else {
+            self.emit_relaxed_zx_sx(Assembler::emit_movzx, sz_src, src, sz_dst, dst);
+        }
+    }
+    fn emit_relaxed_sign_extension(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) {
+        self.emit_relaxed_zx_sx(Assembler::emit_movsx, sz_src, src, sz_dst, dst);
     }
 }
 

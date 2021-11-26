@@ -430,70 +430,6 @@ impl<'a> FuncGen<'a> {
         }
     }
 
-    /// Moves `src` and `dst` to valid locations for `movzx`/`movsx`.
-    fn emit_relaxed_zx_sx(
-        &mut self,
-        op: fn(&mut Assembler, Size, Location, Size, Location),
-        sz_src: Size,
-        mut src: Location,
-        sz_dst: Size,
-        dst: Location,
-    ) -> Result<(), CodegenError> {
-        let inner = |m: &mut Machine, src: Location| match dst {
-            Location::Imm32(_) | Location::Imm64(_) => {
-                return Err(CodegenError {
-                    message: "emit_relaxed_zx_sx dst Imm: unreachable code".to_string(),
-                })
-            }
-            Location::Memory(_, _) => {
-                let tmp_dst = m.acquire_temp_gpr().unwrap();
-                op(
-                    &mut m.specific.assembler,
-                    sz_src,
-                    src,
-                    sz_dst,
-                    Location::GPR(tmp_dst),
-                );
-                m.specific
-                    .move_location(Size::S64, Location::GPR(tmp_dst), dst);
-
-                m.release_temp_gpr(tmp_dst);
-                Ok(())
-            }
-            Location::GPR(_) => {
-                op(&mut m.specific.assembler, sz_src, src, sz_dst, dst);
-                Ok(())
-            }
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_relaxed_zx_sx dst: unreachable code".to_string(),
-                })
-            }
-        };
-
-        match src {
-            Location::Imm32(_) | Location::Imm64(_) => {
-                let tmp_src = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, src, Location::GPR(tmp_src));
-                src = Location::GPR(tmp_src);
-
-                inner(&mut self.machine, src)?;
-
-                self.machine.release_temp_gpr(tmp_src);
-            }
-            Location::GPR(_) | Location::Memory(_, _) => inner(&mut self.machine, src)?,
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_relaxed_zx_sx src: unreachable code".to_string(),
-                })
-            }
-        }
-        Ok(())
-    }
-
     /// Moves `src` and `dst` to valid locations for generic instructions.
     fn emit_relaxed_binop(
         &mut self,
@@ -2921,7 +2857,9 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S32, loc, Size::S64, ret)?;
+                self.machine
+                    .specific
+                    .emit_relaxed_sign_extension(Size::S32, loc, Size::S64, ret);
             }
             Operator::I32Extend8S => {
                 let loc = self.pop_value_released();
@@ -2931,7 +2869,9 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S8, loc, Size::S32, ret)?;
+                self.machine
+                    .specific
+                    .emit_relaxed_sign_extension(Size::S8, loc, Size::S32, ret);
             }
             Operator::I32Extend16S => {
                 let loc = self.pop_value_released();
@@ -2941,7 +2881,9 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S16, loc, Size::S32, ret)?;
+                self.machine
+                    .specific
+                    .emit_relaxed_sign_extension(Size::S16, loc, Size::S32, ret);
             }
             Operator::I64Extend8S => {
                 let loc = self.pop_value_released();
@@ -2951,7 +2893,9 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S8, loc, Size::S64, ret)?;
+                self.machine
+                    .specific
+                    .emit_relaxed_sign_extension(Size::S8, loc, Size::S64, ret);
             }
             Operator::I64Extend16S => {
                 let loc = self.pop_value_released();
@@ -2961,7 +2905,9 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S16, loc, Size::S64, ret)?;
+                self.machine
+                    .specific
+                    .emit_relaxed_sign_extension(Size::S16, loc, Size::S64, ret);
             }
             Operator::I64Extend32S => {
                 let loc = self.pop_value_released();
@@ -2971,7 +2917,9 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_relaxed_zx_sx(Assembler::emit_movsx, Size::S32, loc, Size::S64, ret)?;
+                self.machine
+                    .specific
+                    .emit_relaxed_sign_extension(Size::S32, loc, Size::S64, ret);
             }
             Operator::I32WrapI64 => {
                 let loc = self.pop_value_released();
@@ -6784,13 +6732,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S8,
                         Location::Memory(addr, 0),
                         Size::S32,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -6803,13 +6750,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movsx,
+                    this.machine.specific.emit_relaxed_sign_extension(
                         Size::S8,
                         Location::Memory(addr, 0),
                         Size::S32,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -6822,13 +6768,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S16,
                         Location::Memory(addr, 0),
                         Size::S32,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -6841,13 +6786,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movsx,
+                    this.machine.specific.emit_relaxed_sign_extension(
                         Size::S16,
                         Location::Memory(addr, 0),
                         Size::S32,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -6962,13 +6906,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S8,
                         Location::Memory(addr, 0),
                         Size::S64,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -6981,13 +6924,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movsx,
+                    this.machine.specific.emit_relaxed_sign_extension(
                         Size::S8,
                         Location::Memory(addr, 0),
                         Size::S64,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7000,13 +6942,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S16,
                         Location::Memory(addr, 0),
                         Size::S64,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7019,13 +6960,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movsx,
+                    this.machine.specific.emit_relaxed_sign_extension(
                         Size::S16,
                         Location::Memory(addr, 0),
                         Size::S64,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7070,13 +7010,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, false, 4, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movsx,
+                    this.machine.specific.emit_relaxed_sign_extension(
                         Size::S32,
                         Location::Memory(addr, 0),
                         Size::S64,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7659,13 +7598,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S8,
                         Location::Memory(addr, 0),
                         Size::S32,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7678,13 +7616,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S16,
                         Location::Memory(addr, 0),
                         Size::S32,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7753,13 +7690,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S8,
                         Location::Memory(addr, 0),
                         Size::S64,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7772,13 +7708,12 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
 
                 self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.emit_relaxed_zx_sx(
-                        Assembler::emit_movzx,
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S16,
                         Location::Memory(addr, 0),
                         Size::S64,
                         ret,
-                    )?;
+                    );
                     Ok(())
                 })?;
             }
@@ -7794,7 +7729,7 @@ impl<'a> FuncGen<'a> {
                     match ret {
                         Location::GPR(_) => {}
                         Location::Memory(base, offset) => {
-                            this.machine.specific.assembler.emit_mov(
+                            this.machine.specific.move_location(
                                 Size::S32,
                                 Location::Imm32(0),
                                 Location::Memory(base, offset + 4),
@@ -7806,9 +7741,10 @@ impl<'a> FuncGen<'a> {
                             })
                         }
                     }
-                    this.machine.specific.emit_relaxed_mov(
+                    this.machine.specific.emit_relaxed_zero_extension(
                         Size::S32,
                         Location::Memory(addr, 0),
+                        Size::S64,
                         ret,
                     );
                     Ok(())

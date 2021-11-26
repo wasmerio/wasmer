@@ -279,6 +279,22 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn emit_relaxed_cmp(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
     /// relaxed atomic xchg: atomic exchange of anywhere and anywhere
     fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
+    /// relaxed move with zero extension
+    fn emit_relaxed_zero_extension(
+        &mut self,
+        sz_src: Size,
+        src: Location<R, S>,
+        sz_dst: Size,
+        dst: Location<R, S>,
+    );
+    /// relaxed move with sign extension
+    fn emit_relaxed_sign_extension(
+        &mut self,
+        sz_src: Size,
+        src: Location<R, S>,
+        sz_dst: Size,
+        dst: Location<R, S>,
+    );
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
