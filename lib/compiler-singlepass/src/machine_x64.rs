@@ -647,6 +647,10 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.emit_cmp(size, source, dest);
     }
     // (un)conditionnal jmp
+    // (un)conditionnal jmp
+    fn jmp_unconditionnal(&mut self, label: Label) {
+        self.assembler.emit_jmp(Condition::None, label);
+    }
     fn jmp_on_equal(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::Equal, label);
     }
@@ -661,6 +665,25 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn jmp_on_overflow(&mut self, label: Label) {
         self.assembler.emit_jmp(Condition::Carry, label);
+    }
+
+    // jmp table
+    fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) {
+        let tmp1 = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp1);
+        let tmp2 = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp2);
+
+        self.assembler.emit_lea_label(label, Location::GPR(tmp1));
+        self.move_location(Size::S32, cond, Location::GPR(tmp2));
+
+        let instr_size = self.assembler.get_jmp_instr_size();
+        self.assembler.emit_imul_imm32_gpr64(instr_size as _, tmp2);
+        self.assembler
+            .emit_add(Size::S64, Location::GPR(tmp1), Location::GPR(tmp2));
+        self.assembler.emit_jmp_location(Location::GPR(tmp2));
+        self.release_gpr(tmp2);
+        self.release_gpr(tmp1);
     }
 
     fn emit_ret(&mut self) {

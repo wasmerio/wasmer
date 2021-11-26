@@ -244,6 +244,8 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// Test src & dst and set flags
     fn location_test(&mut self, size: Size, source: Location<R, S>, dest: Location<R, S>);
 
+    /// jmp without condidtion
+    fn jmp_unconditionnal(&mut self, label: Label);
     /// jmp on equal (src==dst)
     /// like Equal set on x86_64
     fn jmp_on_equal(&mut self, label: Label);
@@ -259,6 +261,9 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// jmp on overflow
     /// like Carry set on x86_64
     fn jmp_on_overflow(&mut self, label: Label);
+
+    /// jmp using a jump table at lable with cond as the indice
+    fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location<R, S>);
 
     /// ret (from a Call)
     fn emit_ret(&mut self);

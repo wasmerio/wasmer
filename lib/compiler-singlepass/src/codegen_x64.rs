@@ -6974,43 +6974,24 @@ impl<'a> FuncGen<'a> {
                     }
                     let first_return = frame.returns[0];
                     let loc = *self.value_stack.last().unwrap();
-                    if first_return.is_float() {
+                    let canonicalize = if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self.machine.arch_supports_canonicalize_nan()
+                        self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
-                        {
-                            self.machine.canonicalize_nan(
-                                match first_return {
-                                    WpType::F32 => Size::S32,
-                                    WpType::F64 => Size::S64,
-                                    _ => unreachable!(),
-                                },
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        } else {
-                            self.machine.specific.emit_relaxed_mov(
-                                Size::S64,
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        }
                     } else {
-                        self.machine.specific.emit_relaxed_mov(
-                            Size::S64,
-                            loc,
-                            Location::GPR(GPR::RAX),
-                        );
-                    }
+                        false
+                    };
+                    self.machine.specific.emit_function_return_value(
+                        first_return,
+                        canonicalize,
+                        loc,
+                    );
                 }
                 let frame = &self.control_stack[0];
                 let released = &self.value_stack[frame.value_stack_depth..];
                 self.machine.release_locations_keep_state(released);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp(Condition::None, frame.label);
+                self.machine.specific.jmp_unconditionnal(frame.label);
                 self.unreachable_depth = 1;
             }
             Operator::Br { relative_depth } => {
@@ -7024,46 +7005,26 @@ impl<'a> FuncGen<'a> {
                     }
                     let first_return = frame.returns[0];
                     let loc = *self.value_stack.last().unwrap();
-
-                    if first_return.is_float() {
+                    let canonicalize = if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self.machine.arch_supports_canonicalize_nan()
+                        self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
-                        {
-                            self.machine.canonicalize_nan(
-                                match first_return {
-                                    WpType::F32 => Size::S32,
-                                    WpType::F64 => Size::S64,
-                                    _ => unreachable!(),
-                                },
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        } else {
-                            self.machine.specific.emit_relaxed_mov(
-                                Size::S64,
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        }
                     } else {
-                        self.machine.specific.move_location(
-                            Size::S64,
-                            loc,
-                            Location::GPR(GPR::RAX),
-                        );
-                    }
+                        false
+                    };
+                    self.machine.specific.emit_function_return_value(
+                        first_return,
+                        canonicalize,
+                        loc,
+                    );
                 }
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
 
                 let released = &self.value_stack[frame.value_stack_depth..];
                 self.machine.release_locations_keep_state(released);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp(Condition::None, frame.label);
+                self.machine.specific.jmp_unconditionnal(frame.label);
                 self.unreachable_depth = 1;
             }
             Operator::BrIf { relative_depth } => {
@@ -7085,44 +7046,25 @@ impl<'a> FuncGen<'a> {
 
                     let first_return = frame.returns[0];
                     let loc = *self.value_stack.last().unwrap();
-                    if first_return.is_float() {
+                    let canonicalize = if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self.machine.arch_supports_canonicalize_nan()
+                        self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
-                        {
-                            self.machine.canonicalize_nan(
-                                match first_return {
-                                    WpType::F32 => Size::S32,
-                                    WpType::F64 => Size::S64,
-                                    _ => unreachable!(),
-                                },
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        } else {
-                            self.machine.specific.emit_relaxed_mov(
-                                Size::S64,
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        }
                     } else {
-                        self.machine.specific.move_location(
-                            Size::S64,
-                            loc,
-                            Location::GPR(GPR::RAX),
-                        );
-                    }
+                        false
+                    };
+                    self.machine.specific.emit_function_return_value(
+                        first_return,
+                        canonicalize,
+                        loc,
+                    );
                 }
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 let released = &self.value_stack[frame.value_stack_depth..];
                 self.machine.release_locations_keep_state(released);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp(Condition::None, frame.label);
+                self.machine.specific.jmp_unconditionnal(frame.label);
 
                 self.machine.specific.emit_label(after);
             }
@@ -7135,9 +7077,9 @@ impl<'a> FuncGen<'a> {
                     })?;
                 let default_target = targets.pop().unwrap().0;
                 let cond = self.pop_value_released();
-                let table_label = self.machine.specific.assembler.get_label();
+                let table_label = self.machine.specific.get_label();
                 let mut table: Vec<DynamicLabel> = vec![];
-                let default_br = self.machine.specific.assembler.get_label();
+                let default_br = self.machine.specific.get_label();
                 self.machine.specific.emit_relaxed_cmp(
                     Size::S32,
                     Location::Imm32(targets.len() as u32),
@@ -7147,29 +7089,10 @@ impl<'a> FuncGen<'a> {
 
                 self.machine
                     .specific
-                    .assembler
-                    .emit_lea_label(table_label, Location::GPR(GPR::RCX));
-                self.machine
-                    .specific
-                    .move_location(Size::S32, cond, Location::GPR(GPR::RDX));
-
-                let instr_size = self.machine.specific.assembler.get_jmp_instr_size();
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_imul_imm32_gpr64(instr_size as _, GPR::RDX);
-                self.machine.specific.assembler.emit_add(
-                    Size::S64,
-                    Location::GPR(GPR::RCX),
-                    Location::GPR(GPR::RDX),
-                );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp_location(Location::GPR(GPR::RDX));
+                    .emit_jmp_to_jumptable(table_label, cond);
 
                 for (target, _) in targets.iter() {
-                    let label = self.machine.specific.assembler.get_label();
+                    let label = self.machine.specific.get_label();
                     self.machine.specific.emit_label(label);
                     table.push(label);
                     let frame =
@@ -7186,44 +7109,25 @@ impl<'a> FuncGen<'a> {
 
                         let first_return = frame.returns[0];
                         let loc = *self.value_stack.last().unwrap();
-                        if first_return.is_float() {
+                        let canonicalize = if first_return.is_float() {
                             let fp = self.fp_stack.peek1()?;
-                            if self.machine.arch_supports_canonicalize_nan()
+                            self.machine.arch_supports_canonicalize_nan()
                                 && self.config.enable_nan_canonicalization
                                 && fp.canonicalization.is_some()
-                            {
-                                self.machine.canonicalize_nan(
-                                    match first_return {
-                                        WpType::F32 => Size::S32,
-                                        WpType::F64 => Size::S64,
-                                        _ => unreachable!(),
-                                    },
-                                    loc,
-                                    Location::GPR(GPR::RAX),
-                                );
-                            } else {
-                                self.machine.specific.emit_relaxed_mov(
-                                    Size::S64,
-                                    loc,
-                                    Location::GPR(GPR::RAX),
-                                );
-                            }
                         } else {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        }
+                            false
+                        };
+                        self.machine.specific.emit_function_return_value(
+                            first_return,
+                            canonicalize,
+                            loc,
+                        );
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     let released = &self.value_stack[frame.value_stack_depth..];
                     self.machine.release_locations_keep_state(released);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, frame.label);
+                    self.machine.specific.jmp_unconditionnal(frame.label);
                 }
                 self.machine.specific.emit_label(default_br);
 
@@ -7239,49 +7143,30 @@ impl<'a> FuncGen<'a> {
 
                         let first_return = frame.returns[0];
                         let loc = *self.value_stack.last().unwrap();
-                        if first_return.is_float() {
+                        let canonicalize = if first_return.is_float() {
                             let fp = self.fp_stack.peek1()?;
-                            if self.machine.arch_supports_canonicalize_nan()
+                            self.machine.arch_supports_canonicalize_nan()
                                 && self.config.enable_nan_canonicalization
                                 && fp.canonicalization.is_some()
-                            {
-                                self.machine.canonicalize_nan(
-                                    match first_return {
-                                        WpType::F32 => Size::S32,
-                                        WpType::F64 => Size::S64,
-                                        _ => unreachable!(),
-                                    },
-                                    loc,
-                                    Location::GPR(GPR::RAX),
-                                );
-                            } else {
-                                self.machine.specific.emit_relaxed_mov(
-                                    Size::S64,
-                                    loc,
-                                    Location::GPR(GPR::RAX),
-                                );
-                            }
                         } else {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        }
+                            false
+                        };
+                        self.machine.specific.emit_function_return_value(
+                            first_return,
+                            canonicalize,
+                            loc,
+                        );
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
                     let released = &self.value_stack[frame.value_stack_depth..];
                     self.machine.release_locations_keep_state(released);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, frame.label);
+                    self.machine.specific.jmp_unconditionnal(frame.label);
                 }
 
                 self.machine.specific.emit_label(table_label);
                 for x in table {
-                    self.machine.specific.assembler.emit_jmp(Condition::None, x);
+                    self.machine.specific.jmp_unconditionnal(x);
                 }
                 self.unreachable_depth = 1;
             }
