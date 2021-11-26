@@ -3,7 +3,9 @@
 use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::WasiEnv;
+use crate::WasiThread;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use thiserror::Error;
 use wasmer_vfs::{FsError, VirtualFile};
 
@@ -45,6 +47,7 @@ pub struct WasiStateBuilder {
     stderr_override: Option<Box<dyn VirtualFile>>,
     stdin_override: Option<Box<dyn VirtualFile>>,
     fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
+    on_tick: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
 }
 
 impl std::fmt::Debug for WasiStateBuilder {
@@ -54,6 +57,7 @@ impl std::fmt::Debug for WasiStateBuilder {
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
+            .field("on_tick_fn exists", &self.on_tick.is_some())
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
             .field("stdout_override exists", &self.stdout_override.is_some())
             .field("stderr_override exists", &self.stderr_override.is_some())
@@ -308,6 +312,19 @@ impl WasiStateBuilder {
         self
     }
 
+    /// Sets a callback that will be invoked whenever a syscall is made.
+    /// 
+    /// This is useful if you need to make other system callbacks while
+    /// remaining thread safe (for single threaded versions of WASM modules)
+    pub fn on_tick<F>(&mut self, callback: F) -> &mut Self
+    where F: Fn(&WasiThread),
+          F: Send + Sync + 'static
+    {
+        self.on_tick = Some(Arc::new(callback));
+
+        self
+    }
+
     /// Configure the WASI filesystem before running.
     // TODO: improve ergonomics on this function
     pub fn setup_fs(
@@ -463,8 +480,10 @@ impl WasiStateBuilder {
     /// [Self::build]'s documentation to learn more.
     pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
         let state = self.build()?;
-
-        Ok(WasiEnv::new(state))
+    
+        let mut env = WasiEnv::new(state);
+        env.on_tick = self.on_tick.clone();
+        Ok(env)
     }
 }
 

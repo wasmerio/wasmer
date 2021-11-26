@@ -96,10 +96,16 @@ where
     /// This method is unsafe because the caller will need to make sure
     /// there are no data races when copying memory into the view.
     pub unsafe fn copy_from(&self, src: &[T]) {
-        // We cap at a max length
-        let sliced_src = &src[..self.length];
-        for (i, byte) in sliced_src.iter().enumerate() {
-            *self.ptr.offset(i as isize) = *byte;
+        let len = self.length.min(src.len());
+        if len > 16 &&
+            is_aligned_and_not_null(src.as_ptr()) == true &&
+            is_aligned_and_not_null(self.ptr) == true {
+            std::ptr::copy_nonoverlapping(src.as_ptr(), self.ptr, len);
+        } else {
+            let sliced_src = &src[..self.length];
+            for (i, byte) in sliced_src.iter().enumerate() {
+                *self.ptr.offset(i as isize) = *byte;
+            }
         }
     }
 
@@ -113,12 +119,32 @@ where
     /// This method is unsafe because the caller will need to make sure
     /// there are no data races when copying memory from the view.
     pub unsafe fn copy_to(&self, dst: &mut [T]) {
-        // We cap at a max length
-        let sliced_dst = &mut dst[..self.length];
-        for (i, byte) in sliced_dst.iter_mut().enumerate() {
-            *byte = *self.ptr.offset(i as isize);
+        let len = self.length.min(dst.len());
+        if len > 16 &&
+            is_aligned_and_not_null(dst.as_ptr()) == true &&
+            is_aligned_and_not_null(self.ptr) == true {
+            std::ptr::copy_nonoverlapping(self.ptr, dst.as_mut_ptr(),  len);
+        } else {
+            let sliced_dst = &mut dst[..self.length];
+            for (i, byte) in sliced_dst.iter_mut().enumerate() {
+                *byte = *self.ptr.offset(i as isize);
+            }
         }
     }
+
+    /// Efficiently copies the contents of this typed array into a new Vec.
+    pub fn to_vec(&self) -> Vec<T> {
+        let mut dst = Vec::with_capacity(self.length);
+        unsafe {
+            dst.set_len(self.length);
+            self.copy_to(dst.as_mut());
+        }
+        dst
+    }
+}
+
+pub(crate) fn is_aligned_and_not_null<T>(ptr: *const T) -> bool {
+    !ptr.is_null() && ptr as usize % std::mem::align_of::<T>() == 0
 }
 
 impl<'a, T: Atomic> MemoryView<'a, T> {

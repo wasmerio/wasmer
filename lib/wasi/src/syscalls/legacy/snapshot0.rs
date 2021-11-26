@@ -2,6 +2,7 @@ use crate::ptr::{Array, WasmPtr};
 use crate::syscalls;
 use crate::syscalls::types::{self, snapshot0};
 use crate::WasiEnv;
+use crate::WasiThread;
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
@@ -10,11 +11,11 @@ use crate::WasiEnv;
 /// Wasm memory.  If the memory clobbered by the current syscall is also used by
 /// that syscall, then it may break.
 pub fn fd_filestat_get(
-    env: &WasiEnv,
+    thread: &WasiThread,
     fd: types::__wasi_fd_t,
     buf: WasmPtr<snapshot0::__wasi_filestat_t>,
 ) -> types::__wasi_errno_t {
-    let memory = env.memory();
+    let memory = thread.memory();
 
     // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
     // The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire
@@ -28,10 +29,10 @@ pub fn fd_filestat_get(
 
     // Set up complete, make the call with the pointer that will write to the
     // struct and some unrelated memory after the struct.
-    let result = syscalls::fd_filestat_get(env, fd, new_buf);
+    let result = syscalls::fd_filestat_get(thread, fd, new_buf);
 
     // reborrow memory
-    let memory = env.memory();
+    let memory = thread.memory();
 
     // get the values written to memory
     let new_filestat = wasi_try!(new_buf.deref(memory)).get();
@@ -61,7 +62,7 @@ pub fn fd_filestat_get(
 /// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
 pub fn path_filestat_get(
-    env: &WasiEnv,
+    thread: &WasiThread,
     fd: types::__wasi_fd_t,
     flags: types::__wasi_lookupflags_t,
     path: WasmPtr<u8, Array>,
@@ -69,16 +70,16 @@ pub fn path_filestat_get(
     buf: WasmPtr<snapshot0::__wasi_filestat_t>,
 ) -> types::__wasi_errno_t {
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
-    let memory = env.memory();
+    let memory = thread.memory();
 
     let new_buf: WasmPtr<types::__wasi_filestat_t> = unsafe { std::mem::transmute(buf) };
     #[allow(clippy::clone_on_copy)]
     let new_filestat_setup: types::__wasi_filestat_t =
         wasi_try!(new_buf.deref(memory)).get().clone();
 
-    let result = syscalls::path_filestat_get(env, fd, flags, path, path_len, new_buf);
+    let result = syscalls::path_filestat_get(thread, fd, flags, path, path_len, new_buf);
 
-    let memory = env.memory();
+    let memory = thread.memory();
     let new_filestat = wasi_try!(new_buf.deref(memory)).get();
     let old_stat = snapshot0::__wasi_filestat_t {
         st_dev: new_filestat.st_dev,
@@ -100,7 +101,7 @@ pub fn path_filestat_get(
 /// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
 /// of `__wasi_whence_t`
 pub fn fd_seek(
-    env: &WasiEnv,
+    env: &WasiThread,
     fd: types::__wasi_fd_t,
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
@@ -119,7 +120,7 @@ pub fn fd_seek(
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
 pub fn poll_oneoff(
-    env: &WasiEnv,
+    thread: &WasiThread,
     in_: WasmPtr<snapshot0::__wasi_subscription_t, Array>,
     out_: WasmPtr<types::__wasi_event_t, Array>,
     nsubscriptions: u32,
@@ -129,7 +130,7 @@ pub fn poll_oneoff(
     // we just need to readjust and copy it
 
     // we start by adjusting `in_` into a format that the new code can understand
-    let memory = env.memory();
+    let memory = thread.memory();
     let mut in_origs: Vec<snapshot0::__wasi_subscription_t> = vec![];
     for in_sub in wasi_try!(in_.deref(memory, 0, nsubscriptions)) {
         in_origs.push(in_sub.get());
@@ -164,10 +165,10 @@ pub fn poll_oneoff(
     }
 
     // make the call
-    let result = syscalls::poll_oneoff(env, in_new_type_ptr, out_, nsubscriptions, nevents);
+    let result = syscalls::poll_oneoff(thread, in_new_type_ptr, out_, nsubscriptions, nevents);
 
     // replace the old values of in, in case the calling code reuses the memory
-    let memory = env.memory();
+    let memory = thread.memory();
 
     for (in_sub, orig) in wasi_try!(in_.deref(memory, 0, nsubscriptions))
         .iter()
