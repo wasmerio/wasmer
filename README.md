@@ -132,11 +132,11 @@ languages**, so you can use WebAssembly _anywhere_.
 | ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Learn][elixir docs] |
 | ![R logo] | [**R**][R integration] | *no published package* | [Learn][r docs] |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Learn][postgres docs] |
-|  | [**Swift**][Swift integration] | *no published package* | |
+| ![Swift logo] | [**Swift**][Swift integration] | *no published package* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 | ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
-|  | [**Crystal**][Crystal integration] | *no published package* | [Learn][crystal docs] |
-|  | [**Lisp**][Lisp integration] | *under heavy development - no published package* | |
+| ![Crystal logo] | [**Crystal**][Crystal integration] | *no published package* | [Learn][crystal docs] |
+| ![Lisp logo] | [**Lisp**][Lisp integration] | *under heavy development - no published package* | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -203,6 +203,7 @@ languages**, so you can use WebAssembly _anywhere_.
 [postgres integration]: https://github.com/wasmerio/wasmer-postgres
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
 
+[swift logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/swift.svg
 [swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
 
 [zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
@@ -212,8 +213,10 @@ languages**, so you can use WebAssembly _anywhere_.
 [dart integration]: https://github.com/dart-lang/wasm
 [`wasm` pub package]: https://pub.dev/packages/wasm
 
+[lisp logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/lisp.svg
 [lisp integration]: https://github.com/helmutkian/cl-wasm-runtime
 
+[crystal logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/crystal.svg
 [crystal integration]: https://github.com/naqvis/wasmer-crystal
 [crystal docs]: https://naqvis.github.io/wasmer-crystal/
 
