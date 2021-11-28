@@ -135,7 +135,7 @@ languages**, so you can use WebAssembly _anywhere_.
 |  | [**Swift**][Swift integration] | *no published package* | |
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 | ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
-|  | [**Crystal**][Crystal integration] | *no published package* | |
+|  | [**Crystal**][Crystal integration] | *no published package* | [Learn][crystal docs] |
 |  | [**Lisp**][Lisp integration] | *under heavy development - no published package* | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
@@ -215,6 +215,7 @@ languages**, so you can use WebAssembly _anywhere_.
 [lisp integration]: https://github.com/helmutkian/cl-wasm-runtime
 
 [crystal integration]: https://github.com/naqvis/wasmer-crystal
+[crystal docs]: https://naqvis.github.io/wasmer-crystal/
 
 ## Contribute
 
