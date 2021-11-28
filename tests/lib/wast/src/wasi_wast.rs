@@ -242,8 +242,9 @@ impl<'a> WasiTest<'a> {
         module: &Module,
         env: WasiEnv,
     ) -> anyhow::Result<ImportObject> {
+        let thread = env.new_thread();
         let version = self.get_version(module)?;
-        Ok(generate_import_object_from_env(store, env, version))
+        Ok(generate_import_object_from_env(store, thread, version))
     }
 }
 
