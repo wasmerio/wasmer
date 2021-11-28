@@ -47,7 +47,7 @@ pub struct WasiStateBuilder {
     stderr_override: Option<Box<dyn VirtualFile>>,
     stdin_override: Option<Box<dyn VirtualFile>>,
     fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
-    on_tick: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
+    on_yield: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
 }
 
 impl std::fmt::Debug for WasiStateBuilder {
@@ -57,7 +57,7 @@ impl std::fmt::Debug for WasiStateBuilder {
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
-            .field("on_tick_fn exists", &self.on_tick.is_some())
+            .field("on_yield exists", &self.on_yield.is_some())
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
             .field("stdout_override exists", &self.stdout_override.is_some())
             .field("stderr_override exists", &self.stderr_override.is_some())
@@ -312,15 +312,15 @@ impl WasiStateBuilder {
         self
     }
 
-    /// Sets a callback that will be invoked whenever a syscall is made.
+    /// Sets a callback that will be invoked whenever the process yields execution.
     /// 
-    /// This is useful if you need to make other system callbacks while
-    /// remaining thread safe (for single threaded versions of WASM modules)
-    pub fn on_tick<F>(&mut self, callback: F) -> &mut Self
+    /// This is useful if the background tasks and/or callbacks are to be
+    /// executed whenever the WASM process goes idle
+    pub fn on_yield<F>(&mut self, callback: F) -> &mut Self
     where F: Fn(&WasiThread),
           F: Send + Sync + 'static
     {
-        self.on_tick = Some(Arc::new(callback));
+        self.on_yield = Some(Arc::new(callback));
 
         self
     }
@@ -482,7 +482,7 @@ impl WasiStateBuilder {
         let state = self.build()?;
     
         let mut env = WasiEnv::new(state);
-        env.on_tick = self.on_tick.clone();
+        env.on_yield = self.on_yield.clone();
         Ok(env)
     }
 }

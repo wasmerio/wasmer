@@ -108,6 +108,32 @@ impl WasiThread
         self.id
     }
 
+    // Yields execution
+    pub fn yield_now(&self) {
+        if let Some(callback) = self.on_yield.as_ref() {
+            callback(self);
+        }
+        std::thread::yield_now();
+    }
+
+    // Sleeps for a period of time
+    pub fn sleep(&self, duration: std::time::Duration) {
+        let start = std::time::Instant::now();
+        loop {
+            self.yield_now();
+            let delta = std::time::Instant::now() - start;
+            if delta > duration { break; }
+            let remaining = duration - delta;
+            std::thread::sleep(remaining.min(std::time::Duration::from_millis(10)));
+            if std::time::Instant::now() - start >= duration { break; }
+        }
+    }
+
+    // Terminates this thread
+    pub fn terminate(&self, code: u32) {
+        proc_exit(self, code);
+    }
+
     /// Get an `ImportObject` for a specific version of WASI detected in the module.
     pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
@@ -165,10 +191,6 @@ impl WasiThread
 pub struct WasiEnv {
     /// Represents a reference to the memory
     memory: LazyInit<Memory>,
-    /// Watched variable used to forcefully terminate a WASI program
-    /// externally from the running thread (via ::terminate(code);)
-    /// (this can not be in the state object for performance reasons)
-    terminate: Arc<AtomicU32>,
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
     ///
@@ -180,11 +202,10 @@ pub struct WasiEnv {
     /// which is used to make callbacks to the process without breaking
     /// the single threaded WASM modules
     #[derivative(Debug="ignore")]
-    pub(crate) on_tick: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
-    /// Optional callback thats invoked whenever a syscall is made
-    /// which is used to make callbacks to the process without breaking
-    /// the single threaded WASM modules
-    #[derivative(Debug="ignore")]
+    pub(crate) on_yield: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
+    /// The thread ID seed is used to generate unique thread identifiers
+    /// for each WasiThread. These are needed for multithreading code that needs
+    /// this information in the syscalls
     pub(crate) thread_id_seed: Arc<AtomicU32>,
 }
 
@@ -192,15 +213,10 @@ impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
             memory: LazyInit::new(),
-            terminate: Arc::new(AtomicU32::new(TERMINATE_NOOP)),
             state: Arc::new(Mutex::new(state)),
-            on_tick: None,
+            on_yield: None,
             thread_id_seed: Arc::new(AtomicU32::new(1u32))
         }
-    }
-
-    pub fn terminate(&self, code: u32) {
-        self.terminate.store(code, Ordering::Relaxed);
     }
 
     /// Creates a new thread only this wasi environment
