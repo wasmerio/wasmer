@@ -17,16 +17,17 @@ use indexmap::IndexMap;
 use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{
-    de::SharedDeserializer, ser::Serializer, ser::SharedSerializer, Archive, Archived,
-    Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
+    de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
+    ser::SharedSerializeRegistry, Archive, Archived, Deserialize as RkyvDeserialize, Fallible,
+    Serialize as RkyvSerialize,
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-rkyv")]
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
-#[cfg(feature = "enable-rkyv")]
-use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 
@@ -142,10 +143,10 @@ pub struct ArchivableModuleInfo {
     exports: ArchivableIndexMap<String, ExportIndex>,
     start_function: Option<FunctionIndex>,
     table_initializers: Vec<TableInitializer>,
-    passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
-    passive_data: HashMap<DataIndex, Arc<[u8]>>,
+    passive_elements: BTreeMap<ElemIndex, Box<[FunctionIndex]>>,
+    passive_data: BTreeMap<DataIndex, Arc<[u8]>>,
     global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
-    function_names: HashMap<FunctionIndex, String>,
+    function_names: BTreeMap<FunctionIndex, String>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
     functions: PrimaryMap<FunctionIndex, SignatureIndex>,
     tables: PrimaryMap<TableIndex, TableType>,
@@ -168,10 +169,10 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             exports: ArchivableIndexMap::from(it.exports),
             start_function: it.start_function,
             table_initializers: it.table_initializers,
-            passive_elements: it.passive_elements,
-            passive_data: it.passive_data,
+            passive_elements: it.passive_elements.into_iter().collect(),
+            passive_data: it.passive_data.into_iter().collect(),
             global_initializers: it.global_initializers,
-            function_names: it.function_names,
+            function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
             functions: it.functions,
             tables: it.tables,
@@ -197,10 +198,10 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             exports: it.exports.into(),
             start_function: it.start_function,
             table_initializers: it.table_initializers,
-            passive_elements: it.passive_elements,
-            passive_data: it.passive_data,
+            passive_elements: it.passive_elements.into_iter().collect(),
+            passive_data: it.passive_data.into_iter().collect(),
             global_initializers: it.global_initializers,
-            function_names: it.function_names,
+            function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
             functions: it.functions,
             tables: it.tables,
@@ -228,20 +229,22 @@ impl Archive for ModuleInfo {
     type Archived = <ArchivableModuleInfo as Archive>::Archived;
     type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
 
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivableModuleInfo::from(self).resolve(pos, resolver, out)
     }
 }
 
 #[cfg(feature = "enable-rkyv")]
-impl<S: Serializer + SharedSerializer + ?Sized> RkyvSerialize<S> for ModuleInfo {
+impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerialize<S>
+    for ModuleInfo
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivableModuleInfo::from(self).serialize(serializer)
     }
 }
 
 #[cfg(feature = "enable-rkyv")]
-impl<D: Fallible + ?Sized + SharedDeserializer> RkyvDeserialize<ModuleInfo, D>
+impl<D: Fallible + ?Sized + SharedDeserializeRegistry> RkyvDeserialize<ModuleInfo, D>
     for Archived<ModuleInfo>
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {

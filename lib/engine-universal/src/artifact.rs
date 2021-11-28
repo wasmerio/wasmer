@@ -6,9 +6,10 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
+use enumset::EnumSet;
 use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
-use wasmer_compiler::{CompileError, Features, Triple};
+use wasmer_compiler::{CompileError, CpuFeature, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment, ModuleMiddlewareChain};
 use wasmer_engine::{
@@ -128,6 +129,7 @@ impl UniversalArtifact {
             compilation: serializable_compilation,
             compile_info,
             data_initializers,
+            cpu_features: engine.target().cpu_features().as_u64(),
         };
         Self::from_parts(&mut inner_engine, serializable)
     }
@@ -305,6 +307,10 @@ impl Artifact for UniversalArtifact {
 
     fn features(&self) -> &Features {
         &self.serializable.compile_info.features
+    }
+
+    fn cpu_features(&self) -> EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.serializable.cpu_features)
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {

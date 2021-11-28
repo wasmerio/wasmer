@@ -58,6 +58,11 @@ pub enum InstantiationError {
     #[error(transparent)]
     Start(RuntimeError),
 
+    /// The module was compiled with a CPU feature that is not available on
+    /// the current host.
+    #[error("missing requires CPU features: {0:?}")]
+    CpuFeature(String),
+
     /// Error occurred when initializing the host environment.
     #[error(transparent)]
     HostEnvInitialization(HostEnvInitError),
@@ -68,6 +73,7 @@ impl From<wasmer_engine::InstantiationError> for InstantiationError {
         match other {
             wasmer_engine::InstantiationError::Link(e) => Self::Link(e),
             wasmer_engine::InstantiationError::Start(e) => Self::Start(e),
+            wasmer_engine::InstantiationError::CpuFeature(e) => Self::CpuFeature(e),
         }
     }
 }

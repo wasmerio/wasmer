@@ -118,6 +118,7 @@ pub enum Export {
 }
 
 impl Export {
+    /// Return the export as a `JSValue`.
     pub fn as_jsvalue(&self) -> &JsValue {
         match self {
             Export::Memory(js_wasm_memory) => js_wasm_memory.memory.as_ref(),

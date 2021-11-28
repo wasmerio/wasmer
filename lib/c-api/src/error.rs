@@ -49,13 +49,12 @@
 
 use libc::{c_char, c_int};
 use std::cell::RefCell;
-use std::error::Error;
-use std::fmt::{self, Display, Formatter};
+use std::fmt::Display;
 use std::ptr::{self, NonNull};
 use std::slice;
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
+    static LAST_ERROR: RefCell<Option<String>> = RefCell::new(None);
 }
 
 /// Rust function to register a new error.
@@ -63,24 +62,23 @@ thread_local! {
 /// # Example
 ///
 /// ```rust,no_run
-/// # use wasmer::error::{update_last_error, CApiError};
+/// # use wasmer::error::update_last_error;
 ///
-/// update_last_error(CApiError {
-///     msg: "Hello, World!".to_string(),
-/// });
+/// update_last_error("Hello, World!");
 /// ```
-pub fn update_last_error<E: Error + 'static>(err: E) {
+pub fn update_last_error<E: Display>(err: E) {
     LAST_ERROR.with(|prev| {
-        *prev.borrow_mut() = Some(Box::new(err));
+        *prev.borrow_mut() = Some(err.to_string());
     });
 }
 
 /// Retrieve the most recent error, clearing it in the process.
-pub(crate) fn take_last_error() -> Option<Box<dyn Error>> {
+pub(crate) fn take_last_error() -> Option<String> {
     LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 
-/// Gets the length in bytes of the last error if any, zero otherwise.
+/// Gets the length in bytes of the last error if any, zero otherwise. This
+/// includes th NUL terminator byte.
 ///
 /// This can be used to dynamically allocate a buffer with the correct number of
 /// bytes needed to store a message.
@@ -88,10 +86,11 @@ pub(crate) fn take_last_error() -> Option<Box<dyn Error>> {
 /// # Example
 ///
 /// See this module's documentation to get a complete example.
+// TODO(Amanieu): This should use size_t
 #[no_mangle]
 pub extern "C" fn wasmer_last_error_length() -> c_int {
     LAST_ERROR.with(|prev| match *prev.borrow() {
-        Some(ref err) => err.to_string().len() as c_int + 1,
+        Some(ref err) => err.len() as c_int + 1,
         None => 0,
     })
 }
@@ -118,6 +117,7 @@ pub extern "C" fn wasmer_last_error_length() -> c_int {
 /// # Example
 ///
 /// See this module's documentation to get a complete example.
+// TODO(Amanieu): This should use size_t
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_last_error_message(
     buffer: Option<NonNull<c_char>>,
@@ -156,18 +156,3 @@ pub unsafe extern "C" fn wasmer_last_error_message(
 
     error_message.len() as c_int + 1
 }
-
-/// Rust type to represent a C API error.
-#[derive(Debug)]
-pub struct CApiError {
-    /// The error message.
-    pub msg: String,
-}
-
-impl Display for CApiError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", &self.msg)
-    }
-}
-
-impl Error for CApiError {}

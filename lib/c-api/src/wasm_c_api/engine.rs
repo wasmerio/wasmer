@@ -9,7 +9,7 @@ pub use super::unstable::middlewares::wasm_config_push_middleware;
 #[cfg(feature = "middlewares")]
 use super::unstable::middlewares::wasmer_middleware_t;
 use super::unstable::target_lexicon::wasmer_target_t;
-use crate::error::{update_last_error, CApiError};
+use crate::error::update_last_error;
 use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer_api::Engine;
@@ -433,13 +433,8 @@ pub extern "C" fn wasm_engine_new_with_config(
     config: Option<Box<wasm_config_t>>,
 ) -> Option<Box<wasm_engine_t>> {
     #[allow(dead_code)]
-    fn return_with_error<M>(msg: M) -> Option<Box<wasm_engine_t>>
-    where
-        M: ToString,
-    {
-        update_last_error(CApiError {
-            msg: msg.to_string(),
-        });
+    fn return_with_error(msg: &str) -> Option<Box<wasm_engine_t>> {
+        update_last_error(msg);
 
         return None;
     }

@@ -73,6 +73,12 @@ pub unsafe extern "C" fn wasm_instance_new(
             return None;
         }
 
+        Err(e @ InstantiationError::CpuFeature(_)) => {
+            crate::error::update_last_error(e);
+
+            return None;
+        }
+
         Err(InstantiationError::HostEnvInitialization(error)) => {
             crate::error::update_last_error(error);
 

@@ -211,6 +211,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c59e7af012c713f529e7a3ee57ce9b31ddd858d4b512923602f74608b009631"
 
 [[package]]
+name = "bytecheck"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb738a1e65989ecdcd5bba16079641bd7209688fa546e1064832fd6e012fd32a"
+dependencies = [
+ "bytecheck_derive",
+ "ptr_meta",
+]
+
+[[package]]
+name = "bytecheck_derive"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3b4dff26fdc9f847dab475c9fec16f2cba82d5aa1f09981b87c44520721e10a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "byteorder"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1809,22 +1830,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "rkyv"
-version = "0.6.7"
+name = "rend"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb135b3e5e3311f0a254bfb00333f4bac9ef1d89888b84242a89eb8722b09a07"
+checksum = "6d0351a2e529ee30d571ef31faa5a4e0b9addaad087697b77efb20d2809e41c7"
 dependencies = [
- "memoffset",
+ "bytecheck",
+]
+
+[[package]]
+name = "rkyv"
+version = "0.7.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e419b2e30d088b21c4bf3072561535305df8066e89937ad05fc205b99874c23c"
+dependencies = [
+ "bytecheck",
+ "hashbrown 0.11.2",
  "ptr_meta",
+ "rend",
  "rkyv_derive",
  "seahash",
 ]
 
 [[package]]
 name = "rkyv_derive"
-version = "0.6.7"
+version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba8f489f6b6d8551bb15904293c1ad58a6abafa7d8390d15f7ed05a2afcd87d5"
+checksum = "2ae58c4ba80f15f2f0842f4c61729e92c4e33a09bd78196c2b1ab9b0771a3ddf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2946,6 +2978,7 @@ name = "wasmer-engine"
 version = "2.0.0"
 dependencies = [
  "backtrace",
+ "enumset",
  "lazy_static",
  "loupe",
  "memmap2",
@@ -2965,6 +2998,7 @@ name = "wasmer-engine-dummy"
 version = "2.0.0"
 dependencies = [
  "bincode",
+ "enumset",
  "loupe",
  "serde",
  "serde_bytes",
@@ -2979,6 +3013,7 @@ name = "wasmer-engine-dylib"
 version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
+ "enumset",
  "leb128",
  "libloading",
  "loupe",
@@ -3000,6 +3035,7 @@ version = "2.0.0"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
+ "enumset",
  "leb128",
  "libloading",
  "loupe",
@@ -3018,6 +3054,7 @@ name = "wasmer-engine-universal"
 version = "2.0.0"
 dependencies = [
  "cfg-if 1.0.0",
+ "enumset",
  "leb128",
  "loupe",
  "region",

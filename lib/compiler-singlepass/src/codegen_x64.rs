@@ -91,6 +91,9 @@ pub struct FuncGen<'a> {
     ///
     // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
+
+    /// Calling convention to use.
+    calling_convention: CallingConvention,
 }
 
 struct SpecialLabelSet {
@@ -1012,7 +1015,7 @@ impl<'a> FuncGen<'a> {
                 self.machine.state.stack_values.push(content);
             }
         }
-        let calling_convention = self.config.calling_convention;
+        let calling_convention = self.calling_convention;
 
         let stack_padding: usize = match calling_convention {
             CallingConvention::WindowsFastcall => 32,
@@ -1758,7 +1761,7 @@ impl<'a> FuncGen<'a> {
             &mut self.assembler,
             self.local_types.len(),
             self.signature.params().len(),
-            self.config.calling_convention,
+            self.calling_convention,
         );
 
         // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
@@ -1825,6 +1828,7 @@ impl<'a> FuncGen<'a> {
         _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
+        calling_convention: CallingConvention,
     ) -> Result<FuncGen<'a>, CodegenError> {
         let func_index = module.func_index(local_func_index);
         let sig_index = module.functions[func_index];
@@ -1876,6 +1880,7 @@ impl<'a> FuncGen<'a> {
             special_labels,
             src_loc: 0,
             instructions_address_map: vec![],
+            calling_convention,
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5406,7 +5411,7 @@ impl<'a> FuncGen<'a> {
                     self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
                 let vmcaller_checked_anyfunc_vmctx =
                     self.vmoffsets.vmcaller_checked_anyfunc_vmctx() as usize;
-                let calling_convention = self.config.calling_convention;
+                let calling_convention = self.calling_convention;
 
                 self.emit_call_native(
                     |this| {
@@ -6700,7 +6705,7 @@ impl<'a> FuncGen<'a> {
                     self.machine.finalize_locals(
                         &mut self.assembler,
                         &self.locals,
-                        self.config.calling_convention,
+                        self.calling_convention,
                     );
                     self.assembler.emit_mov(
                         Size::S64,

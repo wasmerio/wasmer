@@ -1,10 +1,8 @@
 use loupe::MemoryUsage;
 use rkyv::{
-    archived_value,
-    de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
-    ser::adapters::SharedSerializerAdapter,
-    ser::{serializers::WriteSerializer, Serializer as RkyvSerializer},
-    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
+    ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
+    Serialize as RkyvSerialize,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -35,6 +33,7 @@ pub struct ModuleMetadata {
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // The function body lengths (used to find function by address)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
+    pub cpu_features: u64,
 }
 
 pub struct ModuleMetadataSymbolRegistry<'a> {
@@ -59,11 +58,11 @@ impl ModuleMetadata {
     }
 
     pub fn serialize(&mut self) -> Result<Vec<u8>, CompileError> {
-        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![]));
+        let mut serializer = AllocSerializer::<4096>::default();
         let pos = serializer.serialize_value(self).map_err(to_compile_error)? as u64;
-        let mut serialized_data = serializer.into_inner().into_inner();
+        let mut serialized_data = serializer.into_serializer().into_inner();
         serialized_data.extend_from_slice(&pos.to_le_bytes());
-        Ok(serialized_data)
+        Ok(serialized_data.to_vec())
     }
 
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
@@ -86,7 +85,7 @@ impl ModuleMetadata {
     pub fn deserialize_from_archive(
         archived: &ArchivedModuleMetadata,
     ) -> Result<Self, DeserializeError> {
-        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        let mut deserializer = SharedDeserializeMap::new();
         RkyvDeserialize::deserialize(archived, &mut deserializer)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
     }

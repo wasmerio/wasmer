@@ -13,7 +13,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     Architecture, CallingConvention, Compilation, CompileError, CompileModuleInfo,
-    CompiledFunction, Compiler, CompilerConfig, FunctionBinaryReader, FunctionBody,
+    CompiledFunction, Compiler, CompilerConfig, CpuFeature, FunctionBinaryReader, FunctionBody,
     FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
     ModuleTranslationState, OperatingSystem, SectionIndex, Target, TrapInformation,
 };
@@ -62,8 +62,15 @@ impl Compiler for SinglepassCompiler {
                 OperatingSystem::Windows.to_string(),
             ));
         }*/
-        if let Architecture::X86_32(arch) = target.triple().architecture {
-            return Err(CompileError::UnsupportedTarget(arch.to_string()));
+        if target.triple().architecture != Architecture::X86_64 {
+            return Err(CompileError::UnsupportedTarget(
+                target.triple().architecture.to_string(),
+            ));
+        }
+        if !target.cpu_features().contains(CpuFeature::AVX) {
+            return Err(CompileError::UnsupportedTarget(
+                "x86_64 without AVX".to_string(),
+            ));
         }
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
@@ -125,6 +132,7 @@ impl Compiler for SinglepassCompiler {
                     &table_styles,
                     i,
                     &locals,
+                    calling_convention,
                 )
                 .map_err(to_compile_error)?;
 
