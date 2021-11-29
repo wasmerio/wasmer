@@ -95,16 +95,18 @@ where
     ///
     /// This method is unsafe because the caller will need to make sure
     /// there are no data races when copying memory into the view.
-    pub unsafe fn copy_from(&self, src: &[T]) {
-        let len = self.length.min(src.len());
-        if len > 16 &&
-            is_aligned_and_not_null(src.as_ptr()) == true &&
-            is_aligned_and_not_null(self.ptr) == true {
-            std::ptr::copy_nonoverlapping(src.as_ptr(), self.ptr, len);
-        } else {
-            let sliced_src = &src[..self.length];
-            for (i, byte) in sliced_src.iter().enumerate() {
-                *self.ptr.offset(i as isize) = *byte;
+    pub fn copy_from(&self, src: &[T]) {
+        unsafe {
+            let len = self.length.min(src.len());
+            if len > 16 &&
+                is_aligned_and_not_null(src.as_ptr()) == true &&
+                is_aligned_and_not_null(self.ptr) == true {
+                std::ptr::copy_nonoverlapping(src.as_ptr(), self.ptr, len);
+            } else {
+                let sliced_src = &src[..self.length];
+                for (i, byte) in sliced_src.iter().enumerate() {
+                    *self.ptr.offset(i as isize) = *byte;
+                }
             }
         }
     }
