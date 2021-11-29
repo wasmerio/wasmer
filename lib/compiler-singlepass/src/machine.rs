@@ -346,6 +346,10 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn convert_f64_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
     /// Convert a F64 from I32, signed or unsigned
     fn convert_f64_i32(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
+    /// Convert a F32 from I64, signed or unsigned
+    fn convert_f32_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
+    /// Convert a F32 from I32, signed or unsigned
+    fn convert_f32_i32(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
