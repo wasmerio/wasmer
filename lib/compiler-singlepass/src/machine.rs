@@ -7,7 +7,7 @@ use std::cmp;
 use std::marker::PhantomData;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::CallingConvention;
+use wasmer_compiler::{CallingConvention, Relocation, RelocationTarget};
 
 #[allow(dead_code)]
 #[derive(Clone, PartialEq)]
@@ -336,6 +336,12 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     );
     /// Multiply location with immedita
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: R);
+    /// emit a move function address to GPR ready for call, using appropriate relocation
+    fn move_with_reloc(
+        &mut self,
+        reloc_target: RelocationTarget,
+        relocations: &mut Vec<Relocation>,
+    );
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {

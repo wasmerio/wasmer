@@ -7,7 +7,7 @@ use crate::x64_decl::{X64Register, GPR, XMM};
 use dynasmrt::x64::Assembler;
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::CallingConvention;
+use wasmer_compiler::{CallingConvention, Relocation, RelocationKind, RelocationTarget};
 
 pub struct MachineX86_64 {
     pub assembler: Assembler, //temporary public
@@ -990,6 +990,29 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         dst: Location,
     ) {
         self.emit_relaxed_zx_sx(Assembler::emit_movsx, sz_src, src, sz_dst, dst);
+    }
+
+    fn move_with_reloc(
+        &mut self,
+        reloc_target: RelocationTarget,
+        relocations: &mut Vec<Relocation>,
+    ) {
+        let reloc_at = self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
+
+        relocations.push(Relocation {
+            kind: RelocationKind::Abs8,
+            reloc_target,
+            offset: reloc_at as u32,
+            addend: 0,
+        });
+
+        // RAX is preserved on entry to `emit_call_native` callback.
+        // The Imm64 value is relocated by the JIT linker.
+        self.assembler.emit_mov(
+            Size::S64,
+            Location::Imm64(std::u64::MAX),
+            Location::GPR(GPR::RAX),
+        );
     }
 }
 

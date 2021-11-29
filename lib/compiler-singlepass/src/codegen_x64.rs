@@ -14,7 +14,7 @@ use wasmer_compiler::wasmparser::{
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
     CustomSectionProtection, FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation,
-    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc, TrapInformation,
+    RelocationTarget, SectionBody, SectionIndex, SourceLoc, TrapInformation,
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
@@ -5779,8 +5779,6 @@ impl<'a> FuncGen<'a> {
                     }
                 }
 
-                let reloc_at = self.machine.specific.assembler.get_offset().0
-                    + self.machine.specific.assembler.arch_mov64_imm_offset();
                 // Imported functions are called through trampolines placed as custom sections.
                 let reloc_target = if function_index < self.module.num_imported_functions {
                     RelocationTarget::CustomSection(SectionIndex::new(function_index))
@@ -5789,20 +5787,9 @@ impl<'a> FuncGen<'a> {
                         function_index - self.module.num_imported_functions,
                     ))
                 };
-                self.relocations.push(Relocation {
-                    kind: RelocationKind::Abs8,
-                    reloc_target,
-                    offset: reloc_at as u32,
-                    addend: 0,
-                });
-
-                // RAX is preserved on entry to `emit_call_native` callback.
-                // The Imm64 value is relocated by the JIT linker.
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::Imm64(std::u64::MAX),
-                    Location::GPR(GPR::RAX),
-                );
+                self.machine
+                    .specific
+                    .move_with_reloc(reloc_target, &mut self.relocations);
 
                 self.emit_call_native(
                     |this| {
@@ -5812,8 +5799,7 @@ impl<'a> FuncGen<'a> {
                             .insert(offset, TrapCode::StackOverflow);
                         this.machine
                             .specific
-                            .assembler
-                            .emit_call_location(Location::GPR(GPR::RAX));
+                            .emit_call_register(this.machine.specific.get_grp_for_call());
                         this.mark_instruction_address_end(offset);
                     },
                     params.iter().copied(),
@@ -5833,7 +5819,7 @@ impl<'a> FuncGen<'a> {
                     if return_types[0].is_float() {
                         self.machine.specific.move_location(
                             Size::S64,
-                            Location::SIMD(XMM::XMM0),
+                            Location::SIMD(self.machine.specific.get_simd_for_ret()),
                             ret,
                         );
                         self.fp_stack
@@ -5841,7 +5827,7 @@ impl<'a> FuncGen<'a> {
                     } else {
                         self.machine.specific.move_location(
                             Size::S64,
-                            Location::GPR(GPR::RAX),
+                            Location::GPR(self.machine.specific.get_gpr_for_ret()),
                             ret,
                         );
                     }
