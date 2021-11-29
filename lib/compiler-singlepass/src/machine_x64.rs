@@ -1,18 +1,29 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
 use crate::machine::Machine as AbstractMachine;
-use crate::machine::{MachineSpecific, MemoryImmediate};
+use crate::machine::{MachineSpecific, MemoryImmediate, TrapTable};
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{X64Register, GPR, XMM};
 use dynasmrt::x64::Assembler;
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::{CallingConvention, Relocation, RelocationKind, RelocationTarget};
+use wasmer_compiler::{
+    CallingConvention, InstructionAddressMap, Relocation, RelocationKind, RelocationTarget,
+    SourceLoc, TrapInformation,
+};
+use wasmer_vm::TrapCode;
 
 pub struct MachineX86_64 {
     pub assembler: Assembler, //temporary public
     used_gprs: HashSet<GPR>,
     used_simd: HashSet<XMM>,
+    pub trap_table: TrapTable, //temporary public
+    /// Map from byte offset into wasm function to range of native instructions.
+    ///
+    // Ordered by increasing InstructionAddressMap::srcloc.
+    instructions_address_map: Vec<InstructionAddressMap>,
+    /// The source location for the current operator.
+    src_loc: u32,
 }
 
 impl MachineX86_64 {
@@ -159,6 +170,941 @@ impl MachineX86_64 {
             }
         }
     }
+    // Checks for underflow/overflow/nan.
+    fn emit_f32_int_conv_check(
+        &mut self,
+        reg: XMM,
+        lower_bound: f32,
+        upper_bound: f32,
+        underflow_label: Label,
+        overflow_label: Label,
+        nan_label: Label,
+        succeed_label: Label,
+    ) {
+        let lower_bound = f32::to_bits(lower_bound);
+        let upper_bound = f32::to_bits(upper_bound);
+
+        let tmp = self.acquire_temp_gpr().unwrap();
+        let tmp_x = self.acquire_temp_simd().unwrap();
+
+        // Underflow.
+        self.move_location(Size::S32, Location::Imm32(lower_bound), Location::GPR(tmp));
+        self.move_location(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x));
+        self.assembler
+            .emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_jmp(Condition::NotEqual, underflow_label);
+
+        // Overflow.
+        self.move_location(Size::S32, Location::Imm32(upper_bound), Location::GPR(tmp));
+        self.move_location(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x));
+        self.assembler
+            .emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler.emit_jmp(Condition::NotEqual, overflow_label);
+
+        // NaN.
+        self.assembler
+            .emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
+        self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler.emit_jmp(Condition::Equal, nan_label);
+
+        self.assembler.emit_jmp(Condition::None, succeed_label);
+
+        self.release_simd(tmp_x);
+        self.release_gpr(tmp);
+    }
+
+    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
+    fn emit_f32_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f32, upper_bound: f32) {
+        let trap_overflow = self.assembler.get_label();
+        let trap_badconv = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        self.emit_f32_int_conv_check(
+            reg,
+            lower_bound,
+            upper_bound,
+            trap_overflow,
+            trap_overflow,
+            trap_badconv,
+            end,
+        );
+
+        self.emit_label(trap_overflow);
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::IntegerOverflow);
+        self.emit_illegal_op();
+        self.mark_instruction_address_end(offset);
+
+        self.emit_label(trap_badconv);
+
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::BadConversionToInteger);
+        self.emit_illegal_op();
+        self.mark_instruction_address_end(offset);
+
+        self.emit_label(end);
+    }
+    fn emit_f32_int_conv_check_sat<
+        F1: FnOnce(&mut Self),
+        F2: FnOnce(&mut Self),
+        F3: FnOnce(&mut Self),
+        F4: FnOnce(&mut Self),
+    >(
+        &mut self,
+        reg: XMM,
+        lower_bound: f32,
+        upper_bound: f32,
+        underflow_cb: F1,
+        overflow_cb: F2,
+        nan_cb: Option<F3>,
+        convert_cb: F4,
+    ) {
+        // As an optimization nan_cb is optional, and when set to None we turn
+        // use 'underflow' as the 'nan' label. This is useful for callers who
+        // set the return value to zero for both underflow and nan.
+
+        let underflow = self.assembler.get_label();
+        let overflow = self.assembler.get_label();
+        let nan = if nan_cb.is_some() {
+            self.assembler.get_label()
+        } else {
+            underflow
+        };
+        let convert = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        self.emit_f32_int_conv_check(
+            reg,
+            lower_bound,
+            upper_bound,
+            underflow,
+            overflow,
+            nan,
+            convert,
+        );
+
+        self.emit_label(underflow);
+        underflow_cb(self);
+        self.assembler.emit_jmp(Condition::None, end);
+
+        self.emit_label(overflow);
+        overflow_cb(self);
+        self.assembler.emit_jmp(Condition::None, end);
+
+        if let Some(cb) = nan_cb {
+            self.emit_label(nan);
+            cb(self);
+            self.assembler.emit_jmp(Condition::None, end);
+        }
+
+        self.emit_label(convert);
+        convert_cb(self);
+        self.emit_label(end);
+    }
+    // Checks for underflow/overflow/nan.
+    fn emit_f64_int_conv_check(
+        &mut self,
+        reg: XMM,
+        lower_bound: f64,
+        upper_bound: f64,
+        underflow_label: Label,
+        overflow_label: Label,
+        nan_label: Label,
+        succeed_label: Label,
+    ) {
+        let lower_bound = f64::to_bits(lower_bound);
+        let upper_bound = f64::to_bits(upper_bound);
+
+        let tmp = self.acquire_temp_gpr().unwrap();
+        let tmp_x = self.acquire_temp_simd().unwrap();
+
+        // Underflow.
+        self.move_location(Size::S64, Location::Imm64(lower_bound), Location::GPR(tmp));
+        self.move_location(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x));
+        self.assembler
+            .emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler
+            .emit_jmp(Condition::NotEqual, underflow_label);
+
+        // Overflow.
+        self.move_location(Size::S64, Location::Imm64(upper_bound), Location::GPR(tmp));
+        self.move_location(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x));
+        self.assembler
+            .emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
+        self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler.emit_jmp(Condition::NotEqual, overflow_label);
+
+        // NaN.
+        self.assembler
+            .emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
+        self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
+        self.assembler
+            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
+        self.assembler.emit_jmp(Condition::Equal, nan_label);
+
+        self.assembler.emit_jmp(Condition::None, succeed_label);
+
+        self.release_simd(tmp_x);
+        self.release_gpr(tmp);
+    }
+    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.. return offset/len for trap_overflow and trap_badconv
+    fn emit_f64_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f64, upper_bound: f64) {
+        let trap_overflow = self.assembler.get_label();
+        let trap_badconv = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        self.emit_f64_int_conv_check(
+            reg,
+            lower_bound,
+            upper_bound,
+            trap_overflow,
+            trap_overflow,
+            trap_badconv,
+            end,
+        );
+
+        self.emit_label(trap_overflow);
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::IntegerOverflow);
+        self.emit_illegal_op();
+        self.mark_instruction_address_end(offset);
+
+        self.emit_label(trap_badconv);
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::BadConversionToInteger);
+        self.emit_illegal_op();
+        self.mark_instruction_address_end(offset);
+
+        self.emit_label(end);
+    }
+    fn emit_f64_int_conv_check_sat<
+        F1: FnOnce(&mut Self),
+        F2: FnOnce(&mut Self),
+        F3: FnOnce(&mut Self),
+        F4: FnOnce(&mut Self),
+    >(
+        &mut self,
+        reg: XMM,
+        lower_bound: f64,
+        upper_bound: f64,
+        underflow_cb: F1,
+        overflow_cb: F2,
+        nan_cb: Option<F3>,
+        convert_cb: F4,
+    ) {
+        // As an optimization nan_cb is optional, and when set to None we turn
+        // use 'underflow' as the 'nan' label. This is useful for callers who
+        // set the return value to zero for both underflow and nan.
+
+        let underflow = self.assembler.get_label();
+        let overflow = self.assembler.get_label();
+        let nan = if nan_cb.is_some() {
+            self.assembler.get_label()
+        } else {
+            underflow
+        };
+        let convert = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        self.emit_f64_int_conv_check(
+            reg,
+            lower_bound,
+            upper_bound,
+            underflow,
+            overflow,
+            nan,
+            convert,
+        );
+
+        self.emit_label(underflow);
+        underflow_cb(self);
+        self.assembler.emit_jmp(Condition::None, end);
+
+        self.emit_label(overflow);
+        overflow_cb(self);
+        self.assembler.emit_jmp(Condition::None, end);
+
+        if let Some(cb) = nan_cb {
+            self.emit_label(nan);
+            cb(self);
+            self.assembler.emit_jmp(Condition::None, end);
+        }
+
+        self.emit_label(convert);
+        convert_cb(self);
+        self.emit_label(end);
+    }
+    fn convert_i64_f64_u_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+
+        self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+        self.emit_f64_int_conv_check_sat(
+            tmp_in,
+            GEF64_LT_U64_MIN,
+            LEF64_GT_U64_MAX,
+            |this| {
+                this.assembler
+                    .emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S64,
+                    Location::Imm64(std::u64::MAX),
+                    Location::GPR(tmp_out),
+                );
+            },
+            None::<fn(this: &mut Self)>,
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
+                } else {
+                    let tmp = this.acquire_temp_gpr().unwrap();
+                    let tmp_x1 = this.acquire_temp_simd().unwrap();
+                    let tmp_x2 = this.acquire_temp_simd().unwrap();
+
+                    this.assembler.emit_mov(
+                        Size::S64,
+                        Location::Imm64(4890909195324358656u64),
+                        Location::GPR(tmp),
+                    ); //double 9.2233720368547758E+18
+                    this.assembler
+                        .emit_mov(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x1));
+                    this.assembler.emit_mov(
+                        Size::S64,
+                        Location::SIMD(tmp_in),
+                        Location::SIMD(tmp_x2),
+                    );
+                    this.assembler
+                        .emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                    this.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    this.assembler.emit_mov(
+                        Size::S64,
+                        Location::Imm64(0x8000000000000000u64),
+                        Location::GPR(tmp),
+                    );
+                    this.assembler
+                        .emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                    this.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                    this.assembler
+                        .emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                    this.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
+
+                    this.release_simd(tmp_x2);
+                    this.release_simd(tmp_x1);
+                    this.release_gpr(tmp);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i64_f64_u_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap(); // xmm2
+
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+            self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U64_MIN, LEF64_GT_U64_MAX);
+
+            let tmp = self.acquire_temp_gpr().unwrap(); // r15
+            let tmp_x1 = self.acquire_temp_simd().unwrap(); // xmm1
+            let tmp_x2 = self.acquire_temp_simd().unwrap(); // xmm3
+
+            self.move_location(
+                Size::S64,
+                Location::Imm64(4890909195324358656u64),
+                Location::GPR(tmp),
+            ); //double 9.2233720368547758E+18
+            self.move_location(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x1));
+            self.move_location(Size::S64, Location::SIMD(tmp_in), Location::SIMD(tmp_x2));
+            self.assembler
+                .emit_vsubsd(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+            self.assembler
+                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+            self.move_location(
+                Size::S64,
+                Location::Imm64(0x8000000000000000u64),
+                Location::GPR(tmp),
+            );
+            self.assembler
+                .emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+            self.assembler
+                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+            self.assembler
+                .emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+            self.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
+            self.move_location(Size::S64, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_x2);
+            self.release_simd(tmp_x1);
+            self.release_gpr(tmp);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
+    fn convert_i64_f64_s_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+
+        self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+        self.emit_f64_int_conv_check_sat(
+            tmp_in,
+            GEF64_LT_I64_MIN,
+            LEF64_GT_I64_MAX,
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S64,
+                    Location::Imm64(std::i64::MIN as u64),
+                    Location::GPR(tmp_out),
+                );
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S64,
+                    Location::Imm64(std::i64::MAX as u64),
+                    Location::GPR(tmp_out),
+                );
+            },
+            Some(|this: &mut Self| {
+                this.assembler
+                    .emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+            }),
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
+                } else {
+                    this.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i64_f64_s_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+            self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_I64_MIN, LEF64_GT_I64_MAX);
+
+            self.assembler
+                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+            self.move_location(Size::S64, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
+    fn convert_i32_f64_s_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+
+        let real_in = match loc {
+            Location::Imm32(_) | Location::Imm64(_) => {
+                self.move_location(Size::S64, loc, Location::GPR(tmp_out));
+                self.move_location(Size::S64, Location::GPR(tmp_out), Location::SIMD(tmp_in));
+                tmp_in
+            }
+            Location::SIMD(x) => x,
+            _ => {
+                self.move_location(Size::S64, loc, Location::SIMD(tmp_in));
+                tmp_in
+            }
+        };
+
+        self.emit_f64_int_conv_check_sat(
+            real_in,
+            GEF64_LT_I32_MIN,
+            LEF64_GT_I32_MAX,
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S32,
+                    Location::Imm32(std::i32::MIN as u32),
+                    Location::GPR(tmp_out),
+                );
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S32,
+                    Location::Imm32(std::i32::MAX as u32),
+                    Location::GPR(tmp_out),
+                );
+            },
+            Some(|this: &mut Self| {
+                this.assembler
+                    .emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+            }),
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
+                } else {
+                    this.assembler
+                        .emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i32_f64_s_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+
+            let real_in = match loc {
+                Location::Imm32(_) | Location::Imm64(_) => {
+                    self.move_location(Size::S64, loc, Location::GPR(tmp_out));
+                    self.move_location(Size::S64, Location::GPR(tmp_out), Location::SIMD(tmp_in));
+                    tmp_in
+                }
+                Location::SIMD(x) => x,
+                _ => {
+                    self.move_location(Size::S64, loc, Location::SIMD(tmp_in));
+                    tmp_in
+                }
+            };
+
+            self.emit_f64_int_conv_check_trap(real_in, GEF64_LT_I32_MIN, LEF64_GT_I32_MAX);
+
+            self.assembler
+                .emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
+            self.move_location(Size::S32, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
+    fn convert_i32_f64_u_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+
+        self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+        self.emit_f64_int_conv_check_sat(
+            tmp_in,
+            GEF64_LT_U32_MIN,
+            LEF64_GT_U32_MAX,
+            |this| {
+                this.assembler
+                    .emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S32,
+                    Location::Imm32(std::u32::MAX),
+                    Location::GPR(tmp_out),
+                );
+            },
+            None::<fn(this: &mut Self)>,
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
+                } else {
+                    this.assembler
+                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i32_f64_u_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
+            self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U32_MIN, LEF64_GT_U32_MAX);
+
+            self.assembler
+                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+            self.move_location(Size::S32, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
+    fn convert_i64_f32_u_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+
+        self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+        self.emit_f32_int_conv_check_sat(
+            tmp_in,
+            GEF32_LT_U64_MIN,
+            LEF32_GT_U64_MAX,
+            |this| {
+                this.assembler
+                    .emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S64,
+                    Location::Imm64(std::u64::MAX),
+                    Location::GPR(tmp_out),
+                );
+            },
+            None::<fn(this: &mut Self)>,
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
+                } else {
+                    let tmp = this.acquire_temp_gpr().unwrap();
+                    let tmp_x1 = this.acquire_temp_simd().unwrap();
+                    let tmp_x2 = this.acquire_temp_simd().unwrap();
+
+                    this.assembler.emit_mov(
+                        Size::S32,
+                        Location::Imm32(1593835520u32),
+                        Location::GPR(tmp),
+                    ); //float 9.22337203E+18
+                    this.assembler
+                        .emit_mov(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x1));
+                    this.assembler.emit_mov(
+                        Size::S32,
+                        Location::SIMD(tmp_in),
+                        Location::SIMD(tmp_x2),
+                    );
+                    this.assembler
+                        .emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+                    this.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                    this.assembler.emit_mov(
+                        Size::S64,
+                        Location::Imm64(0x8000000000000000u64),
+                        Location::GPR(tmp),
+                    );
+                    this.assembler
+                        .emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+                    this.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+                    this.assembler
+                        .emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+                    this.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
+
+                    this.release_simd(tmp_x2);
+                    this.release_simd(tmp_x1);
+                    this.release_gpr(tmp);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i64_f32_u_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap(); // xmm2
+
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U64_MIN, LEF32_GT_U64_MAX);
+
+            let tmp = self.acquire_temp_gpr().unwrap(); // r15
+            let tmp_x1 = self.acquire_temp_simd().unwrap(); // xmm1
+            let tmp_x2 = self.acquire_temp_simd().unwrap(); // xmm3
+
+            self.move_location(
+                Size::S32,
+                Location::Imm32(1593835520u32),
+                Location::GPR(tmp),
+            ); //float 9.22337203E+18
+            self.move_location(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x1));
+            self.move_location(Size::S32, Location::SIMD(tmp_in), Location::SIMD(tmp_x2));
+            self.assembler
+                .emit_vsubss(tmp_in, XMMOrMemory::XMM(tmp_x1), tmp_in);
+            self.assembler
+                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+            self.move_location(
+                Size::S64,
+                Location::Imm64(0x8000000000000000u64),
+                Location::GPR(tmp),
+            );
+            self.assembler
+                .emit_xor(Size::S64, Location::GPR(tmp_out), Location::GPR(tmp));
+            self.assembler
+                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
+            self.assembler
+                .emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
+            self.assembler.emit_cmovae_gpr_64(tmp, tmp_out);
+            self.move_location(Size::S64, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_x2);
+            self.release_simd(tmp_x1);
+            self.release_gpr(tmp);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
+    fn convert_i64_f32_s_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+
+        self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+        self.emit_f32_int_conv_check_sat(
+            tmp_in,
+            GEF32_LT_I64_MIN,
+            LEF32_GT_I64_MAX,
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S64,
+                    Location::Imm64(std::i64::MIN as u64),
+                    Location::GPR(tmp_out),
+                );
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S64,
+                    Location::Imm64(std::i64::MAX as u64),
+                    Location::GPR(tmp_out),
+                );
+            },
+            Some(|this: &mut Self| {
+                this.assembler
+                    .emit_mov(Size::S64, Location::Imm64(0), Location::GPR(tmp_out));
+            }),
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
+                } else {
+                    this.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i64_f32_s_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I64_MIN, LEF32_GT_I64_MAX);
+            self.assembler
+                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+            self.move_location(Size::S64, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
+    fn convert_i32_f32_s_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+
+        self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+        self.emit_f32_int_conv_check_sat(
+            tmp_in,
+            GEF32_LT_I32_MIN,
+            LEF32_GT_I32_MAX,
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S32,
+                    Location::Imm32(std::i32::MIN as u32),
+                    Location::GPR(tmp_out),
+                );
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S32,
+                    Location::Imm32(std::i32::MAX as u32),
+                    Location::GPR(tmp_out),
+                );
+            },
+            Some(|this: &mut Self| {
+                this.assembler
+                    .emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+            }),
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
+                } else {
+                    this.assembler
+                        .emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i32_f32_s_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I32_MIN, LEF32_GT_I32_MAX);
+
+            self.assembler
+                .emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
+            self.move_location(Size::S32, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
+    fn convert_i32_f32_u_s(&mut self, loc: Location, ret: Location) {
+        let tmp_out = self.acquire_temp_gpr().unwrap();
+        let tmp_in = self.acquire_temp_simd().unwrap();
+        self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+        self.emit_f32_int_conv_check_sat(
+            tmp_in,
+            GEF32_LT_U32_MIN,
+            LEF32_GT_U32_MAX,
+            |this| {
+                this.assembler
+                    .emit_mov(Size::S32, Location::Imm32(0), Location::GPR(tmp_out));
+            },
+            |this| {
+                this.assembler.emit_mov(
+                    Size::S32,
+                    Location::Imm32(std::u32::MAX),
+                    Location::GPR(tmp_out),
+                );
+            },
+            None::<fn(this: &mut Self)>,
+            |this| {
+                if this.assembler.arch_has_itruncf() {
+                    this.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
+                } else {
+                    this.assembler
+                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+                }
+            },
+        );
+
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
+        self.release_simd(tmp_in);
+        self.release_gpr(tmp_out);
+    }
+    fn convert_i32_f32_u_u(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_itruncf() {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
+            self.emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_gpr().unwrap();
+            let tmp_in = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
+            self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U32_MIN, LEF32_GT_U32_MAX);
+
+            self.assembler
+                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
+            self.move_location(Size::S32, Location::GPR(tmp_out), ret);
+
+            self.release_simd(tmp_in);
+            self.release_gpr(tmp_out);
+        }
+    }
 }
 
 impl MachineSpecific<GPR, XMM> for MachineX86_64 {
@@ -167,6 +1113,9 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             assembler: Assembler::new().unwrap(),
             used_gprs: HashSet::new(),
             used_simd: HashSet::new(),
+            trap_table: TrapTable::default(),
+            instructions_address_map: vec![],
+            src_loc: 0,
         }
     }
     fn get_vmctx_reg() -> GPR {
@@ -300,6 +1249,66 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     // Releases a temporary XMM register.
     fn release_simd(&mut self, simd: XMM) {
         assert_eq!(self.used_simd.remove(&simd), true);
+    }
+
+    /// Set the source location of the Wasm to the given offset.
+    fn set_srcloc(&mut self, offset: u32) {
+        self.src_loc = offset;
+    }
+    /// Marks each address in the code range emitted by `f` with the trap code `code`.
+    fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
+        for i in begin..end {
+            self.trap_table.offset_to_code.insert(i, code);
+        }
+        self.mark_instruction_address_end(begin);
+    }
+
+    /// Marks one address as trappable with trap code `code`.
+    fn mark_address_with_trap_code(&mut self, code: TrapCode) {
+        let offset = self.assembler.get_offset().0;
+        self.trap_table.offset_to_code.insert(offset, code);
+        self.mark_instruction_address_end(offset);
+    }
+    /// Marks the instruction as trappable with trap code `code`. return "begin" offset
+    fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize {
+        let offset = self.assembler.get_offset().0;
+        self.trap_table.offset_to_code.insert(offset, code);
+        offset
+    }
+    /// Pushes the instruction to the address map, calculating the offset from a
+    /// provided beginning address.
+    fn mark_instruction_address_end(&mut self, begin: usize) {
+        self.instructions_address_map.push(InstructionAddressMap {
+            srcloc: SourceLoc::new(self.src_loc),
+            code_offset: begin,
+            code_len: self.assembler.get_offset().0 - begin,
+        });
+    }
+
+    /// Insert a StackOverflow (at offset 0)
+    fn insert_stackoverflow(&mut self) {
+        let offset = 0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::StackOverflow);
+        self.mark_instruction_address_end(offset);
+    }
+
+    /// Get all current TrapInformation
+    fn collect_trap_information(&self) -> Vec<TrapInformation> {
+        self.trap_table
+            .offset_to_code
+            .clone()
+            .into_iter()
+            .map(|(offset, code)| TrapInformation {
+                code_offset: offset as u32,
+                trap_code: code,
+            })
+            .collect()
+    }
+
+    fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
+        self.instructions_address_map.clone()
     }
 
     // Memory location for a local on the stack
@@ -1032,8 +2041,10 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             let tmp_out = self.acquire_temp_simd().unwrap();
             let tmp_in = self.acquire_temp_gpr().unwrap();
             if signed {
-                self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                self.assembler
+                    .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                 self.move_location(Size::S64, Location::SIMD(tmp_out), ret);
             } else {
                 let tmp = self.acquire_temp_gpr().unwrap();
@@ -1044,52 +2055,28 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
                 self.assembler
                     .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
                 self.assembler.emit_test_gpr_64(tmp_in);
+                self.assembler.emit_jmp(Condition::Signed, do_convert);
                 self.assembler
-                    .emit_jmp(Condition::Signed, do_convert);
-                self.assembler.emit_vcvtsi2sd_64(
-                    tmp_out,
-                    GPROrMemory::GPR(tmp_in),
-                    tmp_out,
-                );
-                self.assembler
-                    .emit_jmp(Condition::None, end_convert);
+                    .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler.emit_jmp(Condition::None, end_convert);
                 self.emit_label(do_convert);
-                self.move_location(
-                    Size::S64,
-                    Location::GPR(tmp_in),
-                    Location::GPR(tmp),
-                );
-                self.assembler.emit_and(
-                    Size::S64,
-                    Location::Imm32(1),
-                    Location::GPR(tmp),
-                );
-                self.assembler.emit_shr(
-                    Size::S64,
-                    Location::Imm8(1),
-                    Location::GPR(tmp_in),
-                );
-                self.assembler.emit_or(
-                    Size::S64,
-                    Location::GPR(tmp),
-                    Location::GPR(tmp_in),
-                );
-                self.assembler.emit_vcvtsi2sd_64(
-                    tmp_out,
-                    GPROrMemory::GPR(tmp_in),
-                    tmp_out,
-                );
-                self.assembler.emit_vaddsd(
-                    tmp_out,
-                    XMMOrMemory::XMM(tmp_out),
-                    tmp_out,
-                );
+                self.move_location(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                self.assembler
+                    .emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                self.assembler
+                    .emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                self.assembler
+                    .emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                self.assembler
+                    .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_vaddsd(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
                 self.emit_label(end_convert);
                 self.move_location(Size::S64, Location::SIMD(tmp_out), ret);
-                
+
                 self.release_gpr(tmp);
             }
-            
+
             self.release_gpr(tmp_in);
             self.release_simd(tmp_out);
         }
@@ -1114,9 +2101,11 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             self.assembler
                 .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
             if signed {
-                self.assembler.emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
             } else {
-                self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
             }
             self.move_location(Size::S64, Location::SIMD(tmp_out), ret);
 
@@ -1141,10 +2130,11 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             let tmp_out = self.acquire_temp_simd().unwrap();
             let tmp_in = self.acquire_temp_gpr().unwrap();
             if signed {
-                self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                self.assembler.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                self.assembler
+                    .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
                 self.move_location(Size::S32, Location::SIMD(tmp_out), ret);
-
             } else {
                 let tmp = self.acquire_temp_gpr().unwrap();
 
@@ -1154,46 +2144,22 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
                 self.assembler
                     .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
                 self.assembler.emit_test_gpr_64(tmp_in);
+                self.assembler.emit_jmp(Condition::Signed, do_convert);
                 self.assembler
-                    .emit_jmp(Condition::Signed, do_convert);
-                self.assembler.emit_vcvtsi2ss_64(
-                    tmp_out,
-                    GPROrMemory::GPR(tmp_in),
-                    tmp_out,
-                );
-                self.assembler
-                    .emit_jmp(Condition::None, end_convert);
+                    .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler.emit_jmp(Condition::None, end_convert);
                 self.emit_label(do_convert);
-                self.move_location(
-                    Size::S64,
-                    Location::GPR(tmp_in),
-                    Location::GPR(tmp),
-                );
-                self.assembler.emit_and(
-                    Size::S64,
-                    Location::Imm32(1),
-                    Location::GPR(tmp),
-                );
-                self.assembler.emit_shr(
-                    Size::S64,
-                    Location::Imm8(1),
-                    Location::GPR(tmp_in),
-                );
-                self.assembler.emit_or(
-                    Size::S64,
-                    Location::GPR(tmp),
-                    Location::GPR(tmp_in),
-                );
-                self.assembler.emit_vcvtsi2ss_64(
-                    tmp_out,
-                    GPROrMemory::GPR(tmp_in),
-                    tmp_out,
-                );
-                self.assembler.emit_vaddss(
-                    tmp_out,
-                    XMMOrMemory::XMM(tmp_out),
-                    tmp_out,
-                );
+                self.move_location(Size::S64, Location::GPR(tmp_in), Location::GPR(tmp));
+                self.assembler
+                    .emit_and(Size::S64, Location::Imm32(1), Location::GPR(tmp));
+                self.assembler
+                    .emit_shr(Size::S64, Location::Imm8(1), Location::GPR(tmp_in));
+                self.assembler
+                    .emit_or(Size::S64, Location::GPR(tmp), Location::GPR(tmp_in));
+                self.assembler
+                    .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_vaddss(tmp_out, XMMOrMemory::XMM(tmp_out), tmp_out);
                 self.emit_label(end_convert);
                 self.move_location(Size::S32, Location::SIMD(tmp_out), ret);
 
@@ -1223,14 +2189,48 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             self.assembler
                 .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
             if signed {
-                self.assembler.emit_vcvtsi2ss_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_vcvtsi2ss_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
             } else {
-                self.assembler.emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.assembler
+                    .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
             }
             self.move_location(Size::S32, Location::SIMD(tmp_out), ret);
 
             self.release_gpr(tmp_in);
             self.release_simd(tmp_out);
+        }
+    }
+    fn convert_i64_f64(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        match (signed, sat) {
+            (false, true) => self.convert_i64_f64_u_s(loc, ret),
+            (false, false) => self.convert_i64_f64_u_u(loc, ret),
+            (true, true) => self.convert_i64_f64_s_s(loc, ret),
+            (true, false) => self.convert_i64_f64_s_u(loc, ret),
+        }
+    }
+    fn convert_i32_f64(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        match (signed, sat) {
+            (false, true) => self.convert_i32_f64_u_s(loc, ret),
+            (false, false) => self.convert_i32_f64_u_u(loc, ret),
+            (true, true) => self.convert_i32_f64_s_s(loc, ret),
+            (true, false) => self.convert_i32_f64_s_u(loc, ret),
+        }
+    }
+    fn convert_i64_f32(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        match (signed, sat) {
+            (false, true) => self.convert_i64_f32_u_s(loc, ret),
+            (false, false) => self.convert_i64_f32_u_u(loc, ret),
+            (true, true) => self.convert_i64_f32_s_s(loc, ret),
+            (true, false) => self.convert_i64_f32_s_u(loc, ret),
+        }
+    }
+    fn convert_i32_f32(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        match (signed, sat) {
+            (false, true) => self.convert_i32_f32_u_s(loc, ret),
+            (false, false) => self.convert_i32_f32_u_u(loc, ret),
+            (true, true) => self.convert_i32_f32_s_s(loc, ret),
+            (true, false) => self.convert_i32_f32_s_u(loc, ret),
         }
     }
 }
@@ -1257,3 +2257,42 @@ mod test {
         machine.release_locations_keep_state(&mut assembler, &locs);
     }
 }
+
+// Constants for the bounds of truncation operations. These are the least or
+// greatest exact floats in either f32 or f64 representation less-than (for
+// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
+// min (for least) or max (for greatest), when rounding towards zero.
+
+/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
+const GEF32_LT_I32_MIN: f32 = -2147483904.0;
+/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
+const LEF32_GT_I32_MAX: f32 = 2147483648.0;
+/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
+const GEF32_LT_I64_MIN: f32 = -9223373136366403584.0;
+/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
+const LEF32_GT_I64_MAX: f32 = 9223372036854775808.0;
+/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
+const GEF32_LT_U32_MIN: f32 = -1.0;
+/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
+const LEF32_GT_U32_MAX: f32 = 4294967296.0;
+/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
+const GEF32_LT_U64_MIN: f32 = -1.0;
+/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
+const LEF32_GT_U64_MAX: f32 = 18446744073709551616.0;
+
+/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
+const GEF64_LT_I32_MIN: f64 = -2147483649.0;
+/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
+const LEF64_GT_I32_MAX: f64 = 2147483648.0;
+/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
+const GEF64_LT_I64_MIN: f64 = -9223372036854777856.0;
+/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
+const LEF64_GT_I64_MAX: f64 = 9223372036854775808.0;
+/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
+const GEF64_LT_U32_MIN: f64 = -1.0;
+/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
+const LEF64_GT_U32_MAX: f64 = 4294967296.0;
+/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
+const GEF64_LT_U64_MIN: f64 = -1.0;
+/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
+const LEF64_GT_U64_MAX: f64 = 18446744073709551616.0;

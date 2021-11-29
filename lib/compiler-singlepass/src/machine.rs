@@ -4,10 +4,14 @@ use crate::location::{CombinedRegister, Location, Reg};
 use smallvec::smallvec;
 use smallvec::SmallVec;
 use std::cmp;
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::{CallingConvention, Relocation, RelocationTarget};
+use wasmer_compiler::{
+    CallingConvention, InstructionAddressMap, Relocation, RelocationTarget, TrapInformation,
+};
+use wasmer_vm::TrapCode;
 
 #[allow(dead_code)]
 #[derive(Clone, PartialEq)]
@@ -29,6 +33,13 @@ pub trait MaybeImmediate {
     fn is_imm(&self) -> bool {
         self.imm_value().is_some()
     }
+}
+
+/// A trap table for a `RunnableModuleInfo`.
+#[derive(Clone, Debug, Default)]
+pub struct TrapTable {
+    /// Mappings from offsets in generated machine code to the corresponding trap code.
+    pub offset_to_code: BTreeMap<usize, TrapCode>,
 }
 
 // all machine seems to have a page this size, so not per arch for now
@@ -87,6 +98,23 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn reserve_simd(&mut self, simd: S);
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: S);
+    /// Set the source location of the Wasm to the given offset.
+    fn set_srcloc(&mut self, offset: u32);
+    /// Marks each address in the code range emitted by `f` with the trap code `code`.
+    fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize);
+    /// Marks one address as trappable with trap code `code`.
+    fn mark_address_with_trap_code(&mut self, code: TrapCode);
+    /// Marks the instruction as trappable with trap code `code`. return "begin" offset
+    fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize;
+    /// Pushes the instruction to the address map, calculating the offset from a
+    /// provided beginning address.
+    fn mark_instruction_address_end(&mut self, begin: usize);
+    /// Insert a StackOverflow (at offset 0)
+    fn insert_stackoverflow(&mut self);
+    /// Get all current TrapInformation
+    fn collect_trap_information(&self) -> Vec<TrapInformation>;
+    // Get all intructions address map
+    fn instructions_address_map(&self) -> Vec<InstructionAddressMap>;
     /// Memory location for a local on the stack
     /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
     fn local_on_stack(&mut self, stack_offset: i32) -> Location<R, S>;
@@ -350,6 +378,38 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn convert_f32_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
     /// Convert a F32 from I32, signed or unsigned
     fn convert_f32_i32(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
+    /// Convert a F64 to I64, signed or unsigned, without or without saturation
+    fn convert_i64_f64(
+        &mut self,
+        loc: Location<R, S>,
+        ret: Location<R, S>,
+        signed: bool,
+        sat: bool,
+    );
+    /// Convert a F64 to I32, signed or unsigned, without or without saturation
+    fn convert_i32_f64(
+        &mut self,
+        loc: Location<R, S>,
+        ret: Location<R, S>,
+        signed: bool,
+        sat: bool,
+    );
+    /// Convert a F32 to I64, signed or unsigned, without or without saturation
+    fn convert_i64_f32(
+        &mut self,
+        loc: Location<R, S>,
+        ret: Location<R, S>,
+        signed: bool,
+        sat: bool,
+    );
+    /// Convert a F32 to I32, signed or unsigned, without or without saturation
+    fn convert_i32_f32(
+        &mut self,
+        loc: Location<R, S>,
+        ret: Location<R, S>,
+        signed: bool,
+        sat: bool,
+    );
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
@@ -786,10 +846,6 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
 
     pub fn assembler_get_offset(&self) -> Offset {
         self.specific.get_offset()
-    }
-
-    pub fn assembler_finalize(self) -> Vec<u8> {
-        self.specific.assembler_finalize()
     }
 
     /// Is NaN canonicalization supported

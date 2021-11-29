@@ -6,15 +6,14 @@ use crate::{
 };
 use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
-use std::collections::BTreeMap;
 use std::iter;
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
-    CustomSectionProtection, FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation,
-    RelocationTarget, SectionBody, SectionIndex, SourceLoc, TrapInformation,
+    CustomSectionProtection, FunctionBody, FunctionBodyData, Relocation, RelocationTarget,
+    SectionBody, SectionIndex,
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
@@ -73,25 +72,11 @@ pub struct FuncGen<'a> {
     /// Function state map. Not yet used in the reborn version but let's keep it.
     fsm: FunctionStateMap,
 
-    /// Trap table.
-    trap_table: TrapTable,
-
     /// Relocation information.
     relocations: Vec<Relocation>,
 
     /// A set of special labels for trapping.
     special_labels: SpecialLabelSet,
-
-    /// The source location for the current operator.
-    src_loc: u32,
-
-    /// Map from byte offset into wasm function to range of native instructions.
-    ///
-    // Ordered by increasing InstructionAddressMap::srcloc.
-    instructions_address_map: Vec<InstructionAddressMap>,
-
-    /// Calling convention to use.
-    calling_convention: CallingConvention,
 }
 
 struct SpecialLabelSet {
@@ -100,13 +85,6 @@ struct SpecialLabelSet {
     table_access_oob: DynamicLabel,
     indirect_call_null: DynamicLabel,
     bad_signature: DynamicLabel,
-}
-
-/// A trap table for a `RunnableModuleInfo`.
-#[derive(Clone, Debug, Default)]
-pub struct TrapTable {
-    /// Mappings from offsets in generated machine code to the corresponding trap code.
-    pub offset_to_code: BTreeMap<usize, TrapCode>,
 }
 
 /// Metadata about a floating-point value.
@@ -254,7 +232,7 @@ struct I2O1 {
 impl<'a> FuncGen<'a> {
     /// Set the source location of the Wasm to the given offset.
     pub fn set_srcloc(&mut self, offset: u32) {
-        self.src_loc = offset;
+        self.machine.specific.set_srcloc(offset);
     }
 
     fn get_location_released(&mut self, loc: Location) -> Location {
@@ -299,21 +277,6 @@ impl<'a> FuncGen<'a> {
         );
     }
 
-    /// Marks each address in the code range emitted by `f` with the trap code `code`.
-    fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
-        for i in begin..end {
-            self.trap_table.offset_to_code.insert(i, code);
-        }
-        self.mark_instruction_address_end(begin);
-    }
-
-    /// Marks one address as trappable with trap code `code`.
-    fn mark_address_with_trap_code(&mut self, code: TrapCode) {
-        let offset = self.machine.assembler_get_offset().0;
-        self.trap_table.offset_to_code.insert(offset, code);
-        self.mark_instruction_address_end(offset);
-    }
-
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         &mut self,
@@ -336,25 +299,25 @@ impl<'a> FuncGen<'a> {
                     .specific
                     .move_location(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
                 self.mark_trappable();
-                let offset = self.machine.assembler_get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::IntegerOverflow);
+                let offset = self
+                    .machine
+                    .specific
+                    .mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
                 op(
                     &mut self.machine.specific.assembler,
                     sz,
                     Location::GPR(GPR::RCX),
                 );
-                self.mark_instruction_address_end(offset);
+                self.machine.specific.mark_instruction_address_end(offset);
             }
             _ => {
                 self.mark_trappable();
-                let offset = self.machine.assembler_get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::IntegerOverflow);
+                let offset = self
+                    .machine
+                    .specific
+                    .mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
                 op(&mut self.machine.specific.assembler, sz, loc);
-                self.mark_instruction_address_end(offset);
+                self.machine.specific.mark_instruction_address_end(offset);
             }
         }
     }
@@ -1318,7 +1281,11 @@ impl<'a> FuncGen<'a> {
         cb(self, tmp_addr)?;
         let end = self.machine.specific.memory_op_end(tmp_addr);
 
-        self.mark_address_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, begin, end);
+        self.machine.specific.mark_address_range_with_trap_code(
+            TrapCode::HeapAccessOutOfBounds,
+            begin,
+            end,
+        );
         Ok(())
     }
 
@@ -1386,397 +1353,6 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    // Checks for underflow/overflow/nan.
-    fn emit_f32_int_conv_check(
-        &mut self,
-        reg: XMM,
-        lower_bound: f32,
-        upper_bound: f32,
-        underflow_label: Label,
-        overflow_label: Label,
-        nan_label: Label,
-        succeed_label: Label,
-    ) {
-        let lower_bound = f32::to_bits(lower_bound);
-        let upper_bound = f32::to_bits(upper_bound);
-
-        let tmp = self.machine.acquire_temp_gpr().unwrap();
-        let tmp_x = self.machine.acquire_temp_simd().unwrap();
-
-        // Underflow.
-        self.machine.specific.move_location(
-            Size::S32,
-            Location::Imm32(lower_bound),
-            Location::GPR(tmp),
-        );
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x));
-        self.machine
-            .specific
-            .assembler
-            .emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::NotEqual, underflow_label);
-
-        // Overflow.
-        self.machine.specific.move_location(
-            Size::S32,
-            Location::Imm32(upper_bound),
-            Location::GPR(tmp),
-        );
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::GPR(tmp), Location::SIMD(tmp_x));
-        self.machine
-            .specific
-            .assembler
-            .emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::NotEqual, overflow_label);
-
-        // NaN.
-        self.machine
-            .specific
-            .assembler
-            .emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x);
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::Equal, nan_label);
-
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::None, succeed_label);
-
-        self.machine.release_temp_simd(tmp_x);
-        self.machine.release_temp_gpr(tmp);
-    }
-
-    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
-    fn emit_f32_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f32, upper_bound: f32) {
-        let trap_overflow = self.machine.specific.assembler.get_label();
-        let trap_badconv = self.machine.specific.assembler.get_label();
-        let end = self.machine.specific.assembler.get_label();
-
-        self.emit_f32_int_conv_check(
-            reg,
-            lower_bound,
-            upper_bound,
-            trap_overflow,
-            trap_overflow,
-            trap_badconv,
-            end,
-        );
-
-        self.machine.specific.emit_label(trap_overflow);
-        let offset = self.machine.assembler_get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.machine.specific.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
-
-        self.machine.specific.emit_label(trap_badconv);
-
-        let offset = self.machine.assembler_get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.machine.specific.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
-
-        self.machine.specific.emit_label(end);
-    }
-
-    fn emit_f32_int_conv_check_sat<
-        F1: FnOnce(&mut Self),
-        F2: FnOnce(&mut Self),
-        F3: FnOnce(&mut Self),
-        F4: FnOnce(&mut Self),
-    >(
-        &mut self,
-        reg: XMM,
-        lower_bound: f32,
-        upper_bound: f32,
-        underflow_cb: F1,
-        overflow_cb: F2,
-        nan_cb: Option<F3>,
-        convert_cb: F4,
-    ) {
-        // As an optimization nan_cb is optional, and when set to None we turn
-        // use 'underflow' as the 'nan' label. This is useful for callers who
-        // set the return value to zero for both underflow and nan.
-
-        let underflow = self.machine.specific.assembler.get_label();
-        let overflow = self.machine.specific.assembler.get_label();
-        let nan = if nan_cb.is_some() {
-            self.machine.specific.assembler.get_label()
-        } else {
-            underflow
-        };
-        let convert = self.machine.specific.assembler.get_label();
-        let end = self.machine.specific.assembler.get_label();
-
-        self.emit_f32_int_conv_check(
-            reg,
-            lower_bound,
-            upper_bound,
-            underflow,
-            overflow,
-            nan,
-            convert,
-        );
-
-        self.machine.specific.emit_label(underflow);
-        underflow_cb(self);
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::None, end);
-
-        self.machine.specific.emit_label(overflow);
-        overflow_cb(self);
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::None, end);
-
-        if let Some(cb) = nan_cb {
-            self.machine.specific.emit_label(nan);
-            cb(self);
-            self.machine
-                .specific
-                .assembler
-                .emit_jmp(Condition::None, end);
-        }
-
-        self.machine.specific.emit_label(convert);
-        convert_cb(self);
-        self.machine.specific.emit_label(end);
-    }
-
-    // Checks for underflow/overflow/nan.
-    fn emit_f64_int_conv_check(
-        &mut self,
-        reg: XMM,
-        lower_bound: f64,
-        upper_bound: f64,
-        underflow_label: Label,
-        overflow_label: Label,
-        nan_label: Label,
-        succeed_label: Label,
-    ) {
-        let lower_bound = f64::to_bits(lower_bound);
-        let upper_bound = f64::to_bits(upper_bound);
-
-        let tmp = self.machine.acquire_temp_gpr().unwrap();
-        let tmp_x = self.machine.acquire_temp_simd().unwrap();
-
-        // Underflow.
-        self.machine.specific.move_location(
-            Size::S64,
-            Location::Imm64(lower_bound),
-            Location::GPR(tmp),
-        );
-        self.machine
-            .specific
-            .move_location(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x));
-        self.machine
-            .specific
-            .assembler
-            .emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::NotEqual, underflow_label);
-
-        // Overflow.
-        self.machine.specific.move_location(
-            Size::S64,
-            Location::Imm64(upper_bound),
-            Location::GPR(tmp),
-        );
-        self.machine
-            .specific
-            .move_location(Size::S64, Location::GPR(tmp), Location::SIMD(tmp_x));
-        self.machine
-            .specific
-            .assembler
-            .emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x);
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::NotEqual, overflow_label);
-
-        // NaN.
-        self.machine
-            .specific
-            .assembler
-            .emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x);
-        self.machine
-            .specific
-            .move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp));
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::Equal, nan_label);
-
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::None, succeed_label);
-
-        self.machine.release_temp_simd(tmp_x);
-        self.machine.release_temp_gpr(tmp);
-    }
-
-    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.
-    fn emit_f64_int_conv_check_trap(&mut self, reg: XMM, lower_bound: f64, upper_bound: f64) {
-        let trap_overflow = self.machine.specific.assembler.get_label();
-        let trap_badconv = self.machine.specific.assembler.get_label();
-        let end = self.machine.specific.assembler.get_label();
-
-        self.emit_f64_int_conv_check(
-            reg,
-            lower_bound,
-            upper_bound,
-            trap_overflow,
-            trap_overflow,
-            trap_badconv,
-            end,
-        );
-
-        self.machine.specific.emit_label(trap_overflow);
-        let offset = self.machine.assembler_get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.machine.specific.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
-
-        self.machine.specific.emit_label(trap_badconv);
-        let offset = self.machine.assembler_get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.machine.specific.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
-
-        self.machine.specific.emit_label(end);
-    }
-
-    fn emit_f64_int_conv_check_sat<
-        F1: FnOnce(&mut Self),
-        F2: FnOnce(&mut Self),
-        F3: FnOnce(&mut Self),
-        F4: FnOnce(&mut Self),
-    >(
-        &mut self,
-        reg: XMM,
-        lower_bound: f64,
-        upper_bound: f64,
-        underflow_cb: F1,
-        overflow_cb: F2,
-        nan_cb: Option<F3>,
-        convert_cb: F4,
-    ) {
-        // As an optimization nan_cb is optional, and when set to None we turn
-        // use 'underflow' as the 'nan' label. This is useful for callers who
-        // set the return value to zero for both underflow and nan.
-
-        let underflow = self.machine.specific.assembler.get_label();
-        let overflow = self.machine.specific.assembler.get_label();
-        let nan = if nan_cb.is_some() {
-            self.machine.specific.assembler.get_label()
-        } else {
-            underflow
-        };
-        let convert = self.machine.specific.assembler.get_label();
-        let end = self.machine.specific.assembler.get_label();
-
-        self.emit_f64_int_conv_check(
-            reg,
-            lower_bound,
-            upper_bound,
-            underflow,
-            overflow,
-            nan,
-            convert,
-        );
-
-        self.machine.specific.emit_label(underflow);
-        underflow_cb(self);
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::None, end);
-
-        self.machine.specific.emit_label(overflow);
-        overflow_cb(self);
-        self.machine
-            .specific
-            .assembler
-            .emit_jmp(Condition::None, end);
-
-        if let Some(cb) = nan_cb {
-            self.machine.specific.emit_label(nan);
-            cb(self);
-            self.machine
-                .specific
-                .assembler
-                .emit_jmp(Condition::None, end);
-        }
-
-        self.machine.specific.emit_label(convert);
-        convert_cb(self);
-        self.machine.specific.emit_label(end);
-    }
-
     pub fn get_state_diff(&mut self) -> usize {
         if !self.machine.track_state {
             return std::usize::MAX;
@@ -1839,11 +1415,7 @@ impl<'a> FuncGen<'a> {
 
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
-        let offset = 0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::StackOverflow);
-        self.mark_instruction_address_end(offset);
+        self.machine.specific.insert_stackoverflow();
 
         if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
@@ -1851,16 +1423,6 @@ impl<'a> FuncGen<'a> {
             });
         }
         Ok(())
-    }
-
-    /// Pushes the instruction to the address map, calculating the offset from a
-    /// provided beginning address.
-    fn mark_instruction_address_end(&mut self, begin: usize) {
-        self.instructions_address_map.push(InstructionAddressMap {
-            srcloc: SourceLoc::new(self.src_loc),
-            code_offset: begin,
-            code_len: self.machine.specific.assembler.get_offset().0 - begin,
-        });
     }
 
     pub fn new(
@@ -1917,12 +1479,8 @@ impl<'a> FuncGen<'a> {
             machine: machine,
             unreachable_depth: 0,
             fsm,
-            trap_table: TrapTable::default(),
             relocations: vec![],
             special_labels,
-            src_loc: 0,
-            instructions_address_map: vec![],
-            calling_convention,
         };
         fg.emit_head()?;
         Ok(fg)
@@ -4202,40 +3760,9 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U32_MIN, LEF32_GT_U32_MAX);
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine
+                    .specific
+                    .convert_i32_f32(loc, ret, false, false);
             }
 
             Operator::I32TruncSatF32U => {
@@ -4247,51 +3774,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                self.emit_f32_int_conv_check_sat(
-                    tmp_in,
-                    GEF32_LT_U32_MIN,
-                    LEF32_GT_U32_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(0),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(std::u32::MAX),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    None::<fn(this: &mut Self)>,
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i32_trunc_uf32(tmp_in, tmp_out);
-                        } else {
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i32_f32(loc, ret, false, true);
             }
 
             Operator::I32TruncF32S => {
@@ -4303,41 +3786,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I32_MIN, LEF32_GT_I32_MAX);
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine.specific.convert_i32_f32(loc, ret, true, false);
             }
             Operator::I32TruncSatF32S => {
                 let loc = self.pop_value_released();
@@ -4348,58 +3797,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                self.emit_f32_int_conv_check_sat(
-                    tmp_in,
-                    GEF32_LT_I32_MIN,
-                    LEF32_GT_I32_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(std::i32::MIN as u32),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(std::i32::MAX as u32),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    Some(|this: &mut Self| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(0),
-                            Location::GPR(tmp_out),
-                        );
-                    }),
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i32_trunc_sf32(tmp_in, tmp_out);
-                        } else {
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttss2si_32(XMMOrMemory::XMM(tmp_in), tmp_out);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i32_f32(loc, ret, true, true);
             }
 
             Operator::I64TruncF32S => {
@@ -4411,40 +3809,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_I64_MIN, LEF32_GT_I64_MAX);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine.specific.convert_i64_f32(loc, ret, true, false);
             }
 
             Operator::I64TruncSatF32S => {
@@ -4456,58 +3821,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                self.emit_f32_int_conv_check_sat(
-                    tmp_in,
-                    GEF32_LT_I64_MIN,
-                    LEF32_GT_I64_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(std::i64::MIN as u64),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(std::i64::MAX as u64),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    Some(|this: &mut Self| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(0),
-                            Location::GPR(tmp_out),
-                        );
-                    }),
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i64_trunc_sf32(tmp_in, tmp_out);
-                        } else {
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i64_f32(loc, ret, true, true);
             }
 
             Operator::I64TruncF32U => {
@@ -4519,90 +3833,9 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap(); // xmm2
-
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                    self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U64_MIN, LEF32_GT_U64_MAX);
-
-                    let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
-                    let tmp_x1 = self.machine.acquire_temp_simd().unwrap(); // xmm1
-                    let tmp_x2 = self.machine.acquire_temp_simd().unwrap(); // xmm3
-
-                    self.machine.specific.move_location(
-                        Size::S32,
-                        Location::Imm32(1593835520u32),
-                        Location::GPR(tmp),
-                    ); //float 9.22337203E+18
-                    self.machine.specific.move_location(
-                        Size::S32,
-                        Location::GPR(tmp),
-                        Location::SIMD(tmp_x1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S32,
-                        Location::SIMD(tmp_in),
-                        Location::SIMD(tmp_x2),
-                    );
-                    self.machine.specific.assembler.emit_vsubss(
-                        tmp_in,
-                        XMMOrMemory::XMM(tmp_x1),
-                        tmp_in,
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm64(0x8000000000000000u64),
-                        Location::GPR(tmp),
-                    );
-                    self.machine.specific.assembler.emit_xor(
-                        Size::S64,
-                        Location::GPR(tmp_out),
-                        Location::GPR(tmp),
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cmovae_gpr_64(tmp, tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_x2);
-                    self.machine.release_temp_simd(tmp_x1);
-                    self.machine.release_temp_gpr(tmp);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine
+                    .specific
+                    .convert_i64_f32(loc, ret, false, false);
             }
             Operator::I64TruncSatF32U => {
                 let loc = self.pop_value_released();
@@ -4613,102 +3846,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in));
-                self.emit_f32_int_conv_check_sat(
-                    tmp_in,
-                    GEF32_LT_U64_MIN,
-                    LEF32_GT_U64_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(0),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(std::u64::MAX),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    None::<fn(this: &mut Self)>,
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i64_trunc_uf32(tmp_in, tmp_out);
-                        } else {
-                            let tmp = this.machine.acquire_temp_gpr().unwrap();
-                            let tmp_x1 = this.machine.acquire_temp_simd().unwrap();
-                            let tmp_x2 = this.machine.acquire_temp_simd().unwrap();
-
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S32,
-                                Location::Imm32(1593835520u32),
-                                Location::GPR(tmp),
-                            ); //float 9.22337203E+18
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S32,
-                                Location::GPR(tmp),
-                                Location::SIMD(tmp_x1),
-                            );
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S32,
-                                Location::SIMD(tmp_in),
-                                Location::SIMD(tmp_x2),
-                            );
-                            this.machine.specific.assembler.emit_vsubss(
-                                tmp_in,
-                                XMMOrMemory::XMM(tmp_x1),
-                                tmp_in,
-                            );
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S64,
-                                Location::Imm64(0x8000000000000000u64),
-                                Location::GPR(tmp),
-                            );
-                            this.machine.specific.assembler.emit_xor(
-                                Size::S64,
-                                Location::GPR(tmp_out),
-                                Location::GPR(tmp),
-                            );
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttss2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_ucomiss(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cmovae_gpr_64(tmp, tmp_out);
-
-                            this.machine.release_temp_simd(tmp_x2);
-                            this.machine.release_temp_simd(tmp_x1);
-                            this.machine.release_temp_gpr(tmp);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i64_f32(loc, ret, false, true);
             }
 
             Operator::I32TruncF64U => {
@@ -4720,41 +3858,9 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                    self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U32_MIN, LEF64_GT_U32_MAX);
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine
+                    .specific
+                    .convert_i32_f64(loc, ret, false, false);
             }
 
             Operator::I32TruncSatF64U => {
@@ -4766,52 +3872,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                self.emit_f64_int_conv_check_sat(
-                    tmp_in,
-                    GEF64_LT_U32_MIN,
-                    LEF64_GT_U32_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(0),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(std::u32::MAX),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    None::<fn(this: &mut Self)>,
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i32_trunc_uf64(tmp_in, tmp_out);
-                        } else {
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i32_f64(loc, ret, false, true);
             }
 
             Operator::I32TruncF64S => {
@@ -4823,63 +3884,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                    let real_in = match loc {
-                        Location::Imm32(_) | Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc,
-                                Location::GPR(tmp_out),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmp_out),
-                                Location::SIMD(tmp_in),
-                            );
-                            tmp_in
-                        }
-                        Location::SIMD(x) => x,
-                        _ => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc,
-                                Location::SIMD(tmp_in),
-                            );
-                            tmp_in
-                        }
-                    };
-
-                    self.emit_f64_int_conv_check_trap(real_in, GEF64_LT_I32_MIN, LEF64_GT_I32_MAX);
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine.specific.convert_i32_f64(loc, ret, true, false);
             }
 
             Operator::I32TruncSatF64S => {
@@ -4891,76 +3896,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                let real_in = match loc {
-                    Location::Imm32(_) | Location::Imm64(_) => {
-                        self.machine
-                            .specific
-                            .move_location(Size::S64, loc, Location::GPR(tmp_out));
-                        self.machine.specific.move_location(
-                            Size::S64,
-                            Location::GPR(tmp_out),
-                            Location::SIMD(tmp_in),
-                        );
-                        tmp_in
-                    }
-                    Location::SIMD(x) => x,
-                    _ => {
-                        self.machine
-                            .specific
-                            .move_location(Size::S64, loc, Location::SIMD(tmp_in));
-                        tmp_in
-                    }
-                };
-
-                self.emit_f64_int_conv_check_sat(
-                    real_in,
-                    GEF64_LT_I32_MIN,
-                    LEF64_GT_I32_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(std::i32::MIN as u32),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(std::i32::MAX as u32),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    Some(|this: &mut Self| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S32,
-                            Location::Imm32(0),
-                            Location::GPR(tmp_out),
-                        );
-                    }),
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i32_trunc_sf64(tmp_in, tmp_out);
-                        } else {
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttsd2si_32(XMMOrMemory::XMM(real_in), tmp_out);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i32_f64(loc, ret, true, true);
             }
 
             Operator::I64TruncF64S => {
@@ -4972,41 +3908,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                    self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_I64_MIN, LEF64_GT_I64_MAX);
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine.specific.convert_i64_f64(loc, ret, true, false);
             }
 
             Operator::I64TruncSatF64S => {
@@ -5018,58 +3920,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                self.emit_f64_int_conv_check_sat(
-                    tmp_in,
-                    GEF64_LT_I64_MIN,
-                    LEF64_GT_I64_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(std::i64::MIN as u64),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(std::i64::MAX as u64),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    Some(|this: &mut Self| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(0),
-                            Location::GPR(tmp_out),
-                        );
-                    }),
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i64_trunc_sf64(tmp_in, tmp_out);
-                        } else {
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i64_f64(loc, ret, true, true);
             }
 
             Operator::I64TruncF64U => {
@@ -5081,90 +3932,9 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                if self.machine.specific.assembler.arch_has_itruncf() {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::GPR(tmp_out), ret);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp_in = self.machine.acquire_temp_simd().unwrap(); // xmm2
-
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                    self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U64_MIN, LEF64_GT_U64_MAX);
-
-                    let tmp = self.machine.acquire_temp_gpr().unwrap(); // r15
-                    let tmp_x1 = self.machine.acquire_temp_simd().unwrap(); // xmm1
-                    let tmp_x2 = self.machine.acquire_temp_simd().unwrap(); // xmm3
-
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm64(4890909195324358656u64),
-                        Location::GPR(tmp),
-                    ); //double 9.2233720368547758E+18
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmp),
-                        Location::SIMD(tmp_x1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::SIMD(tmp_in),
-                        Location::SIMD(tmp_x2),
-                    );
-                    self.machine.specific.assembler.emit_vsubsd(
-                        tmp_in,
-                        XMMOrMemory::XMM(tmp_x1),
-                        tmp_in,
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm64(0x8000000000000000u64),
-                        Location::GPR(tmp),
-                    );
-                    self.machine.specific.assembler.emit_xor(
-                        Size::S64,
-                        Location::GPR(tmp_out),
-                        Location::GPR(tmp),
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_cmovae_gpr_64(tmp, tmp_out);
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(tmp_out), ret);
-
-                    self.machine.release_temp_simd(tmp_x2);
-                    self.machine.release_temp_simd(tmp_x1);
-                    self.machine.release_temp_gpr(tmp);
-                    self.machine.release_temp_simd(tmp_in);
-                    self.machine.release_temp_gpr(tmp_out);
-                }
+                self.machine
+                    .specific
+                    .convert_i64_f64(loc, ret, false, false);
             }
 
             Operator::I64TruncSatF64U => {
@@ -5176,102 +3946,7 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack.pop1()?;
 
-                let tmp_out = self.machine.acquire_temp_gpr().unwrap();
-                let tmp_in = self.machine.acquire_temp_simd().unwrap();
-
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in));
-                self.emit_f64_int_conv_check_sat(
-                    tmp_in,
-                    GEF64_LT_U64_MIN,
-                    LEF64_GT_U64_MAX,
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(0),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    |this| {
-                        this.machine.specific.assembler.emit_mov(
-                            Size::S64,
-                            Location::Imm64(std::u64::MAX),
-                            Location::GPR(tmp_out),
-                        );
-                    },
-                    None::<fn(this: &mut Self)>,
-                    |this| {
-                        if this.machine.specific.assembler.arch_has_itruncf() {
-                            this.machine
-                                .specific
-                                .assembler
-                                .arch_emit_i64_trunc_uf64(tmp_in, tmp_out);
-                        } else {
-                            let tmp = this.machine.acquire_temp_gpr().unwrap();
-                            let tmp_x1 = this.machine.acquire_temp_simd().unwrap();
-                            let tmp_x2 = this.machine.acquire_temp_simd().unwrap();
-
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S64,
-                                Location::Imm64(4890909195324358656u64),
-                                Location::GPR(tmp),
-                            ); //double 9.2233720368547758E+18
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S64,
-                                Location::GPR(tmp),
-                                Location::SIMD(tmp_x1),
-                            );
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S64,
-                                Location::SIMD(tmp_in),
-                                Location::SIMD(tmp_x2),
-                            );
-                            this.machine.specific.assembler.emit_vsubsd(
-                                tmp_in,
-                                XMMOrMemory::XMM(tmp_x1),
-                                tmp_in,
-                            );
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_in), tmp_out);
-                            this.machine.specific.assembler.emit_mov(
-                                Size::S64,
-                                Location::Imm64(0x8000000000000000u64),
-                                Location::GPR(tmp),
-                            );
-                            this.machine.specific.assembler.emit_xor(
-                                Size::S64,
-                                Location::GPR(tmp_out),
-                                Location::GPR(tmp),
-                            );
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cvttsd2si_64(XMMOrMemory::XMM(tmp_x2), tmp_out);
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_ucomisd(XMMOrMemory::XMM(tmp_x1), tmp_x2);
-                            this.machine
-                                .specific
-                                .assembler
-                                .emit_cmovae_gpr_64(tmp, tmp_out);
-
-                            this.machine.release_temp_simd(tmp_x2);
-                            this.machine.release_temp_simd(tmp_x1);
-                            this.machine.release_temp_gpr(tmp);
-                        }
-                    },
-                );
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(tmp_out), ret);
-                self.machine.release_temp_simd(tmp_in);
-                self.machine.release_temp_gpr(tmp_out);
+                self.machine.specific.convert_i64_f64(loc, ret, false, true);
             }
 
             Operator::F32ConvertI32S => {
@@ -5429,14 +4104,14 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_native(
                     |this| {
-                        let offset = this.machine.assembler_get_offset().0;
-                        this.trap_table
-                            .offset_to_code
-                            .insert(offset, TrapCode::StackOverflow);
+                        let offset = this
+                            .machine
+                            .specific
+                            .mark_instruction_with_trap_code(TrapCode::StackOverflow);
                         this.machine
                             .specific
                             .emit_call_register(this.machine.specific.get_grp_for_call());
-                        this.mark_instruction_address_end(offset);
+                        this.machine.specific.mark_instruction_address_end(offset);
                     },
                     params.iter().copied(),
                 )?;
@@ -5653,10 +4328,10 @@ impl<'a> FuncGen<'a> {
                                     vmcaller_checked_anyfunc_func_ptr as i32,
                                 ));
                         } else {
-                            let offset = this.machine.assembler_get_offset().0;
-                            this.trap_table
-                                .offset_to_code
-                                .insert(offset, TrapCode::StackOverflow);
+                            let offset = this
+                                .machine
+                                .specific
+                                .mark_instruction_with_trap_code(TrapCode::StackOverflow);
 
                             // We set the context pointer
                             this.machine.specific.move_location(
@@ -5672,7 +4347,7 @@ impl<'a> FuncGen<'a> {
                                 gpr_for_call,
                                 vmcaller_checked_anyfunc_func_ptr as i32,
                             ));
-                            this.mark_instruction_address_end(offset);
+                            this.machine.specific.mark_instruction_address_end(offset);
                         }
                     },
                     params.iter().copied(),
@@ -6564,12 +5239,12 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Unreachable => {
                 self.mark_trappable();
-                let offset = self.machine.assembler_get_offset().0;
-                self.trap_table
-                    .offset_to_code
-                    .insert(offset, TrapCode::UnreachableCodeReached);
+                let offset = self
+                    .machine
+                    .specific
+                    .mark_instruction_with_trap_code(TrapCode::UnreachableCodeReached);
                 self.machine.specific.emit_illegal_op();
-                self.mark_instruction_address_end(offset);
+                self.machine.specific.mark_instruction_address_end(offset);
                 self.unreachable_depth = 1;
             }
             Operator::Return => {
@@ -9030,57 +7705,64 @@ impl<'a> FuncGen<'a> {
         self.machine
             .specific
             .emit_label(self.special_labels.integer_division_by_zero);
-        self.mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
+        self.machine
+            .specific
+            .mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
         self.machine.specific.emit_illegal_op();
 
         self.machine
             .specific
             .emit_label(self.special_labels.heap_access_oob);
-        self.mark_address_with_trap_code(TrapCode::HeapAccessOutOfBounds);
+        self.machine
+            .specific
+            .mark_address_with_trap_code(TrapCode::HeapAccessOutOfBounds);
         self.machine.specific.emit_illegal_op();
 
         self.machine
             .specific
             .emit_label(self.special_labels.table_access_oob);
-        self.mark_address_with_trap_code(TrapCode::TableAccessOutOfBounds);
+        self.machine
+            .specific
+            .mark_address_with_trap_code(TrapCode::TableAccessOutOfBounds);
         self.machine.specific.emit_illegal_op();
 
         self.machine
             .specific
             .emit_label(self.special_labels.indirect_call_null);
-        self.mark_address_with_trap_code(TrapCode::IndirectCallToNull);
+        self.machine
+            .specific
+            .mark_address_with_trap_code(TrapCode::IndirectCallToNull);
         self.machine.specific.emit_illegal_op();
 
         self.machine
             .specific
             .emit_label(self.special_labels.bad_signature);
-        self.mark_address_with_trap_code(TrapCode::BadSignature);
+        self.machine
+            .specific
+            .mark_address_with_trap_code(TrapCode::BadSignature);
         self.machine.specific.emit_illegal_op();
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.machine.specific.finalize_function();
 
         let body_len = self.machine.assembler_get_offset().0;
-        let instructions_address_map = self.instructions_address_map;
-        let address_map = get_function_address_map(instructions_address_map, data, body_len);
+        let address_map = get_function_address_map(
+            self.machine.specific.instructions_address_map(),
+            data,
+            body_len,
+        );
+        let traps = self.machine.specific.collect_trap_information();
+        let body = self.machine.specific.assembler_finalize();
 
         CompiledFunction {
             body: FunctionBody {
-                body: self.machine.assembler_finalize(),
+                body: body,
                 unwind_info: None,
             },
             relocations: self.relocations,
             jt_offsets: SecondaryMap::new(),
             frame_info: CompiledFunctionFrameInfo {
-                traps: self
-                    .trap_table
-                    .offset_to_code
-                    .into_iter()
-                    .map(|(offset, code)| TrapInformation {
-                        code_offset: offset as u32,
-                        trap_code: code,
-                    })
-                    .collect(),
+                traps: traps,
                 address_map,
             },
         }
@@ -9540,42 +8222,3 @@ pub fn gen_import_call_trampoline(
         relocations: vec![],
     }
 }
-
-// Constants for the bounds of truncation operations. These are the least or
-// greatest exact floats in either f32 or f64 representation less-than (for
-// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
-// min (for least) or max (for greatest), when rounding towards zero.
-
-/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
-const GEF32_LT_I32_MIN: f32 = -2147483904.0;
-/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
-const LEF32_GT_I32_MAX: f32 = 2147483648.0;
-/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
-const GEF32_LT_I64_MIN: f32 = -9223373136366403584.0;
-/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
-const LEF32_GT_I64_MAX: f32 = 9223372036854775808.0;
-/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
-const GEF32_LT_U32_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
-const LEF32_GT_U32_MAX: f32 = 4294967296.0;
-/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
-const GEF32_LT_U64_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
-const LEF32_GT_U64_MAX: f32 = 18446744073709551616.0;
-
-/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
-const GEF64_LT_I32_MIN: f64 = -2147483649.0;
-/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
-const LEF64_GT_I32_MAX: f64 = 2147483648.0;
-/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
-const GEF64_LT_I64_MIN: f64 = -9223372036854777856.0;
-/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
-const LEF64_GT_I64_MAX: f64 = 9223372036854775808.0;
-/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
-const GEF64_LT_U32_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
-const LEF64_GT_U32_MAX: f64 = 4294967296.0;
-/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
-const GEF64_LT_U64_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
-const LEF64_GT_U64_MAX: f64 = 18446744073709551616.0;
