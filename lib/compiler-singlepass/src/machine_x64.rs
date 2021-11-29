@@ -1014,6 +1014,116 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             Location::GPR(GPR::RAX),
         );
     }
+
+    fn convert_f64_i64(&mut self, loc: Location, signed: bool, ret: Location) {
+        if self.assembler.arch_has_fconverti() {
+            let tmp_out = self.acquire_temp_simd().unwrap();
+            let tmp_in = self.acquire_temp_gpr().unwrap();
+            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(tmp_in));
+            if signed {
+                self.assembler.arch_emit_f64_convert_si64(tmp_in, tmp_out);
+            } else {
+                self.assembler.arch_emit_f64_convert_ui64(tmp_in, tmp_out);
+            }
+            self.emit_relaxed_mov(Size::S64, Location::SIMD(tmp_out), ret);
+            self.release_gpr(tmp_in);
+            self.release_simd(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_simd().unwrap();
+            let tmp_in = self.acquire_temp_gpr().unwrap();
+            if signed {
+                self.assembler.emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+                self.move_location(Size::S64, Location::SIMD(tmp_out), ret);
+            } else {
+                let tmp = self.acquire_temp_gpr().unwrap();
+
+                let do_convert = self.assembler.get_label();
+                let end_convert = self.assembler.get_label();
+
+                self.assembler
+                    .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
+                self.assembler.emit_test_gpr_64(tmp_in);
+                self.assembler
+                    .emit_jmp(Condition::Signed, do_convert);
+                self.assembler.emit_vcvtsi2sd_64(
+                    tmp_out,
+                    GPROrMemory::GPR(tmp_in),
+                    tmp_out,
+                );
+                self.assembler
+                    .emit_jmp(Condition::None, end_convert);
+                self.emit_label(do_convert);
+                self.move_location(
+                    Size::S64,
+                    Location::GPR(tmp_in),
+                    Location::GPR(tmp),
+                );
+                self.assembler.emit_and(
+                    Size::S64,
+                    Location::Imm32(1),
+                    Location::GPR(tmp),
+                );
+                self.assembler.emit_shr(
+                    Size::S64,
+                    Location::Imm8(1),
+                    Location::GPR(tmp_in),
+                );
+                self.assembler.emit_or(
+                    Size::S64,
+                    Location::GPR(tmp),
+                    Location::GPR(tmp_in),
+                );
+                self.assembler.emit_vcvtsi2sd_64(
+                    tmp_out,
+                    GPROrMemory::GPR(tmp_in),
+                    tmp_out,
+                );
+                self.assembler.emit_vaddsd(
+                    tmp_out,
+                    XMMOrMemory::XMM(tmp_out),
+                    tmp_out,
+                );
+                self.emit_label(end_convert);
+                self.move_location(Size::S64, Location::SIMD(tmp_out), ret);
+                
+                self.release_gpr(tmp);
+            }
+            
+            self.release_gpr(tmp_in);
+            self.release_simd(tmp_out);
+        }
+    }
+    fn convert_f64_i32(&mut self, loc: Location, signed: bool, ret: Location) {
+        if self.assembler.arch_has_fconverti() {
+            let tmp_out = self.acquire_temp_simd().unwrap();
+            let tmp_in = self.acquire_temp_gpr().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc, Location::GPR(tmp_in));
+            if signed {
+                self.assembler.arch_emit_f64_convert_si32(tmp_in, tmp_out);
+            } else {
+                self.assembler.arch_emit_f64_convert_ui32(tmp_in, tmp_out);
+            }
+            self.emit_relaxed_mov(Size::S64, Location::SIMD(tmp_out), ret);
+            self.release_gpr(tmp_in);
+            self.release_simd(tmp_out);
+        } else {
+            let tmp_out = self.acquire_temp_simd().unwrap();
+            let tmp_in = self.acquire_temp_gpr().unwrap();
+
+            self.assembler
+                .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
+            if signed {
+                self.assembler.emit_vcvtsi2sd_32(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+            } else {
+                self.assembler.emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out);
+            }
+            self.move_location(Size::S64, Location::SIMD(tmp_out), ret);
+
+            self.release_gpr(tmp_in);
+            self.release_simd(tmp_out);
+        }
+    }
 }
 
 pub type Machine = AbstractMachine<GPR, XMM, MachineX86_64, X64Register>;

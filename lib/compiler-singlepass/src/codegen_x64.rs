@@ -5515,41 +5515,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f64 never results in NaN.
 
-                if self.machine.specific.assembler.arch_has_fconverti() {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_f64_convert_si32(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::SIMD(tmp_out), ret);
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.machine.specific.assembler.emit_vcvtsi2sd_32(
-                        tmp_out,
-                        GPROrMemory::GPR(tmp_in),
-                        tmp_out,
-                    );
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::SIMD(tmp_out), ret);
-
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                }
+                self.machine.specific.convert_f64_i32(loc, true, ret);
             }
             Operator::F64ConvertI32U => {
                 let loc = self.pop_value_released();
@@ -5561,41 +5527,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i32 to f64 never results in NaN.
 
-                if self.machine.specific.assembler.arch_has_fconverti() {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_f64_convert_ui32(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::SIMD(tmp_out), ret);
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_mov(Size::S32, loc, Location::GPR(tmp_in));
-                    self.machine.specific.assembler.emit_vcvtsi2sd_64(
-                        tmp_out,
-                        GPROrMemory::GPR(tmp_in),
-                        tmp_out,
-                    );
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::SIMD(tmp_out), ret);
-
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                }
+                self.machine.specific.convert_f64_i32(loc, false, ret);
             }
             Operator::F64ConvertI64S => {
                 let loc = self.pop_value_released();
@@ -5607,41 +5539,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f64 never results in NaN.
 
-                if self.machine.specific.assembler.arch_has_fconverti() {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::GPR(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_f64_convert_si64(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::SIMD(tmp_out), ret);
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                    self.machine.specific.assembler.emit_vcvtsi2sd_64(
-                        tmp_out,
-                        GPROrMemory::GPR(tmp_in),
-                        tmp_out,
-                    );
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::SIMD(tmp_out), ret);
-
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                }
+                self.machine.specific.convert_f64_i64(loc, true, ret);
             }
             Operator::F64ConvertI64U => {
                 let loc = self.pop_value_released();
@@ -5653,87 +5551,7 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1)); // Converting i64 to f64 never results in NaN.
 
-                if self.machine.specific.assembler.arch_has_fconverti() {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::GPR(tmp_in));
-                    self.machine
-                        .specific
-                        .assembler
-                        .arch_emit_f64_convert_ui64(tmp_in, tmp_out);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::SIMD(tmp_out), ret);
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                } else {
-                    let tmp_out = self.machine.acquire_temp_simd().unwrap();
-                    let tmp_in = self.machine.acquire_temp_gpr().unwrap();
-                    let tmp = self.machine.acquire_temp_gpr().unwrap();
-
-                    let do_convert = self.machine.specific.assembler.get_label();
-                    let end_convert = self.machine.specific.assembler.get_label();
-
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_mov(Size::S64, loc, Location::GPR(tmp_in));
-                    self.machine.specific.assembler.emit_test_gpr_64(tmp_in);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::Signed, do_convert);
-                    self.machine.specific.assembler.emit_vcvtsi2sd_64(
-                        tmp_out,
-                        GPROrMemory::GPR(tmp_in),
-                        tmp_out,
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, end_convert);
-                    self.machine.specific.emit_label(do_convert);
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmp_in),
-                        Location::GPR(tmp),
-                    );
-                    self.machine.specific.assembler.emit_and(
-                        Size::S64,
-                        Location::Imm32(1),
-                        Location::GPR(tmp),
-                    );
-                    self.machine.specific.assembler.emit_shr(
-                        Size::S64,
-                        Location::Imm8(1),
-                        Location::GPR(tmp_in),
-                    );
-                    self.machine.specific.assembler.emit_or(
-                        Size::S64,
-                        Location::GPR(tmp),
-                        Location::GPR(tmp_in),
-                    );
-                    self.machine.specific.assembler.emit_vcvtsi2sd_64(
-                        tmp_out,
-                        GPROrMemory::GPR(tmp_in),
-                        tmp_out,
-                    );
-                    self.machine.specific.assembler.emit_vaddsd(
-                        tmp_out,
-                        XMMOrMemory::XMM(tmp_out),
-                        tmp_out,
-                    );
-                    self.machine.specific.emit_label(end_convert);
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::SIMD(tmp_out), ret);
-
-                    self.machine.release_temp_gpr(tmp);
-                    self.machine.release_temp_gpr(tmp_in);
-                    self.machine.release_temp_simd(tmp_out);
-                }
+                self.machine.specific.convert_f64_i64(loc, false, ret);
             }
 
             Operator::Call { function_index } => {
