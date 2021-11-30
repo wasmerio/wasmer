@@ -220,7 +220,7 @@ impl Wast {
             QuoteModule { .. } => {
                 // Do nothing
             }
-            AssertUncaughtException { .. } => {
+            AssertException { .. } => {
                 // Do nothing for now
             }
             AssertMalformed {
