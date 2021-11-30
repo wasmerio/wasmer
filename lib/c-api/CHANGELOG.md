@@ -8,8 +8,7 @@ Looking for changes to the Wasmer CLI and the Rust API? See our [Primary Changel
 
 ## **[Unreleased]**
 
-### Fixed
-- [#2485](https://github.com/wasmerio/wasmer/pull/2493) Document wasm_limits_t’s members publicly.
+## 2.1.0 - 2021/11/30
 
 ### Added
 - [#2521](https://github.com/wasmerio/wasmer/pull/2521) Create `OrderedResolver` from a parallel iterator, which improves performances of `wasm_new_instance` when a large set of imports is given.
@@ -19,7 +18,9 @@ Looking for changes to the Wasmer CLI and the Rust API? See our [Primary Changel
 - [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `traps` input to `wasm_instance_new()` to `trap`.
 
 ### Fixed
+- [#2485](https://github.com/wasmerio/wasmer/pull/2493) Document wasm_limits_t’s members publicly.
 - [#2444](https://github.com/wasmerio/wasmer/pull/2444) Trap's messages are always null terminated.
+- [#2683](https://github.com/wasmerio/wasmer/pull/2683) Fix memory leaks in the C API.
 
 ## 2.0.0 - 2020/06/16
 
