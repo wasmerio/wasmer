@@ -79,7 +79,7 @@ loupe = "0.1"
 # For logging tests using the `RUST_LOG=debug` when testing
 test-env-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
-tracing-subscriber = { version = "0.2", default-features = false, features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt"] }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
