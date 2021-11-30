@@ -1767,7 +1767,7 @@
     <span class="doccomment">/// for fds still open after the file has been deleted</span>
     <span class="kw">pub</span> <span class="ident">orphan_fds</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Inode</span>, <span class="ident">InodeVal</span><span class="op">&gt;</span>,
     <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>, <span class="ident">default</span> <span class="op">=</span> <span class="string">&quot;default_fs_backing&quot;</span>))]</span>
-    <span class="ident">fs_backing</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">fs_backing</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// Returns the default filesystem backing</span>

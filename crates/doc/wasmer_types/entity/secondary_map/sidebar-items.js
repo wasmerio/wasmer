@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["ArchivedSecondaryMap","An archived `SecondaryMap`"],["SecondaryMap","A mapping `K -> V` for densely indexed entity references."],["SecondaryMapResolver","The resolver for archived `SecondaryMap`"]]});
+initSidebarItems({"struct":[["ArchivedSecondaryMap","An archived [`SecondaryMap`]"],["SecondaryMap","A mapping `K -> V` for densely indexed entity references."],["SecondaryMapResolver","The resolver for an archived [`SecondaryMap`]"]]});
