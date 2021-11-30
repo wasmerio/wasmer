@@ -227,7 +227,6 @@
 <span id="227">227</span>
 <span id="228">228</span>
 <span id="229">229</span>
-<span id="230">230</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">resolve_imports</span>, <span class="ident">InstantiationError</span>, <span class="ident">Resolver</span>, <span class="ident">RuntimeError</span>, <span class="ident">SerializeError</span>, <span class="ident">Tunables</span>,
 };
@@ -390,7 +389,6 @@
             <span class="ident">finished_globals</span>,
             <span class="ident">imports</span>,
             <span class="self">self</span>.<span class="ident">signatures</span>().<span class="ident">clone</span>(),
-            <span class="self">self</span>.<span class="ident">func_data_registry</span>(),
             <span class="ident">host_state</span>,
             <span class="ident">import_function_envs</span>,
         )

@@ -1468,9 +1468,6 @@
 <span id="1468">1468</span>
 <span id="1469">1469</span>
 <span id="1470">1470</span>
-<span id="1471">1471</span>
-<span id="1472">1472</span>
-<span id="1473">1473</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1487,7 +1484,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">r#ref</span>::{<span class="ident">InstanceRef</span>, <span class="ident">WeakInstanceRef</span>, <span class="ident">WeakOrStrongInstanceRef</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::export::VMExtern</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::func_data_registry</span>::{<span class="ident">FuncDataRegistry</span>, <span class="ident">VMFuncRef</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::func_data_registry::VMFuncRef</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::global::Global</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::imports::Imports</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryError</span>};
@@ -1565,8 +1562,10 @@
     <span class="doccomment">/// get removed. A missing entry is considered equivalent to an empty slice.</span>
     <span class="ident">passive_data</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// mapping of function indices to their func ref backing data.</span>
-    <span class="ident">funcrefs</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">VMFuncRef</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Mapping of function indices to their func ref backing data. `VMFuncRef`s</span>
+    <span class="doccomment">/// will point to elements here for functions defined or imported by this</span>
+    <span class="doccomment">/// instance.</span>
+    <span class="ident">funcrefs</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">VMCallerCheckedAnyfunc</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Hosts can store arbitrary per-instance information here.</span>
     <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
@@ -2107,7 +2106,7 @@
         <span class="kw">if</span> <span class="ident">index</span> <span class="op">=</span><span class="op">=</span> <span class="ident">FunctionIndex::reserved_value</span>() {
             <span class="kw">return</span> <span class="ident">VMFuncRef::null</span>();
         }
-        <span class="self">self</span>.<span class="ident">funcrefs</span>[<span class="ident">index</span>]
+        <span class="ident">VMFuncRef</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">funcrefs</span>[<span class="ident">index</span>])
     }
 
     <span class="doccomment">/// The `table.init` operation: initializes a portion of a table with a</span>
@@ -2376,7 +2375,6 @@
         <span class="ident">finished_globals</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Global</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">imports</span>: <span class="ident">Imports</span>,
         <span class="ident">vmshared_signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
-        <span class="ident">func_data_registry</span>: <span class="kw-2">&amp;</span><span class="ident">FuncDataRegistry</span>,
         <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
         <span class="ident">imported_function_envs</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">ImportFunctionEnv</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">Trap</span><span class="op">&gt;</span> {
@@ -2418,7 +2416,6 @@
                     <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">instance</span>.<span class="ident">module</span>,
                     <span class="kw-2">&amp;</span><span class="ident">imports</span>,
                     <span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">functions</span>,
-                    <span class="ident">func_data_registry</span>,
                     <span class="kw-2">&amp;</span><span class="ident">vmshared_signatures</span>,
                     <span class="ident">vmctx_ptr</span>,
                 );
@@ -2909,10 +2906,9 @@
     <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
     <span class="ident">imports</span>: <span class="kw-2">&amp;</span><span class="ident">Imports</span>,
     <span class="ident">finished_functions</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">func_data_registry</span>: <span class="kw-2">&amp;</span><span class="ident">FuncDataRegistry</span>,
     <span class="ident">vmshared_signatures</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
     <span class="ident">vmctx_ptr</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMContext</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">VMFuncRef</span><span class="op">&gt;</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">VMCallerCheckedAnyfunc</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_refs</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module_info</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
 
     <span class="comment">// do imported functions</span>
@@ -2924,8 +2920,7 @@
             <span class="ident">type_index</span>,
             <span class="ident">vmctx</span>: <span class="ident">import</span>.<span class="ident">environment</span>,
         };
-        <span class="kw">let</span> <span class="ident">func_ref</span> <span class="op">=</span> <span class="ident">func_data_registry</span>.<span class="ident">register</span>(<span class="ident">anyfunc</span>);
-        <span class="ident">func_refs</span>.<span class="ident">push</span>(<span class="ident">func_ref</span>);
+        <span class="ident">func_refs</span>.<span class="ident">push</span>(<span class="ident">anyfunc</span>);
     }
 
     <span class="comment">// do local functions</span>
@@ -2938,8 +2933,7 @@
             <span class="ident">type_index</span>,
             <span class="ident">vmctx</span>: <span class="ident">VMFunctionEnvironment</span> { <span class="ident">vmctx</span>: <span class="ident">vmctx_ptr</span> },
         };
-        <span class="kw">let</span> <span class="ident">func_ref</span> <span class="op">=</span> <span class="ident">func_data_registry</span>.<span class="ident">register</span>(<span class="ident">anyfunc</span>);
-        <span class="ident">func_refs</span>.<span class="ident">push</span>(<span class="ident">func_ref</span>);
+        <span class="ident">func_refs</span>.<span class="ident">push</span>(<span class="ident">anyfunc</span>);
     }
 
     <span class="ident">func_refs</span>.<span class="ident">into_boxed_slice</span>()
