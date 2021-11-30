@@ -169,7 +169,7 @@ pub struct WasiFs {
     /// for fds still open after the file has been deleted
     pub orphan_fds: HashMap<Inode, InodeVal>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_fs_backing"))]
-    fs_backing: Box<dyn FileSystem>,
+    pub fs_backing: Box<dyn FileSystem>,
 }
 
 /// Returns the default filesystem backing
