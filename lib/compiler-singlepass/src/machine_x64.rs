@@ -456,6 +456,104 @@ impl MachineX86_64 {
         convert_cb(self);
         self.emit_label(end);
     }
+    /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
+    fn emit_relaxed_avx(
+        &mut self,
+        op: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) {
+        self.emit_relaxed_avx_base(
+            |this, src1, src2, dst| op(&mut this.assembler, src1, src2, dst),
+            src1,
+            src2,
+            dst,
+        );
+    }
+
+    /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
+    fn emit_relaxed_avx_base<F: FnOnce(&mut Self, XMM, XMMOrMemory, XMM)>(
+        &mut self,
+        op: F,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) {
+        let tmp1 = self.acquire_temp_simd().unwrap();
+        let tmp2 = self.acquire_temp_simd().unwrap();
+        let tmp3 = self.acquire_temp_simd().unwrap();
+        let tmpg = self.acquire_temp_gpr().unwrap();
+
+        let src1 = match src1 {
+            Location::SIMD(x) => x,
+            Location::GPR(_) | Location::Memory(_, _) => {
+                self.assembler
+                    .emit_mov(Size::S64, src1, Location::SIMD(tmp1));
+                tmp1
+            }
+            Location::Imm32(_) => {
+                self.assembler
+                    .emit_mov(Size::S32, src1, Location::GPR(tmpg));
+                self.move_location(Size::S32, Location::GPR(tmpg), Location::SIMD(tmp1));
+                tmp1
+            }
+            Location::Imm64(_) => {
+                self.assembler
+                    .emit_mov(Size::S64, src1, Location::GPR(tmpg));
+                self.move_location(Size::S64, Location::GPR(tmpg), Location::SIMD(tmp1));
+                tmp1
+            }
+            _ => {
+                unreachable!()
+            }
+        };
+
+        let src2 = match src2 {
+            Location::SIMD(x) => XMMOrMemory::XMM(x),
+            Location::Memory(base, disp) => XMMOrMemory::Memory(base, disp),
+            Location::GPR(_) => {
+                self.assembler
+                    .emit_mov(Size::S64, src2, Location::SIMD(tmp2));
+                XMMOrMemory::XMM(tmp2)
+            }
+            Location::Imm32(_) => {
+                self.assembler
+                    .emit_mov(Size::S32, src2, Location::GPR(tmpg));
+                self.move_location(Size::S32, Location::GPR(tmpg), Location::SIMD(tmp2));
+                XMMOrMemory::XMM(tmp2)
+            }
+            Location::Imm64(_) => {
+                self.assembler
+                    .emit_mov(Size::S64, src2, Location::GPR(tmpg));
+                self.move_location(Size::S64, Location::GPR(tmpg), Location::SIMD(tmp2));
+                XMMOrMemory::XMM(tmp2)
+            }
+            _ => {
+                unreachable!()
+            }
+        };
+
+        match dst {
+            Location::SIMD(x) => {
+                op(self, src1, src2, x);
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {
+                op(self, src1, src2, tmp3);
+                self.assembler
+                    .emit_mov(Size::S64, Location::SIMD(tmp3), dst);
+            }
+            _ => {
+                unreachable!()
+            }
+        }
+
+        self.release_gpr(tmpg);
+        self.release_simd(tmp3);
+        self.release_simd(tmp2);
+        self.release_simd(tmp1);
+    }
+
     fn convert_i64_f64_u_s(&mut self, loc: Location, ret: Location) {
         let tmp_out = self.acquire_temp_gpr().unwrap();
         let tmp_in = self.acquire_temp_simd().unwrap();
@@ -1945,6 +2043,10 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.emit_lock_xadd(size_op, new, ret);
     }
 
+    fn emit_memory_fence(&mut self) {
+        // nothing on x86_64
+    }
+
     fn location_neg(
         &mut self,
         size_val: Size, // size of src
@@ -2232,6 +2334,139 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             (true, true) => self.convert_i32_f32_s_s(loc, ret),
             (true, false) => self.convert_i32_f32_s_u(loc, ret),
         }
+    }
+    fn convert_f64_f32(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcvtss2sd, loc, loc, ret);
+    }
+    fn convert_f32_f64(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcvtsd2ss, loc, loc, ret);
+    }
+    fn f64_neg(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_fneg() {
+            let tmp = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp));
+            self.assembler.arch_emit_f64_neg(tmp, tmp);
+            self.emit_relaxed_mov(Size::S64, Location::SIMD(tmp), ret);
+            self.release_simd(tmp);
+        } else {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            self.move_location(Size::S64, loc, Location::GPR(tmp));
+            self.assembler.emit_btc_gpr_imm8_64(63, tmp);
+            self.move_location(Size::S64, Location::GPR(tmp), ret);
+            self.release_gpr(tmp);
+        }
+    }
+    fn f64_abs(&mut self, loc: Location, ret: Location) {
+        let tmp = self.acquire_temp_gpr().unwrap();
+        let c = self.acquire_temp_gpr().unwrap();
+
+        self.move_location(Size::S64, loc, Location::GPR(tmp));
+        self.move_location(
+            Size::S64,
+            Location::Imm64(0x7fffffffffffffffu64),
+            Location::GPR(c),
+        );
+        self.assembler
+            .emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp));
+        self.move_location(Size::S64, Location::GPR(tmp), ret);
+
+        self.release_gpr(c);
+        self.release_gpr(tmp);
+    }
+    fn emit_i64_copysign(&mut self, tmp1: GPR, tmp2: GPR) {
+        let c = self.acquire_temp_gpr().unwrap();
+
+        self.move_location(
+            Size::S64,
+            Location::Imm64(0x7fffffffffffffffu64),
+            Location::GPR(c),
+        );
+        self.assembler
+            .emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp1));
+
+        self.move_location(
+            Size::S64,
+            Location::Imm64(0x8000000000000000u64),
+            Location::GPR(c),
+        );
+        self.assembler
+            .emit_and(Size::S64, Location::GPR(c), Location::GPR(tmp2));
+
+        self.assembler
+            .emit_or(Size::S64, Location::GPR(tmp2), Location::GPR(tmp1));
+
+        self.release_gpr(c);
+    }
+    fn f64_sqrt(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vsqrtsd, loc, loc, ret);
+    }
+    fn f64_trunc(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundsd_trunc, loc, loc, ret);
+    }
+    fn f64_ceil(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundsd_ceil, loc, loc, ret);
+    }
+    fn f64_floor(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundsd_floor, loc, loc, ret);
+    }
+    fn f64_nearest(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundsd_nearest, loc, loc, ret);
+    }
+
+    fn f32_neg(&mut self, loc: Location, ret: Location) {
+        if self.assembler.arch_has_fneg() {
+            let tmp = self.acquire_temp_simd().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp));
+            self.assembler.arch_emit_f32_neg(tmp, tmp);
+            self.emit_relaxed_mov(Size::S32, Location::SIMD(tmp), ret);
+            self.release_simd(tmp);
+        } else {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            self.move_location(Size::S32, loc, Location::GPR(tmp));
+            self.assembler.emit_btc_gpr_imm8_32(31, tmp);
+            self.move_location(Size::S32, Location::GPR(tmp), ret);
+            self.release_gpr(tmp);
+        }
+    }
+    fn f32_abs(&mut self, loc: Location, ret: Location) {
+        let tmp = self.acquire_temp_gpr().unwrap();
+        self.move_location(Size::S32, loc, Location::GPR(tmp));
+        self.assembler.emit_and(
+            Size::S32,
+            Location::Imm32(0x7fffffffu32),
+            Location::GPR(tmp),
+        );
+        self.move_location(Size::S32, Location::GPR(tmp), ret);
+        self.release_gpr(tmp);
+    }
+    fn emit_i32_copysign(&mut self, tmp1: GPR, tmp2: GPR) {
+        self.assembler.emit_and(
+            Size::S32,
+            Location::Imm32(0x7fffffffu32),
+            Location::GPR(tmp1),
+        );
+        self.assembler.emit_and(
+            Size::S32,
+            Location::Imm32(0x80000000u32),
+            Location::GPR(tmp2),
+        );
+        self.assembler
+            .emit_or(Size::S32, Location::GPR(tmp2), Location::GPR(tmp1));
+    }
+    fn f32_sqrt(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vsqrtss, loc, loc, ret);
+    }
+    fn f32_trunc(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundss_trunc, loc, loc, ret);
+    }
+    fn f32_ceil(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundss_ceil, loc, loc, ret);
+    }
+    fn f32_floor(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundss_floor, loc, loc, ret);
+    }
+    fn f32_nearest(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vroundss_nearest, loc, loc, ret);
     }
 }
 

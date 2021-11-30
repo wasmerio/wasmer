@@ -346,6 +346,8 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn emit_relaxed_cmp(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
     /// relaxed atomic xchg: atomic exchange of anywhere and anywhere
     fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
+    /// Emit a memory fence. Can be nothing for x86_64 or a DMB on ARM64 for example
+    fn emit_memory_fence(&mut self);
     /// relaxed move with zero extension
     fn emit_relaxed_zero_extension(
         &mut self,
@@ -410,6 +412,43 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         signed: bool,
         sat: bool,
     );
+    /// Convert a F32 to F64
+    fn convert_f64_f32(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// Convert a F64 to F32
+    fn convert_f32_f64(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Negate an F64
+    fn f64_neg(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Get the Absolute Value of an F64
+    fn f64_abs(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Copy sign from tmp1 R to tmp2 R
+    fn emit_i64_copysign(&mut self, tmp1: R, tmp2: R);
+    // Get the Square Root of an F64
+    fn f64_sqrt(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Trunc of an F64
+    fn f64_trunc(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Ceil of an F64
+    fn f64_ceil(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Floor of an F64
+    fn f64_floor(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Round at nearest int of an F64
+    fn f64_nearest(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+
+    // Negate an F32
+    fn f32_neg(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Get the Absolute Value of an F32
+    fn f32_abs(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Copy sign from tmp1 R to tmp2 R
+    fn emit_i32_copysign(&mut self, tmp1: R, tmp2: R);
+    // Get the Square Root of an F32
+    fn f32_sqrt(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Trunc of an F32
+    fn f32_trunc(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Ceil of an F32
+    fn f32_ceil(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Floor of an F32
+    fn f32_floor(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    // Round at nearest int of an F32
+    fn f32_nearest(&mut self, loc: Location<R, S>, ret: Location<R, S>);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {

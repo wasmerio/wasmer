@@ -915,21 +915,6 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    /// Floating point (AVX) unop with both operands popped from the virtual stack.
-    fn emit_fp_unop_avx(
-        &mut self,
-        f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
-    ) -> Result<(), CodegenError> {
-        let loc = self.pop_value_released();
-        let ret = self.machine.acquire_locations(
-            &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
-            false,
-        )[0];
-        self.value_stack.push(ret);
-        self.emit_relaxed_avx(f, loc, loc, ret)?;
-        Ok(())
-    }
-
     /// Emits a System V / Windows call sequence.
     ///
     /// This function will not use RAX before `cb` is called.
@@ -2873,31 +2858,61 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundss_nearest)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f32_nearest(loc, ret);
             }
             Operator::F32Floor => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundss_floor)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f32_floor(loc, ret);
             }
             Operator::F32Ceil => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundss_ceil)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f32_ceil(loc, ret);
             }
             Operator::F32Trunc => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundss_trunc)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f32_trunc(loc, ret);
             }
             Operator::F32Sqrt => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vsqrtss)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f32_sqrt(loc, ret);
             }
 
             Operator::F32Copysign => {
@@ -2931,28 +2946,12 @@ impl<'a> FuncGen<'a> {
                 } else {
                     self.machine
                         .specific
-                        .assembler
-                        .emit_mov(Size::S32, loc_a, Location::GPR(tmp1));
+                        .move_location(Size::S32, loc_a, Location::GPR(tmp1));
                     self.machine
                         .specific
-                        .assembler
-                        .emit_mov(Size::S32, loc_b, Location::GPR(tmp2));
+                        .move_location(Size::S32, loc_b, Location::GPR(tmp2));
                 }
-                self.machine.specific.assembler.emit_and(
-                    Size::S32,
-                    Location::Imm32(0x7fffffffu32),
-                    Location::GPR(tmp1),
-                );
-                self.machine.specific.assembler.emit_and(
-                    Size::S32,
-                    Location::Imm32(0x80000000u32),
-                    Location::GPR(tmp2),
-                );
-                self.machine.specific.assembler.emit_or(
-                    Size::S32,
-                    Location::GPR(tmp2),
-                    Location::GPR(tmp1),
-                );
+                self.machine.specific.emit_i32_copysign(tmp1, tmp2);
                 self.machine
                     .specific
                     .move_location(Size::S32, Location::GPR(tmp1), ret);
@@ -2969,19 +2968,8 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .move_location(Size::S32, loc, Location::GPR(tmp));
-                self.machine.specific.assembler.emit_and(
-                    Size::S32,
-                    Location::Imm32(0x7fffffffu32),
-                    Location::GPR(tmp),
-                );
-                self.machine
-                    .specific
-                    .move_location(Size::S32, Location::GPR(tmp), ret);
-                self.machine.release_temp_gpr(tmp);
+
+                self.machine.specific.f32_abs(loc, ret);
             }
 
             Operator::F32Neg => {
@@ -2994,30 +2982,7 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.assembler.arch_has_fneg() {
-                    let tmp = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp));
-                    self.machine.specific.assembler.arch_emit_f32_neg(tmp, tmp);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S32, Location::SIMD(tmp), ret);
-                    self.machine.release_temp_simd(tmp);
-                } else {
-                    let tmp = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, loc, Location::GPR(tmp));
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_btc_gpr_imm8_32(31, tmp);
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(tmp), ret);
-                    self.machine.release_temp_gpr(tmp);
-                }
+                self.machine.specific.f32_neg(loc, ret);
             }
 
             Operator::F64Const { value } => {
@@ -3497,31 +3462,61 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundsd_nearest)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f64_nearest(loc, ret);
             }
             Operator::F64Floor => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundsd_floor)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f64_floor(loc, ret);
             }
             Operator::F64Ceil => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundsd_ceil)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f64_ceil(loc, ret);
             }
             Operator::F64Trunc => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vroundsd_trunc)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f64_trunc(loc, ret);
             }
             Operator::F64Sqrt => {
                 self.fp_stack.pop1()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vsqrtsd)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.f64_sqrt(loc, ret);
             }
 
             Operator::F64Copysign => {
@@ -3562,41 +3557,11 @@ impl<'a> FuncGen<'a> {
                         .assembler
                         .emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
                 }
-
-                let c = self.machine.acquire_temp_gpr().unwrap();
-
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::Imm64(0x7fffffffffffffffu64),
-                    Location::GPR(c),
-                );
-                self.machine.specific.assembler.emit_and(
-                    Size::S64,
-                    Location::GPR(c),
-                    Location::GPR(tmp1),
-                );
-
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::Imm64(0x8000000000000000u64),
-                    Location::GPR(c),
-                );
-                self.machine.specific.assembler.emit_and(
-                    Size::S64,
-                    Location::GPR(c),
-                    Location::GPR(tmp2),
-                );
-
-                self.machine.specific.assembler.emit_or(
-                    Size::S64,
-                    Location::GPR(tmp2),
-                    Location::GPR(tmp1),
-                );
+                self.machine.specific.emit_i64_copysign(tmp1, tmp2);
                 self.machine
                     .specific
                     .move_location(Size::S64, Location::GPR(tmp1), ret);
 
-                self.machine.release_temp_gpr(c);
                 self.machine.release_temp_gpr(tmp2);
                 self.machine.release_temp_gpr(tmp1);
             }
@@ -3611,28 +3576,7 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                let c = self.machine.acquire_temp_gpr().unwrap();
-
-                self.machine
-                    .specific
-                    .move_location(Size::S64, loc, Location::GPR(tmp));
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::Imm64(0x7fffffffffffffffu64),
-                    Location::GPR(c),
-                );
-                self.machine.specific.assembler.emit_and(
-                    Size::S64,
-                    Location::GPR(c),
-                    Location::GPR(tmp),
-                );
-                self.machine
-                    .specific
-                    .move_location(Size::S64, Location::GPR(tmp), ret);
-
-                self.machine.release_temp_gpr(c);
-                self.machine.release_temp_gpr(tmp);
+                self.machine.specific.f64_abs(loc, ret);
             }
 
             Operator::F64Neg => {
@@ -3644,41 +3588,31 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-                if self.machine.specific.assembler.arch_has_fneg() {
-                    let tmp = self.machine.acquire_temp_simd().unwrap();
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp));
-                    self.machine.specific.assembler.arch_emit_f64_neg(tmp, tmp);
-                    self.machine
-                        .specific
-                        .emit_relaxed_mov(Size::S64, Location::SIMD(tmp), ret);
-                    self.machine.release_temp_simd(tmp);
-                } else {
-                    let tmp = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, loc, Location::GPR(tmp));
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_btc_gpr_imm8_64(63, tmp);
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(tmp), ret);
-                    self.machine.release_temp_gpr(tmp);
-                }
+
+                self.machine.specific.f64_neg(loc, ret);
             }
 
             Operator::F64PromoteF32 => {
                 let fp = self.fp_stack.pop1()?;
                 self.fp_stack.push(fp.promote(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vcvtss2sd)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.convert_f64_f32(loc, ret);
             }
             Operator::F32DemoteF64 => {
                 let fp = self.fp_stack.pop1()?;
                 self.fp_stack.push(fp.demote(self.value_stack.len() - 1));
-                self.emit_fp_unop_avx(Assembler::emit_vcvtsd2ss)?
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::F64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.convert_f32_f64(loc, ret);
             }
 
             Operator::I32ReinterpretF32 => {
@@ -4457,10 +4391,7 @@ impl<'a> FuncGen<'a> {
 
                 match frame.if_else {
                     IfElseState::If(label) => {
-                        self.machine
-                            .specific
-                            .assembler
-                            .emit_jmp(Condition::None, frame.label);
+                        self.machine.specific.jmp_unconditionnal(frame.label);
                         self.machine.specific.emit_label(label);
                         frame.if_else = IfElseState::Else;
                     }
@@ -5544,6 +5475,7 @@ impl<'a> FuncGen<'a> {
                 // model, and if we hadn't recorded what fences used to be there,
                 // it would lead to data races that weren't present in the
                 // original source language.
+                self.machine.specific.emit_memory_fence();
             }
             Operator::I32AtomicLoad { ref memarg } => {
                 let target = self.pop_value_released();
