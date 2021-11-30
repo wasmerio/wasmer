@@ -416,39 +416,63 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn convert_f64_f32(&mut self, loc: Location<R, S>, ret: Location<R, S>);
     /// Convert a F64 to F32
     fn convert_f32_f64(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Negate an F64
+    /// Negate an F64
     fn f64_neg(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Get the Absolute Value of an F64
+    /// Get the Absolute Value of an F64
     fn f64_abs(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Copy sign from tmp1 R to tmp2 R
+    /// Copy sign from tmp1 R to tmp2 R
     fn emit_i64_copysign(&mut self, tmp1: R, tmp2: R);
-    // Get the Square Root of an F64
+    /// Get the Square Root of an F64
     fn f64_sqrt(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Trunc of an F64
+    /// Trunc of an F64
     fn f64_trunc(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Ceil of an F64
+    /// Ceil of an F64
     fn f64_ceil(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Floor of an F64
+    /// Floor of an F64
     fn f64_floor(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Round at nearest int of an F64
+    /// Round at nearest int of an F64
     fn f64_nearest(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// Greater of Equal Compare 2 F64, result in a GPR
+    fn f64_cmp_ge(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Greater Than Compare 2 F64, result in a GPR
+    fn f64_cmp_gt(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Less of Equal Compare 2 F64, result in a GPR
+    fn f64_cmp_le(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Less Than Compare 2 F64, result in a GPR
+    fn f64_cmp_lt(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Not Equal Compare 2 F64, result in a GPR
+    fn f64_cmp_ne(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Equal Compare 2 F64, result in a GPR
+    fn f64_cmp_eq(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
 
-    // Negate an F32
+    /// Negate an F32
     fn f32_neg(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Get the Absolute Value of an F32
+    /// Get the Absolute Value of an F32
     fn f32_abs(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Copy sign from tmp1 R to tmp2 R
+    /// Copy sign from tmp1 R to tmp2 R
     fn emit_i32_copysign(&mut self, tmp1: R, tmp2: R);
-    // Get the Square Root of an F32
+    /// Get the Square Root of an F32
     fn f32_sqrt(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Trunc of an F32
+    /// Trunc of an F32
     fn f32_trunc(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Ceil of an F32
+    /// Ceil of an F32
     fn f32_ceil(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Floor of an F32
+    /// Floor of an F32
     fn f32_floor(&mut self, loc: Location<R, S>, ret: Location<R, S>);
-    // Round at nearest int of an F32
+    /// Round at nearest int of an F32
     fn f32_nearest(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// Greater of Equal Compare 2 F32, result in a GPR
+    fn f32_cmp_ge(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Greater Than Compare 2 F32, result in a GPR
+    fn f32_cmp_gt(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Less of Equal Compare 2 F32, result in a GPR
+    fn f32_cmp_le(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Less Than Compare 2 F32, result in a GPR
+    fn f32_cmp_lt(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Not Equal Compare 2 F32, result in a GPR
+    fn f32_cmp_ne(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Equal Compare 2 F32, result in a GPR
+    fn f32_cmp_eq(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {

@@ -897,24 +897,6 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    /// Floating point (AVX) comparison with both operands popped from the virtual stack.
-    fn emit_fp_cmpop_avx(
-        &mut self,
-        f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
-    ) -> Result<(), CodegenError> {
-        let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
-
-        self.emit_relaxed_avx(f, loc_a, loc_b, ret)?;
-
-        // Workaround for behavior inconsistency among different backing implementations.
-        // (all bits or only the least significant bit are set to one?)
-        self.machine
-            .specific
-            .assembler
-            .emit_and(Size::S32, Location::Imm32(1), ret);
-        Ok(())
-    }
-
     /// Emits a System V / Windows call sequence.
     ///
     /// This function will not use RAX before `cb` is called.
@@ -2832,27 +2814,33 @@ impl<'a> FuncGen<'a> {
             }
             Operator::F32Eq => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpeqss)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f32_cmp_eq(loc_a, loc_b, ret);
             }
             Operator::F32Ne => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpneqss)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f32_cmp_ne(loc_a, loc_b, ret);
             }
             Operator::F32Lt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpltss)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f32_cmp_lt(loc_a, loc_b, ret);
             }
             Operator::F32Le => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpless)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f32_cmp_le(loc_a, loc_b, ret);
             }
             Operator::F32Gt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgtss)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f32_cmp_gt(loc_a, loc_b, ret);
             }
             Operator::F32Ge => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgess)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f32_cmp_ge(loc_a, loc_b, ret);
             }
             Operator::F32Nearest => {
                 self.fp_stack.pop1()?;
@@ -3436,27 +3424,33 @@ impl<'a> FuncGen<'a> {
             }
             Operator::F64Eq => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpeqsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f64_cmp_eq(loc_a, loc_b, ret);
             }
             Operator::F64Ne => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpneqsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f64_cmp_ne(loc_a, loc_b, ret);
             }
             Operator::F64Lt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpltsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f64_cmp_lt(loc_a, loc_b, ret);
             }
             Operator::F64Le => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmplesd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f64_cmp_le(loc_a, loc_b, ret);
             }
             Operator::F64Gt => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgtsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f64_cmp_gt(loc_a, loc_b, ret);
             }
             Operator::F64Ge => {
                 self.fp_stack.pop2()?;
-                self.emit_fp_cmpop_avx(Assembler::emit_vcmpgesd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32);
+                self.machine.specific.f64_cmp_ge(loc_a, loc_b, ret);
             }
             Operator::F64Nearest => {
                 self.fp_stack.pop1()?;

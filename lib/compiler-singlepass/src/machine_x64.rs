@@ -2412,6 +2412,30 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn f64_nearest(&mut self, loc: Location, ret: Location) {
         self.emit_relaxed_avx(Assembler::emit_vroundsd_nearest, loc, loc, ret);
     }
+    fn f64_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpgesd, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f64_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpgtsd, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f64_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmplesd, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f64_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpltsd, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f64_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpneqsd, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f64_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpeqsd, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
 
     fn f32_neg(&mut self, loc: Location, ret: Location) {
         if self.assembler.arch_has_fneg() {
@@ -2467,6 +2491,30 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn f32_nearest(&mut self, loc: Location, ret: Location) {
         self.emit_relaxed_avx(Assembler::emit_vroundss_nearest, loc, loc, ret);
+    }
+    fn f32_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpgess, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f32_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpgtss, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f32_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpless, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f32_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpltss, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f32_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpneqss, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f32_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_avx(Assembler::emit_vcmpeqss, loc_a, loc_b, ret);
+        self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
 }
 
