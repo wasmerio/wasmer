@@ -8,32 +8,62 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+## 2.1.0 - 2021/11/30
+
 ### Added
 - [#2574](https://github.com/wasmerio/wasmer/pull/2574) Added Windows support to Singlepass.
 - [#2535](https://github.com/wasmerio/wasmer/pull/2435) Added iOS support for Wasmer. This relies on the `dylib-engine`.
-- [#2427](https://github.com/wasmerio/wasmer/pull/2427) Wasmer can now compile to Javascript via `wasm-bindgen`. Use the `js-default` (and no default features) feature to try it!.
+- [#2460](https://github.com/wasmerio/wasmer/pull/2460) Wasmer can now compile to Javascript via `wasm-bindgen`. Use the `js-default` (and no default features) feature to try it!.
+- [#2491](https://github.com/wasmerio/wasmer/pull/2491) Added support for WASI to Wasmer-js.
 - [#2436](https://github.com/wasmerio/wasmer/pull/2436) Added the x86-32 bit variant support to LLVM compiler.
 - [#2499](https://github.com/wasmerio/wasmer/pull/2499) Added a subcommand to linux wasmer-cli to register wasmer with binfmt_misc
-
+- [#2511](https://github.com/wasmerio/wasmer/pull/2511) Added support for calling dynamic functions defined on the host
+- [#2491](https://github.com/wasmerio/wasmer/pull/2491) Added support for WASI in Wasmer-js
+- [#2592](https://github.com/wasmerio/wasmer/pull/2592) Added `ImportObject::get_namespace_exports` to allow modifying the contents of an existing namespace in an `ImportObject`.
+- [#2694](https://github.com/wasmerio/wasmer/pull/2694) wasmer-js: Allow an `ImportObject` to be extended with a JS object.
+- [#2698](https://github.com/wasmerio/wasmer/pull/2698) Provide WASI imports when invoking an explicit export from the CLI.
+- [#2701](https://github.com/wasmerio/wasmer/pull/2701) Improved VFS API for usage from JS
 
 ### Changed
 - [#2460](https://github.com/wasmerio/wasmer/pull/2460) **breaking change** `wasmer` API usage with `no-default-features` requires now the `sys` feature to preserve old behavior.
 - [#2476](https://github.com/wasmerio/wasmer/pull/2476) Removed unncessary abstraction `ModuleInfoTranslate` from `wasmer-compiler`.
 - [#2442](https://github.com/wasmerio/wasmer/pull/2442) Improved `WasmPtr`, added `WasmCell` for host/guest interaction.
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
-- [#2478](https://github.com/wasmerio/wasmer/pull/2478) Rename `wasm_instance_new()`’s “traps” argument to “trap”.
+- [#2685](https://github.com/wasmerio/wasmer/pull/2685) The minimum LLVM version for the LLVM compiler is now 12. LLVM 13 is used by default.
+- [#2569](https://github.com/wasmerio/wasmer/pull/2569) Add `Send` and `Sync` to uses of the `LikeNamespace` trait object.
+- [#2692](https://github.com/wasmerio/wasmer/pull/2692) Made module serialization deterministic.
+- [#2693](https://github.com/wasmerio/wasmer/pull/2693) Validate CPU features when loading a deserialized module.
 
 ### Fixed
 - [#2599](https://github.com/wasmerio/wasmer/pull/2599) Fixed Universal engine for Linux/Aarch64 target.
 - [#2587](https://github.com/wasmerio/wasmer/pull/2587) Fixed deriving `WasmerEnv` when aliasing `Result`.
 - [#2518](https://github.com/wasmerio/wasmer/pull/2518) Remove temporary file used to creating an artifact when creating a Dylib engine artifact.
 - [#2494](https://github.com/wasmerio/wasmer/pull/2494) Fixed `WasmerEnv` access when using `call_indirect` with the Singlepass compiler.
-- [#2449](https://github.com/wasmerio/wasmer/pull/2449) Fixed `wasmer-c-api` used `soname`.
 - [#2479](https://github.com/wasmerio/wasmer/pull/2479) Improved `wasmer validate` error message on non-wasm inputs.
 - [#2454](https://github.com/wasmerio/wasmer/issues/2454) Won't set `WASMER_CACHE_DIR` for Windows.
 - [#2426](https://github.com/wasmerio/wasmer/pull/2426) Fix the `wax` script generation.
 - [#2635](https://github.com/wasmerio/wasmer/pull/2635) Fix cross-compilation for singlepass.
 - [#2672](https://github.com/wasmerio/wasmer/pull/2672) Use `ENOENT` instead of `EINVAL` in some WASI syscalls for a non-existent file
+- [#2547](https://github.com/wasmerio/wasmer/pull/2547) Delete temporary files created by the dylib engine.
+- [#2548](https://github.com/wasmerio/wasmer/pull/2548) Fix stack probing on x86_64 linux with the cranelift compiler.
+- [#2557](https://github.com/wasmerio/wasmer/pull/2557) [#2559](https://github.com/wasmerio/wasmer/pull/2559) Fix WASI dir path renaming.
+- [#2560](https://github.com/wasmerio/wasmer/pull/2560) Fix signal handling on M1 MacOS.
+- [#2474](https://github.com/wasmerio/wasmer/pull/2474) Fix permissions on `WASMER_CACHE_DIR` on Windows.
+- [#2528](https://github.com/wasmerio/wasmer/pull/2528) [#2525](https://github.com/wasmerio/wasmer/pull/2525) [#2523](https://github.com/wasmerio/wasmer/pull/2523) [#2522](https://github.com/wasmerio/wasmer/pull/2522) [#2545](https://github.com/wasmerio/wasmer/pull/2545) [#2550](https://github.com/wasmerio/wasmer/pull/2550) [#2551](https://github.com/wasmerio/wasmer/pull/2551)  Fix various bugs in the new VFS implementation.
+- [#2552](https://github.com/wasmerio/wasmer/pull/2552) Fix stack guard handling on Windows.
+- [#2585](https://github.com/wasmerio/wasmer/pull/2585) Fix build with 64-bit MinGW toolchain.
+- [#2587](https://github.com/wasmerio/wasmer/pull/2587) Fix absolute import of `Result` in derive.
+- [#2599](https://github.com/wasmerio/wasmer/pull/2599) Fix AArch64 support in the LLVM compiler.
+- [#2655](https://github.com/wasmerio/wasmer/pull/2655) Fix argument parsing of `--dir` and `--mapdir`.
+- [#2666](https://github.com/wasmerio/wasmer/pull/2666) Fix performance on Windows by using static memories by default.
+- [#2667](https://github.com/wasmerio/wasmer/pull/2667) Fix error code for path_rename of a non-existant file
+- [#2672](https://github.com/wasmerio/wasmer/pull/2672) Fix error code returned by some wasi fs syscalls for a non-existent file
+- [#2673](https://github.com/wasmerio/wasmer/pull/2673) Fix BrTable codegen on the LLVM compiler
+- [#2674](https://github.com/wasmerio/wasmer/pull/2674) Add missing `__WASI_RIGHT_FD_DATASYNC` for preopened directories
+- [#2677](https://github.com/wasmerio/wasmer/pull/2677) Support 32-bit memories with 65536 pages
+- [#2681](https://github.com/wasmerio/wasmer/pull/2681) Fix slow compilation in singlepass by using dynasm's `VecAssembler`.
+- [#2690](https://github.com/wasmerio/wasmer/pull/2690) Fix memory leak when obtaining the stack bounds of a thread
+- [#2699](https://github.com/wasmerio/wasmer/pull/2699) Partially fix unbounded memory leak from the FuncDataRegistry
 
 ## 2.0.0 - 2021/06/16
 
