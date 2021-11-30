@@ -14,7 +14,7 @@ pub use allocator::InstanceAllocator;
 pub use r#ref::{InstanceRef, WeakInstanceRef, WeakOrStrongInstanceRef};
 
 use crate::export::VMExtern;
-use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
+use crate::func_data_registry::VMFuncRef;
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -92,8 +92,10 @@ pub(crate) struct Instance {
     /// get removed. A missing entry is considered equivalent to an empty slice.
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
-    /// mapping of function indices to their func ref backing data.
-    funcrefs: BoxedSlice<FunctionIndex, VMFuncRef>,
+    /// Mapping of function indices to their func ref backing data. `VMFuncRef`s
+    /// will point to elements here for functions defined or imported by this
+    /// instance.
+    funcrefs: BoxedSlice<FunctionIndex, VMCallerCheckedAnyfunc>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -634,7 +636,7 @@ impl Instance {
         if index == FunctionIndex::reserved_value() {
             return VMFuncRef::null();
         }
-        self.funcrefs[index]
+        VMFuncRef(&self.funcrefs[index])
     }
 
     /// The `table.init` operation: initializes a portion of a table with a
@@ -903,7 +905,6 @@ impl InstanceHandle {
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        func_data_registry: &FuncDataRegistry,
         host_state: Box<dyn Any>,
         imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
     ) -> Result<Self, Trap> {
@@ -945,7 +946,6 @@ impl InstanceHandle {
                     &*instance.module,
                     &imports,
                     &instance.functions,
-                    func_data_registry,
                     &vmshared_signatures,
                     vmctx_ptr,
                 );
@@ -1436,10 +1436,9 @@ fn build_funcrefs(
     module_info: &ModuleInfo,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    func_data_registry: &FuncDataRegistry,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     vmctx_ptr: *mut VMContext,
-) -> BoxedSlice<FunctionIndex, VMFuncRef> {
+) -> BoxedSlice<FunctionIndex, VMCallerCheckedAnyfunc> {
     let mut func_refs = PrimaryMap::with_capacity(module_info.functions.len());
 
     // do imported functions
@@ -1451,8 +1450,7 @@ fn build_funcrefs(
             type_index,
             vmctx: import.environment,
         };
-        let func_ref = func_data_registry.register(anyfunc);
-        func_refs.push(func_ref);
+        func_refs.push(anyfunc);
     }
 
     // do local functions
@@ -1465,8 +1463,7 @@ fn build_funcrefs(
             type_index,
             vmctx: VMFunctionEnvironment { vmctx: vmctx_ptr },
         };
-        let func_ref = func_data_registry.register(anyfunc);
-        func_refs.push(func_ref);
+        func_refs.push(anyfunc);
     }
 
     func_refs.into_boxed_slice()
