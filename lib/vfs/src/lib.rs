@@ -22,7 +22,7 @@ pub type Result<T> = std::result::Result<T, FsError>;
 #[repr(transparent)]
 pub struct FileDescriptor(usize);
 
-pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
+pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn remove_dir(&self, path: &Path) -> Result<()>;
@@ -37,6 +37,17 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+}
+
+impl dyn FileSystem + 'static {
+    #[inline]
+    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
+        self.upcast_any_ref().downcast_ref::<T>()
+    }
+    #[inline]
+    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
+        self.upcast_any_mut().downcast_mut::<T>()
+    }
 }
 
 pub trait FileOpener {
