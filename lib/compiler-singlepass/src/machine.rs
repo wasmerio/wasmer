@@ -448,7 +448,14 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn f64_min(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// get Max for 2 F64 values
     fn f64_max(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
-
+    /// Add 2 F64 values
+    fn f64_add(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Sub 2 F64 values
+    fn f64_sub(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Multiply 2 F64 values
+    fn f64_mul(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Divide 2 F64 values
+    fn f64_div(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// Negate an F32
     fn f32_neg(&mut self, loc: Location<R, S>, ret: Location<R, S>);
     /// Get the Absolute Value of an F32
@@ -481,6 +488,14 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn f32_min(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// get Max for 2 F32 values
     fn f32_max(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Add 2 F32 values
+    fn f32_add(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Sub 2 F32 values
+    fn f32_sub(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Multiply 2 F32 values
+    fn f32_mul(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Divide 2 F32 values
+    fn f32_div(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
@@ -559,15 +574,6 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         self.specific.release_cmpxchg_temp_gpr();
     }
 
-    /// Acquires a temporary XMM register.
-    pub fn acquire_temp_simd(&mut self) -> Option<S> {
-        self.specific.acquire_temp_simd()
-    }
-
-    /// Releases a temporary XMM register.
-    pub fn release_temp_simd(&mut self, simd: S) {
-        self.specific.release_simd(simd);
-    }
     /// Releases a XMM register.
     pub fn release_simd(&mut self, simd: S) {
         self.specific.release_simd(simd);

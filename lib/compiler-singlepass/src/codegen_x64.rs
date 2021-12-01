@@ -418,142 +418,6 @@ impl<'a> FuncGen<'a> {
         }
     }
 
-    /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
-    fn emit_relaxed_avx(
-        &mut self,
-        op: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
-        src1: Location,
-        src2: Location,
-        dst: Location,
-    ) -> Result<(), CodegenError> {
-        self.emit_relaxed_avx_base(
-            |this, src1, src2, dst| op(&mut this.machine.specific.assembler, src1, src2, dst),
-            src1,
-            src2,
-            dst,
-        )?;
-        Ok(())
-    }
-
-    /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
-    fn emit_relaxed_avx_base<F: FnOnce(&mut Self, XMM, XMMOrMemory, XMM)>(
-        &mut self,
-        op: F,
-        src1: Location,
-        src2: Location,
-        dst: Location,
-    ) -> Result<(), CodegenError> {
-        let tmp1 = self.machine.acquire_temp_simd().unwrap();
-        let tmp2 = self.machine.acquire_temp_simd().unwrap();
-        let tmp3 = self.machine.acquire_temp_simd().unwrap();
-        let tmpg = self.machine.acquire_temp_gpr().unwrap();
-
-        let src1 = match src1 {
-            Location::SIMD(x) => x,
-            Location::GPR(_) | Location::Memory(_, _) => {
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, src1, Location::SIMD(tmp1));
-                tmp1
-            }
-            Location::Imm32(_) => {
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, src1, Location::GPR(tmpg));
-                self.machine.specific.move_location(
-                    Size::S32,
-                    Location::GPR(tmpg),
-                    Location::SIMD(tmp1),
-                );
-                tmp1
-            }
-            Location::Imm64(_) => {
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, src1, Location::GPR(tmpg));
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::GPR(tmpg),
-                    Location::SIMD(tmp1),
-                );
-                tmp1
-            }
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_relaxed_avx_base src1: unreachable code".to_string(),
-                })
-            }
-        };
-
-        let src2 = match src2 {
-            Location::SIMD(x) => XMMOrMemory::XMM(x),
-            Location::Memory(base, disp) => XMMOrMemory::Memory(base, disp),
-            Location::GPR(_) => {
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, src2, Location::SIMD(tmp2));
-                XMMOrMemory::XMM(tmp2)
-            }
-            Location::Imm32(_) => {
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S32, src2, Location::GPR(tmpg));
-                self.machine.specific.move_location(
-                    Size::S32,
-                    Location::GPR(tmpg),
-                    Location::SIMD(tmp2),
-                );
-                XMMOrMemory::XMM(tmp2)
-            }
-            Location::Imm64(_) => {
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, src2, Location::GPR(tmpg));
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::GPR(tmpg),
-                    Location::SIMD(tmp2),
-                );
-                XMMOrMemory::XMM(tmp2)
-            }
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_relaxed_avx_base src2: unreachable code".to_string(),
-                })
-            }
-        };
-
-        match dst {
-            Location::SIMD(x) => {
-                op(self, src1, src2, x);
-            }
-            Location::Memory(_, _) | Location::GPR(_) => {
-                op(self, src1, src2, tmp3);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::SIMD(tmp3), dst);
-            }
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_relaxed_avx_base dst: unreachable code".to_string(),
-                })
-            }
-        }
-
-        self.machine.release_temp_gpr(tmpg);
-        self.machine.release_temp_simd(tmp3);
-        self.machine.release_temp_simd(tmp2);
-        self.machine.release_temp_simd(tmp1);
-        Ok(())
-    }
-
     /// I32 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i32(&mut self, f: fn(&mut Assembler, Size, Location, Location)) {
         // Using Red Zone here.
@@ -2369,7 +2233,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vaddss, loc_a, loc_b, ret)?;
+                self.machine.specific.f32_add(loc_a, loc_b, ret);
             }
             Operator::F32Sub => {
                 self.fp_stack.pop2()?;
@@ -2377,7 +2241,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vsubss, loc_a, loc_b, ret)?;
+                self.machine.specific.f32_sub(loc_a, loc_b, ret);
             }
             Operator::F32Mul => {
                 self.fp_stack.pop2()?;
@@ -2385,7 +2249,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vmulss, loc_a, loc_b, ret)?;
+                self.machine.specific.f32_mul(loc_a, loc_b, ret);
             }
             Operator::F32Div => {
                 self.fp_stack.pop2()?;
@@ -2393,7 +2257,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vdivss, loc_a, loc_b, ret)?;
+                self.machine.specific.f32_div(loc_a, loc_b, ret);
             }
             Operator::F32Max => {
                 self.fp_stack.pop2()?;
@@ -2585,7 +2449,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vaddsd, loc_a, loc_b, ret)?;
+                self.machine.specific.f64_add(loc_a, loc_b, ret);
             }
             Operator::F64Sub => {
                 self.fp_stack.pop2()?;
@@ -2593,7 +2457,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vsubsd, loc_a, loc_b, ret)?;
+                self.machine.specific.f64_sub(loc_a, loc_b, ret);
             }
             Operator::F64Mul => {
                 self.fp_stack.pop2()?;
@@ -2601,7 +2465,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vmulsd, loc_a, loc_b, ret)?;
+                self.machine.specific.f64_mul(loc_a, loc_b, ret);
             }
             Operator::F64Div => {
                 self.fp_stack.pop2()?;
@@ -2609,7 +2473,7 @@ impl<'a> FuncGen<'a> {
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
 
-                self.emit_relaxed_avx(Assembler::emit_vdivsd, loc_a, loc_b, ret)?;
+                self.machine.specific.f64_div(loc_a, loc_b, ret);
             }
             Operator::F64Max => {
                 self.fp_stack.pop2()?;
