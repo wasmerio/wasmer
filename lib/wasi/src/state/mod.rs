@@ -1193,7 +1193,7 @@ impl WasiFs {
                 match &mut inode.kind {
                     Kind::File { handle, .. } => {
                         if let Some(file) = handle {
-                            file.flush().map_err(|e| map_io_err(e))?
+                            file.flush().map_err(map_io_err)?
                         } else {
                             return Err(__WASI_EIO);
                         }
