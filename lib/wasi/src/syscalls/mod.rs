@@ -19,7 +19,6 @@ pub mod windows;
 pub mod legacy;
 
 use self::types::*;
-use super::TERMINATE_NOOP;
 use crate::utils::map_io_err;
 use crate::{
     ptr::{Array, WasmPtr},
