@@ -127,11 +127,6 @@ impl WasiThread
         }
     }
 
-    // Terminates this thread
-    pub fn terminate(&self, code: u32) {
-        proc_exit(self, code);
-    }
-
     /// Get an `ImportObject` for a specific version of WASI detected in the module.
     pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
