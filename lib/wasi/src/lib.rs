@@ -130,7 +130,7 @@ impl WasiThread
     /// Get an `ImportObject` for a specific version of WASI detected in the module.
     pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        Ok(generate_import_object_from_env(
+        Ok(generate_import_object_from_thread(
             module.store(),
             self.clone(),
             wasi_version,
@@ -150,7 +150,7 @@ impl WasiThread
             { Box::new(()) as Box<dyn NamedResolver + Send + Sync> };
         for version in wasi_versions.iter() {
             let new_import_object =
-                generate_import_object_from_env(module.store(), self.clone(), *version);
+                generate_import_object_from_thread(module.store(), self.clone(), *version);
             resolver = Box::new(new_import_object.chain_front(resolver));
         }
         Ok(resolver)
@@ -247,7 +247,7 @@ impl WasiEnv {
 /// Create an [`ImportObject`] with an existing [`WasiEnv`]. `WasiEnv`
 /// needs a [`WasiState`], that can be constructed from a
 /// [`WasiStateBuilder`](state::WasiStateBuilder).
-pub fn generate_import_object_from_env(
+pub fn generate_import_object_from_thread(
     store: &Store,
     thread: WasiThread,
     version: WasiVersion,

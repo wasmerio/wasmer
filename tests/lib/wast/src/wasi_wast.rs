@@ -6,7 +6,7 @@ use wasmer::{ImportObject, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
+    generate_import_object_from_thread, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
     WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
@@ -244,7 +244,7 @@ impl<'a> WasiTest<'a> {
     ) -> anyhow::Result<ImportObject> {
         let thread = env.new_thread();
         let version = self.get_version(module)?;
-        Ok(generate_import_object_from_env(store, thread, version))
+        Ok(generate_import_object_from_thread(store, thread, version))
     }
 }
 
