@@ -39,14 +39,15 @@ fn test_stdout() {
 
     // Create the `WasiEnv`.
     // let stdout = Stdout::default();
-    let mut wasi_env = WasiState::new("command-name")
+    let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         // .stdout(Box::new(stdout))
         .finalize()
         .unwrap();
 
     // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&module).unwrap();
+    let mut wasi_thread = wasi_env.new_thread();
+    let import_object = wasi_thread.import_object(&module).unwrap();
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -81,13 +82,14 @@ fn test_env() {
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
-    let mut wasi_env = wasi_state_builder
+    let wasi_env = wasi_state_builder
         // .stdout(Box::new(stdout))
         .finalize()
         .unwrap();
 
     // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&module).unwrap();
+    let mut wasi_thread = wasi_env.new_thread();
+    let import_object = wasi_thread.import_object(&module).unwrap();
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -111,13 +113,14 @@ fn test_stdin() {
     // Create the `WasiEnv`.
     let mut stdin = Stdin::default();
     stdin.buf = "Hello, stdin!".as_bytes().to_owned();
-    let mut wasi_env = WasiState::new("command-name")
+    let wasi_env = WasiState::new("command-name")
         .stdin(Box::new(stdin))
         .finalize()
         .unwrap();
 
     // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&module).unwrap();
+    let mut wasi_thread = wasi_env.new_thread();
+    let import_object = wasi_thread.import_object(&module).unwrap();
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&module, &import_object).unwrap();

@@ -66,7 +66,8 @@ let wasi_env = WasiState::new("command-name")
     .finalize()?;
 
 // Generate an `ImportObject`.
-let import_object = wasi_env.import_object(&module)?;
+let mut wasi_thread = wasi_env.new_thread();
+let import_object = wasi_thread.import_object(&module)?;
 
 // Let's instantiate the module with the imports.
 let instance = Instance::new(&module, &import_object)?;
