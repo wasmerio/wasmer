@@ -23,6 +23,7 @@ use wasi::Wasi;
 /// The options for the `wasmer run` subcommand
 pub struct Run {
     /// Disable the cache
+    #[cfg(feature = "cache")]
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
@@ -43,6 +44,7 @@ pub struct Run {
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
     /// as if no `cache-key` argument was passed.
+    #[cfg(feature = "cache")]
     #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
@@ -64,6 +66,7 @@ pub struct Run {
     #[structopt(long = "debug", short = "d")]
     debug: bool,
 
+    #[cfg(feature = "debug")]
     #[structopt(short, long, parse(from_occurrences))]
     verbose: u8,
 
