@@ -793,7 +793,7 @@ impl WasiFs {
                                 }
                             } else if file_type.is_symlink() {
                                 should_insert = false;
-                                let link_value = file.read_link().map_err(|e| map_io_err(e))?;
+                                let link_value = file.read_link().map_err(map_io_err)?;
                                 debug!("attempting to decompose path {:?}", link_value);
 
                                 let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
