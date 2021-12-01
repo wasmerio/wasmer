@@ -444,6 +444,10 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn f64_cmp_ne(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// Equal Compare 2 F64, result in a GPR
     fn f64_cmp_eq(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// get Min for 2 F64 values
+    fn f64_min(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// get Max for 2 F64 values
+    fn f64_max(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
 
     /// Negate an F32
     fn f32_neg(&mut self, loc: Location<R, S>, ret: Location<R, S>);
@@ -473,6 +477,10 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn f32_cmp_ne(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// Equal Compare 2 F32, result in a GPR
     fn f32_cmp_eq(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// get Min for 2 F32 values
+    fn f32_min(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// get Max for 2 F32 values
+    fn f32_max(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {

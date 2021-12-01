@@ -2436,6 +2436,382 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.emit_relaxed_avx(Assembler::emit_vcmpeqsd, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
+    fn f64_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        if !self.arch_supports_canonicalize_nan() {
+            self.emit_relaxed_avx(Assembler::emit_vminsd, loc_a, loc_b, ret);
+        } else {
+            let tmp1 = self.acquire_temp_simd().unwrap();
+            let tmp2 = self.acquire_temp_simd().unwrap();
+            let tmpg1 = self.acquire_temp_gpr().unwrap();
+            let tmpg2 = self.acquire_temp_gpr().unwrap();
+
+            let src1 = match loc_a {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+            let src2 = match loc_b {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+
+            let tmp_xmm1 = XMM::XMM8;
+            let tmp_xmm2 = XMM::XMM9;
+            let tmp_xmm3 = XMM::XMM10;
+
+            self.move_location(
+                Size::S64,
+                Location::SIMD(src1),
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::SIMD(src2),
+                Location::GPR(tmpg2),
+            );
+            self.assembler.emit_cmp(
+                Size::S64,
+                Location::GPR(tmpg2),
+                Location::GPR(tmpg1),
+            );
+            self.assembler.emit_vminsd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+            );
+            let label1 = self.assembler.get_label();
+            let label2 = self.assembler.get_label();
+            self.assembler
+                .emit_jmp(Condition::NotEqual, label1);
+            self.assembler
+                .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+            self.assembler
+                .emit_jmp(Condition::None, label2);
+            self.emit_label(label1);
+            // load float -0.0
+            self.move_location(
+                Size::S64,
+                Location::Imm64(0x8000_0000_0000_0000), // Negative zero
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::GPR(tmpg1),
+                Location::SIMD(tmp_xmm2),
+            );
+            self.emit_label(label2);
+            self.assembler.emit_vcmpeqsd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm3,
+            );
+            self.assembler.emit_vblendvpd(
+                tmp_xmm3,
+                XMMOrMemory::XMM(tmp_xmm2),
+                tmp_xmm1,
+                tmp_xmm1,
+            );
+            self.assembler.emit_vcmpunordsd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                src1,
+            );
+            // load float canonical nan
+            self.move_location(
+                Size::S64,
+                Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::GPR(tmpg1),
+                Location::SIMD(src2),
+            );
+            self.assembler.emit_vblendvpd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+                src1,
+            );
+            match ret {
+                Location::SIMD(x) => {
+                    self.assembler
+                        .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                }
+                Location::Memory(_, _) | Location::GPR(_) => {
+                    self.move_location(
+                        Size::S64,
+                        Location::SIMD(src1),
+                        ret,
+                    );
+                }
+                _ => {
+                    unreachable!();
+                }
+            }
+
+            self.release_gpr(tmpg2);
+            self.release_gpr(tmpg1);
+            self.release_simd(tmp2);
+            self.release_simd(tmp1);
+        }
+    }
+    fn f64_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        if !self.arch_supports_canonicalize_nan() {
+            self.emit_relaxed_avx(Assembler::emit_vmaxsd, loc_a, loc_b, ret);
+        } else {
+            let tmp1 = self.acquire_temp_simd().unwrap();
+            let tmp2 = self.acquire_temp_simd().unwrap();
+            let tmpg1 = self.acquire_temp_gpr().unwrap();
+            let tmpg2 = self.acquire_temp_gpr().unwrap();
+
+            let src1 = match loc_a {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+            let src2 = match loc_b {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+
+            let tmp_xmm1 = XMM::XMM8;
+            let tmp_xmm2 = XMM::XMM9;
+            let tmp_xmm3 = XMM::XMM10;
+
+            self.move_location(
+                Size::S64,
+                Location::SIMD(src1),
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::SIMD(src2),
+                Location::GPR(tmpg2),
+            );
+            self.assembler.emit_cmp(
+                Size::S64,
+                Location::GPR(tmpg2),
+                Location::GPR(tmpg1),
+            );
+            self.assembler.emit_vmaxsd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+            );
+            let label1 = self.assembler.get_label();
+            let label2 = self.assembler.get_label();
+            self.assembler
+                .emit_jmp(Condition::NotEqual, label1);
+            self.assembler
+                .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+            self.assembler
+                .emit_jmp(Condition::None, label2);
+            self.emit_label(label1);
+            self.assembler.emit_vxorpd(
+                tmp_xmm2,
+                XMMOrMemory::XMM(tmp_xmm2),
+                tmp_xmm2,
+            );
+            self.emit_label(label2);
+            self.assembler.emit_vcmpeqsd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm3,
+            );
+            self.assembler.emit_vblendvpd(
+                tmp_xmm3,
+                XMMOrMemory::XMM(tmp_xmm2),
+                tmp_xmm1,
+                tmp_xmm1,
+            );
+            self.assembler.emit_vcmpunordsd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                src1,
+            );
+            // load float canonical nan
+            self.move_location(
+                Size::S64,
+                Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::GPR(tmpg1),
+                Location::SIMD(src2),
+            );
+            self.assembler.emit_vblendvpd(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+                src1,
+            );
+            match ret {
+                Location::SIMD(x) => {
+                    self.assembler
+                        .emit_vmovapd(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                }
+                Location::Memory(_, _) | Location::GPR(_) => {
+                    self.move_location(
+                        Size::S64,
+                        Location::SIMD(src1),
+                        ret,
+                    );
+                }
+                _ => {
+                    unreachable!();
+                }
+            }
+
+            self.release_gpr(tmpg2);
+            self.release_gpr(tmpg1);
+            self.release_simd(tmp2);
+            self.release_simd(tmp1);
+        }
+    }
 
     fn f32_neg(&mut self, loc: Location, ret: Location) {
         if self.assembler.arch_has_fneg() {
@@ -2515,6 +2891,383 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn f32_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_relaxed_avx(Assembler::emit_vcmpeqss, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
+    }
+    fn f32_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        if !self.arch_supports_canonicalize_nan() {
+            self.emit_relaxed_avx(Assembler::emit_vminss, loc_a, loc_b, ret);
+        } else {
+            let tmp1 = self.acquire_temp_simd().unwrap();
+            let tmp2 = self.acquire_temp_simd().unwrap();
+            let tmpg1 = self.acquire_temp_gpr().unwrap();
+            let tmpg2 = self.acquire_temp_gpr().unwrap();
+
+            let src1 = match loc_a {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+            let src2 = match loc_b {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+
+            let tmp_xmm1 = XMM::XMM8;
+            let tmp_xmm2 = XMM::XMM9;
+            let tmp_xmm3 = XMM::XMM10;
+
+            self.move_location(
+                Size::S32,
+                Location::SIMD(src1),
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S32,
+                Location::SIMD(src2),
+                Location::GPR(tmpg2),
+            );
+            self.assembler.emit_cmp(
+                Size::S32,
+                Location::GPR(tmpg2),
+                Location::GPR(tmpg1),
+            );
+            self.assembler.emit_vminss(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+            );
+            let label1 = self.assembler.get_label();
+            let label2 = self.assembler.get_label();
+            self.assembler
+                .emit_jmp(Condition::NotEqual, label1);
+            self.assembler
+                .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+            self.assembler
+                .emit_jmp(Condition::None, label2);
+            self.emit_label(label1);
+            // load float -0.0
+            self.move_location(
+                Size::S64,
+                Location::Imm32(0x8000_0000), // Negative zero
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::GPR(tmpg1),
+                Location::SIMD(tmp_xmm2),
+            );
+            self.emit_label(label2);
+            self.assembler.emit_vcmpeqss(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm3,
+            );
+            self.assembler.emit_vblendvps(
+                tmp_xmm3,
+                XMMOrMemory::XMM(tmp_xmm2),
+                tmp_xmm1,
+                tmp_xmm1,
+            );
+            self.assembler.emit_vcmpunordss(
+                src1,
+                XMMOrMemory::XMM(src2),
+                src1,
+            );
+            // load float canonical nan
+            self.move_location(
+                Size::S64,
+                Location::Imm32(0x7FC0_0000), // Canonical NaN
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::GPR(tmpg1),
+                Location::SIMD(src2),
+            );
+            self.assembler.emit_vblendvps(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+                src1,
+            );
+            match ret {
+                Location::SIMD(x) => {
+                    self.assembler
+                        .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                }
+                Location::Memory(_, _) | Location::GPR(_) => {
+                    self.move_location(
+                        Size::S64,
+                        Location::SIMD(src1),
+                        ret,
+                    );
+                }
+                _ => {
+                    unreachable!();
+                }
+            }
+
+            self.release_gpr(tmpg2);
+            self.release_gpr(tmpg1);
+            self.release_simd(tmp2);
+            self.release_simd(tmp1);
+        }
+    }
+    fn f32_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        if !self.arch_supports_canonicalize_nan() {
+            self.emit_relaxed_avx(Assembler::emit_vmaxss, loc_a, loc_b, ret);
+        } else {
+
+            let tmp1 = self.acquire_temp_simd().unwrap();
+            let tmp2 = self.acquire_temp_simd().unwrap();
+            let tmpg1 = self.acquire_temp_gpr().unwrap();
+            let tmpg2 = self.acquire_temp_gpr().unwrap();
+
+            let src1 = match loc_a {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_a,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp1),
+                    );
+                    tmp1
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+            let src2 = match loc_b {
+                Location::SIMD(x) => x,
+                Location::GPR(_) | Location::Memory(_, _) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm32(_) => {
+                    self.move_location(
+                        Size::S32,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S32,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                Location::Imm64(_) => {
+                    self.move_location(
+                        Size::S64,
+                        loc_b,
+                        Location::GPR(tmpg1),
+                    );
+                    self.move_location(
+                        Size::S64,
+                        Location::GPR(tmpg1),
+                        Location::SIMD(tmp2),
+                    );
+                    tmp2
+                }
+                _ => {
+                    unreachable!();
+                }
+            };
+
+            let tmp_xmm1 = XMM::XMM8;
+            let tmp_xmm2 = XMM::XMM9;
+            let tmp_xmm3 = XMM::XMM10;
+
+            self.move_location(
+                Size::S32,
+                Location::SIMD(src1),
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S32,
+                Location::SIMD(src2),
+                Location::GPR(tmpg2),
+            );
+            self.assembler.emit_cmp(
+                Size::S32,
+                Location::GPR(tmpg2),
+                Location::GPR(tmpg1),
+            );
+            self.assembler.emit_vmaxss(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+            );
+            let label1 = self.assembler.get_label();
+            let label2 = self.assembler.get_label();
+            self.assembler
+                .emit_jmp(Condition::NotEqual, label1);
+            self.assembler
+                .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
+            self.assembler
+                .emit_jmp(Condition::None, label2);
+            self.emit_label(label1);
+            self.assembler.emit_vxorps(
+                tmp_xmm2,
+                XMMOrMemory::XMM(tmp_xmm2),
+                tmp_xmm2,
+            );
+            self.emit_label(label2);
+            self.assembler.emit_vcmpeqss(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm3,
+            );
+            self.assembler.emit_vblendvps(
+                tmp_xmm3,
+                XMMOrMemory::XMM(tmp_xmm2),
+                tmp_xmm1,
+                tmp_xmm1,
+            );
+            self.assembler.emit_vcmpunordss(
+                src1,
+                XMMOrMemory::XMM(src2),
+                src1,
+            );
+            // load float canonical nan
+            self.move_location(
+                Size::S64,
+                Location::Imm32(0x7FC0_0000), // Canonical NaN
+                Location::GPR(tmpg1),
+            );
+            self.move_location(
+                Size::S64,
+                Location::GPR(tmpg1),
+                Location::SIMD(src2),
+            );
+            self.assembler.emit_vblendvps(
+                src1,
+                XMMOrMemory::XMM(src2),
+                tmp_xmm1,
+                src1,
+            );
+            match ret {
+                Location::SIMD(x) => {
+                    self.assembler
+                        .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
+                }
+                Location::Memory(_, _) | Location::GPR(_) => {
+                    self.move_location(
+                        Size::S64,
+                        Location::SIMD(src1),
+                        ret,
+                    );
+                }
+                _ => {
+                    unreachable!();
+                }
+            }
+
+            self.release_gpr(tmpg2);
+            self.release_gpr(tmpg1);
+            self.release_simd(tmp2);
+            self.release_simd(tmp1);
+        }
     }
 }
 

@@ -886,17 +886,6 @@ impl<'a> FuncGen<'a> {
         );
     }
 
-    /// Floating point (AVX) binary operation with both operands popped from the virtual stack.
-    fn emit_fp_binop_avx(
-        &mut self,
-        f: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
-    ) -> Result<(), CodegenError> {
-        let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
-
-        self.emit_relaxed_avx(f, loc_a, loc_b, ret)?;
-        Ok(())
-    }
-
     /// Emits a System V / Windows call sequence.
     ///
     /// This function will not use RAX before `cb` is called.
@@ -2378,439 +2367,47 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vaddss)?;
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vaddss, loc_a, loc_b, ret)?;
             }
             Operator::F32Sub => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vsubss)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vsubss, loc_a, loc_b, ret)?;
             }
             Operator::F32Mul => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vmulss)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vmulss, loc_a, loc_b, ret)?;
             }
             Operator::F32Div => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f32(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vdivss)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vdivss, loc_a, loc_b, ret)?;
             }
             Operator::F32Max => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
-                if !self.machine.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(Assembler::emit_vmaxss)?;
-                } else {
-                    let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
-
-                    let tmp1 = self.machine.acquire_temp_simd().unwrap();
-                    let tmp2 = self.machine.acquire_temp_simd().unwrap();
-                    let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                    let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
-
-                    let src1 = match loc_a {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F32Max src1: unreachable code".to_string(),
-                            })
-                        }
-                    };
-                    let src2 = match loc_b {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F32Max src2: unreachable code".to_string(),
-                            })
-                        }
-                    };
-
-                    let tmp_xmm1 = XMM::XMM8;
-                    let tmp_xmm2 = XMM::XMM9;
-                    let tmp_xmm3 = XMM::XMM10;
-
-                    self.machine.specific.move_location(
-                        Size::S32,
-                        Location::SIMD(src1),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S32,
-                        Location::SIMD(src2),
-                        Location::GPR(tmpg2),
-                    );
-                    self.machine.specific.assembler.emit_cmp(
-                        Size::S32,
-                        Location::GPR(tmpg2),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.assembler.emit_vmaxss(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                    );
-                    let label1 = self.machine.specific.assembler.get_label();
-                    let label2 = self.machine.specific.assembler.get_label();
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::NotEqual, label1);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, label2);
-                    self.machine.specific.emit_label(label1);
-                    self.machine.specific.assembler.emit_vxorps(
-                        tmp_xmm2,
-                        XMMOrMemory::XMM(tmp_xmm2),
-                        tmp_xmm2,
-                    );
-                    self.machine.specific.emit_label(label2);
-                    self.machine.specific.assembler.emit_vcmpeqss(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm3,
-                    );
-                    self.machine.specific.assembler.emit_vblendvps(
-                        tmp_xmm3,
-                        XMMOrMemory::XMM(tmp_xmm2),
-                        tmp_xmm1,
-                        tmp_xmm1,
-                    );
-                    self.machine.specific.assembler.emit_vcmpunordss(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        src1,
-                    );
-                    // load float canonical nan
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm32(0x7FC0_0000), // Canonical NaN
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmpg1),
-                        Location::SIMD(src2),
-                    );
-                    self.machine.specific.assembler.emit_vblendvps(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                        src1,
-                    );
-                    match ret {
-                        Location::SIMD(x) => {
-                            self.machine
-                                .specific
-                                .assembler
-                                .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
-                        }
-                        Location::Memory(_, _) | Location::GPR(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::SIMD(src1),
-                                ret,
-                            );
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F32Max ret: unreachable code".to_string(),
-                            })
-                        }
-                    }
-
-                    self.machine.release_temp_gpr(tmpg2);
-                    self.machine.release_temp_gpr(tmpg1);
-                    self.machine.release_temp_simd(tmp2);
-                    self.machine.release_temp_simd(tmp1);
-                }
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+                self.machine.specific.f32_max(loc_a, loc_b, ret);
             }
             Operator::F32Min => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
-                if !self.machine.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(Assembler::emit_vminss)?;
-                } else {
-                    let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
-
-                    let tmp1 = self.machine.acquire_temp_simd().unwrap();
-                    let tmp2 = self.machine.acquire_temp_simd().unwrap();
-                    let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                    let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
-
-                    let src1 = match loc_a {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F32Min src1: unreachable code".to_string(),
-                            })
-                        }
-                    };
-                    let src2 = match loc_b {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F32Min src2: unreachable code".to_string(),
-                            })
-                        }
-                    };
-
-                    let tmp_xmm1 = XMM::XMM8;
-                    let tmp_xmm2 = XMM::XMM9;
-                    let tmp_xmm3 = XMM::XMM10;
-
-                    self.machine.specific.move_location(
-                        Size::S32,
-                        Location::SIMD(src1),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S32,
-                        Location::SIMD(src2),
-                        Location::GPR(tmpg2),
-                    );
-                    self.machine.specific.assembler.emit_cmp(
-                        Size::S32,
-                        Location::GPR(tmpg2),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.assembler.emit_vminss(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                    );
-                    let label1 = self.machine.specific.assembler.get_label();
-                    let label2 = self.machine.specific.assembler.get_label();
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::NotEqual, label1);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_vmovaps(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, label2);
-                    self.machine.specific.emit_label(label1);
-                    // load float -0.0
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm32(0x8000_0000), // Negative zero
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmpg1),
-                        Location::SIMD(tmp_xmm2),
-                    );
-                    self.machine.specific.emit_label(label2);
-                    self.machine.specific.assembler.emit_vcmpeqss(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm3,
-                    );
-                    self.machine.specific.assembler.emit_vblendvps(
-                        tmp_xmm3,
-                        XMMOrMemory::XMM(tmp_xmm2),
-                        tmp_xmm1,
-                        tmp_xmm1,
-                    );
-                    self.machine.specific.assembler.emit_vcmpunordss(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        src1,
-                    );
-                    // load float canonical nan
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm32(0x7FC0_0000), // Canonical NaN
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmpg1),
-                        Location::SIMD(src2),
-                    );
-                    self.machine.specific.assembler.emit_vblendvps(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                        src1,
-                    );
-                    match ret {
-                        Location::SIMD(x) => {
-                            self.machine
-                                .specific
-                                .assembler
-                                .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
-                        }
-                        Location::Memory(_, _) | Location::GPR(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::SIMD(src1),
-                                ret,
-                            );
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F32Min ret: unreachable code".to_string(),
-                            })
-                        }
-                    }
-
-                    self.machine.release_temp_gpr(tmpg2);
-                    self.machine.release_temp_gpr(tmpg1);
-                    self.machine.release_temp_simd(tmp2);
-                    self.machine.release_temp_simd(tmp1);
-                }
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+                self.machine.specific.f32_min(loc_a, loc_b, ret);
             }
             Operator::F32Eq => {
                 self.fp_stack.pop2()?;
@@ -2986,441 +2583,47 @@ impl<'a> FuncGen<'a> {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vaddsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vaddsd, loc_a, loc_b, ret)?;
             }
             Operator::F64Sub => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vsubsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vsubsd, loc_a, loc_b, ret)?;
             }
             Operator::F64Mul => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vmulsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vmulsd, loc_a, loc_b, ret)?;
             }
             Operator::F64Div => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::cncl_f64(self.value_stack.len() - 2));
-                self.emit_fp_binop_avx(Assembler::emit_vdivsd)?
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+
+                self.emit_relaxed_avx(Assembler::emit_vdivsd, loc_a, loc_b, ret)?;
             }
             Operator::F64Max => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
-
-                if !self.machine.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(Assembler::emit_vmaxsd)?;
-                } else {
-                    let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
-
-                    let tmp1 = self.machine.acquire_temp_simd().unwrap();
-                    let tmp2 = self.machine.acquire_temp_simd().unwrap();
-                    let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                    let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
-
-                    let src1 = match loc_a {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F64Max src1: unreachable code".to_string(),
-                            })
-                        }
-                    };
-                    let src2 = match loc_b {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F64Max src2: unreachable code".to_string(),
-                            })
-                        }
-                    };
-
-                    let tmp_xmm1 = XMM::XMM8;
-                    let tmp_xmm2 = XMM::XMM9;
-                    let tmp_xmm3 = XMM::XMM10;
-
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::SIMD(src1),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::SIMD(src2),
-                        Location::GPR(tmpg2),
-                    );
-                    self.machine.specific.assembler.emit_cmp(
-                        Size::S64,
-                        Location::GPR(tmpg2),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.assembler.emit_vmaxsd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                    );
-                    let label1 = self.machine.specific.assembler.get_label();
-                    let label2 = self.machine.specific.assembler.get_label();
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::NotEqual, label1);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, label2);
-                    self.machine.specific.emit_label(label1);
-                    self.machine.specific.assembler.emit_vxorpd(
-                        tmp_xmm2,
-                        XMMOrMemory::XMM(tmp_xmm2),
-                        tmp_xmm2,
-                    );
-                    self.machine.specific.emit_label(label2);
-                    self.machine.specific.assembler.emit_vcmpeqsd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm3,
-                    );
-                    self.machine.specific.assembler.emit_vblendvpd(
-                        tmp_xmm3,
-                        XMMOrMemory::XMM(tmp_xmm2),
-                        tmp_xmm1,
-                        tmp_xmm1,
-                    );
-                    self.machine.specific.assembler.emit_vcmpunordsd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        src1,
-                    );
-                    // load float canonical nan
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmpg1),
-                        Location::SIMD(src2),
-                    );
-                    self.machine.specific.assembler.emit_vblendvpd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                        src1,
-                    );
-                    match ret {
-                        Location::SIMD(x) => {
-                            self.machine
-                                .specific
-                                .assembler
-                                .emit_vmovapd(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
-                        }
-                        Location::Memory(_, _) | Location::GPR(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::SIMD(src1),
-                                ret,
-                            );
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F64Max ret: unreachable code".to_string(),
-                            })
-                        }
-                    }
-
-                    self.machine.release_temp_gpr(tmpg2);
-                    self.machine.release_temp_gpr(tmpg1);
-                    self.machine.release_temp_simd(tmp2);
-                    self.machine.release_temp_simd(tmp1);
-                }
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+                self.machine.specific.f64_max(loc_a, loc_b, ret);
             }
             Operator::F64Min => {
                 self.fp_stack.pop2()?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 2));
-
-                if !self.machine.arch_supports_canonicalize_nan() {
-                    self.emit_fp_binop_avx(Assembler::emit_vminsd)?;
-                } else {
-                    let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
-
-                    let tmp1 = self.machine.acquire_temp_simd().unwrap();
-                    let tmp2 = self.machine.acquire_temp_simd().unwrap();
-                    let tmpg1 = self.machine.acquire_temp_gpr().unwrap();
-                    let tmpg2 = self.machine.acquire_temp_gpr().unwrap();
-
-                    let src1 = match loc_a {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_a,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp1),
-                            );
-                            tmp1
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F64Min src1: unreachable code".to_string(),
-                            })
-                        }
-                    };
-                    let src2 = match loc_b {
-                        Location::SIMD(x) => x,
-                        Location::GPR(_) | Location::Memory(_, _) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm32(_) => {
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S32,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        Location::Imm64(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                loc_b,
-                                Location::GPR(tmpg1),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(tmpg1),
-                                Location::SIMD(tmp2),
-                            );
-                            tmp2
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F64Min src2: unreachable code".to_string(),
-                            })
-                        }
-                    };
-
-                    let tmp_xmm1 = XMM::XMM8;
-                    let tmp_xmm2 = XMM::XMM9;
-                    let tmp_xmm3 = XMM::XMM10;
-
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::SIMD(src1),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::SIMD(src2),
-                        Location::GPR(tmpg2),
-                    );
-                    self.machine.specific.assembler.emit_cmp(
-                        Size::S64,
-                        Location::GPR(tmpg2),
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.assembler.emit_vminsd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                    );
-                    let label1 = self.machine.specific.assembler.get_label();
-                    let label2 = self.machine.specific.assembler.get_label();
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::NotEqual, label1);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_vmovapd(XMMOrMemory::XMM(tmp_xmm1), XMMOrMemory::XMM(tmp_xmm2));
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, label2);
-                    self.machine.specific.emit_label(label1);
-                    // load float -0.0
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm64(0x8000_0000_0000_0000), // Negative zero
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmpg1),
-                        Location::SIMD(tmp_xmm2),
-                    );
-                    self.machine.specific.emit_label(label2);
-                    self.machine.specific.assembler.emit_vcmpeqsd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm3,
-                    );
-                    self.machine.specific.assembler.emit_vblendvpd(
-                        tmp_xmm3,
-                        XMMOrMemory::XMM(tmp_xmm2),
-                        tmp_xmm1,
-                        tmp_xmm1,
-                    );
-                    self.machine.specific.assembler.emit_vcmpunordsd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        src1,
-                    );
-                    // load float canonical nan
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm64(0x7FF8_0000_0000_0000), // Canonical NaN
-                        Location::GPR(tmpg1),
-                    );
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::GPR(tmpg1),
-                        Location::SIMD(src2),
-                    );
-                    self.machine.specific.assembler.emit_vblendvpd(
-                        src1,
-                        XMMOrMemory::XMM(src2),
-                        tmp_xmm1,
-                        src1,
-                    );
-                    match ret {
-                        Location::SIMD(x) => {
-                            self.machine
-                                .specific
-                                .assembler
-                                .emit_vmovaps(XMMOrMemory::XMM(src1), XMMOrMemory::XMM(x));
-                        }
-                        Location::Memory(_, _) | Location::GPR(_) => {
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::SIMD(src1),
-                                ret,
-                            );
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "F64Min ret: unreachable code".to_string(),
-                            })
-                        }
-                    }
-
-                    self.machine.release_temp_gpr(tmpg2);
-                    self.machine.release_temp_gpr(tmpg1);
-                    self.machine.release_temp_simd(tmp2);
-                    self.machine.release_temp_simd(tmp1);
-                }
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::F64);
+                self.machine.specific.f64_min(loc_a, loc_b, ret);
             }
             Operator::F64Eq => {
                 self.fp_stack.pop2()?;
