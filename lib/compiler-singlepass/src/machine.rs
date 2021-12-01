@@ -366,6 +366,117 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     );
     /// Multiply location with immedita
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: R);
+    /// Add with location directly from the stack
+    fn emit_binop_add32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Sub with location directly from the stack
+    fn emit_binop_sub32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Multiply with location directly from the stack
+    fn emit_binop_mul32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Unsigned Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_udiv32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_sdiv32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_urem32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_srem32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// And with location directly from the stack
+    fn emit_binop_and32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Or with location directly from the stack
+    fn emit_binop_or32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Xor with location directly from the stack
+    fn emit_binop_xor32(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Signed Greater of Equal Compare 2 i32, result in a GPR
+    fn i32_cmp_ge_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Signed Greater Than Compare 2 i32, result in a GPR
+    fn i32_cmp_gt_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Signed Less of Equal Compare 2 i32, result in a GPR
+    fn i32_cmp_le_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Signed Less Than Compare 2 i32, result in a GPR
+    fn i32_cmp_lt_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Greater of Equal Compare 2 i32, result in a GPR
+    fn i32_cmp_ge_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Greater Than Compare 2 i32, result in a GPR
+    fn i32_cmp_gt_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Less of Equal Compare 2 i32, result in a GPR
+    fn i32_cmp_le_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Less Than Compare 2 i32, result in a GPR
+    fn i32_cmp_lt_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Not Equal Compare 2 i32, result in a GPR
+    fn i32_cmp_ne(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Equal Compare 2 i32, result in a GPR
+    fn i32_cmp_eq(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Count Leading 0 bit of an i32
+    fn i32_clz(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// Count Trailling 0 bit of an i32
+    fn i32_ctz(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// Count the number of 1 bit of an i32
+    fn i32_popcnt(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// i32 Logical Shift Left
+    fn i32_shl(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i32 Logical Shift Right
+    fn i32_shr(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i32 Arithmetic Shift Right
+    fn i32_sar(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i32 Roll Left
+    fn i32_rol(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i32 Roll Right
+    fn i32_ror(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+
     /// emit a move function address to GPR ready for call, using appropriate relocation
     fn move_with_reloc(
         &mut self,

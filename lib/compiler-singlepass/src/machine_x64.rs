@@ -170,6 +170,99 @@ impl MachineX86_64 {
             }
         }
     }
+    /// I32 binary operation with both operands popped from the virtual stack.
+    fn emit_binop_i32(
+        &mut self,
+        f: fn(&mut Assembler, Size, Location, Location),
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) {
+        if loc_a != ret {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc_a, Location::GPR(tmp));
+            self.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp));
+            self.emit_relaxed_mov(Size::S32, Location::GPR(tmp), ret);
+            self.release_gpr(tmp);
+        } else {
+            self.emit_relaxed_binop(f, Size::S32, loc_b, ret);
+        }
+    }
+    /// Moves `loc` to a valid location for `div`/`idiv`.
+    fn emit_relaxed_xdiv(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location),
+        sz: Size,
+        loc: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        self.assembler.emit_cmp(sz, Location::Imm32(0), loc);
+        self.assembler
+            .emit_jmp(Condition::Equal, integer_division_by_zero);
+
+        match loc {
+            Location::Imm64(_) | Location::Imm32(_) => {
+                self.move_location(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
+                let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+                op(&mut self.assembler, sz, Location::GPR(GPR::RCX));
+                self.mark_instruction_address_end(offset);
+                offset
+            }
+            _ => {
+                let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+                op(&mut self.assembler, sz, loc);
+                self.mark_instruction_address_end(offset);
+                offset
+            }
+        }
+    }
+    /// I32 comparison with.
+    fn emit_cmpop_i32_dynamic_b(
+        &mut self,
+        c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) {
+        match ret {
+            Location::GPR(x) => {
+                self.emit_relaxed_cmp(Size::S32, loc_b, loc_a);
+                self.assembler.emit_set(c, x);
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x));
+            }
+            Location::Memory(_, _) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.emit_relaxed_cmp(Size::S32, loc_b, loc_a);
+                self.assembler.emit_set(c, tmp);
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(tmp));
+                self.move_location(Size::S32, Location::GPR(tmp), ret);
+                self.release_gpr(tmp);
+            }
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+    /// I32 shift with both operands popped from the virtual stack.
+    fn emit_shift_i32(
+        &mut self,
+        f: fn(&mut Assembler, Size, Location, Location),
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) {
+        self.assembler
+            .emit_mov(Size::S32, loc_b, Location::GPR(GPR::RCX));
+
+        if loc_a != ret {
+            self.emit_relaxed_mov(Size::S32, loc_a, ret);
+        }
+
+        f(&mut self.assembler, Size::S32, Location::GPR(GPR::RCX), ret);
+    }
+
     // Checks for underflow/overflow/nan.
     fn emit_f32_int_conv_check(
         &mut self,
@@ -2101,6 +2194,302 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         dst: Location,
     ) {
         self.emit_relaxed_zx_sx(Assembler::emit_movsx, sz_src, src, sz_dst, dst);
+    }
+
+    fn emit_binop_add32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i32(Assembler::emit_add, loc_a, loc_b, ret);
+    }
+    fn emit_binop_sub32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i32(Assembler::emit_sub, loc_a, loc_b, ret);
+    }
+    fn emit_binop_mul32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i32(Assembler::emit_imul, loc_a, loc_b, ret);
+    }
+    fn emit_binop_udiv32(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        self.assembler
+            .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+        self.assembler
+            .emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_div,
+            Size::S32,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+        offset
+    }
+    fn emit_binop_sdiv32(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        self.assembler
+            .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+        self.assembler.emit_cdq();
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_idiv,
+            Size::S32,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret);
+        offset
+    }
+    fn emit_binop_urem32(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        self.assembler
+            .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+        self.assembler
+            .emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_div,
+            Size::S32,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
+        offset
+    }
+    fn emit_binop_srem32(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        let normal_path = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0x80000000), loc_a);
+        self.assembler.emit_jmp(Condition::NotEqual, normal_path);
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0xffffffff), loc_b);
+        self.assembler.emit_jmp(Condition::NotEqual, normal_path);
+        self.move_location(Size::S32, Location::Imm32(0), ret);
+        self.assembler.emit_jmp(Condition::None, end);
+
+        self.emit_label(normal_path);
+        self.assembler
+            .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
+        self.assembler.emit_cdq();
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_idiv,
+            Size::S32,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret);
+
+        self.emit_label(end);
+        offset
+    }
+    fn emit_binop_and32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i32(Assembler::emit_and, loc_a, loc_b, ret);
+    }
+    fn emit_binop_or32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i32(Assembler::emit_or, loc_a, loc_b, ret);
+    }
+    fn emit_binop_xor32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i32(Assembler::emit_xor, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_ge_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::GreaterEqual, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_gt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::Greater, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_le_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::LessEqual, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_lt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::Less, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_ge_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::AboveEqual, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_gt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::Above, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_le_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::BelowEqual, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_lt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::Below, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::NotEqual, loc_a, loc_b, ret);
+    }
+    fn i32_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i32_dynamic_b(Condition::Equal, loc_a, loc_b, ret);
+    }
+    fn i32_clz(&mut self, loc: Location, ret: Location) {
+        let src = match loc {
+            Location::Imm32(_) | Location::Memory(_, _) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.move_location(Size::S32, loc, Location::GPR(tmp));
+                tmp
+            }
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+        let dst = match ret {
+            Location::Memory(_, _) => self.acquire_temp_gpr().unwrap(),
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+
+        if self.assembler.arch_has_xzcnt() {
+            self.assembler
+                .arch_emit_lzcnt(Size::S32, Location::GPR(src), Location::GPR(dst));
+        } else {
+            let zero_path = self.assembler.get_label();
+            let end = self.assembler.get_label();
+
+            self.assembler.emit_test_gpr_64(src);
+            self.assembler.emit_jmp(Condition::Equal, zero_path);
+            self.assembler
+                .emit_bsr(Size::S32, Location::GPR(src), Location::GPR(dst));
+            self.assembler
+                .emit_xor(Size::S32, Location::Imm32(31), Location::GPR(dst));
+            self.assembler.emit_jmp(Condition::None, end);
+            self.emit_label(zero_path);
+            self.move_location(Size::S32, Location::Imm32(32), Location::GPR(dst));
+            self.emit_label(end);
+        }
+        match loc {
+            Location::Imm32(_) | Location::Memory(_, _) => {
+                self.release_gpr(src);
+            }
+            _ => {}
+        };
+        if let Location::Memory(_, _) = ret {
+            self.move_location(Size::S32, Location::GPR(dst), ret);
+            self.release_gpr(dst);
+        };
+    }
+    fn i32_ctz(&mut self, loc: Location, ret: Location) {
+        let src = match loc {
+            Location::Imm32(_) | Location::Memory(_, _) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.move_location(Size::S32, loc, Location::GPR(tmp));
+                tmp
+            }
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+        let dst = match ret {
+            Location::Memory(_, _) => self.acquire_temp_gpr().unwrap(),
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+
+        if self.assembler.arch_has_xzcnt() {
+            self.assembler
+                .arch_emit_tzcnt(Size::S32, Location::GPR(src), Location::GPR(dst));
+        } else {
+            let zero_path = self.assembler.get_label();
+            let end = self.assembler.get_label();
+
+            self.assembler.emit_test_gpr_64(src);
+            self.assembler.emit_jmp(Condition::Equal, zero_path);
+            self.assembler
+                .emit_bsf(Size::S32, Location::GPR(src), Location::GPR(dst));
+            self.assembler.emit_jmp(Condition::None, end);
+            self.emit_label(zero_path);
+            self.move_location(Size::S32, Location::Imm32(32), Location::GPR(dst));
+            self.emit_label(end);
+        }
+
+        match loc {
+            Location::Imm32(_) | Location::Memory(_, _) => {
+                self.release_gpr(src);
+            }
+            _ => {}
+        };
+        if let Location::Memory(_, _) = ret {
+            self.move_location(Size::S32, Location::GPR(dst), ret);
+            self.release_gpr(dst);
+        };
+    }
+    fn i32_popcnt(&mut self, loc: Location, ret: Location) {
+        match loc {
+            Location::Imm32(_) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.move_location(Size::S32, loc, Location::GPR(tmp));
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler.emit_popcnt(
+                        Size::S32,
+                        Location::GPR(tmp),
+                        Location::GPR(out_tmp),
+                    );
+                    self.move_location(Size::S32, Location::GPR(out_tmp), ret);
+                    self.release_gpr(out_tmp);
+                } else {
+                    self.assembler
+                        .emit_popcnt(Size::S32, Location::GPR(tmp), ret);
+                }
+                self.release_gpr(tmp);
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_popcnt(Size::S32, loc, Location::GPR(out_tmp));
+                    self.move_location(Size::S32, Location::GPR(out_tmp), ret);
+                    self.release_gpr(out_tmp);
+                } else {
+                    self.assembler.emit_popcnt(Size::S32, loc, ret);
+                }
+            }
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+    fn i32_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i32(Assembler::emit_shl, loc_a, loc_b, ret);
+    }
+    fn i32_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i32(Assembler::emit_shr, loc_a, loc_b, ret);
+    }
+    fn i32_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i32(Assembler::emit_sar, loc_a, loc_b, ret);
+    }
+    fn i32_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i32(Assembler::emit_rol, loc_a, loc_b, ret);
+    }
+    fn i32_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i32(Assembler::emit_ror, loc_a, loc_b, ret);
     }
 
     fn move_with_reloc(
