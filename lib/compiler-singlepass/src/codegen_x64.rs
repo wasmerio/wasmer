@@ -292,313 +292,6 @@ impl<'a> FuncGen<'a> {
         );
     }
 
-    /// Moves `loc` to a valid location for `div`/`idiv`.
-    fn emit_relaxed_xdiv(
-        &mut self,
-        op: fn(&mut Assembler, Size, Location),
-        sz: Size,
-        loc: Location,
-    ) {
-        self.machine
-            .specific
-            .assembler
-            .emit_cmp(sz, Location::Imm32(0), loc);
-        self.machine.specific.assembler.emit_jmp(
-            Condition::Equal,
-            self.special_labels.integer_division_by_zero,
-        );
-
-        match loc {
-            Location::Imm64(_) | Location::Imm32(_) => {
-                self.machine
-                    .specific
-                    .move_location(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
-                self.mark_trappable();
-                let offset = self
-                    .machine
-                    .specific
-                    .mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
-                op(
-                    &mut self.machine.specific.assembler,
-                    sz,
-                    Location::GPR(GPR::RCX),
-                );
-                self.machine.specific.mark_instruction_address_end(offset);
-            }
-            _ => {
-                self.mark_trappable();
-                let offset = self
-                    .machine
-                    .specific
-                    .mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
-                op(&mut self.machine.specific.assembler, sz, loc);
-                self.machine.specific.mark_instruction_address_end(offset);
-            }
-        }
-    }
-
-    /// Moves `src` and `dst` to valid locations for generic instructions.
-    fn emit_relaxed_binop(
-        &mut self,
-        op: fn(&mut Assembler, Size, Location, Location),
-        sz: Size,
-        src: Location,
-        dst: Location,
-    ) {
-        enum RelaxMode {
-            Direct,
-            SrcToGPR,
-            DstToGPR,
-            BothToGPR,
-        }
-        let mode = match (src, dst) {
-            (Location::GPR(_), Location::GPR(_))
-                if (op as *const u8 == Assembler::emit_imul as *const u8) =>
-            {
-                RelaxMode::Direct
-            }
-            _ if (op as *const u8 == Assembler::emit_imul as *const u8) => RelaxMode::BothToGPR,
-
-            (Location::Memory(_, _), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
-            (Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => {
-                RelaxMode::BothToGPR
-            }
-            (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,
-            (Location::Imm64(_), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
-            (Location::Imm64(_), Location::GPR(_))
-                if (op as *const u8 != Assembler::emit_mov as *const u8) =>
-            {
-                RelaxMode::SrcToGPR
-            }
-            (_, Location::SIMD(_)) => RelaxMode::SrcToGPR,
-            _ => RelaxMode::Direct,
-        };
-
-        match mode {
-            RelaxMode::SrcToGPR => {
-                let temp = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .move_location(sz, src, Location::GPR(temp));
-                op(
-                    &mut self.machine.specific.assembler,
-                    sz,
-                    Location::GPR(temp),
-                    dst,
-                );
-                self.machine.release_temp_gpr(temp);
-            }
-            RelaxMode::DstToGPR => {
-                let temp = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .move_location(sz, dst, Location::GPR(temp));
-                op(
-                    &mut self.machine.specific.assembler,
-                    sz,
-                    src,
-                    Location::GPR(temp),
-                );
-                self.machine.release_temp_gpr(temp);
-            }
-            RelaxMode::BothToGPR => {
-                let temp_src = self.machine.acquire_temp_gpr().unwrap();
-                let temp_dst = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .move_location(sz, src, Location::GPR(temp_src));
-                self.machine
-                    .specific
-                    .move_location(sz, dst, Location::GPR(temp_dst));
-                op(
-                    &mut self.machine.specific.assembler,
-                    sz,
-                    Location::GPR(temp_src),
-                    Location::GPR(temp_dst),
-                );
-                match dst {
-                    Location::Memory(_, _) | Location::GPR(_) => {
-                        self.machine
-                            .specific
-                            .move_location(sz, Location::GPR(temp_dst), dst);
-                    }
-                    _ => {}
-                }
-                self.machine.release_temp_gpr(temp_dst);
-                self.machine.release_temp_gpr(temp_src);
-            }
-            RelaxMode::Direct => {
-                op(&mut self.machine.specific.assembler, sz, src, dst);
-            }
-        }
-    }
-
-    /// I64 binary operation with both operands popped from the virtual stack.
-    fn emit_binop_i64(&mut self, f: fn(&mut Assembler, Size, Location, Location)) {
-        // Using Red Zone here.
-        let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-
-        if loc_a != ret {
-            let tmp = self.machine.acquire_temp_gpr().unwrap();
-            self.machine
-                .specific
-                .emit_relaxed_mov(Size::S64, loc_a, Location::GPR(tmp));
-            self.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp));
-            self.machine
-                .specific
-                .emit_relaxed_mov(Size::S64, Location::GPR(tmp), ret);
-            self.machine.release_temp_gpr(tmp);
-        } else {
-            self.emit_relaxed_binop(f, Size::S64, loc_b, ret);
-        }
-    }
-
-    /// I64 comparison with `loc_b` from input.
-    fn emit_cmpop_i64_dynamic_b(
-        &mut self,
-        c: Condition,
-        loc_b: Location,
-    ) -> Result<(), CodegenError> {
-        // Using Red Zone here.
-        let loc_a = self.pop_value_released();
-
-        let ret = self.machine.acquire_locations(
-            &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
-            false,
-        )[0];
-        match ret {
-            Location::GPR(x) => {
-                self.machine
-                    .specific
-                    .emit_relaxed_cmp(Size::S64, loc_b, loc_a);
-                self.machine.specific.assembler.emit_set(c, x);
-                self.machine.specific.assembler.emit_and(
-                    Size::S32,
-                    Location::Imm32(0xff),
-                    Location::GPR(x),
-                );
-            }
-            Location::Memory(_, _) => {
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .emit_relaxed_cmp(Size::S64, loc_b, loc_a);
-                self.machine.specific.assembler.emit_set(c, tmp);
-                self.machine.specific.assembler.emit_and(
-                    Size::S32,
-                    Location::Imm32(0xff),
-                    Location::GPR(tmp),
-                );
-                self.machine
-                    .specific
-                    .move_location(Size::S32, Location::GPR(tmp), ret);
-                self.machine.release_temp_gpr(tmp);
-            }
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_cmpop_i64_dynamic_b ret: unreachable code".to_string(),
-                })
-            }
-        }
-        self.value_stack.push(ret);
-        Ok(())
-    }
-
-    /// I64 comparison with both operands popped from the virtual stack.
-    fn emit_cmpop_i64(&mut self, c: Condition) -> Result<(), CodegenError> {
-        let loc_b = self.pop_value_released();
-        self.emit_cmpop_i64_dynamic_b(c, loc_b)?;
-        Ok(())
-    }
-
-    /// I64 `lzcnt`/`tzcnt`/`popcnt` with operand popped from the virtual stack.
-    fn emit_xcnt_i64(
-        &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
-    ) -> Result<(), CodegenError> {
-        let loc = self.pop_value_released();
-        let ret = self.machine.acquire_locations(
-            &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-            false,
-        )[0];
-
-        match loc {
-            Location::Imm64(_) | Location::Imm32(_) => {
-                let tmp = self.machine.acquire_temp_gpr().unwrap();
-                self.machine
-                    .specific
-                    .move_location(Size::S64, loc, Location::GPR(tmp));
-                if let Location::Memory(_, _) = ret {
-                    let out_tmp = self.machine.acquire_temp_gpr().unwrap();
-                    f(
-                        &mut self.machine.specific.assembler,
-                        Size::S64,
-                        Location::GPR(tmp),
-                        Location::GPR(out_tmp),
-                    );
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(out_tmp), ret);
-                    self.machine.release_temp_gpr(out_tmp);
-                } else {
-                    f(
-                        &mut self.machine.specific.assembler,
-                        Size::S64,
-                        Location::GPR(tmp),
-                        ret,
-                    );
-                }
-                self.machine.release_temp_gpr(tmp);
-            }
-            Location::Memory(_, _) | Location::GPR(_) => {
-                if let Location::Memory(_, _) = ret {
-                    let out_tmp = self.machine.acquire_temp_gpr().unwrap();
-                    f(
-                        &mut self.machine.specific.assembler,
-                        Size::S64,
-                        loc,
-                        Location::GPR(out_tmp),
-                    );
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(out_tmp), ret);
-                    self.machine.release_temp_gpr(out_tmp);
-                } else {
-                    f(&mut self.machine.specific.assembler, Size::S64, loc, ret);
-                }
-            }
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_xcnt_i64 loc: unreachable code".to_string(),
-                })
-            }
-        }
-        self.value_stack.push(ret);
-        Ok(())
-    }
-
-    /// I64 shift with both operands popped from the virtual stack.
-    fn emit_shift_i64(&mut self, f: fn(&mut Assembler, Size, Location, Location)) {
-        let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-        self.machine
-            .specific
-            .assembler
-            .emit_mov(Size::S64, loc_b, Location::GPR(GPR::RCX));
-
-        if loc_a != ret {
-            self.machine
-                .specific
-                .emit_relaxed_mov(Size::S64, loc_a, ret);
-        }
-
-        f(
-            &mut self.machine.specific.assembler,
-            Size::S64,
-            Location::GPR(GPR::RCX),
-            ret,
-        );
-    }
-
     /// Emits a System V / Windows call sequence.
     ///
     /// This function will not use RAX before `cb` is called.
@@ -1549,297 +1242,172 @@ impl<'a> FuncGen<'a> {
                     .wasm_stack
                     .push(WasmAbstractValue::Const(value));
             }
-            Operator::I64Add => self.emit_binop_i64(Assembler::emit_add),
-            Operator::I64Sub => self.emit_binop_i64(Assembler::emit_sub),
-            Operator::I64Mul => self.emit_binop_i64(Assembler::emit_imul),
+            Operator::I64Add => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.emit_binop_add64(loc_a, loc_b, ret);
+            }
+            Operator::I64Sub => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.emit_binop_sub64(loc_a, loc_b, ret);
+            }
+            Operator::I64Mul => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.emit_binop_mul64(loc_a, loc_b, ret);
+            }
             Operator::I64DivU => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                self.machine.specific.assembler.emit_xor(
-                    Size::S64,
-                    Location::GPR(GPR::RDX),
-                    Location::GPR(GPR::RDX),
-                );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.specific.get_gpr_for_ret()),
+                let offset = self.machine.specific.emit_binop_udiv64(
+                    loc_a,
+                    loc_b,
                     ret,
+                    self.special_labels.integer_division_by_zero,
                 );
+                self.mark_offset_trappable(offset);
             }
             Operator::I64DivS => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                self.machine.specific.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.specific.get_gpr_for_ret()),
+                let offset = self.machine.specific.emit_binop_sdiv64(
+                    loc_a,
+                    loc_b,
                     ret,
+                    self.special_labels.integer_division_by_zero,
                 );
+                self.mark_offset_trappable(offset);
             }
             Operator::I64RemU => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                self.machine.specific.assembler.emit_xor(
-                    Size::S64,
-                    Location::GPR(GPR::RDX),
-                    Location::GPR(GPR::RDX),
+                let offset = self.machine.specific.emit_binop_urem64(
+                    loc_a,
+                    loc_b,
+                    ret,
+                    self.special_labels.integer_division_by_zero,
                 );
-                self.emit_relaxed_xdiv(Assembler::emit_div, Size::S64, loc_b);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
+                self.mark_offset_trappable(offset);
             }
             Operator::I64RemS => {
                 // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
-
-                let normal_path = self.machine.specific.assembler.get_label();
-                let end = self.machine.specific.assembler.get_label();
-
-                self.machine.specific.emit_relaxed_cmp(
-                    Size::S64,
-                    Location::Imm64(0x8000000000000000u64),
+                let offset = self.machine.specific.emit_binop_srem64(
                     loc_a,
-                );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp(Condition::NotEqual, normal_path);
-                self.machine.specific.emit_relaxed_cmp(
-                    Size::S64,
-                    Location::Imm64(0xffffffffffffffffu64),
                     loc_b,
+                    ret,
+                    self.special_labels.integer_division_by_zero,
                 );
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp(Condition::NotEqual, normal_path);
-                self.machine
-                    .specific
-                    .emit_relaxed_mov(Size::S64, Location::Imm64(0), ret);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_jmp(Condition::None, end);
-
-                self.machine.specific.emit_label(normal_path);
-
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
-                self.machine.specific.assembler.emit_cqo();
-                self.emit_relaxed_xdiv(Assembler::emit_idiv, Size::S64, loc_b);
-                self.machine
-                    .specific
-                    .assembler
-                    .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
-                self.machine.specific.emit_label(end);
+                self.mark_offset_trappable(offset);
             }
-            Operator::I64And => self.emit_binop_i64(Assembler::emit_and),
-            Operator::I64Or => self.emit_binop_i64(Assembler::emit_or),
-            Operator::I64Xor => self.emit_binop_i64(Assembler::emit_xor),
-            Operator::I64Eq => self.emit_cmpop_i64(Condition::Equal)?,
-            Operator::I64Ne => self.emit_cmpop_i64(Condition::NotEqual)?,
+            Operator::I64And => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.emit_binop_and64(loc_a, loc_b, ret);
+            }
+            Operator::I64Or => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.emit_binop_or64(loc_a, loc_b, ret);
+            }
+            Operator::I64Xor => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.emit_binop_xor64(loc_a, loc_b, ret);
+            }
+            Operator::I64Eq => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_eq(loc_a, loc_b, ret);
+            }
+            Operator::I64Ne => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_ne(loc_a, loc_b, ret);
+            }
             Operator::I64Eqz => {
-                self.emit_cmpop_i64_dynamic_b(Condition::Equal, Location::Imm64(0))?
+                let loc_a = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.machine
+                    .specific
+                    .i64_cmp_eq(loc_a, Location::Imm64(0), ret);
+                self.value_stack.push(ret);
             }
             Operator::I64Clz => {
                 let loc = self.pop_value_released();
-                let src = match loc {
-                    Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
-                        let tmp = self.machine.acquire_temp_gpr().unwrap();
-                        self.machine
-                            .specific
-                            .move_location(Size::S64, loc, Location::GPR(tmp));
-                        tmp
-                    }
-                    Location::GPR(reg) => reg,
-                    _ => {
-                        return Err(CodegenError {
-                            message: "I64Clz src: unreachable code".to_string(),
-                        })
-                    }
-                };
-
                 let ret = self.machine.acquire_locations(
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                let dst = match ret {
-                    Location::Memory(_, _) => self.machine.acquire_temp_gpr().unwrap(),
-                    Location::GPR(reg) => reg,
-                    _ => {
-                        return Err(CodegenError {
-                            message: "I64Clz dst: unreachable code".to_string(),
-                        })
-                    }
-                };
-
-                if self.machine.specific.assembler.arch_has_xzcnt() {
-                    self.machine.specific.assembler.arch_emit_lzcnt(
-                        Size::S64,
-                        Location::GPR(src),
-                        Location::GPR(dst),
-                    );
-                } else {
-                    let zero_path = self.machine.specific.assembler.get_label();
-                    let end = self.machine.specific.assembler.get_label();
-
-                    self.machine.specific.assembler.emit_test_gpr_64(src);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::Equal, zero_path);
-                    self.machine.specific.assembler.emit_bsr(
-                        Size::S64,
-                        Location::GPR(src),
-                        Location::GPR(dst),
-                    );
-                    self.machine.specific.assembler.emit_xor(
-                        Size::S64,
-                        Location::Imm32(63),
-                        Location::GPR(dst),
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, end);
-                    self.machine.specific.emit_label(zero_path);
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm32(64),
-                        Location::GPR(dst),
-                    );
-                    self.machine.specific.emit_label(end);
-                }
-
-                match loc {
-                    Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
-                        self.machine.release_temp_gpr(src);
-                    }
-                    _ => {}
-                };
-                if let Location::Memory(_, _) = ret {
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(dst), ret);
-                    self.machine.release_temp_gpr(dst);
-                };
+                self.machine.specific.i64_clz(loc, ret);
             }
             Operator::I64Ctz => {
                 let loc = self.pop_value_released();
-                let src = match loc {
-                    Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
-                        let tmp = self.machine.acquire_temp_gpr().unwrap();
-                        self.machine
-                            .specific
-                            .move_location(Size::S64, loc, Location::GPR(tmp));
-                        tmp
-                    }
-                    Location::GPR(reg) => reg,
-                    _ => {
-                        return Err(CodegenError {
-                            message: "I64Ctz src: unreachable code".to_string(),
-                        })
-                    }
-                };
-
                 let ret = self.machine.acquire_locations(
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                let dst = match ret {
-                    Location::Memory(_, _) => self.machine.acquire_temp_gpr().unwrap(),
-                    Location::GPR(reg) => reg,
-                    _ => {
-                        return Err(CodegenError {
-                            message: "I64Ctz dst: unreachable code".to_string(),
-                        })
-                    }
-                };
-
-                if self.machine.specific.assembler.arch_has_xzcnt() {
-                    self.machine.specific.assembler.arch_emit_tzcnt(
-                        Size::S64,
-                        Location::GPR(src),
-                        Location::GPR(dst),
-                    );
-                } else {
-                    let zero_path = self.machine.specific.assembler.get_label();
-                    let end = self.machine.specific.assembler.get_label();
-
-                    self.machine.specific.assembler.emit_test_gpr_64(src);
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::Equal, zero_path);
-                    self.machine.specific.assembler.emit_bsf(
-                        Size::S64,
-                        Location::GPR(src),
-                        Location::GPR(dst),
-                    );
-                    self.machine
-                        .specific
-                        .assembler
-                        .emit_jmp(Condition::None, end);
-                    self.machine.specific.emit_label(zero_path);
-                    self.machine.specific.move_location(
-                        Size::S64,
-                        Location::Imm32(64),
-                        Location::GPR(dst),
-                    );
-                    self.machine.specific.emit_label(end);
-                }
-
-                match loc {
-                    Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
-                        self.machine.release_temp_gpr(src);
-                    }
-                    _ => {}
-                };
-                if let Location::Memory(_, _) = ret {
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(dst), ret);
-                    self.machine.release_temp_gpr(dst);
-                };
+                self.machine.specific.i64_ctz(loc, ret);
             }
-            Operator::I64Popcnt => self.emit_xcnt_i64(Assembler::emit_popcnt)?,
-            Operator::I64Shl => self.emit_shift_i64(Assembler::emit_shl),
-            Operator::I64ShrU => self.emit_shift_i64(Assembler::emit_shr),
-            Operator::I64ShrS => self.emit_shift_i64(Assembler::emit_sar),
-            Operator::I64Rotl => self.emit_shift_i64(Assembler::emit_rol),
-            Operator::I64Rotr => self.emit_shift_i64(Assembler::emit_ror),
-            Operator::I64LtU => self.emit_cmpop_i64(Condition::Below)?,
-            Operator::I64LeU => self.emit_cmpop_i64(Condition::BelowEqual)?,
-            Operator::I64GtU => self.emit_cmpop_i64(Condition::Above)?,
-            Operator::I64GeU => self.emit_cmpop_i64(Condition::AboveEqual)?,
+            Operator::I64Popcnt => {
+                let loc = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.value_stack.push(ret);
+                self.machine.specific.i64_popcnt(loc, ret);
+            }
+            Operator::I64Shl => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_shl(loc_a, loc_b, ret);
+            }
+            Operator::I64ShrU => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_shr(loc_a, loc_b, ret);
+            }
+            Operator::I64ShrS => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_sar(loc_a, loc_b, ret);
+            }
+            Operator::I64Rotl => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_rol(loc_a, loc_b, ret);
+            }
+            Operator::I64Rotr => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_ror(loc_a, loc_b, ret);
+            }
+            Operator::I64LtU => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_lt_u(loc_a, loc_b, ret);
+            }
+            Operator::I64LeU => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_le_u(loc_a, loc_b, ret);
+            }
+            Operator::I64GtU => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_gt_u(loc_a, loc_b, ret);
+            }
+            Operator::I64GeU => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_ge_u(loc_a, loc_b, ret);
+            }
             Operator::I64LtS => {
-                self.emit_cmpop_i64(Condition::Less)?;
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_lt_s(loc_a, loc_b, ret);
             }
-            Operator::I64LeS => self.emit_cmpop_i64(Condition::LessEqual)?,
-            Operator::I64GtS => self.emit_cmpop_i64(Condition::Greater)?,
-            Operator::I64GeS => self.emit_cmpop_i64(Condition::GreaterEqual)?,
+            Operator::I64LeS => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_le_s(loc_a, loc_b, ret);
+            }
+            Operator::I64GtS => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_gt_s(loc_a, loc_b, ret);
+            }
+            Operator::I64GeS => {
+                let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
+                self.machine.specific.i64_cmp_ge_s(loc_a, loc_b, ret);
+            }
             Operator::I64ExtendI32U => {
                 let loc = self.pop_value_released();
                 let ret = self.machine.acquire_locations(
@@ -6086,7 +5654,15 @@ impl<'a> FuncGen<'a> {
                 );
             }
             Operator::RefIsNull => {
-                self.emit_cmpop_i64_dynamic_b(Condition::Equal, Location::Imm64(0))?;
+                let loc_a = self.pop_value_released();
+                let ret = self.machine.acquire_locations(
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )[0];
+                self.machine
+                    .specific
+                    .i64_cmp_eq(loc_a, Location::Imm64(0), ret);
+                self.value_stack.push(ret);
             }
             Operator::TableSet { table: index } => {
                 let table_index = TableIndex::new(index as _);

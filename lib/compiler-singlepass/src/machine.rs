@@ -364,7 +364,7 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         sz_dst: Size,
         dst: Location<R, S>,
     );
-    /// Multiply location with immedita
+    /// Multiply location with immediate
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: R);
     /// Add with location directly from the stack
     fn emit_binop_add32(
@@ -483,6 +483,117 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         reloc_target: RelocationTarget,
         relocations: &mut Vec<Relocation>,
     );
+    /// Add with location directly from the stack
+    fn emit_binop_add64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Sub with location directly from the stack
+    fn emit_binop_sub64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Multiply with location directly from the stack
+    fn emit_binop_mul64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Unsigned Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_udiv64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_sdiv64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_urem64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
+    fn emit_binop_srem64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+        integer_division_by_zero: Label,
+    ) -> usize;
+    /// And with location directly from the stack
+    fn emit_binop_and64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Or with location directly from the stack
+    fn emit_binop_or64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Xor with location directly from the stack
+    fn emit_binop_xor64(
+        &mut self,
+        loc_a: Location<R, S>,
+        loc_b: Location<R, S>,
+        ret: Location<R, S>,
+    );
+    /// Signed Greater of Equal Compare 2 i64, result in a GPR
+    fn i64_cmp_ge_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Signed Greater Than Compare 2 i64, result in a GPR
+    fn i64_cmp_gt_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Signed Less of Equal Compare 2 i64, result in a GPR
+    fn i64_cmp_le_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Signed Less Than Compare 2 i64, result in a GPR
+    fn i64_cmp_lt_s(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Greater of Equal Compare 2 i64, result in a GPR
+    fn i64_cmp_ge_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Greater Than Compare 2 i64, result in a GPR
+    fn i64_cmp_gt_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Less of Equal Compare 2 i64, result in a GPR
+    fn i64_cmp_le_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Unsigned Less Than Compare 2 i64, result in a GPR
+    fn i64_cmp_lt_u(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Not Equal Compare 2 i64, result in a GPR
+    fn i64_cmp_ne(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Equal Compare 2 i64, result in a GPR
+    fn i64_cmp_eq(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// Count Leading 0 bit of an i64
+    fn i64_clz(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// Count Trailling 0 bit of an i64
+    fn i64_ctz(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// Count the number of 1 bit of an i64
+    fn i64_popcnt(&mut self, loc: Location<R, S>, ret: Location<R, S>);
+    /// i64 Logical Shift Left
+    fn i64_shl(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i64 Logical Shift Right
+    fn i64_shr(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i64 Arithmetic Shift Right
+    fn i64_sar(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i64 Roll Left
+    fn i64_rol(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i64 Roll Right
+    fn i64_ror(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+
     /// Convert a F64 from I64, signed or unsigned
     fn convert_f64_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
     /// Convert a F64 from I32, signed or unsigned

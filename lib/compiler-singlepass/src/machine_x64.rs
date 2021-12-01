@@ -188,6 +188,70 @@ impl MachineX86_64 {
             self.emit_relaxed_binop(f, Size::S32, loc_b, ret);
         }
     }
+    /// I64 binary operation with both operands popped from the virtual stack.
+    fn emit_binop_i64(
+        &mut self,
+        f: fn(&mut Assembler, Size, Location, Location),
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) {
+        if loc_a != ret {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            self.emit_relaxed_mov(Size::S64, loc_a, Location::GPR(tmp));
+            self.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp));
+            self.emit_relaxed_mov(Size::S64, Location::GPR(tmp), ret);
+            self.release_gpr(tmp);
+        } else {
+            self.emit_relaxed_binop(f, Size::S64, loc_b, ret);
+        }
+    }
+    /// I64 comparison with.
+    fn emit_cmpop_i64_dynamic_b(
+        &mut self,
+        c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) {
+        match ret {
+            Location::GPR(x) => {
+                self.emit_relaxed_cmp(Size::S64, loc_b, loc_a);
+                self.assembler.emit_set(c, x);
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x));
+            }
+            Location::Memory(_, _) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.emit_relaxed_cmp(Size::S64, loc_b, loc_a);
+                self.assembler.emit_set(c, tmp);
+                self.assembler
+                    .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(tmp));
+                self.move_location(Size::S32, Location::GPR(tmp), ret);
+                self.release_gpr(tmp);
+            }
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+    /// I64 shift with both operands popped from the virtual stack.
+    fn emit_shift_i64(
+        &mut self,
+        f: fn(&mut Assembler, Size, Location, Location),
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) {
+        self.assembler
+            .emit_mov(Size::S64, loc_b, Location::GPR(GPR::RCX));
+
+        if loc_a != ret {
+            self.emit_relaxed_mov(Size::S64, loc_a, ret);
+        }
+
+        f(&mut self.assembler, Size::S64, Location::GPR(GPR::RCX), ret);
+    }
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         &mut self,
@@ -2513,6 +2577,302 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             Location::Imm64(std::u64::MAX),
             Location::GPR(GPR::RAX),
         );
+    }
+
+    fn emit_binop_add64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i64(Assembler::emit_add, loc_a, loc_b, ret);
+    }
+    fn emit_binop_sub64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i64(Assembler::emit_sub, loc_a, loc_b, ret);
+    }
+    fn emit_binop_mul64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i64(Assembler::emit_imul, loc_a, loc_b, ret);
+    }
+    fn emit_binop_udiv64(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        self.assembler
+            .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+        self.assembler
+            .emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_div,
+            Size::S64,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+        offset
+    }
+    fn emit_binop_sdiv64(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        self.assembler
+            .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+        self.assembler.emit_cqo();
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_idiv,
+            Size::S64,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
+        offset
+    }
+    fn emit_binop_urem64(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        self.assembler
+            .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+        self.assembler
+            .emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_div,
+            Size::S64,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
+        offset
+    }
+    fn emit_binop_srem64(
+        &mut self,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+    ) -> usize {
+        // We assume that RAX and RDX are temporary registers here.
+        let normal_path = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        self.emit_relaxed_cmp(Size::S64, Location::Imm64(0x8000000000000000u64), loc_a);
+        self.assembler.emit_jmp(Condition::NotEqual, normal_path);
+        self.emit_relaxed_cmp(Size::S64, Location::Imm64(0xffffffffffffffffu64), loc_b);
+        self.assembler.emit_jmp(Condition::NotEqual, normal_path);
+        self.move_location(Size::S64, Location::Imm64(0), ret);
+        self.assembler.emit_jmp(Condition::None, end);
+
+        self.emit_label(normal_path);
+        self.assembler
+            .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
+        self.assembler.emit_cqo();
+        let offset = self.emit_relaxed_xdiv(
+            Assembler::emit_idiv,
+            Size::S64,
+            loc_b,
+            integer_division_by_zero,
+        );
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret);
+
+        self.emit_label(end);
+        offset
+    }
+    fn emit_binop_and64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i64(Assembler::emit_and, loc_a, loc_b, ret);
+    }
+    fn emit_binop_or64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i64(Assembler::emit_or, loc_a, loc_b, ret);
+    }
+    fn emit_binop_xor64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_binop_i64(Assembler::emit_xor, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_ge_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::GreaterEqual, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_gt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::Greater, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_le_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::LessEqual, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_lt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::Less, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_ge_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::AboveEqual, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_gt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::Above, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_le_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::BelowEqual, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_lt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::Below, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::NotEqual, loc_a, loc_b, ret);
+    }
+    fn i64_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_cmpop_i64_dynamic_b(Condition::Equal, loc_a, loc_b, ret);
+    }
+    fn i64_clz(&mut self, loc: Location, ret: Location) {
+        let src = match loc {
+            Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.move_location(Size::S64, loc, Location::GPR(tmp));
+                tmp
+            }
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+        let dst = match ret {
+            Location::Memory(_, _) => self.acquire_temp_gpr().unwrap(),
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+
+        if self.assembler.arch_has_xzcnt() {
+            self.assembler
+                .arch_emit_lzcnt(Size::S64, Location::GPR(src), Location::GPR(dst));
+        } else {
+            let zero_path = self.assembler.get_label();
+            let end = self.assembler.get_label();
+
+            self.assembler.emit_test_gpr_64(src);
+            self.assembler.emit_jmp(Condition::Equal, zero_path);
+            self.assembler
+                .emit_bsr(Size::S64, Location::GPR(src), Location::GPR(dst));
+            self.assembler
+                .emit_xor(Size::S64, Location::Imm32(63), Location::GPR(dst));
+            self.assembler.emit_jmp(Condition::None, end);
+            self.emit_label(zero_path);
+            self.move_location(Size::S64, Location::Imm32(64), Location::GPR(dst));
+            self.emit_label(end);
+        }
+        match loc {
+            Location::Imm64(_) | Location::Memory(_, _) => {
+                self.release_gpr(src);
+            }
+            _ => {}
+        };
+        if let Location::Memory(_, _) = ret {
+            self.move_location(Size::S64, Location::GPR(dst), ret);
+            self.release_gpr(dst);
+        };
+    }
+    fn i64_ctz(&mut self, loc: Location, ret: Location) {
+        let src = match loc {
+            Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.move_location(Size::S64, loc, Location::GPR(tmp));
+                tmp
+            }
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+        let dst = match ret {
+            Location::Memory(_, _) => self.acquire_temp_gpr().unwrap(),
+            Location::GPR(reg) => reg,
+            _ => {
+                unreachable!();
+            }
+        };
+
+        if self.assembler.arch_has_xzcnt() {
+            self.assembler
+                .arch_emit_tzcnt(Size::S64, Location::GPR(src), Location::GPR(dst));
+        } else {
+            let zero_path = self.assembler.get_label();
+            let end = self.assembler.get_label();
+
+            self.assembler.emit_test_gpr_64(src);
+            self.assembler.emit_jmp(Condition::Equal, zero_path);
+            self.assembler
+                .emit_bsf(Size::S64, Location::GPR(src), Location::GPR(dst));
+            self.assembler.emit_jmp(Condition::None, end);
+            self.emit_label(zero_path);
+            self.move_location(Size::S64, Location::Imm64(64), Location::GPR(dst));
+            self.emit_label(end);
+        }
+
+        match loc {
+            Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
+                self.release_gpr(src);
+            }
+            _ => {}
+        };
+        if let Location::Memory(_, _) = ret {
+            self.move_location(Size::S64, Location::GPR(dst), ret);
+            self.release_gpr(dst);
+        };
+    }
+    fn i64_popcnt(&mut self, loc: Location, ret: Location) {
+        match loc {
+            Location::Imm64(_) | Location::Imm32(_) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.move_location(Size::S64, loc, Location::GPR(tmp));
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler.emit_popcnt(
+                        Size::S64,
+                        Location::GPR(tmp),
+                        Location::GPR(out_tmp),
+                    );
+                    self.move_location(Size::S64, Location::GPR(out_tmp), ret);
+                    self.release_gpr(out_tmp);
+                } else {
+                    self.assembler
+                        .emit_popcnt(Size::S64, Location::GPR(tmp), ret);
+                }
+                self.release_gpr(tmp);
+            }
+            Location::Memory(_, _) | Location::GPR(_) => {
+                if let Location::Memory(_, _) = ret {
+                    let out_tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_popcnt(Size::S64, loc, Location::GPR(out_tmp));
+                    self.move_location(Size::S64, Location::GPR(out_tmp), ret);
+                    self.release_gpr(out_tmp);
+                } else {
+                    self.assembler.emit_popcnt(Size::S64, loc, ret);
+                }
+            }
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+    fn i64_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i64(Assembler::emit_shl, loc_a, loc_b, ret);
+    }
+    fn i64_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i64(Assembler::emit_shr, loc_a, loc_b, ret);
+    }
+    fn i64_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i64(Assembler::emit_sar, loc_a, loc_b, ret);
+    }
+    fn i64_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i64(Assembler::emit_rol, loc_a, loc_b, ret);
+    }
+    fn i64_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_shift_i64(Assembler::emit_ror, loc_a, loc_b, ret);
     }
 
     fn convert_f64_i64(&mut self, loc: Location, signed: bool, ret: Location) {
