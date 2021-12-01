@@ -480,6 +480,9 @@
 <span id="480">480</span>
 <span id="481">481</span>
 <span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
@@ -497,6 +500,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>, <span class="ident">Default</span>)]</span>
 <span class="doccomment">/// The compiler and engine options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StoreOptions</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">flatten</span>)]</span>
     <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
 
@@ -525,6 +529,7 @@
     <span class="ident">object_file</span>: <span class="ident">bool</span>,
 }
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">StructOpt</span>, <span class="ident">Default</span>)]</span>
 <span class="doccomment">/// The compiler options</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompilerOptions</span> {
@@ -545,6 +550,7 @@
     <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// LLVM debug directory, where IR and object files will be written to.</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
     <span class="ident">llvm_debug_dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 

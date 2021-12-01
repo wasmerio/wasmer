@@ -489,6 +489,9 @@
 <span id="489">489</span>
 <span id="490">490</span>
 <span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::logging</span>;
@@ -514,6 +517,7 @@
 <span class="doccomment">/// The options for the `wasmer run` subcommand</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Run</span> {
     <span class="doccomment">/// Disable the cache</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;disable-cache&quot;</span>)]</span>
     <span class="ident">disable_cache</span>: <span class="ident">bool</span>,
 
@@ -534,6 +538,7 @@
     <span class="doccomment">/// A prehashed string, used to speed up start times by avoiding hashing the</span>
     <span class="doccomment">/// wasm module. If the specified hash is not found, Wasmer will hash the module</span>
     <span class="doccomment">/// as if no `cache-key` argument was passed.</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;cache-key&quot;</span>, <span class="ident">hidden</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
     <span class="ident">cache_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
@@ -555,6 +560,7 @@
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&quot;d&quot;</span>)]</span>
     <span class="ident">debug</span>: <span class="ident">bool</span>,
 
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">short</span>, <span class="ident">long</span>, <span class="ident">parse</span>(<span class="ident">from_occurrences</span>))]</span>
     <span class="ident">verbose</span>: <span class="ident">u8</span>,
 
