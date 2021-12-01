@@ -74,8 +74,6 @@ pub enum WasiError {
     UnknownWasiVersion,
 }
 
-pub(crate) const TERMINATE_NOOP: u32 = u32::MAX;
-
 /// The environment provided to the WASI imports.
 #[derive(Derivative)]
 #[derivative(Debug)]
