@@ -23,6 +23,9 @@ serde = "1"
 typetag = "0.1"
 
 [features]
+default = [
+    "wasmer-wasi/default"
+]
 enable-serde = [
     "wasmer-wasi/enable-serde"
 ]
