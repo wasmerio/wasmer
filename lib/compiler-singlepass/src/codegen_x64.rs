@@ -312,12 +312,9 @@ impl<'a> FuncGen<'a> {
         let params: Vec<_> = params.collect();
 
         // Save used GPRs.
+        self.machine.specific.push_used_gpr();
         let used_gprs = self.machine.get_used_gprs();
         for r in used_gprs.iter() {
-            self.machine
-                .specific
-                .assembler
-                .emit_push(Size::S64, Location::GPR(*r));
             let content =
                 self.machine.state.register_values[X64Register::GPR(*r).to_index().0].clone();
             if content == MachineValue::Undefined {
@@ -331,19 +328,8 @@ impl<'a> FuncGen<'a> {
         // Save used XMM registers.
         let used_xmms = self.machine.get_used_simd();
         if used_xmms.len() > 0 {
-            self.machine.specific.assembler.emit_sub(
-                Size::S64,
-                Location::Imm32((used_xmms.len() * 8) as u32),
-                Location::GPR(GPR::RSP),
-            );
+            self.machine.specific.push_used_simd();
 
-            for (i, r) in used_xmms.iter().enumerate() {
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::SIMD(*r),
-                    Location::Memory(GPR::RSP, (i * 8) as i32),
-                );
-            }
             for r in used_xmms.iter().rev() {
                 let content =
                     self.machine.state.register_values[X64Register::XMM(*r).to_index().0].clone();
@@ -379,11 +365,7 @@ impl<'a> FuncGen<'a> {
             % 16
             != 0
         {
-            self.machine.specific.assembler.emit_sub(
-                Size::S64,
-                Location::Imm32(8),
-                Location::GPR(GPR::RSP),
-            );
+            self.machine.specific.adjust_stack(8);
             stack_offset += 8;
             self.machine
                 .state
@@ -419,7 +401,7 @@ impl<'a> FuncGen<'a> {
                             self.machine.state.stack_values.push(content);
                         }
                         Location::Memory(reg, offset) => {
-                            if reg != GPR::RBP {
+                            if reg != self.machine.specific.local_pointer() {
                                 return Err(CodegenError {
                                     message: "emit_call_native loc param: unreachable code"
                                         .to_string(),
@@ -438,46 +420,7 @@ impl<'a> FuncGen<'a> {
                                 .push(MachineValue::Undefined);
                         }
                     }
-                    match *param {
-                        Location::Imm64(_) => {
-                            // Dummy value slot to be filled with `mov`.
-                            self.machine
-                                .specific
-                                .assembler
-                                .emit_push(Size::S64, Location::GPR(GPR::RAX));
-
-                            // Use R9 as the temporary register here, since:
-                            // - It is a temporary register that is not used for any persistent value.
-                            // - This register as an argument location is only written to after `sort_call_movs`.'
-                            self.machine.reserve_unused_temp_gpr(GPR::R9);
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                *param,
-                                Location::GPR(GPR::R9),
-                            );
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                Location::GPR(GPR::R9),
-                                Location::Memory(GPR::RSP, 0),
-                            );
-                            self.machine.release_temp_gpr(GPR::R9);
-                        }
-                        Location::SIMD(_) => {
-                            // Dummy value slot to be filled with `mov`.
-                            self.machine
-                                .specific
-                                .assembler
-                                .emit_push(Size::S64, Location::GPR(GPR::RAX));
-
-                            // XMM registers can be directly stored to memory.
-                            self.machine.specific.move_location(
-                                Size::S64,
-                                *param,
-                                Location::Memory(GPR::RSP, 0),
-                            );
-                        }
-                        _ => self.machine.specific.assembler.emit_push(Size::S64, *param),
-                    }
+                    self.machine.specific.push_location_for_native(*param);
                 }
                 _ => {
                     return Err(CodegenError {
@@ -513,11 +456,7 @@ impl<'a> FuncGen<'a> {
         }
 
         if stack_padding > 0 {
-            self.machine.specific.assembler.emit_sub(
-                Size::S64,
-                Location::Imm32(stack_padding as u32),
-                Location::GPR(GPR::RSP),
-            );
+            self.machine.specific.adjust_stack(stack_padding as u32);
         }
 
         cb(self);
@@ -543,11 +482,9 @@ impl<'a> FuncGen<'a> {
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
-            self.machine.specific.assembler.emit_add(
-                Size::S64,
-                Location::Imm32((stack_offset + stack_padding) as u32),
-                Location::GPR(GPR::RSP),
-            );
+            self.machine
+                .specific
+                .restore_stack((stack_offset + stack_padding) as u32);
             if (stack_offset % 8) != 0 {
                 return Err(CodegenError {
                     message: "emit_call_native: Bad restoring stack alignement".to_string(),
@@ -560,29 +497,15 @@ impl<'a> FuncGen<'a> {
 
         // Restore XMMs.
         if !used_xmms.is_empty() {
-            for (i, r) in used_xmms.iter().enumerate() {
-                self.machine.specific.move_location(
-                    Size::S64,
-                    Location::Memory(GPR::RSP, (i * 8) as i32),
-                    Location::SIMD(*r),
-                );
-            }
-            self.machine.specific.assembler.emit_add(
-                Size::S64,
-                Location::Imm32((used_xmms.len() * 8) as u32),
-                Location::GPR(GPR::RSP),
-            );
+            self.machine.specific.pop_used_simd();
             for _ in 0..used_xmms.len() {
                 self.machine.state.stack_values.pop().unwrap();
             }
         }
 
         // Restore GPRs.
-        for r in used_gprs.iter().rev() {
-            self.machine
-                .specific
-                .assembler
-                .emit_pop(Size::S64, Location::GPR(*r));
+        self.machine.specific.pop_used_gpr();
+        for _ in used_gprs.iter().rev() {
             self.machine.state.stack_values.pop().unwrap();
         }
 
@@ -600,10 +523,7 @@ impl<'a> FuncGen<'a> {
         label: DynamicLabel,
         params: I,
     ) -> Result<(), CodegenError> {
-        self.emit_call_native(
-            |this| this.machine.specific.assembler.emit_call_label(label),
-            params,
-        )?;
+        self.emit_call_native(|this| this.machine.specific.emit_call_label(label), params)?;
         Ok(())
     }
 
@@ -751,14 +671,11 @@ impl<'a> FuncGen<'a> {
         let state_diff_id = self.fsm.diffs.len();
         self.fsm.diffs.push(diff);
 
-        self.machine.specific.assembler.emit_sub(
-            Size::S64,
-            Location::Imm32(32),
-            Location::GPR(GPR::RSP),
-        ); // simulate "red zone" if not supported by the platform
+        // simulate "red zone" if not supported by the platform
+        self.machine.specific.adjust_stack(32);
 
         self.control_stack.push(ControlFrame {
-            label: self.machine.specific.assembler.get_label(),
+            label: self.machine.specific.get_label(),
             loop_like: false,
             if_else: IfElseState::None,
             returns: self
@@ -1901,12 +1818,10 @@ impl<'a> FuncGen<'a> {
                 } else {
                     self.machine
                         .specific
-                        .assembler
-                        .emit_mov(Size::S64, loc_a, Location::GPR(tmp1));
+                        .move_location(Size::S64, loc_a, Location::GPR(tmp1));
                     self.machine
                         .specific
-                        .assembler
-                        .emit_mov(Size::S64, loc_b, Location::GPR(tmp2));
+                        .move_location(Size::S64, loc_b, Location::GPR(tmp2));
                 }
                 self.machine.specific.emit_i64_copysign(tmp1, tmp2);
                 self.machine

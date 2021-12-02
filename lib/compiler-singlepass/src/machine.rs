@@ -84,6 +84,10 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn get_xchg_temp_gprs(&self) -> Vec<R>;
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: R);
+    /// Push used gpr to the stack
+    fn push_used_gpr(&mut self);
+    /// Pop used gpr to the stack
+    fn pop_used_gpr(&mut self);
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used
@@ -98,6 +102,10 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn reserve_simd(&mut self, simd: S);
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: S);
+    /// Push used simd regs to the stack
+    fn push_used_simd(&mut self);
+    /// Pop used simd regs to the stack
+    fn pop_used_simd(&mut self);
     /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32);
     /// Marks each address in the code range emitted by `f` with the trap code `code`.
@@ -121,6 +129,9 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// Adjust stack for locals
     /// Like assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn adjust_stack(&mut self, delta_stack_offset: u32);
+    /// restore stack
+    /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
+    fn restore_stack(&mut self, delta_stack_offset: u32);
     /// Pop stack of locals
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn pop_stack_locals(&mut self, delta_stack_offset: u32);
@@ -128,6 +139,8 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn zero_location(&mut self, size: Size, location: Location<R, S>);
     /// GPR Reg used for local pointer on the stack
     fn local_pointer(&self) -> R;
+    /// push a value on the stack for a native call
+    fn push_location_for_native(&mut self, loc: Location<R, S>);
     /// Determine whether a local should be allocated on the stack.
     fn is_local_on_stack(&self, idx: usize) -> bool;
     /// Determine a local's location.
@@ -210,6 +223,8 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn get_grp_for_call(&self) -> R;
     /// Emit a call using the value in register
     fn emit_call_register(&mut self, register: R);
+    /// Emit a call to a label
+    fn emit_call_label(&mut self, label: Label);
     /// Does an trampoline is neededfor indirect call
     fn arch_requires_indirect_call_trampoline(&self) -> bool;
     /// indirect call with trampoline

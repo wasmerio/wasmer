@@ -1464,6 +1464,19 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         }
     }
 
+    fn push_used_gpr(&mut self) {
+        let used_gprs = self.get_used_gprs();
+        for r in used_gprs.iter() {
+            self.assembler.emit_push(Size::S64, Location::GPR(*r));
+        }
+    }
+    fn pop_used_gpr(&mut self) {
+        let used_gprs = self.get_used_gprs();
+        for r in used_gprs.iter().rev() {
+            self.assembler.emit_pop(Size::S64, Location::GPR(*r));
+        }
+    }
+
     // Picks an unused XMM register.
     fn pick_simd(&self) -> Option<XMM> {
         use XMM::*;
@@ -1504,6 +1517,34 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     // Releases a temporary XMM register.
     fn release_simd(&mut self, simd: XMM) {
         assert_eq!(self.used_simd.remove(&simd), true);
+    }
+
+    fn push_used_simd(&mut self) {
+        let used_xmms = self.get_used_simd();
+        self.adjust_stack((used_xmms.len() * 8) as u32);
+
+        for (i, r) in used_xmms.iter().enumerate() {
+            self.move_location(
+                Size::S64,
+                Location::SIMD(*r),
+                Location::Memory(GPR::RSP, (i * 8) as i32),
+            );
+        }
+    }
+    fn pop_used_simd(&mut self) {
+        let used_xmms = self.get_used_simd();
+        for (i, r) in used_xmms.iter().enumerate() {
+            self.move_location(
+                Size::S64,
+                Location::Memory(GPR::RSP, (i * 8) as i32),
+                Location::SIMD(*r),
+            );
+        }
+        self.assembler.emit_add(
+            Size::S64,
+            Location::Imm32((used_xmms.len() * 8) as u32),
+            Location::GPR(GPR::RSP),
+        );
     }
 
     /// Set the source location of the Wasm to the given offset.
@@ -1579,6 +1620,14 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             Location::GPR(GPR::RSP),
         );
     }
+    // restore stack
+    fn restore_stack(&mut self, delta_stack_offset: u32) {
+        self.assembler.emit_add(
+            Size::S64,
+            Location::Imm32(delta_stack_offset),
+            Location::GPR(GPR::RSP),
+        );
+    }
     // Pop stack of locals
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) {
         self.assembler.emit_add(
@@ -1586,6 +1635,35 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         );
+    }
+    // push a value on the stack for a native call
+    fn push_location_for_native(&mut self, loc: Location) {
+        match loc {
+            Location::Imm64(_) => {
+                // Dummy value slot to be filled with `mov`.
+                self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
+
+                // Use R9 as the temporary register here, since:
+                // - It is a temporary register that is not used for any persistent value.
+                // - This register as an argument location is only written to after `sort_call_movs`.'
+                self.reserve_unused_temp_gpr(GPR::R9);
+                self.move_location(Size::S64, loc, Location::GPR(GPR::R9));
+                self.move_location(
+                    Size::S64,
+                    Location::GPR(GPR::R9),
+                    Location::Memory(GPR::RSP, 0),
+                );
+                self.release_gpr(GPR::R9);
+            }
+            Location::SIMD(_) => {
+                // Dummy value slot to be filled with `mov`.
+                self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
+
+                // XMM registers can be directly stored to memory.
+                self.move_location(Size::S64, loc, Location::Memory(GPR::RSP, 0));
+            }
+            _ => self.assembler.emit_push(Size::S64, loc),
+        }
     }
 
     // Zero a location that is 32bits
@@ -1880,6 +1958,9 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn emit_call_register(&mut self, reg: GPR) {
         self.assembler.emit_call_register(reg);
+    }
+    fn emit_call_label(&mut self, label: Label) {
+        self.assembler.emit_call_label(label);
     }
     fn get_gpr_for_ret(&self) -> GPR {
         GPR::RAX
