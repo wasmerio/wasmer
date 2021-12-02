@@ -42,8 +42,8 @@ tracing-wasm = "0.2"
 [features]
 default = ["sys-default"]
 
-sys = ["wasmer/sys-default"]
-sys-default = ["sys", "logging", "host-fs"]
+sys = ["wasmer/sys"]
+sys-default = ["wasmer/sys-default", "sys", "logging", "host-fs"]
 
 js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js"]
 js-default = ["js", "wasmer/js-default"]
