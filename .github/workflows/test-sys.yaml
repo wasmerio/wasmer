@@ -60,8 +60,7 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
           - build: macos-arm64
-            os: macos-11.0
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            os: macos-11
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: true
@@ -125,7 +124,7 @@ jobs:
           LLVM_DIR=$(pwd)
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        if: matrix.os == 'macos-11' && !matrix.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -146,7 +145,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+        if: startsWith(matrix.os, 'macos')
       - uses: actions/cache@v2
         with:
           path: |
