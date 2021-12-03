@@ -74,14 +74,8 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn get_cmpxchg_temp_gprs(&self) -> Vec<R>;
     /// Reserve the gpr needed for a cmpxchg operation (if any)
     fn reserve_cmpxchg_temp_gpr(&mut self);
-    /// Release the gpr needed fpr a xchg operation
-    fn release_xchg_temp_gpr(&mut self);
-    /// Reserve the gpr needed for a xchg operation (if any)
-    fn reserve_xchg_temp_gpr(&mut self);
     /// Release the gpr needed fpr a cmpxchg operation
     fn release_cmpxchg_temp_gpr(&mut self);
-    /// Get the list of GPR to reserve for a "xchg" type of operation
-    fn get_xchg_temp_gprs(&self) -> Vec<R>;
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: R);
     /// Push used gpr to the stack
@@ -338,16 +332,6 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         signed: bool,
         new: Location<R, S>,
         cmp: Location<R, S>,
-        addr: R,
-        ret: Location<R, S>,
-    );
-    /// xchg
-    fn emit_atomic_xchg(
-        &mut self,
-        size_op: Size,
-        size_val: Size,
-        signed: bool,
-        new: Location<R, S>,
         addr: R,
         ret: Location<R, S>,
     );
@@ -727,6 +711,42 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     );
     /// i32 atomic Xor with unsigned 16bits
     fn i32_atomic_xor_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Exchange with i32
+    fn i32_atomic_xchg(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Exchange with u8
+    fn i32_atomic_xchg_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Exchange with u16
+    fn i32_atomic_xchg_16u(
         &mut self,
         loc: Location<R, S>,
         target: Location<R, S>,
@@ -1182,6 +1202,54 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         offset: i32,
         heap_access_oob: Label,
     );
+    /// i64 atomic Exchange with i64
+    fn i64_atomic_xchg(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Exchange with u8
+    fn i64_atomic_xchg_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Exchange with u16
+    fn i64_atomic_xchg_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Exchange with u32
+    fn i64_atomic_xchg_32u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
 
     /// Convert a F64 from I64, signed or unsigned
     fn convert_f64_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
@@ -1367,14 +1435,6 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
     /// Reserve the gpr needed for a cmpxchg operation (if any)
     pub fn reserve_cmpxchg_temp_gpr(&mut self) {
         self.specific.reserve_cmpxchg_temp_gpr();
-    }
-    /// Release the gpr needed fpr a xchg operation
-    pub fn release_xchg_temp_gpr(&mut self) {
-        self.specific.release_xchg_temp_gpr();
-    }
-    /// Reserve the gpr needed for a xchg operation (if any)
-    pub fn reserve_xchg_temp_gpr(&mut self) {
-        self.specific.reserve_xchg_temp_gpr();
     }
     /// Release the gpr needed fpr a cmpxchg operation
     pub fn release_cmpxchg_temp_gpr(&mut self) {
@@ -1754,18 +1814,5 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
     ) {
         self.specific
             .emit_atomic_cmpxchg(size_op, size_val, signed, new, cmp, addr, ret);
-    }
-    /// Emit a atomic xchg kind of opcode
-    pub fn emit_atomic_xchg(
-        &mut self,
-        size_op: Size,
-        size_val: Size,
-        signed: bool,
-        new: Location<R, S>,
-        addr: R,
-        ret: Location<R, S>,
-    ) {
-        self.specific
-            .emit_atomic_xchg(size_op, size_val, signed, new, addr, ret);
     }
 }
