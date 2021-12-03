@@ -5709,9 +5709,7 @@ mod test {
     #[test]
     fn test_release_locations_keep_state_nopanic() {
         let mut machine = Machine::new();
-        let mut assembler = Assembler::new().unwrap();
         let locs = machine.acquire_locations(
-            &mut assembler,
             &(0..10)
                 .map(|_| (WpType::I32, MachineValue::Undefined))
                 .collect::<Vec<_>>(),
