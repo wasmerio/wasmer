@@ -402,8 +402,7 @@ impl MachineX86_64 {
             );
 
             // Trap if offset calculation overflowed.
-            self.assembler
-                .emit_jmp(Condition::Carry, heap_access_oob);
+            self.assembler.emit_jmp(Condition::Carry, heap_access_oob);
         }
 
         // Wasm linear memory -> real memory
@@ -416,8 +415,7 @@ impl MachineX86_64 {
                 .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
 
             // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
-            self.assembler
-                .emit_jmp(Condition::Above, heap_access_oob);
+            self.assembler.emit_jmp(Condition::Above, heap_access_oob);
         }
 
         self.release_gpr(tmp_bound);
