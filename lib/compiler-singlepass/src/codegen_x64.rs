@@ -4947,21 +4947,21 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.machine.reserve_cmpxchg_temp_gpr();
-                self.memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.emit_atomic_cmpxchg(
-                        Size::S32,
-                        Size::S32,
-                        false,
-                        new,
-                        cmp,
-                        addr,
-                        ret,
-                    );
-                    Ok(())
-                })?;
-                self.machine.release_cmpxchg_temp_gpr();
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_atomic_cmpxchg(
+                            new,
+                            cmp,
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64AtomicRmwCmpxchg { ref memarg } => {
                 let new = self.pop_value_released();
@@ -4972,21 +4972,21 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.machine.reserve_cmpxchg_temp_gpr();
-                self.memory_op(target, memarg, true, 8, |this, addr| {
-                    this.machine.emit_atomic_cmpxchg(
-                        Size::S64,
-                        Size::S64,
-                        false,
-                        new,
-                        cmp,
-                        addr,
-                        ret,
-                    );
-                    Ok(())
-                })?;
-                self.machine.release_cmpxchg_temp_gpr();
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_atomic_cmpxchg(
+                            new,
+                            cmp,
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32AtomicRmw8CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -4997,21 +4997,21 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.machine.reserve_cmpxchg_temp_gpr();
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.emit_atomic_cmpxchg(
-                        Size::S32,
-                        Size::S8,
-                        false,
-                        new,
-                        cmp,
-                        addr,
-                        ret,
-                    );
-                    Ok(())
-                })?;
-                self.machine.release_cmpxchg_temp_gpr();
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_atomic_cmpxchg_8u(
+                            new,
+                            cmp,
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32AtomicRmw16CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -5022,21 +5022,21 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.machine.reserve_cmpxchg_temp_gpr();
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.emit_atomic_cmpxchg(
-                        Size::S32,
-                        Size::S16,
-                        false,
-                        new,
-                        cmp,
-                        addr,
-                        ret,
-                    );
-                    Ok(())
-                })?;
-                self.machine.release_cmpxchg_temp_gpr();
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_atomic_cmpxchg_16u(
+                            new,
+                            cmp,
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64AtomicRmw8CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -5047,21 +5047,21 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.machine.reserve_cmpxchg_temp_gpr();
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.emit_atomic_cmpxchg(
-                        Size::S64,
-                        Size::S8,
-                        false,
-                        new,
-                        cmp,
-                        addr,
-                        ret,
-                    );
-                    Ok(())
-                })?;
-                self.machine.release_cmpxchg_temp_gpr();
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_atomic_cmpxchg_8u(
+                            new,
+                            cmp,
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64AtomicRmw16CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -5072,21 +5072,21 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.machine.reserve_cmpxchg_temp_gpr();
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.emit_atomic_cmpxchg(
-                        Size::S64,
-                        Size::S16,
-                        false,
-                        new,
-                        cmp,
-                        addr,
-                        ret,
-                    );
-                    Ok(())
-                })?;
-                self.machine.release_cmpxchg_temp_gpr();
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_atomic_cmpxchg_16u(
+                            new,
+                            cmp,
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64AtomicRmw32CmpxchgU { ref memarg } => {
                 let new = self.pop_value_released();
@@ -5097,21 +5097,21 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.machine.reserve_cmpxchg_temp_gpr();
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.emit_atomic_cmpxchg(
-                        Size::S64,
-                        Size::S32,
-                        false,
-                        new,
-                        cmp,
-                        addr,
-                        ret,
-                    );
-                    Ok(())
-                })?;
-                self.machine.release_cmpxchg_temp_gpr();
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_atomic_cmpxchg_32u(
+                            new,
+                            cmp,
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
 
             Operator::RefNull { .. } => {

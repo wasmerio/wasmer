@@ -70,12 +70,6 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn release_gpr(&mut self, gpr: R);
     /// Specify that a given register is in use.
     fn reserve_unused_temp_gpr(&mut self, gpr: R) -> R;
-    /// Get the list of GPR to reserve for a "cmpxchg" type of operation
-    fn get_cmpxchg_temp_gprs(&self) -> Vec<R>;
-    /// Reserve the gpr needed for a cmpxchg operation (if any)
-    fn reserve_cmpxchg_temp_gpr(&mut self);
-    /// Release the gpr needed fpr a cmpxchg operation
-    fn release_cmpxchg_temp_gpr(&mut self);
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: R);
     /// Push used gpr to the stack
@@ -323,22 +317,6 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn emit_push(&mut self, size: Size, loc: Location<R, S>);
     /// Stack pop of a location
     fn emit_pop(&mut self, size: Size, loc: Location<R, S>);
-
-    /// cmpxchg
-    fn emit_atomic_cmpxchg(
-        &mut self,
-        size_op: Size,
-        size_val: Size,
-        signed: bool,
-        new: Location<R, S>,
-        cmp: Location<R, S>,
-        addr: R,
-        ret: Location<R, S>,
-    );
-    /// does lock_xadd exist?
-    fn has_atomic_xadd(&mut self) -> bool;
-    /// lock xadd (or panic if it does not exist)
-    fn emit_atomic_xadd(&mut self, size_op: Size, new: Location<R, S>, ret: Location<R, S>);
     /// relaxed mov: move from anywhere to anywhere
     fn emit_relaxed_mov(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
     /// relaxed cmp: compare from anywhere and anywhere
@@ -749,6 +727,45 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn i32_atomic_xchg_16u(
         &mut self,
         loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Compare and Exchange with i32
+    fn i32_atomic_cmpxchg(
+        &mut self,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Compare and Exchange with u8
+    fn i32_atomic_cmpxchg_8u(
+        &mut self,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Compare and Exchange with u16
+    fn i32_atomic_cmpxchg_16u(
+        &mut self,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
         target: Location<R, S>,
         memarg: &MemoryImmediate,
         ret: Location<R, S>,
@@ -1250,6 +1267,58 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         offset: i32,
         heap_access_oob: Label,
     );
+    /// i64 atomic Compare and Exchange with i32
+    fn i64_atomic_cmpxchg(
+        &mut self,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Compare and Exchange with u8
+    fn i64_atomic_cmpxchg_8u(
+        &mut self,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Compare and Exchange with u16
+    fn i64_atomic_cmpxchg_16u(
+        &mut self,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Compare and Exchange with u32
+    fn i64_atomic_cmpxchg_32u(
+        &mut self,
+        new: Location<R, S>,
+        cmp: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
 
     /// Convert a F64 from I64, signed or unsigned
     fn convert_f64_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
@@ -1430,15 +1499,6 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
     /// Releases a GPR.
     pub fn release_gpr(&mut self, gpr: R) {
         self.specific.release_gpr(gpr);
-    }
-
-    /// Reserve the gpr needed for a cmpxchg operation (if any)
-    pub fn reserve_cmpxchg_temp_gpr(&mut self) {
-        self.specific.reserve_cmpxchg_temp_gpr();
-    }
-    /// Release the gpr needed fpr a cmpxchg operation
-    pub fn release_cmpxchg_temp_gpr(&mut self) {
-        self.specific.release_cmpxchg_temp_gpr();
     }
 
     /// Releases a XMM register.
@@ -1799,20 +1859,5 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
     /// Cannonicalize a NaN (or panic if not supported)
     pub fn canonicalize_nan(&mut self, sz: Size, input: Location<R, S>, output: Location<R, S>) {
         self.specific.canonicalize_nan(sz, input, output);
-    }
-
-    /// Emit a atomic cmpxchg kind of opcode
-    pub fn emit_atomic_cmpxchg(
-        &mut self,
-        size_op: Size,
-        size_val: Size,
-        signed: bool,
-        new: Location<R, S>,
-        cmp: Location<R, S>,
-        addr: R,
-        ret: Location<R, S>,
-    ) {
-        self.specific
-            .emit_atomic_cmpxchg(size_op, size_val, signed, new, cmp, addr, ret);
     }
 }

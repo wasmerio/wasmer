@@ -1605,23 +1605,6 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.used_gprs.insert(gpr);
     }
 
-    fn get_cmpxchg_temp_gprs(&self) -> Vec<GPR> {
-        vec![GPR::RAX]
-    }
-
-    fn reserve_cmpxchg_temp_gpr(&mut self) {
-        for gpr in self.get_cmpxchg_temp_gprs().iter() {
-            assert!(!self.used_gprs.contains(gpr));
-            self.used_gprs.insert(*gpr);
-        }
-    }
-
-    fn release_cmpxchg_temp_gpr(&mut self) {
-        for gpr in self.get_cmpxchg_temp_gprs().iter() {
-            assert_eq!(!self.used_gprs.remove(gpr), true);
-        }
-    }
-
     fn push_used_gpr(&mut self) {
         let used_gprs = self.get_used_gprs();
         for r in used_gprs.iter() {
@@ -2347,60 +2330,6 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         end
     }
 
-    fn emit_atomic_cmpxchg(
-        &mut self,
-        size_op: Size,
-        size_val: Size,
-        signed: bool,
-        new: Location,
-        cmp: Location,
-        addr: GPR,
-        ret: Location,
-    ) {
-        let compare = GPR::RAX;
-        // we have to take into account that there maybe no free tmp register
-        let val = self.pick_temp_gpr();
-        let value = match val {
-            Some(value) => {
-                self.release_gpr(value);
-                value
-            }
-            _ => {
-                if cmp == Location::GPR(GPR::R14) {
-                    if new == Location::GPR(GPR::R13) {
-                        GPR::R12
-                    } else {
-                        GPR::R13
-                    }
-                } else {
-                    GPR::R14
-                }
-            }
-        };
-        if val.is_none() {
-            self.assembler.emit_push(Size::S64, Location::GPR(value));
-        }
-
-        self.assembler
-            .emit_mov(size_op, cmp, Location::GPR(compare));
-        self.assembler.emit_mov(size_op, new, Location::GPR(value));
-        self.assembler
-            .emit_lock_cmpxchg(size_val, Location::GPR(value), Location::Memory(addr, 0));
-        self.move_location_extend(size_val, signed, Location::GPR(compare), size_op, ret);
-        if val.is_none() {
-            self.assembler.emit_pop(Size::S64, Location::GPR(value));
-        } else {
-            self.used_gprs.remove(&value);
-        }
-    }
-    // atomic xadd if it exist
-    fn has_atomic_xadd(&mut self) -> bool {
-        true
-    }
-    fn emit_atomic_xadd(&mut self, size_op: Size, new: Location, ret: Location) {
-        self.assembler.emit_lock_xadd(size_op, new, ret);
-    }
-
     fn emit_memory_fence(&mut self) {
         // nothing on x86_64
     }
@@ -2922,46 +2851,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location(Size::S32, loc, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                4,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S32, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S32,
-                Size::S32,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_add(Size::S32, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location(Size::S32, loc, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S32, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i32 atomic Add with u8
     fn i32_atomic_add_8u(
@@ -2975,46 +2885,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location_extend(Size::S8, false, loc, Size::S32, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                1,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S32, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S8,
-                Size::S32,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_add(Size::S8, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location_extend(Size::S8, false, loc, Size::S32, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S8,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S32, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i32 atomic Add with u16
     fn i32_atomic_add_16u(
@@ -3028,46 +2919,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location_extend(Size::S16, false, loc, Size::S32, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                2,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S32, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S16,
-                Size::S32,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_add(Size::S16, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location_extend(Size::S16, false, loc, Size::S32, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S16,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S32, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i32 atomic Sub with i32
     fn i32_atomic_sub(
@@ -3081,46 +2953,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.location_neg(Size::S32, false, loc, Size::S32, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                4,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S32, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S32,
-                Size::S32,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_sub(Size::S32, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.location_neg(Size::S32, false, loc, Size::S32, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S32, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i32 atomic Sub with u8
     fn i32_atomic_sub_8u(
@@ -3134,46 +2987,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.location_neg(Size::S8, false, loc, Size::S32, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                1,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S32, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S8,
-                Size::S32,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_sub(Size::S8, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.location_neg(Size::S8, false, loc, Size::S32, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S8,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S32, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i32 atomic Sub with u16
     fn i32_atomic_sub_16u(
@@ -3187,46 +3021,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.location_neg(Size::S16, false, loc, Size::S32, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                2,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S32, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S16,
-                Size::S32,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_sub(Size::S16, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.location_neg(Size::S16, false, loc, Size::S32, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S16,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S32, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i32 atomic And with i32
     fn i32_atomic_and(
@@ -3598,6 +3413,159 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         );
         self.move_location(Size::S32, Location::GPR(value), ret);
         self.release_gpr(value);
+    }
+    // i32 atomic Exchange with i32
+    fn i32_atomic_cmpxchg(
+        &mut self,
+        new: Location,
+        cmp: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if cmp == Location::GPR(GPR::R14) {
+            if new == Location::GPR(GPR::R13) {
+                GPR::R12
+            } else {
+                GPR::R13
+            }
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+        self.assembler
+            .emit_mov(Size::S32, cmp, Location::GPR(compare));
+        self.assembler
+            .emit_mov(Size::S32, new, Location::GPR(value));
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_cmpxchg(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+                this.assembler
+                    .emit_mov(Size::S32, Location::GPR(compare), ret);
+            },
+        );
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
+    }
+    // i32 atomic Exchange with u8
+    fn i32_atomic_cmpxchg_8u(
+        &mut self,
+        new: Location,
+        cmp: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if cmp == Location::GPR(GPR::R14) {
+            if new == Location::GPR(GPR::R13) {
+                GPR::R12
+            } else {
+                GPR::R13
+            }
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+        self.assembler
+            .emit_mov(Size::S32, cmp, Location::GPR(compare));
+        self.assembler
+            .emit_mov(Size::S32, new, Location::GPR(value));
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_cmpxchg(
+                    Size::S8,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+                this.assembler
+                    .emit_movzx(Size::S8, Location::GPR(compare), Size::S32, ret);
+            },
+        );
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
+    }
+    // i32 atomic Exchange with u16
+    fn i32_atomic_cmpxchg_16u(
+        &mut self,
+        new: Location,
+        cmp: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if cmp == Location::GPR(GPR::R14) {
+            if new == Location::GPR(GPR::R13) {
+                GPR::R12
+            } else {
+                GPR::R13
+            }
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+        self.assembler
+            .emit_mov(Size::S32, cmp, Location::GPR(compare));
+        self.assembler
+            .emit_mov(Size::S32, new, Location::GPR(value));
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_cmpxchg(
+                    Size::S16,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+                this.assembler
+                    .emit_movzx(Size::S16, Location::GPR(compare), Size::S32, ret);
+            },
+        );
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
     }
 
     fn move_with_reloc(
@@ -4150,46 +4118,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location(Size::S64, loc, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                8,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S64,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_add(Size::S64, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location(Size::S64, loc, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic Add with u8
     fn i64_atomic_add_8u(
@@ -4203,46 +4152,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location_extend(Size::S8, false, loc, Size::S64, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                1,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S8,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_add(Size::S8, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location_extend(Size::S8, false, loc, Size::S64, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S8,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic Add with u16
     fn i64_atomic_add_16u(
@@ -4256,46 +4186,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location_extend(Size::S16, false, loc, Size::S64, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                2,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S16,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_add(Size::S16, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location_extend(Size::S16, false, loc, Size::S64, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S16,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic Add with u32
     fn i64_atomic_add_32u(
@@ -4309,46 +4220,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location_extend(Size::S32, false, loc, Size::S64, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                4,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S32,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_add(Size::S32, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location_extend(Size::S32, false, loc, Size::S64, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic Sub with i64
     fn i64_atomic_sub(
@@ -4362,48 +4254,29 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.move_location(Size::S64, loc, Location::GPR(value));
-            let value = self.acquire_temp_gpr().unwrap();
-            self.location_neg(Size::S64, false, loc, Size::S64, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                8,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S64,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S64,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_sub(Size::S64, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.move_location(Size::S64, loc, Location::GPR(value));
+        let value = self.acquire_temp_gpr().unwrap();
+        self.location_neg(Size::S64, false, loc, Size::S64, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S64,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic Sub with u8
     fn i64_atomic_sub_8u(
@@ -4417,46 +4290,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.location_neg(Size::S8, false, loc, Size::S64, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                1,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S8,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S8,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_sub(Size::S8, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.location_neg(Size::S8, false, loc, Size::S64, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S8,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic Sub with u16
     fn i64_atomic_sub_16u(
@@ -4470,46 +4324,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.location_neg(Size::S16, false, loc, Size::S64, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                2,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S16,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S16,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_sub(Size::S16, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.location_neg(Size::S16, false, loc, Size::S64, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S16,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic Sub with u32
     fn i64_atomic_sub_32u(
@@ -4523,46 +4358,27 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        if self.has_atomic_xadd() {
-            let value = self.acquire_temp_gpr().unwrap();
-            self.location_neg(Size::S32, false, loc, Size::S64, Location::GPR(value));
-            self.memory_op(
-                target,
-                memarg,
-                true,
-                4,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, addr| {
-                    this.emit_atomic_xadd(
-                        Size::S32,
-                        Location::GPR(value),
-                        Location::Memory(addr, 0),
-                    );
-                },
-            );
-            self.move_location(Size::S64, Location::GPR(value), ret);
-            self.release_gpr(value);
-        } else {
-            self.emit_compare_and_swap(
-                loc,
-                target,
-                ret,
-                memarg,
-                4,
-                Size::S32,
-                Size::S64,
-                need_check,
-                imported_memories,
-                offset,
-                heap_access_oob,
-                |this, src, dst| {
-                    this.location_sub(Size::S32, Location::GPR(src), Location::GPR(dst), false);
-                },
-            );
-        }
+        let value = self.acquire_temp_gpr().unwrap();
+        self.location_neg(Size::S32, false, loc, Size::S64, Location::GPR(value));
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_xadd(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+        self.move_location(Size::S64, Location::GPR(value), ret);
+        self.release_gpr(value);
     }
     // i64 atomic And with i64
     fn i64_atomic_and(
@@ -5051,6 +4867,210 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         );
         self.move_location(Size::S64, Location::GPR(value), ret);
         self.release_gpr(value);
+    }
+    // i64 atomic Exchange with i64
+    fn i64_atomic_cmpxchg(
+        &mut self,
+        new: Location,
+        cmp: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if cmp == Location::GPR(GPR::R14) {
+            if new == Location::GPR(GPR::R13) {
+                GPR::R12
+            } else {
+                GPR::R13
+            }
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+        self.assembler
+            .emit_mov(Size::S64, cmp, Location::GPR(compare));
+        self.assembler
+            .emit_mov(Size::S64, new, Location::GPR(value));
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_cmpxchg(
+                    Size::S64,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+                this.assembler
+                    .emit_mov(Size::S64, Location::GPR(compare), ret);
+            },
+        );
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
+    }
+    // i64 atomic Exchange with u8
+    fn i64_atomic_cmpxchg_8u(
+        &mut self,
+        new: Location,
+        cmp: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if cmp == Location::GPR(GPR::R14) {
+            if new == Location::GPR(GPR::R13) {
+                GPR::R12
+            } else {
+                GPR::R13
+            }
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+        self.assembler
+            .emit_mov(Size::S64, cmp, Location::GPR(compare));
+        self.assembler
+            .emit_mov(Size::S64, new, Location::GPR(value));
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_cmpxchg(
+                    Size::S8,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+                this.assembler
+                    .emit_movzx(Size::S8, Location::GPR(compare), Size::S64, ret);
+            },
+        );
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
+    }
+    // i64 atomic Exchange with u16
+    fn i64_atomic_cmpxchg_16u(
+        &mut self,
+        new: Location,
+        cmp: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if cmp == Location::GPR(GPR::R14) {
+            if new == Location::GPR(GPR::R13) {
+                GPR::R12
+            } else {
+                GPR::R13
+            }
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+        self.assembler
+            .emit_mov(Size::S64, cmp, Location::GPR(compare));
+        self.assembler
+            .emit_mov(Size::S64, new, Location::GPR(value));
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_cmpxchg(
+                    Size::S16,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+                this.assembler
+                    .emit_movzx(Size::S16, Location::GPR(compare), Size::S64, ret);
+            },
+        );
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
+    }
+    // i64 atomic Exchange with u32
+    fn i64_atomic_cmpxchg_32u(
+        &mut self,
+        new: Location,
+        cmp: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if cmp == Location::GPR(GPR::R14) {
+            if new == Location::GPR(GPR::R13) {
+                GPR::R12
+            } else {
+                GPR::R13
+            }
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+        self.assembler
+            .emit_mov(Size::S64, cmp, Location::GPR(compare));
+        self.assembler
+            .emit_mov(Size::S64, new, Location::GPR(value));
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_lock_cmpxchg(
+                    Size::S16,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+                this.assembler
+                    .emit_mov(Size::S32, Location::GPR(compare), ret);
+            },
+        );
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
     }
 
     fn convert_f64_i64(&mut self, loc: Location, signed: bool, ret: Location) {
