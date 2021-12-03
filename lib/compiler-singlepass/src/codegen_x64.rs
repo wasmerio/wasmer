@@ -571,70 +571,6 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    /// Emits a memory operation.
-    fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
-        &mut self,
-        loc: Location,
-        target: Location,
-        ret: Location,
-        memarg: &MemoryImmediate,
-        value_size: usize,
-        memory_sz: Size,
-        stack_sz: Size,
-        cb: F,
-    ) -> Result<(), CodegenError> {
-        if memory_sz > stack_sz {
-            return Err(CodegenError {
-                message: "emit_compare_and_swap: memory size > stack size".to_string(),
-            });
-        }
-
-        let compare = self.machine.reserve_unused_temp_gpr(GPR::RAX);
-        let value = if loc == Location::GPR(GPR::R14) {
-            GPR::R13
-        } else {
-            GPR::R14
-        };
-        self.machine
-            .specific
-            .assembler
-            .emit_push(Size::S64, Location::GPR(value));
-
-        self.machine
-            .specific
-            .move_location(stack_sz, loc, Location::GPR(value));
-
-        let retry = self.machine.specific.assembler.get_label();
-        self.machine.specific.emit_label(retry);
-
-        self.memory_op(target, memarg, true, value_size, |this, addr| {
-            this.machine.specific.load_address(
-                memory_sz,
-                Location::GPR(compare),
-                Location::Memory(addr, 0),
-            );
-            this.machine
-                .specific
-                .move_location(stack_sz, Location::GPR(compare), ret);
-            cb(this, compare, value);
-            this.machine.specific.assembler.emit_lock_cmpxchg(
-                memory_sz,
-                Location::GPR(value),
-                Location::Memory(addr, 0),
-            );
-            Ok(())
-        })?;
-
-        self.machine.specific.jmp_on_different(retry);
-
-        self.machine
-            .specific
-            .assembler
-            .emit_pop(Size::S64, Location::GPR(value));
-        self.machine.release_temp_gpr(compare);
-        Ok(())
-    }
-
     pub fn get_state_diff(&mut self) -> usize {
         if !self.machine.track_state {
             return std::usize::MAX;
@@ -3751,14 +3687,27 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.memory_op(target, memarg, true, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S32,
-                        Location::Memory(addr, 0),
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_load(
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicLoad8U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3768,15 +3717,27 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S8,
-                        Location::Memory(addr, 0),
-                        Size::S32,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_load_8u(
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicLoad16U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3786,54 +3747,102 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S16,
-                        Location::Memory(addr, 0),
-                        Size::S32,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_load_16u(
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicStore { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
 
-                self.memory_op(target_addr, memarg, true, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_atomic_xchg(
-                        Size::S32,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_save(
+                    target_value,
+                    memarg,
+                    target_addr,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicStore8 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
 
-                self.memory_op(target_addr, memarg, true, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_atomic_xchg(
-                        Size::S8,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_save_8(
+                    target_value,
+                    memarg,
+                    target_addr,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicStore16 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
 
-                self.memory_op(target_addr, memarg, true, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_atomic_xchg(
-                        Size::S16,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_save_16(
+                    target_value,
+                    memarg,
+                    target_addr,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicLoad { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3843,14 +3852,27 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.memory_op(target, memarg, true, 8, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S64,
-                        Location::Memory(addr, 0),
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_load(
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicLoad8U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3860,15 +3882,27 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.memory_op(target, memarg, true, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S8,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_load_8u(
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicLoad16U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3878,15 +3912,27 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.memory_op(target, memarg, true, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S16,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_load_16u(
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicLoad32U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3896,82 +3942,127 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.memory_op(target, memarg, true, 4, |this, addr| {
-                    match ret {
-                        Location::GPR(_) => {}
-                        Location::Memory(base, offset) => {
-                            this.machine.specific.move_location(
-                                Size::S32,
-                                Location::Imm32(0),
-                                Location::Memory(base, offset + 4),
-                            ); // clear upper bits
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "I64AtomicLoad32U ret: unreachable code".to_string(),
-                            })
-                        }
-                    }
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S32,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_load_32u(
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicStore { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
 
-                self.memory_op(target_addr, memarg, true, 8, |this, addr| {
-                    this.machine.specific.emit_relaxed_atomic_xchg(
-                        Size::S64,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_save(
+                    target_value,
+                    memarg,
+                    target_addr,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicStore8 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
 
-                self.memory_op(target_addr, memarg, true, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_atomic_xchg(
-                        Size::S8,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_save_8(
+                    target_value,
+                    memarg,
+                    target_addr,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicStore16 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
 
-                self.memory_op(target_addr, memarg, true, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_atomic_xchg(
-                        Size::S16,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_save_16(
+                    target_value,
+                    memarg,
+                    target_addr,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicStore32 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
 
-                self.memory_op(target_addr, memarg, true, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_atomic_xchg(
-                        Size::S32,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_save_32(
+                    target_value,
+                    memarg,
+                    target_addr,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmwAdd { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -3982,42 +4073,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, loc, Location::GPR(value));
-                    self.memory_op(target, memarg, true, 4, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S32,
-                        Size::S32,
-                        |this, src, dst| {
-                            this.machine.specific.location_add(
-                                Size::S32,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_add(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmwAdd { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4028,42 +4105,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, loc, Location::GPR(value));
-                    self.memory_op(target, memarg, true, 8, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S64,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S64,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_add(
-                                Size::S64,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_add(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw8AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4074,46 +4137,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.move_location_extend(
-                        Size::S8,
-                        false,
-                        loc,
-                        Size::S32,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 1, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S8,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S8,
-                        Size::S32,
-                        |this, src, dst| {
-                            this.machine.specific.location_add(
-                                Size::S8,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_add_8u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw16AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4124,46 +4169,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.move_location_extend(
-                        Size::S16,
-                        false,
-                        loc,
-                        Size::S32,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 2, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S16,
-                        Size::S32,
-                        |this, src, dst| {
-                            this.machine.specific.location_add(
-                                Size::S16,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_add_16u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw8AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4174,46 +4201,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.move_location_extend(
-                        Size::S8,
-                        false,
-                        loc,
-                        Size::S64,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 1, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S8,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S8,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_add(
-                                Size::S8,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_add_8u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw16AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4224,46 +4233,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.move_location_extend(
-                        Size::S16,
-                        false,
-                        loc,
-                        Size::S64,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 2, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S16,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_add(
-                                Size::S16,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_add_16u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw32AddU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4274,42 +4265,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, loc, Location::GPR(value));
-                    self.memory_op(target, memarg, true, 4, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S32,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_add(
-                                Size::S32,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_add_32u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmwSub { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4320,46 +4297,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.location_neg(
-                        Size::S32,
-                        false,
-                        loc,
-                        Size::S32,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 4, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S32,
-                        Size::S32,
-                        |this, src, dst| {
-                            this.machine.specific.location_sub(
-                                Size::S32,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_sub(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmwSub { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4370,46 +4329,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.location_neg(
-                        Size::S64,
-                        false,
-                        loc,
-                        Size::S64,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 8, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S64,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S64,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_sub(
-                                Size::S64,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_sub(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw8SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4420,46 +4361,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.location_neg(
-                        Size::S8,
-                        false,
-                        loc,
-                        Size::S32,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 1, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S8,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S8,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_sub(
-                                Size::S8,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_sub_8u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw16SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4470,46 +4393,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.location_neg(
-                        Size::S16,
-                        false,
-                        loc,
-                        Size::S32,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 2, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S32, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S16,
-                        Size::S32,
-                        |this, src, dst| {
-                            this.machine.specific.location_sub(
-                                Size::S16,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_sub_16u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw8SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4520,46 +4425,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.location_neg(
-                        Size::S8,
-                        false,
-                        loc,
-                        Size::S64,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 1, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S8,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S8,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_sub(
-                                Size::S8,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_sub_8u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw16SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4570,46 +4457,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.location_neg(
-                        Size::S16,
-                        false,
-                        loc,
-                        Size::S64,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 2, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S16,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S16,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_sub(
-                                Size::S16,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_sub_16u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw32SubU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4620,46 +4489,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                if self.machine.specific.has_atomic_xadd() {
-                    let value = self.machine.acquire_temp_gpr().unwrap();
-                    self.machine.specific.location_neg(
-                        Size::S32,
-                        false,
-                        loc,
-                        Size::S32,
-                        Location::GPR(value),
-                    );
-                    self.memory_op(target, memarg, true, 2, |this, addr| {
-                        this.machine.specific.emit_atomic_xadd(
-                            Size::S32,
-                            Location::GPR(value),
-                            Location::Memory(addr, 0),
-                        );
-                        Ok(())
-                    })?;
-                    self.machine
-                        .specific
-                        .move_location(Size::S64, Location::GPR(value), ret);
-                    self.machine.release_temp_gpr(value);
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
                 } else {
-                    self.emit_compare_and_swap(
-                        loc,
-                        target,
-                        ret,
-                        memarg,
-                        4,
-                        Size::S32,
-                        Size::S64,
-                        |this, src, dst| {
-                            this.machine.specific.location_sub(
-                                Size::S32,
-                                Location::GPR(src),
-                                Location::GPR(dst),
-                                false,
-                            );
-                        },
-                    )?;
-                }
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_sub_32u(
+                    loc,
+                    target,
+                    memarg,
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmwAnd { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4670,23 +4521,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_and(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    4,
-                    Size::S32,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_and(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmwAnd { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4697,23 +4553,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_and(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    8,
-                    Size::S64,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_and(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw8AndU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4724,23 +4585,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_and_8u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S8,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_and(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw16AndU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4751,23 +4617,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_and_16u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S16,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_and(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw8AndU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4778,23 +4649,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_and_8u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S8,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_and(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw16AndU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4805,23 +4681,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_and_16u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S16,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_and(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw32AndU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4832,23 +4713,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_and_32u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S32,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_and(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmwOr { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4859,23 +4745,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_or(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    4,
-                    Size::S32,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_or(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmwOr { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4886,23 +4777,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_or(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    8,
-                    Size::S64,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_or(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw8OrU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4913,23 +4809,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_or_8u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S8,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_or(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw16OrU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4940,23 +4841,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_or_16u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S16,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_or(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw8OrU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4967,23 +4873,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_or_8u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S8,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_or(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw16OrU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -4994,23 +4905,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_or_16u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S16,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_or(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw32OrU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5021,23 +4937,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_or_32u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S32,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_or(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmwXor { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5048,23 +4969,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_xor(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    4,
-                    Size::S32,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_xor(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmwXor { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5075,23 +5001,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_xor(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    8,
-                    Size::S64,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_xor(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw8XorU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5102,23 +5033,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_xor_8u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S8,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_xor(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmw16XorU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5129,23 +5065,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i32_atomic_xor_16u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S16,
-                    Size::S32,
-                    |this, src, dst| {
-                        this.machine.specific.location_xor(
-                            Size::S32,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw8XorU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5156,23 +5097,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_xor_8u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S8,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_xor(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw16XorU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5183,23 +5129,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_xor_16u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S16,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_xor(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I64AtomicRmw32XorU { ref memarg } => {
                 let loc = self.pop_value_released();
@@ -5210,23 +5161,28 @@ impl<'a> FuncGen<'a> {
                 )[0];
                 self.value_stack.push(ret);
 
-                self.emit_compare_and_swap(
+                let need_check = match self.memory_styles[MemoryIndex::new(0)] {
+                    MemoryStyle::Static { .. } => false,
+                    MemoryStyle::Dynamic { .. } => true,
+                };
+
+                let offset = if self.module.num_imported_memories != 0 {
+                    self.vmoffsets
+                        .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
+                } else {
+                    self.vmoffsets
+                        .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
+                };
+                self.machine.specific.i64_atomic_xor_32u(
                     loc,
                     target,
-                    ret,
                     memarg,
-                    1,
-                    Size::S32,
-                    Size::S64,
-                    |this, src, dst| {
-                        this.machine.specific.location_xor(
-                            Size::S64,
-                            Location::GPR(src),
-                            Location::GPR(dst),
-                            false,
-                        );
-                    },
-                )?;
+                    ret,
+                    need_check,
+                    self.module.num_imported_memories != 0,
+                    offset as i32,
+                    self.special_labels.heap_access_oob,
+                );
             }
             Operator::I32AtomicRmwXchg { ref memarg } => {
                 let loc = self.pop_value_released();

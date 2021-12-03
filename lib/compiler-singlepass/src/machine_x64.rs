@@ -327,6 +327,179 @@ impl MachineX86_64 {
         f(&mut self.assembler, Size::S32, Location::GPR(GPR::RCX), ret);
     }
 
+    fn memory_op<F: FnOnce(&mut Self, GPR)>(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        check_alignment: bool,
+        value_size: usize,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+        cb: F,
+    ) {
+        let tmp_addr = self.pick_temp_gpr().unwrap();
+
+        // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
+        let (base_loc, bound_loc) = if imported_memories {
+            // Imported memories require one level of indirection.
+            self.move_location(
+                Size::S64,
+                Location::Memory(Machine::get_vmctx_reg(), offset),
+                Location::GPR(tmp_addr),
+            );
+            (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
+        } else {
+            (
+                Location::Memory(Machine::get_vmctx_reg(), offset),
+                Location::Memory(Machine::get_vmctx_reg(), offset + 8),
+            )
+        };
+
+        let tmp_base = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp_base);
+        let tmp_bound = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp_bound);
+
+        // Load base into temporary register.
+        self.move_location(Size::S64, base_loc, Location::GPR(tmp_base));
+
+        // Load bound into temporary register, if needed.
+        if need_check {
+            self.move_location(Size::S64, bound_loc, Location::GPR(tmp_bound));
+
+            // Wasm -> Effective.
+            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+
+            // This `lea` calculates the upper bound allowed for the beginning of the word.
+            // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
+            // the maximum allowed beginning of word is (inclusively)
+            // `tmp_bound + tmp_base - value_size`.
+            self.location_address(
+                Size::S64,
+                Location::Memory2(tmp_bound, tmp_base, Multiplier::One, -(value_size as i32)),
+                Location::GPR(tmp_bound),
+            );
+        }
+
+        // Load effective address.
+        // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
+        // might be reused.
+        self.move_location(Size::S32, addr, Location::GPR(tmp_addr));
+
+        // Add offset to memory address.
+        if memarg.offset != 0 {
+            self.location_add(
+                Size::S32,
+                Location::Imm32(memarg.offset),
+                Location::GPR(tmp_addr),
+                true,
+            );
+
+            // Trap if offset calculation overflowed.
+            self.jmp_on_overflow(heap_access_oob);
+        }
+
+        // Wasm linear memory -> real memory
+        self.location_add(
+            Size::S64,
+            Location::GPR(tmp_base),
+            Location::GPR(tmp_addr),
+            false,
+        );
+
+        if need_check {
+            // Trap if the end address of the requested area is above that of the linear memory.
+            self.location_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+
+            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
+            self.jmp_on_above(heap_access_oob);
+        }
+
+        self.release_gpr(tmp_bound);
+        self.release_gpr(tmp_base);
+
+        let align = memarg.align;
+        if check_alignment && align != 1 {
+            self.location_test(
+                Size::S32,
+                Location::Imm32((align - 1).into()),
+                Location::GPR(tmp_addr),
+            );
+            self.jmp_on_different(heap_access_oob);
+        }
+
+        let begin = self.get_offset().0;
+
+        cb(self, tmp_addr);
+
+        let end = self.get_offset().0;
+        self.release_gpr(tmp_addr);
+
+        self.mark_address_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, begin, end);
+    }
+
+    fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
+        &mut self,
+        loc: Location,
+        target: Location,
+        ret: Location,
+        memarg: &MemoryImmediate,
+        value_size: usize,
+        memory_sz: Size,
+        stack_sz: Size,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+        cb: F,
+    ) {
+        if memory_sz > stack_sz {
+            unreachable!();
+        }
+
+        let compare = self.reserve_unused_temp_gpr(GPR::RAX);
+        let value = if loc == Location::GPR(GPR::R14) {
+            GPR::R13
+        } else {
+            GPR::R14
+        };
+        self.assembler.emit_push(Size::S64, Location::GPR(value));
+
+        self.move_location(stack_sz, loc, Location::GPR(value));
+
+        let retry = self.assembler.get_label();
+        self.emit_label(retry);
+
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            value_size,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.load_address(memory_sz, Location::GPR(compare), Location::Memory(addr, 0));
+                this.move_location(stack_sz, Location::GPR(compare), ret);
+                cb(this, compare, value);
+                this.assembler.emit_lock_cmpxchg(
+                    memory_sz,
+                    Location::GPR(value),
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+
+        self.jmp_on_different(retry);
+
+        self.assembler.emit_pop(Size::S64, Location::GPR(value));
+        self.release_gpr(compare);
+    }
+
     // Checks for underflow/overflow/nan.
     fn emit_f32_int_conv_check(
         &mut self,
@@ -2636,6 +2809,739 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn i32_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_shift_i32(Assembler::emit_ror, loc_a, loc_b, ret);
     }
+    fn i32_atomic_load(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_mov(Size::S32, Location::Memory(addr, 0), ret);
+            },
+        );
+    }
+    fn i32_atomic_load_8u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zero_extension(
+                    Size::S8,
+                    Location::Memory(addr, 0),
+                    Size::S32,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i32_atomic_load_16u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zero_extension(
+                    Size::S16,
+                    Location::Memory(addr, 0),
+                    Size::S32,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i32_atomic_save(
+        &mut self,
+        value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_atomic_xchg(Size::S32, value, Location::Memory(addr, 0));
+            },
+        );
+    }
+    fn i32_atomic_save_8(
+        &mut self,
+        value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_atomic_xchg(Size::S8, value, Location::Memory(addr, 0));
+            },
+        );
+    }
+    fn i32_atomic_save_16(
+        &mut self,
+        value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_atomic_xchg(Size::S16, value, Location::Memory(addr, 0));
+            },
+        );
+    }
+    // i32 atomic Add with i32
+    fn i32_atomic_add(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location(Size::S32, loc, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                4,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S32, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S32,
+                Size::S32,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_add(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i32 atomic Add with u8
+    fn i32_atomic_add_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location_extend(Size::S8, false, loc, Size::S32, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                1,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S32, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S8,
+                Size::S32,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_add(Size::S8, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i32 atomic Add with u16
+    fn i32_atomic_add_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location_extend(Size::S16, false, loc, Size::S32, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                2,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S32, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S16,
+                Size::S32,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_add(Size::S16, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i32 atomic Sub with i32
+    fn i32_atomic_sub(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.location_neg(Size::S32, false, loc, Size::S32, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                4,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S32, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S32,
+                Size::S32,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_sub(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i32 atomic Sub with u8
+    fn i32_atomic_sub_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.location_neg(Size::S8, false, loc, Size::S32, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                1,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S32, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S8,
+                Size::S32,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_sub(Size::S8, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i32 atomic Sub with u16
+    fn i32_atomic_sub_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.location_neg(Size::S16, false, loc, Size::S32, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                2,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S32, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S16,
+                Size::S32,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_sub(Size::S16, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i32 atomic And with i32
+    fn i32_atomic_and(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            4,
+            Size::S32,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_and(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic And with u8
+    fn i32_atomic_and_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            1,
+            Size::S8,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_and(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic And with u16
+    fn i32_atomic_and_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            2,
+            Size::S16,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_and(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic Or with i32
+    fn i32_atomic_or(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            4,
+            Size::S32,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_or(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic Or with u8
+    fn i32_atomic_or_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            1,
+            Size::S8,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_or(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic Or with u16
+    fn i32_atomic_or_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            2,
+            Size::S16,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_or(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic Xor with i32
+    fn i32_atomic_xor(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            4,
+            Size::S32,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_xor(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic Xor with u8
+    fn i32_atomic_xor_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            1,
+            Size::S8,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_xor(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i32 atomic Xor with u16
+    fn i32_atomic_xor_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            2,
+            Size::S16,
+            Size::S32,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_xor(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
 
     fn move_with_reloc(
         &mut self,
@@ -2954,6 +3860,1000 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn i64_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_shift_i64(Assembler::emit_ror, loc_a, loc_b, ret);
+    }
+    fn i64_atomic_load(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_mov(Size::S64, Location::Memory(addr, 0), ret);
+            },
+        );
+    }
+    fn i64_atomic_load_8u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zero_extension(
+                    Size::S8,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_atomic_load_16u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zero_extension(
+                    Size::S16,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_atomic_load_32u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                match ret {
+                    Location::GPR(_) => {}
+                    Location::Memory(base, offset) => {
+                        this.move_location(
+                            Size::S32,
+                            Location::Imm32(0),
+                            Location::Memory(base, offset + 4),
+                        ); // clear upper bits
+                    }
+                    _ => {
+                        unreachable!();
+                    }
+                }
+                this.emit_relaxed_zero_extension(
+                    Size::S32,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_atomic_save(
+        &mut self,
+        value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_atomic_xchg(Size::S64, value, Location::Memory(addr, 0));
+            },
+        );
+    }
+    fn i64_atomic_save_8(
+        &mut self,
+        value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_atomic_xchg(Size::S8, value, Location::Memory(addr, 0));
+            },
+        );
+    }
+    fn i64_atomic_save_16(
+        &mut self,
+        value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_atomic_xchg(Size::S16, value, Location::Memory(addr, 0));
+            },
+        );
+    }
+    fn i64_atomic_save_32(
+        &mut self,
+        value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_atomic_xchg(Size::S32, value, Location::Memory(addr, 0));
+            },
+        );
+    }
+    // i64 atomic Add with i64
+    fn i64_atomic_add(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location(Size::S64, loc, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                8,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S64,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_add(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic Add with u8
+    fn i64_atomic_add_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location_extend(Size::S8, false, loc, Size::S64, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                1,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S8,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_add(Size::S8, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic Add with u16
+    fn i64_atomic_add_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location_extend(Size::S16, false, loc, Size::S64, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                2,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S16,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_add(Size::S16, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic Add with u32
+    fn i64_atomic_add_32u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location_extend(Size::S32, false, loc, Size::S64, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                4,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S32,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_add(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic Sub with i64
+    fn i64_atomic_sub(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.move_location(Size::S64, loc, Location::GPR(value));
+            let value = self.acquire_temp_gpr().unwrap();
+            self.location_neg(Size::S64, false, loc, Size::S64, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                8,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S64,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S64,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_sub(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic Sub with u8
+    fn i64_atomic_sub_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.location_neg(Size::S8, false, loc, Size::S64, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                1,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S8,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S8,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_sub(Size::S8, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic Sub with u16
+    fn i64_atomic_sub_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.location_neg(Size::S16, false, loc, Size::S64, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                2,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S16,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S16,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_sub(Size::S16, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic Sub with u32
+    fn i64_atomic_sub_32u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        if self.has_atomic_xadd() {
+            let value = self.acquire_temp_gpr().unwrap();
+            self.location_neg(Size::S32, false, loc, Size::S64, Location::GPR(value));
+            self.memory_op(
+                target,
+                memarg,
+                true,
+                4,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, addr| {
+                    this.emit_atomic_xadd(
+                        Size::S32,
+                        Location::GPR(value),
+                        Location::Memory(addr, 0),
+                    );
+                },
+            );
+            self.move_location(Size::S64, Location::GPR(value), ret);
+            self.release_gpr(value);
+        } else {
+            self.emit_compare_and_swap(
+                loc,
+                target,
+                ret,
+                memarg,
+                4,
+                Size::S32,
+                Size::S64,
+                need_check,
+                imported_memories,
+                offset,
+                heap_access_oob,
+                |this, src, dst| {
+                    this.location_sub(Size::S32, Location::GPR(src), Location::GPR(dst), false);
+                },
+            );
+        }
+    }
+    // i64 atomic And with i64
+    fn i64_atomic_and(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            8,
+            Size::S64,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_and(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic And with u8
+    fn i64_atomic_and_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            1,
+            Size::S8,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_and(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic And with u16
+    fn i64_atomic_and_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            2,
+            Size::S16,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_and(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic And with u32
+    fn i64_atomic_and_32u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            4,
+            Size::S32,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_and(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic Or with i64
+    fn i64_atomic_or(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            8,
+            Size::S64,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic Or with u8
+    fn i64_atomic_or_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            1,
+            Size::S8,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic Or with u16
+    fn i64_atomic_or_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            2,
+            Size::S16,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic Or with u32
+    fn i64_atomic_or_32u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            4,
+            Size::S32,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic xor with i64
+    fn i64_atomic_xor(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            8,
+            Size::S64,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic xor with u8
+    fn i64_atomic_xor_8u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            1,
+            Size::S8,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic xor with u16
+    fn i64_atomic_xor_16u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            2,
+            Size::S16,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
+    }
+    // i64 atomic xor with u32
+    fn i64_atomic_xor_32u(
+        &mut self,
+        loc: Location,
+        target: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.emit_compare_and_swap(
+            loc,
+            target,
+            ret,
+            memarg,
+            4,
+            Size::S32,
+            Size::S64,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, src, dst| {
+                this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false);
+            },
+        );
     }
 
     fn convert_f64_i64(&mut self, loc: Location, signed: bool, ret: Location) {

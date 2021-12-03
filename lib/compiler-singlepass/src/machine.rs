@@ -491,6 +491,252 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn i32_rol(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// i32 Roll Right
     fn i32_ror(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i32 atomic load
+    fn i32_atomic_load(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic load of an unsigned 8bits
+    fn i32_atomic_load_8u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic load of an unsigned 16bits
+    fn i32_atomic_load_16u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic save
+    fn i32_atomic_save(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic save of a the lower 8bits
+    fn i32_atomic_save_8(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic save of a the lower 16bits
+    fn i32_atomic_save_16(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Add with i32
+    fn i32_atomic_add(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Add with unsigned 8bits
+    fn i32_atomic_add_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Add with unsigned 16bits
+    fn i32_atomic_add_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Sub with i32
+    fn i32_atomic_sub(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Sub with unsigned 8bits
+    fn i32_atomic_sub_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Sub with unsigned 16bits
+    fn i32_atomic_sub_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic And with i32
+    fn i32_atomic_and(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic And with unsigned 8bits
+    fn i32_atomic_and_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic And with unsigned 16bits
+    fn i32_atomic_and_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Or with i32
+    fn i32_atomic_or(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Or with unsigned 8bits
+    fn i32_atomic_or_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Or with unsigned 16bits
+    fn i32_atomic_or_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Xor with i32
+    fn i32_atomic_xor(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Xor with unsigned 8bits
+    fn i32_atomic_xor_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 atomic Xor with unsigned 16bits
+    fn i32_atomic_xor_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
 
     /// emit a move function address to GPR ready for call, using appropriate relocation
     fn move_with_reloc(
@@ -608,6 +854,334 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn i64_rol(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// i64 Roll Right
     fn i64_ror(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i64 atomic load
+    fn i64_atomic_load(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic load from unsigned 8bits
+    fn i64_atomic_load_8u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic load from unsigned 16bits
+    fn i64_atomic_load_16u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic load from unsigned 32bits
+    fn i64_atomic_load_32u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic save
+    fn i64_atomic_save(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic save of a the lower 8bits
+    fn i64_atomic_save_8(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic save of a the lower 16bits
+    fn i64_atomic_save_16(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic save of a the lower 32bits
+    fn i64_atomic_save_32(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Add with i64
+    fn i64_atomic_add(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Add with unsigned 8bits
+    fn i64_atomic_add_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Add with unsigned 16bits
+    fn i64_atomic_add_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Add with unsigned 32bits
+    fn i64_atomic_add_32u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Sub with i64
+    fn i64_atomic_sub(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Sub with unsigned 8bits
+    fn i64_atomic_sub_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Sub with unsigned 16bits
+    fn i64_atomic_sub_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Sub with unsigned 32bits
+    fn i64_atomic_sub_32u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic And with i64
+    fn i64_atomic_and(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic And with unsigned 8bits
+    fn i64_atomic_and_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic And with unsigned 16bits
+    fn i64_atomic_and_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic And with unsigned 32bits
+    fn i64_atomic_and_32u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Or with i64
+    fn i64_atomic_or(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Or with unsigned 8bits
+    fn i64_atomic_or_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Or with unsigned 16bits
+    fn i64_atomic_or_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Or with unsigned 32bits
+    fn i64_atomic_or_32u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Xor with i64
+    fn i64_atomic_xor(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Xor with unsigned 8bits
+    fn i64_atomic_xor_8u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Xor with unsigned 16bits
+    fn i64_atomic_xor_16u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 atomic Xor with unsigned 32bits
+    fn i64_atomic_xor_32u(
+        &mut self,
+        loc: Location<R, S>,
+        target: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
 
     /// Convert a F64 from I64, signed or unsigned
     fn convert_f64_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
@@ -790,10 +1364,6 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         self.specific.release_gpr(gpr);
     }
 
-    /// Specify that a given register is in use.
-    pub fn reserve_unused_temp_gpr(&mut self, gpr: R) -> R {
-        self.specific.reserve_unused_temp_gpr(gpr)
-    }
     /// Reserve the gpr needed for a cmpxchg operation (if any)
     pub fn reserve_cmpxchg_temp_gpr(&mut self) {
         self.specific.reserve_cmpxchg_temp_gpr();
