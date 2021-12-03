@@ -4,7 +4,7 @@ use crate::machine::Machine as AbstractMachine;
 use crate::machine::{MachineSpecific, MemoryImmediate, TrapTable};
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{X64Register, GPR, XMM};
-use dynasmrt::x64::Assembler;
+use dynasmrt::{x64::X64Relocation, VecAssembler};
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
@@ -12,6 +12,8 @@ use wasmer_compiler::{
     SourceLoc, TrapInformation,
 };
 use wasmer_vm::TrapCode;
+
+type Assembler = VecAssembler<X64Relocation>;
 
 pub struct MachineX86_64 {
     pub assembler: Assembler, //temporary public
@@ -1538,7 +1540,7 @@ impl MachineX86_64 {
 impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn new() -> Self {
         MachineX86_64 {
-            assembler: Assembler::new().unwrap(),
+            assembler: Assembler::new(0),
             used_gprs: HashSet::new(),
             used_simd: HashSet::new(),
             trap_table: TrapTable::default(),

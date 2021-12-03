@@ -4,7 +4,7 @@ use crate::{
     common_decl::*, config::Singlepass, emitter_x64::*, location::CombinedRegister,
     machine::MachineSpecific, machine_x64::Machine, x64_decl::*,
 };
-use dynasmrt::{x64::Assembler, DynamicLabel};
+use dynasmrt::{x64::X64Relocation, DynamicLabel, VecAssembler};
 use smallvec::{smallvec, SmallVec};
 use std::iter;
 use wasmer_compiler::wasmparser::{
@@ -77,6 +77,9 @@ pub struct FuncGen<'a> {
 
     /// A set of special labels for trapping.
     special_labels: SpecialLabelSet,
+
+    /// Calling convention to use.
+    calling_convention: CallingConvention,
 }
 
 struct SpecialLabelSet {
@@ -696,6 +699,7 @@ impl<'a> FuncGen<'a> {
             fsm,
             relocations: vec![],
             special_labels,
+            calling_convention,
         };
         fg.emit_head()?;
         Ok(fg)
@@ -3617,7 +3621,7 @@ impl<'a> FuncGen<'a> {
                 if self.control_stack.is_empty() {
                     self.machine.specific.emit_label(frame.label);
                     self.machine
-                        .finalize_locals(&self.locals, self.config.calling_convention);
+                        .finalize_locals(&self.locals, self.calling_convention);
                     self.machine.specific.emit_function_epilog();
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
