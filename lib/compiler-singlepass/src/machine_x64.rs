@@ -341,14 +341,15 @@ impl MachineX86_64 {
         heap_access_oob: Label,
         cb: F,
     ) {
-        let tmp_addr = self.pick_temp_gpr().unwrap();
+        let tmp_addr = self.acquire_temp_gpr().unwrap();
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
         let (base_loc, bound_loc) = if imported_memories {
             // Imported memories require one level of indirection.
-            self.move_location(
+            self.emit_relaxed_binop(
+                Assembler::emit_mov,
                 Size::S64,
-                Location::Memory(Machine::get_vmctx_reg(), offset),
+                Location::Memory(Self::get_vmctx_reg(), offset),
                 Location::GPR(tmp_addr),
             );
             (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
@@ -359,17 +360,17 @@ impl MachineX86_64 {
             )
         };
 
-        let tmp_base = self.pick_temp_gpr().unwrap();
-        self.reserve_gpr(tmp_base);
-        let tmp_bound = self.pick_temp_gpr().unwrap();
-        self.reserve_gpr(tmp_bound);
+        let tmp_base = self.acquire_temp_gpr().unwrap();
+        let tmp_bound = self.acquire_temp_gpr().unwrap();
 
         // Load base into temporary register.
-        self.move_location(Size::S64, base_loc, Location::GPR(tmp_base));
+        self.assembler
+            .emit_mov(Size::S64, base_loc, Location::GPR(tmp_base));
 
         // Load bound into temporary register, if needed.
         if need_check {
-            self.move_location(Size::S64, bound_loc, Location::GPR(tmp_bound));
+            self.assembler
+                .emit_mov(Size::S64, bound_loc, Location::GPR(tmp_bound));
 
             // Wasm -> Effective.
             // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
@@ -379,7 +380,7 @@ impl MachineX86_64 {
             // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
             // the maximum allowed beginning of word is (inclusively)
             // `tmp_bound + tmp_base - value_size`.
-            self.location_address(
+            self.assembler.emit_lea(
                 Size::S64,
                 Location::Memory2(tmp_bound, tmp_base, Multiplier::One, -(value_size as i32)),
                 Location::GPR(tmp_bound),
@@ -389,35 +390,34 @@ impl MachineX86_64 {
         // Load effective address.
         // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
         // might be reused.
-        self.move_location(Size::S32, addr, Location::GPR(tmp_addr));
+        self.assembler
+            .emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
 
         // Add offset to memory address.
         if memarg.offset != 0 {
-            self.location_add(
+            self.assembler.emit_add(
                 Size::S32,
                 Location::Imm32(memarg.offset),
                 Location::GPR(tmp_addr),
-                true,
             );
 
             // Trap if offset calculation overflowed.
-            self.jmp_on_overflow(heap_access_oob);
+            self.assembler
+                .emit_jmp(Condition::Carry, heap_access_oob);
         }
 
         // Wasm linear memory -> real memory
-        self.location_add(
-            Size::S64,
-            Location::GPR(tmp_base),
-            Location::GPR(tmp_addr),
-            false,
-        );
+        self.assembler
+            .emit_add(Size::S64, Location::GPR(tmp_base), Location::GPR(tmp_addr));
 
         if need_check {
             // Trap if the end address of the requested area is above that of the linear memory.
-            self.location_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+            self.assembler
+                .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
 
             // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
-            self.jmp_on_above(heap_access_oob);
+            self.assembler
+                .emit_jmp(Condition::Above, heap_access_oob);
         }
 
         self.release_gpr(tmp_bound);
@@ -425,22 +425,27 @@ impl MachineX86_64 {
 
         let align = memarg.align;
         if check_alignment && align != 1 {
-            self.location_test(
+            let tmp_aligncheck = self.acquire_temp_gpr().unwrap();
+            self.assembler.emit_mov(
                 Size::S32,
-                Location::Imm32((align - 1).into()),
                 Location::GPR(tmp_addr),
+                Location::GPR(tmp_aligncheck),
             );
-            self.jmp_on_different(heap_access_oob);
+            self.assembler.emit_and(
+                Size::S64,
+                Location::Imm32((align - 1).into()),
+                Location::GPR(tmp_aligncheck),
+            );
+            self.assembler
+                .emit_jmp(Condition::NotEqual, heap_access_oob);
+            self.release_gpr(tmp_aligncheck);
         }
-
-        let begin = self.get_offset().0;
-
+        let begin = self.assembler.get_offset().0;
         cb(self, tmp_addr);
-
-        let end = self.get_offset().0;
-        self.release_gpr(tmp_addr);
-
+        let end = self.assembler.get_offset().0;
         self.mark_address_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, begin, end);
+
+        self.release_gpr(tmp_addr);
     }
 
     fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
@@ -4714,8 +4719,6 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        let value = self.acquire_temp_gpr().unwrap();
-        self.move_location(Size::S64, loc, Location::GPR(value));
         let value = self.acquire_temp_gpr().unwrap();
         self.location_neg(Size::S64, false, loc, Size::S64, Location::GPR(value));
         self.memory_op(
