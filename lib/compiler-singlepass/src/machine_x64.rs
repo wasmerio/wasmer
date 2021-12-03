@@ -1535,6 +1535,10 @@ impl MachineX86_64 {
             self.release_gpr(tmp_out);
         }
     }
+
+    fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location, dst: Location) {
+        self.emit_relaxed_binop(Assembler::emit_xchg, sz, src, dst);
+    }
 }
 
 impl MachineSpecific<GPR, XMM> for MachineX86_64 {
@@ -2216,120 +2220,6 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.emit_pop(size, loc);
     }
 
-    fn memory_op_begin(
-        &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        check_alignment: bool,
-        value_size: usize,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
-        tmp_addr: GPR,
-    ) -> usize {
-        self.reserve_gpr(tmp_addr);
-
-        // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
-        let (base_loc, bound_loc) = if imported_memories {
-            // Imported memories require one level of indirection.
-            self.move_location(
-                Size::S64,
-                Location::Memory(Machine::get_vmctx_reg(), offset),
-                Location::GPR(tmp_addr),
-            );
-            (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
-        } else {
-            (
-                Location::Memory(Machine::get_vmctx_reg(), offset),
-                Location::Memory(Machine::get_vmctx_reg(), offset + 8),
-            )
-        };
-
-        let tmp_base = self.pick_temp_gpr().unwrap();
-        self.reserve_gpr(tmp_base);
-        let tmp_bound = self.pick_temp_gpr().unwrap();
-        self.reserve_gpr(tmp_bound);
-
-        // Load base into temporary register.
-        self.move_location(Size::S64, base_loc, Location::GPR(tmp_base));
-
-        // Load bound into temporary register, if needed.
-        if need_check {
-            self.move_location(Size::S64, bound_loc, Location::GPR(tmp_bound));
-
-            // Wasm -> Effective.
-            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
-            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
-
-            // This `lea` calculates the upper bound allowed for the beginning of the word.
-            // Since the upper bound of the memory is (exclusively) `tmp_bound + tmp_base`,
-            // the maximum allowed beginning of word is (inclusively)
-            // `tmp_bound + tmp_base - value_size`.
-            self.location_address(
-                Size::S64,
-                Location::Memory2(tmp_bound, tmp_base, Multiplier::One, -(value_size as i32)),
-                Location::GPR(tmp_bound),
-            );
-        }
-
-        // Load effective address.
-        // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
-        // might be reused.
-        self.move_location(Size::S32, addr, Location::GPR(tmp_addr));
-
-        // Add offset to memory address.
-        if memarg.offset != 0 {
-            self.location_add(
-                Size::S32,
-                Location::Imm32(memarg.offset),
-                Location::GPR(tmp_addr),
-                true,
-            );
-
-            // Trap if offset calculation overflowed.
-            self.jmp_on_overflow(heap_access_oob);
-        }
-
-        // Wasm linear memory -> real memory
-        self.location_add(
-            Size::S64,
-            Location::GPR(tmp_base),
-            Location::GPR(tmp_addr),
-            false,
-        );
-
-        if need_check {
-            // Trap if the end address of the requested area is above that of the linear memory.
-            self.location_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
-
-            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
-            self.jmp_on_above(heap_access_oob);
-        }
-
-        self.release_gpr(tmp_bound);
-        self.release_gpr(tmp_base);
-
-        let align = memarg.align;
-        if check_alignment && align != 1 {
-            self.location_test(
-                Size::S32,
-                Location::Imm32((align - 1).into()),
-                Location::GPR(tmp_addr),
-            );
-            self.jmp_on_different(heap_access_oob);
-        }
-
-        self.get_offset().0
-    }
-
-    fn memory_op_end(&mut self, tmp_addr: GPR) -> usize {
-        let end = self.get_offset().0;
-        self.release_gpr(tmp_addr);
-
-        end
-    }
-
     fn emit_memory_fence(&mut self) {
         // nothing on x86_64
     }
@@ -2363,9 +2253,6 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     fn emit_relaxed_cmp(&mut self, sz: Size, src: Location, dst: Location) {
         self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst);
-    }
-    fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location, dst: Location) {
-        self.emit_relaxed_binop(Assembler::emit_xchg, sz, src, dst);
     }
     fn emit_relaxed_zero_extension(
         &mut self,
@@ -2685,6 +2572,155 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn i32_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_shift_i32(Assembler::emit_ror, loc_a, loc_b, ret);
     }
+    fn i32_load(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S32,
+                    Location::Memory(addr, 0),
+                    ret,
+                );
+            },
+        );
+    }
+    fn i32_load_8u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movzx,
+                    Size::S8,
+                    Location::Memory(addr, 0),
+                    Size::S32,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i32_load_8s(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movsx,
+                    Size::S8,
+                    Location::Memory(addr, 0),
+                    Size::S32,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i32_load_16u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movzx,
+                    Size::S16,
+                    Location::Memory(addr, 0),
+                    Size::S32,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i32_load_16s(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movsx,
+                    Size::S16,
+                    Location::Memory(addr, 0),
+                    Size::S32,
+                    ret,
+                );
+            },
+        );
+    }
     fn i32_atomic_load(
         &mut self,
         addr: Location,
@@ -2763,6 +2799,93 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
                     Location::Memory(addr, 0),
                     Size::S32,
                     ret,
+                );
+            },
+        );
+    }
+    fn i32_save(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S32,
+                    target_value,
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+    }
+    fn i32_save_8(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S8,
+                    target_value,
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+    }
+    fn i32_save_16(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S16,
+                    target_value,
+                    Location::Memory(addr, 0),
                 );
             },
         );
@@ -3886,6 +4009,227 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     fn i64_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_shift_i64(Assembler::emit_ror, loc_a, loc_b, ret);
     }
+    fn i64_load(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S64,
+                    Location::Memory(addr, 0),
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_load_8u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movzx,
+                    Size::S8,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_load_8s(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movsx,
+                    Size::S8,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_load_16u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movzx,
+                    Size::S16,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_load_16s(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movsx,
+                    Size::S16,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_load_32u(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                match ret {
+                    Location::GPR(_) => {}
+                    Location::Memory(base, offset) => {
+                        this.assembler.emit_mov(
+                            Size::S32,
+                            Location::Imm32(0),
+                            Location::Memory(base, offset + 4),
+                        ); // clear upper bits
+                    }
+                    _ => {
+                        unreachable!();
+                    }
+                }
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S32,
+                    Location::Memory(addr, 0),
+                    ret,
+                );
+            },
+        );
+    }
+    fn i64_load_32s(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_zx_sx(
+                    Assembler::emit_movsx,
+                    Size::S32,
+                    Location::Memory(addr, 0),
+                    Size::S64,
+                    ret,
+                );
+            },
+        );
+    }
     fn i64_atomic_load(
         &mut self,
         addr: Location,
@@ -4006,6 +4350,122 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
                     Location::Memory(addr, 0),
                     Size::S64,
                     ret,
+                );
+            },
+        );
+    }
+    fn i64_save(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S64,
+                    target_value,
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+    }
+    fn i64_save_8(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S8,
+                    target_value,
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+    }
+    fn i64_save_16(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S16,
+                    target_value,
+                    Location::Memory(addr, 0),
+                );
+            },
+        );
+    }
+    fn i64_save_32(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S32,
+                    target_value,
+                    Location::Memory(addr, 0),
                 );
             },
         );
@@ -5071,6 +5531,135 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         );
         self.assembler.emit_pop(Size::S64, Location::GPR(value));
         self.release_gpr(compare);
+    }
+
+    fn f32_load(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S32,
+                    Location::Memory(addr, 0),
+                    ret,
+                );
+            },
+        );
+    }
+    fn f32_save(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        canonicalize: bool,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                if !canonicalize {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S32,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                } else {
+                    this.canonicalize_nan(Size::S32, target_value, Location::Memory(addr, 0));
+                }
+            },
+        );
+    }
+    fn f64_load(
+        &mut self,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.emit_relaxed_binop(
+                    Assembler::emit_mov,
+                    Size::S64,
+                    Location::Memory(addr, 0),
+                    ret,
+                );
+            },
+        );
+    }
+    fn f64_save(
+        &mut self,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        canonicalize: bool,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    ) {
+        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                if !canonicalize {
+                    this.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        target_value,
+                        Location::Memory(addr, 0),
+                    );
+                } else {
+                    this.canonicalize_nan(Size::S64, target_value, Location::Memory(addr, 0));
+                }
+            },
+        );
     }
 
     fn convert_f64_i64(&mut self, loc: Location, signed: bool, ret: Location) {

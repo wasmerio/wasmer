@@ -7,9 +7,7 @@ use crate::{
 use dynasmrt::{x64::X64Relocation, DynamicLabel, VecAssembler};
 use smallvec::{smallvec, SmallVec};
 use std::iter;
-use wasmer_compiler::wasmparser::{
-    MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
-};
+use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
     CustomSectionProtection, FunctionBody, FunctionBodyData, Relocation, RelocationTarget,
@@ -527,50 +525,6 @@ impl<'a> FuncGen<'a> {
         params: I,
     ) -> Result<(), CodegenError> {
         self.emit_call_native(|this| this.machine.specific.emit_call_label(label), params)?;
-        Ok(())
-    }
-
-    /// Emits a memory operation.
-    fn memory_op<F: FnOnce(&mut Self, GPR) -> Result<(), CodegenError>>(
-        &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        check_alignment: bool,
-        value_size: usize,
-        cb: F,
-    ) -> Result<(), CodegenError> {
-        let need_check = match self.memory_styles[MemoryIndex::new(0)] {
-            MemoryStyle::Static { .. } => false,
-            MemoryStyle::Dynamic { .. } => true,
-        };
-
-        let offset = if self.module.num_imported_memories != 0 {
-            self.vmoffsets
-                .vmctx_vmmemory_import_definition(MemoryIndex::new(0))
-        } else {
-            self.vmoffsets
-                .vmctx_vmmemory_definition(LocalMemoryIndex::new(0))
-        };
-        let tmp_addr = self.machine.specific.pick_temp_gpr().unwrap();
-        let begin = self.machine.specific.memory_op_begin(
-            addr,
-            memarg,
-            check_alignment,
-            value_size,
-            need_check,
-            self.module.num_imported_memories != 0,
-            offset as i32,
-            self.special_labels.heap_access_oob,
-            tmp_addr,
-        );
-        cb(self, tmp_addr)?;
-        let end = self.machine.specific.memory_op_end(tmp_addr);
-
-        self.machine.specific.mark_address_range_with_trap_code(
-            TrapCode::HeapAccessOutOfBounds,
-            begin,
-            end,
-        );
         Ok(())
     }
 
@@ -2994,15 +2948,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S32,
-                        Location::Memory(addr, 0),
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_load(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::F32Load { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3013,15 +2971,19 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
-
-                self.memory_op(target, memarg, false, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S32,
-                        Location::Memory(addr, 0),
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.f32_load(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32Load8U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3030,16 +2992,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S8,
-                        Location::Memory(addr, 0),
-                        Size::S32,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_load_8u(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32Load8S { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3048,16 +3013,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_sign_extension(
-                        Size::S8,
-                        Location::Memory(addr, 0),
-                        Size::S32,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_load_8s(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32Load16U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3066,16 +3034,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S16,
-                        Location::Memory(addr, 0),
-                        Size::S32,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_load_16u(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32Load16S { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3084,82 +3055,90 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_sign_extension(
-                        Size::S16,
-                        Location::Memory(addr, 0),
-                        Size::S32,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_load_16s(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32Store { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
-
-                self.memory_op(target_addr, memarg, false, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S32,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_save(
+                            target_value,
+                            memarg,
+                            target_addr,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::F32Store { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
                 let fp = self.fp_stack.pop1()?;
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
-
-                self.memory_op(target_addr, memarg, false, 4, |this, addr| {
-                    if !this.machine.arch_supports_canonicalize_nan()
-                        || !config_nan_canonicalization
-                        || fp.canonicalization.is_none()
-                    {
-                        this.machine.specific.emit_relaxed_mov(
-                            Size::S32,
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.f32_save(
                             target_value,
-                            Location::Memory(addr, 0),
+                            memarg,
+                            target_addr,
+                            config_nan_canonicalization && !fp.canonicalization.is_none(),
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
                         );
-                    } else {
-                        this.machine.canonicalize_nan(
-                            Size::S32,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                    }
-
-                    Ok(())
-                })?;
+                    },
+                );
             }
             Operator::I32Store8 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
-
-                self.memory_op(target_addr, memarg, false, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S8,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_save_8(
+                            target_value,
+                            memarg,
+                            target_addr,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I32Store16 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
-
-                self.memory_op(target_addr, memarg, false, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S16,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i32_save_16(
+                            target_value,
+                            memarg,
+                            target_addr,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Load { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3168,15 +3147,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 8, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S64,
-                        Location::Memory(addr, 0),
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_load(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::F64Load { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3187,15 +3170,19 @@ impl<'a> FuncGen<'a> {
                 self.value_stack.push(ret);
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
-
-                self.memory_op(target, memarg, false, 8, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S64,
-                        Location::Memory(addr, 0),
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.f64_load(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Load8U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3204,16 +3191,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S8,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_load_8u(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Load8S { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3222,16 +3212,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_sign_extension(
-                        Size::S8,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_load_8s(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Load16U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3240,16 +3233,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_zero_extension(
-                        Size::S16,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_load_16u(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Load16S { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3258,16 +3254,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_sign_extension(
-                        Size::S16,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_load_16s(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Load32U { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3276,30 +3275,19 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 4, |this, addr| {
-                    match ret {
-                        Location::GPR(_) => {}
-                        Location::Memory(base, offset) => {
-                            this.machine.specific.move_location(
-                                Size::S32,
-                                Location::Imm32(0),
-                                Location::Memory(base, offset + 4),
-                            ); // clear upper bits
-                        }
-                        _ => {
-                            return Err(CodegenError {
-                                message: "I64Load32U ret: unreachable code".to_string(),
-                            })
-                        }
-                    }
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S32,
-                        Location::Memory(addr, 0),
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_load_32u(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Load32S { ref memarg } => {
                 let target = self.pop_value_released();
@@ -3308,94 +3296,108 @@ impl<'a> FuncGen<'a> {
                     false,
                 )[0];
                 self.value_stack.push(ret);
-
-                self.memory_op(target, memarg, false, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_sign_extension(
-                        Size::S32,
-                        Location::Memory(addr, 0),
-                        Size::S64,
-                        ret,
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_load_32s(
+                            target,
+                            memarg,
+                            ret,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Store { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
 
-                self.memory_op(target_addr, memarg, false, 8, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S64,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_save(
+                            target_value,
+                            memarg,
+                            target_addr,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::F64Store { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
                 let fp = self.fp_stack.pop1()?;
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
-
-                self.memory_op(target_addr, memarg, false, 8, |this, addr| {
-                    if !this.machine.arch_supports_canonicalize_nan()
-                        || !config_nan_canonicalization
-                        || fp.canonicalization.is_none()
-                    {
-                        this.machine.specific.emit_relaxed_mov(
-                            Size::S64,
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.f64_save(
                             target_value,
-                            Location::Memory(addr, 0),
+                            memarg,
+                            target_addr,
+                            config_nan_canonicalization && !fp.canonicalization.is_none(),
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
                         );
-                    } else {
-                        this.machine.canonicalize_nan(
-                            Size::S64,
-                            target_value,
-                            Location::Memory(addr, 0),
-                        );
-                    }
-                    Ok(())
-                })?;
+                    },
+                );
             }
             Operator::I64Store8 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
-
-                self.memory_op(target_addr, memarg, false, 1, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S8,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_save_8(
+                            target_value,
+                            memarg,
+                            target_addr,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Store16 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
-
-                self.memory_op(target_addr, memarg, false, 2, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S16,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_save_16(
+                            target_value,
+                            memarg,
+                            target_addr,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::I64Store32 { ref memarg } => {
                 let target_value = self.pop_value_released();
                 let target_addr = self.pop_value_released();
-
-                self.memory_op(target_addr, memarg, false, 4, |this, addr| {
-                    this.machine.specific.emit_relaxed_mov(
-                        Size::S32,
-                        target_value,
-                        Location::Memory(addr, 0),
-                    );
-                    Ok(())
-                })?;
+                self.op_memory(
+                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                        this.machine.specific.i64_save_32(
+                            target_value,
+                            memarg,
+                            target_addr,
+                            need_check,
+                            imported_memories,
+                            offset,
+                            heap_access_oob,
+                        );
+                    },
+                );
             }
             Operator::Unreachable => {
                 self.mark_trappable();

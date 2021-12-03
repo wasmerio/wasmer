@@ -184,21 +184,6 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn arch_supports_canonicalize_nan(&self) -> bool;
     /// Cannonicalize a NaN (or panic if not supported)
     fn canonicalize_nan(&mut self, sz: Size, input: Location<R, S>, output: Location<R, S>);
-    /// prepare to do a memory opcode
-    fn memory_op_begin(
-        &mut self,
-        addr: Location<R, S>,
-        memarg: &MemoryImmediate,
-        check_alignment: bool,
-        value_size: usize,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
-        tmp_addr: R,
-    ) -> usize;
-    /// finished do a memory opcode
-    fn memory_op_end(&mut self, tmp_addr: R) -> usize;
 
     /// emit an Illegal Opcode
     fn emit_illegal_op(&mut self);
@@ -321,8 +306,6 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn emit_relaxed_mov(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
     /// relaxed cmp: compare from anywhere and anywhere
     fn emit_relaxed_cmp(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
-    /// relaxed atomic xchg: atomic exchange of anywhere and anywhere
-    fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location<R, S>, dst: Location<R, S>);
     /// Emit a memory fence. Can be nothing for x86_64 or a DMB on ARM64 for example
     fn emit_memory_fence(&mut self);
     /// relaxed move with zero extension
@@ -453,6 +436,61 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn i32_rol(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// i32 Roll Right
     fn i32_ror(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i32 load
+    fn i32_load(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 load of an unsigned 8bits
+    fn i32_load_8u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 load of an signed 8bits
+    fn i32_load_8s(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 load of an unsigned 16bits
+    fn i32_load_16u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 load of an signed 16bits
+    fn i32_load_16s(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
     /// i32 atomic load
     fn i32_atomic_load(
         &mut self,
@@ -481,6 +519,39 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         addr: Location<R, S>,
         memarg: &MemoryImmediate,
         ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 save
+    fn i32_save(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 save of the lower 8bits
+    fn i32_save_8(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i32 save of the lower 16bits
+    fn i32_save_16(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
         need_check: bool,
         imported_memories: bool,
         offset: i32,
@@ -891,6 +962,83 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn i64_rol(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// i64 Roll Right
     fn i64_ror(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+    /// i64 load
+    fn i64_load(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 load of an unsigned 8bits
+    fn i64_load_8u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 load of an signed 8bits
+    fn i64_load_8s(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 load of an unsigned 32bits
+    fn i64_load_32u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 load of an signed 32bits
+    fn i64_load_32s(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 load of an signed 16bits
+    fn i64_load_16u(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 load of an signed 16bits
+    fn i64_load_16s(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
     /// i64 atomic load
     fn i64_atomic_load(
         &mut self,
@@ -930,6 +1078,50 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         addr: Location<R, S>,
         memarg: &MemoryImmediate,
         ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 save
+    fn i64_save(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 save of the lower 8bits
+    fn i64_save_8(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 save of the lower 16bits
+    fn i64_save_16(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// i64 save of the lower 32bits
+    fn i64_save_32(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
         need_check: bool,
         imported_memories: bool,
         offset: i32,
@@ -1320,6 +1512,52 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
         heap_access_oob: Label,
     );
 
+    /// load an F32
+    fn f32_load(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// f32 save
+    fn f32_save(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        canonicalize: bool,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// load an F64
+    fn f64_load(
+        &mut self,
+        addr: Location<R, S>,
+        memarg: &MemoryImmediate,
+        ret: Location<R, S>,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
+    /// f64 save
+    fn f64_save(
+        &mut self,
+        value: Location<R, S>,
+        memarg: &MemoryImmediate,
+        addr: Location<R, S>,
+        canonicalize: bool,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+    );
     /// Convert a F64 from I64, signed or unsigned
     fn convert_f64_i64(&mut self, loc: Location<R, S>, signed: bool, ret: Location<R, S>);
     /// Convert a F64 from I32, signed or unsigned
