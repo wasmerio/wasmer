@@ -1,6 +1,7 @@
 use crate::common_decl::*;
-use crate::emitter_x64::{Label, Offset};
 use crate::location::{CombinedRegister, Location, Reg};
+use crate::machine_x64::MachineX86_64;
+use dynasmrt::{AssemblyOffset, DynamicLabel};
 use smallvec::smallvec;
 use smallvec::SmallVec;
 use std::cmp;
@@ -9,9 +10,14 @@ use std::marker::PhantomData;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    CallingConvention, InstructionAddressMap, Relocation, RelocationTarget, TrapInformation,
+    Architecture, CallingConvention, CustomSection, FunctionBody, InstructionAddressMap,
+    Relocation, RelocationTarget, Target, TrapInformation,
 };
-use wasmer_vm::TrapCode;
+use wasmer_types::{FunctionIndex, FunctionType};
+use wasmer_vm::{TrapCode, VMOffsets};
+
+pub type Label = DynamicLabel;
+pub type Offset = AssemblyOffset;
 
 #[allow(dead_code)]
 #[derive(Clone, PartialEq)]
@@ -120,6 +126,10 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     /// restore stack
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn restore_stack(&mut self, delta_stack_offset: u32);
+    /// push callee saved register to the stack
+    fn push_callee_saved(&mut self);
+    /// pop callee saved register from the stack
+    fn pop_callee_saved(&mut self);
     /// Pop stack of locals
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn pop_stack_locals(&mut self, delta_stack_offset: u32);
@@ -1682,6 +1692,25 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     fn f32_mul(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
     /// Divide 2 F32 values
     fn f32_div(&mut self, loc_a: Location<R, S>, loc_b: Location<R, S>, ret: Location<R, S>);
+
+    /// Standard function Trampoline generation
+    fn gen_std_trampoline(
+        sig: &FunctionType,
+        calling_convention: CallingConvention,
+    ) -> FunctionBody;
+    /// Generates dynamic import function call trampoline for a function type.
+    fn gen_std_dynamic_import_trampoline(
+        vmoffsets: &VMOffsets,
+        sig: &FunctionType,
+        calling_convention: CallingConvention,
+    ) -> FunctionBody;
+    /// Singlepass calls import functions through a trampoline.
+    fn gen_import_call_trampoline(
+        vmoffsets: &VMOffsets,
+        index: FunctionIndex,
+        sig: &FunctionType,
+        calling_convention: CallingConvention,
+    ) -> CustomSection;
 }
 
 pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
@@ -2097,5 +2126,46 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
     /// Cannonicalize a NaN (or panic if not supported)
     pub fn canonicalize_nan(&mut self, sz: Size, input: Location<R, S>, output: Location<R, S>) {
         self.specific.canonicalize_nan(sz, input, output);
+    }
+}
+
+/// Standard entry trampoline generation
+pub fn gen_std_trampoline(
+    sig: &FunctionType,
+    target: &Target,
+    calling_convention: CallingConvention,
+) -> FunctionBody {
+    match target.triple().architecture {
+        Architecture::X86_64 => MachineX86_64::gen_std_trampoline(sig, calling_convention),
+        _ => unimplemented!(),
+    }
+}
+/// Generates dynamic import function call trampoline for a function type.
+pub fn gen_std_dynamic_import_trampoline(
+    vmoffsets: &VMOffsets,
+    sig: &FunctionType,
+    target: &Target,
+    calling_convention: CallingConvention,
+) -> FunctionBody {
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            MachineX86_64::gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+        }
+        _ => unimplemented!(),
+    }
+}
+/// Singlepass calls import functions through a trampoline.
+pub fn gen_import_call_trampoline(
+    vmoffsets: &VMOffsets,
+    index: FunctionIndex,
+    sig: &FunctionType,
+    target: &Target,
+    calling_convention: CallingConvention,
+) -> CustomSection {
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            MachineX86_64::gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+        }
+        _ => unimplemented!(),
     }
 }

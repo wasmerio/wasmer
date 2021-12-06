@@ -1,6 +1,7 @@
 use crate::common_decl::Size;
 use crate::location::Location as AbstractLocation;
 pub use crate::location::Multiplier;
+pub use crate::machine::{Label, Offset};
 pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
 use dynasmrt::{
@@ -55,9 +56,6 @@ pub enum GPROrMemory {
     GPR(GPR),
     Memory(GPR, i32),
 }
-
-pub type Label = DynamicLabel;
-pub type Offset = AssemblyOffset;
 
 pub trait Emitter {
     fn get_label(&mut self) -> Label;
