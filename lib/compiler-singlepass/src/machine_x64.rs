@@ -17,10 +17,10 @@ use wasmer_vm::{TrapCode, VMOffsets};
 type Assembler = VecAssembler<X64Relocation>;
 
 pub struct MachineX86_64 {
-    pub assembler: Assembler, //temporary public
+    assembler: Assembler, 
     used_gprs: HashSet<GPR>,
     used_simd: HashSet<XMM>,
-    pub trap_table: TrapTable, //temporary public
+    trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     ///
     // Ordered by increasing InstructionAddressMap::srcloc.
@@ -1556,6 +1556,13 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             src_loc: 0,
         }
     }
+    fn index_from_gpr(x: GPR) -> RegisterIndex {
+        RegisterIndex(x as usize)
+    }
+    fn index_from_simd(x: XMM) -> RegisterIndex {
+        RegisterIndex(x as usize + 16)
+    }
+
     fn get_vmctx_reg() -> GPR {
         GPR::R15
     }
@@ -6904,7 +6911,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
 }
 
-pub type Machine = AbstractMachine<GPR, XMM, MachineX86_64, X64Register>;
+pub type Machine = AbstractMachine<GPR, XMM, MachineX86_64>;
 
 #[cfg(test)]
 mod test {

@@ -1,5 +1,5 @@
 use crate::common_decl::*;
-use crate::location::{CombinedRegister, Location, Reg};
+use crate::location::{Location, Reg};
 use crate::machine_x64::MachineX86_64;
 use dynasmrt::{AssemblyOffset, DynamicLabel};
 use smallvec::smallvec;
@@ -56,6 +56,10 @@ pub struct MachineStackOffset(usize);
 pub trait MachineSpecific<R: Reg, S: Reg> {
     /// New MachineSpecific object
     fn new() -> Self;
+    /// Convert from a GPR register to index register
+    fn index_from_gpr(x: R) -> RegisterIndex;
+    /// Convert from an SIMD register
+    fn index_from_simd(x: S) -> RegisterIndex;
     /// Get the GPR that hold vmctx
     fn get_vmctx_reg() -> R;
     /// Picks an unused general purpose register for local/stack/argument use.
@@ -1713,18 +1717,17 @@ pub trait MachineSpecific<R: Reg, S: Reg> {
     ) -> CustomSection;
 }
 
-pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> {
+pub struct Machine<R: Reg, S: Reg, M: MachineSpecific<R, S>> {
     stack_offset: MachineStackOffset,
     save_area_offset: Option<MachineStackOffset>,
     pub state: MachineState,
     pub(crate) track_state: bool,
     pub specific: M,
-    phantom_c: PhantomData<C>,
     phantom_r: PhantomData<R>,
     phantom_s: PhantomData<S>,
 }
 
-impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S, M, C> {
+impl<R: Reg, S: Reg, M: MachineSpecific<R, S>> Machine<R, S, M> {
     pub fn new() -> Self {
         Machine {
             stack_offset: MachineStackOffset(0),
@@ -1732,7 +1735,6 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
             state: M::new_machine_state(),
             track_state: true,
             specific: M::new(),
-            phantom_c: PhantomData,
             phantom_r: PhantomData,
             phantom_s: PhantomData,
         }
@@ -1807,11 +1809,11 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
             };
             if let Location::GPR(x) = loc {
                 self.specific.reserve_gpr(x);
-                self.state.register_values[C::from_gpr(x.into_index() as u16).to_index().0] =
+                self.state.register_values[M::index_from_gpr(x).0] =
                     mv.clone();
             } else if let Location::SIMD(x) = loc {
                 self.specific.reserve_simd(x);
-                self.state.register_values[C::from_simd(x.into_index() as u16).to_index().0] =
+                self.state.register_values[M::index_from_simd(x).0] =
                     mv.clone();
             } else {
                 self.state.stack_values.push(mv.clone());
@@ -1839,12 +1841,12 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
             match *loc {
                 Location::GPR(ref x) => {
                     self.release_gpr(*x);
-                    self.state.register_values[C::from_gpr(x.into_index() as u16).to_index().0] =
+                    self.state.register_values[M::index_from_gpr(*x).0] =
                         MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
                     self.release_simd(*x);
-                    self.state.register_values[C::from_simd(x.into_index() as u16).to_index().0] =
+                    self.state.register_values[M::index_from_simd(*x).0] =
                         MachineValue::Undefined;
                 }
                 Location::Memory(y, x) => {
@@ -1876,12 +1878,12 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
             match *loc {
                 Location::GPR(ref x) => {
                     self.release_gpr(*x);
-                    self.state.register_values[C::from_gpr(x.into_index() as u16).to_index().0] =
+                    self.state.register_values[M::index_from_gpr(*x).0] =
                         MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
                     self.release_simd(*x);
-                    self.state.register_values[C::from_simd(x.into_index() as u16).to_index().0] =
+                    self.state.register_values[M::index_from_simd(*x).0] =
                         MachineValue::Undefined;
                 }
                 _ => {}
@@ -2001,7 +2003,7 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
                 self.stack_offset.0 += 8;
                 self.specific.move_local(self.stack_offset.0 as i32, *loc);
                 self.state.stack_values.push(MachineValue::PreserveRegister(
-                    C::from_gpr(x.into_index() as u16).to_index(),
+                    M::index_from_gpr(x),
                 ));
             }
         }
@@ -2013,7 +2015,7 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
             Location::GPR(M::get_vmctx_reg()),
         );
         self.state.stack_values.push(MachineValue::PreserveRegister(
-            C::from_gpr(M::get_vmctx_reg().into_index() as u16).to_index(),
+            M::index_from_gpr(M::get_vmctx_reg()),
         ));
 
         // Check if need to same some CallingConvention specific regs
@@ -2030,7 +2032,7 @@ impl<R: Reg, S: Reg, M: MachineSpecific<R, S>, C: CombinedRegister> Machine<R, S
         for (i, loc) in locations.iter().enumerate() {
             match *loc {
                 Location::GPR(x) => {
-                    self.state.register_values[C::from_gpr(x.into_index() as u16).to_index().0] =
+                    self.state.register_values[M::index_from_gpr(x).0] =
                         MachineValue::WasmLocal(i);
                 }
                 Location::Memory(_, _) => {
