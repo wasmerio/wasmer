@@ -17,7 +17,7 @@ use wasmer_vm::{TrapCode, VMOffsets};
 type Assembler = VecAssembler<X64Relocation>;
 
 pub struct MachineX86_64 {
-    assembler: Assembler, 
+    assembler: Assembler,
     used_gprs: HashSet<GPR>,
     used_simd: HashSet<XMM>,
     trap_table: TrapTable,
