@@ -1556,10 +1556,10 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             src_loc: 0,
         }
     }
-    fn index_from_gpr(x: GPR) -> RegisterIndex {
+    fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
         RegisterIndex(x as usize)
     }
-    fn index_from_simd(x: XMM) -> RegisterIndex {
+    fn index_from_simd(&self, x: XMM) -> RegisterIndex {
         RegisterIndex(x as usize + 16)
     }
 

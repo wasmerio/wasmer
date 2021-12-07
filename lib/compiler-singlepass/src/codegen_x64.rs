@@ -2,8 +2,8 @@ use crate::address_map::get_function_address_map;
 use crate::machine::CodegenError;
 use crate::machine::Label;
 use crate::{
-    common_decl::*, config::Singlepass, emitter_x64::*, location::CombinedRegister,
-    machine::MachineSpecific, machine_x64::Machine, x64_decl::*,
+    common_decl::*, config::Singlepass, emitter_x64::*, machine::MachineSpecific,
+    machine_x64::Machine, x64_decl::*,
 };
 use smallvec::{smallvec, SmallVec};
 use std::iter;
@@ -313,8 +313,9 @@ impl<'a> FuncGen<'a> {
         self.machine.specific.push_used_gpr();
         let used_gprs = self.machine.get_used_gprs();
         for r in used_gprs.iter() {
-            let content =
-                self.machine.state.register_values[X64Register::GPR(*r).to_index().0].clone();
+            let content = self.machine.state.register_values
+                [self.machine.specific.index_from_gpr(*r).0]
+                .clone();
             if content == MachineValue::Undefined {
                 return Err(CodegenError {
                     message: "emit_call_native: Undefined used_gprs content".to_string(),
@@ -324,16 +325,17 @@ impl<'a> FuncGen<'a> {
         }
 
         // Save used XMM registers.
-        let used_xmms = self.machine.get_used_simd();
-        if used_xmms.len() > 0 {
+        let used_simds = self.machine.get_used_simd();
+        if used_simds.len() > 0 {
             self.machine.specific.push_used_simd();
 
-            for r in used_xmms.iter().rev() {
-                let content =
-                    self.machine.state.register_values[X64Register::XMM(*r).to_index().0].clone();
+            for r in used_simds.iter().rev() {
+                let content = self.machine.state.register_values
+                    [self.machine.specific.index_from_simd(*r).0]
+                    .clone();
                 if content == MachineValue::Undefined {
                     return Err(CodegenError {
-                        message: "emit_call_native: Undefined used_xmms content".to_string(),
+                        message: "emit_call_native: Undefined used_simds content".to_string(),
                     });
                 }
                 self.machine.state.stack_values.push(content);
@@ -358,7 +360,7 @@ impl<'a> FuncGen<'a> {
         // Align stack to 16 bytes.
         if (self.machine.get_stack_offset()
             + used_gprs.len() * 8
-            + used_xmms.len() * 8
+            + used_simds.len() * 8
             + stack_offset)
             % 16
             != 0
@@ -383,7 +385,7 @@ impl<'a> FuncGen<'a> {
                     match *param {
                         Location::GPR(x) => {
                             let content = self.machine.state.register_values
-                                [X64Register::GPR(x).to_index().0]
+                                [self.machine.specific.index_from_gpr(x).0]
                                 .clone();
                             // FIXME: There might be some corner cases (release -> emit_call_native -> acquire?) that cause this assertion to fail.
                             // Hopefully nothing would be incorrect at runtime.
@@ -393,7 +395,7 @@ impl<'a> FuncGen<'a> {
                         }
                         Location::SIMD(x) => {
                             let content = self.machine.state.register_values
-                                [X64Register::XMM(x).to_index().0]
+                                [self.machine.specific.index_from_simd(x).0]
                                 .clone();
                             //assert!(content != MachineValue::Undefined);
                             self.machine.state.stack_values.push(content);
@@ -494,9 +496,9 @@ impl<'a> FuncGen<'a> {
         }
 
         // Restore XMMs.
-        if !used_xmms.is_empty() {
+        if !used_simds.is_empty() {
             self.machine.specific.pop_used_simd();
-            for _ in 0..used_xmms.len() {
+            for _ in 0..used_simds.len() {
                 self.machine.state.stack_values.pop().unwrap();
             }
         }
@@ -576,8 +578,11 @@ impl<'a> FuncGen<'a> {
         );
 
         // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
-        self.machine.state.register_values
-            [X64Register::GPR(Machine::get_vmctx_reg()).to_index().0] = MachineValue::Vmctx;
+        self.machine.state.register_values[self
+            .machine
+            .specific
+            .index_from_gpr(Machine::get_vmctx_reg())
+            .0] = MachineValue::Vmctx;
 
         // TODO: Explicit stack check is not supported for now.
         let diff = self.machine.state.diff(&new_machine_state());
