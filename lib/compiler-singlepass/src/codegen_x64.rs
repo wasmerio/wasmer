@@ -2531,35 +2531,19 @@ impl<'a> FuncGen<'a> {
                 if !was_unreachable && !frame.returns.is_empty() {
                     let first_return = frame.returns[0];
                     let loc = *self.value_stack.last().unwrap();
-                    if first_return.is_float() {
+                    let canonicalize = if first_return.is_float() {
                         let fp = self.fp_stack.peek1()?;
-                        if self.machine.arch_supports_canonicalize_nan()
+                        self.machine.arch_supports_canonicalize_nan()
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
-                        {
-                            self.machine.canonicalize_nan(
-                                match first_return {
-                                    WpType::F32 => Size::S32,
-                                    WpType::F64 => Size::S64,
-                                    _ => unreachable!(),
-                                },
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        } else {
-                            self.machine.specific.emit_relaxed_mov(
-                                Size::S64,
-                                loc,
-                                Location::GPR(GPR::RAX),
-                            );
-                        }
                     } else {
-                        self.machine.specific.emit_relaxed_mov(
-                            Size::S64,
-                            loc,
-                            Location::GPR(GPR::RAX),
-                        );
-                    }
+                        false
+                    };
+                    self.machine.specific.emit_function_return_value(
+                        first_return,
+                        canonicalize,
+                        loc,
+                    );
                 }
 
                 let mut frame = self.control_stack.last_mut().unwrap();
@@ -2709,7 +2693,7 @@ impl<'a> FuncGen<'a> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(GPR::RAX),
+                    Location::GPR(self.machine.specific.get_grp_for_call()),
                 );
                 self.emit_call_native(
                     |this| {
@@ -2745,7 +2729,7 @@ impl<'a> FuncGen<'a> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_memory_init_index())
                             as i32,
                     ),
-                    Location::GPR(GPR::RAX),
+                    Location::GPR(self.machine.specific.get_grp_for_call()),
                 );
 
                 // TODO: should this be 3?
@@ -2779,7 +2763,7 @@ impl<'a> FuncGen<'a> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_data_drop_index())
                             as i32,
                     ),
-                    Location::GPR(GPR::RAX),
+                    Location::GPR(self.machine.specific.get_grp_for_call()),
                 );
 
                 self.emit_call_native(
@@ -2821,7 +2805,7 @@ impl<'a> FuncGen<'a> {
                         Machine::get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_copy_index) as i32,
                     ),
-                    Location::GPR(GPR::RAX),
+                    Location::GPR(self.machine.specific.get_grp_for_call()),
                 );
 
                 // TODO: should this be 3?
@@ -2872,7 +2856,7 @@ impl<'a> FuncGen<'a> {
                         Machine::get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_fill_index) as i32,
                     ),
-                    Location::GPR(GPR::RAX),
+                    Location::GPR(self.machine.specific.get_grp_for_call()),
                 );
 
                 // TODO: should this be 3?
@@ -2909,7 +2893,7 @@ impl<'a> FuncGen<'a> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(GPR::RAX),
+                    Location::GPR(self.machine.specific.get_grp_for_call()),
                 );
 
                 self.machine.release_locations_only_osr_state(1);
