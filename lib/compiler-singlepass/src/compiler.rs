@@ -7,6 +7,7 @@ use crate::config::Singlepass;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline, CodegenError,
 };
+use crate::machine_x64::MachineX86_64;
 use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
@@ -125,6 +126,10 @@ impl Compiler for SinglepassCompiler {
                     }
                 }
 
+                let machine = match target.triple().architecture {
+                    Architecture::X86_64 => MachineX86_64::new(),
+                    _ => unimplemented!(),
+                };
                 let mut generator = FuncGen::new(
                     module,
                     &self.config,
@@ -133,6 +138,7 @@ impl Compiler for SinglepassCompiler {
                     &table_styles,
                     i,
                     &locals,
+                    machine,
                     calling_convention,
                 )
                 .map_err(to_compile_error)?;

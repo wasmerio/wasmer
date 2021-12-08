@@ -1,7 +1,8 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
-use crate::machine::Machine as AbstractMachine;
-use crate::machine::{MachineSpecific, MemoryImmediate, TrapTable};
+use crate::location::Location as AbstractLocation;
+use crate::machine::Machine;
+use crate::machine::{MemoryImmediate, TrapTable};
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 use dynasmrt::{x64::X64Relocation, VecAssembler};
@@ -15,6 +16,7 @@ use wasmer_types::{FunctionIndex, FunctionType, Type};
 use wasmer_vm::{TrapCode, VMOffsets};
 
 type Assembler = VecAssembler<X64Relocation>;
+type Location = AbstractLocation<GPR, XMM>;
 
 pub struct MachineX86_64 {
     assembler: Assembler,
@@ -30,6 +32,16 @@ pub struct MachineX86_64 {
 }
 
 impl MachineX86_64 {
+    pub fn new() -> Self {
+        MachineX86_64 {
+            assembler: Assembler::new(0),
+            used_gprs: HashSet::new(),
+            used_simd: HashSet::new(),
+            trap_table: TrapTable::default(),
+            instructions_address_map: vec![],
+            src_loc: 0,
+        }
+    }
     pub fn emit_relaxed_binop(
         &mut self,
         op: fn(&mut Assembler, Size, Location, Location),
@@ -350,14 +362,14 @@ impl MachineX86_64 {
             self.emit_relaxed_binop(
                 Assembler::emit_mov,
                 Size::S64,
-                Location::Memory(Self::get_vmctx_reg(), offset),
+                Location::Memory(self.get_vmctx_reg(), offset),
                 Location::GPR(tmp_addr),
             );
             (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
         } else {
             (
-                Location::Memory(Machine::get_vmctx_reg(), offset),
-                Location::Memory(Machine::get_vmctx_reg(), offset + 8),
+                Location::Memory(self.get_vmctx_reg(), offset),
+                Location::Memory(self.get_vmctx_reg(), offset + 8),
             )
         };
 
@@ -1545,16 +1557,11 @@ impl MachineX86_64 {
     }
 }
 
-impl MachineSpecific<GPR, XMM> for MachineX86_64 {
-    fn new() -> Self {
-        MachineX86_64 {
-            assembler: Assembler::new(0),
-            used_gprs: HashSet::new(),
-            used_simd: HashSet::new(),
-            trap_table: TrapTable::default(),
-            instructions_address_map: vec![],
-            src_loc: 0,
-        }
+impl Machine for MachineX86_64 {
+    type GPR = GPR;
+    type SIMD = XMM;
+    fn assembler_get_offset(&self) -> Offset {
+        self.assembler.get_offset()
     }
     fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
         RegisterIndex(x as usize)
@@ -1563,7 +1570,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         RegisterIndex(x as usize + 16)
     }
 
-    fn get_vmctx_reg() -> GPR {
+    fn get_vmctx_reg(&self) -> GPR {
         GPR::R15
     }
 
@@ -1872,7 +1879,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
 
     // Get param location
-    fn get_param_location(idx: usize, calling_convention: CallingConvention) -> Location {
+    fn get_param_location(&self, idx: usize, calling_convention: CallingConvention) -> Location {
         match calling_convention {
             CallingConvention::WindowsFastcall => match idx {
                 0 => Location::GPR(GPR::RCX),
@@ -2006,13 +2013,13 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         self.assembler.emit_pop(Size::S64, location);
     }
     // Create a new `MachineState` with default values.
-    fn new_machine_state() -> MachineState {
+    fn new_machine_state(&self) -> MachineState {
         new_machine_state()
     }
 
     // assembler finalize
     fn assembler_finalize(self) -> Vec<u8> {
-        self.assembler.finalize().unwrap().to_vec()
+        self.assembler.finalize().unwrap()
     }
 
     fn get_offset(&self) -> Offset {
@@ -6516,6 +6523,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
 
     fn gen_std_trampoline(
+        &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> FunctionBody {
@@ -6524,7 +6532,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         // Calculate stack offset.
         let mut stack_offset: u32 = 0;
         for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) = Machine::get_param_location(1 + i, calling_convention) {
+            if let Location::Memory(_, _) = self.get_param_location(1 + i, calling_convention) {
                 stack_offset += 8;
             }
         }
@@ -6552,12 +6560,12 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         // Arguments
         a.emit_mov(
             Size::S64,
-            Machine::get_param_location(1, calling_convention),
+            self.get_param_location(1, calling_convention),
             Location::GPR(GPR::R15),
         ); // func_ptr
         a.emit_mov(
             Size::S64,
-            Machine::get_param_location(2, calling_convention),
+            self.get_param_location(2, calling_convention),
             Location::GPR(GPR::R14),
         ); // args_rets
 
@@ -6567,7 +6575,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
             let mut n_stack_args: usize = 0;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = Machine::get_param_location(1 + i, calling_convention);
+                let dst_loc = self.get_param_location(1 + i, calling_convention);
 
                 match dst_loc {
                     Location::GPR(_) => {
@@ -6624,6 +6632,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     // Generates dynamic import function call trampoline for a function type.
     fn gen_std_dynamic_import_trampoline(
+        &self,
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         calling_convention: CallingConvention,
@@ -6744,6 +6753,7 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
     }
     // Singlepass calls import functions through a trampoline.
     fn gen_import_call_trampoline(
+        &self,
         vmoffsets: &VMOffsets,
         index: FunctionIndex,
         sig: &FunctionType,
@@ -6910,8 +6920,6 @@ impl MachineSpecific<GPR, XMM> for MachineX86_64 {
         }
     }
 }
-
-pub type Machine = AbstractMachine<GPR, XMM, MachineX86_64>;
 
 #[cfg(test)]
 mod test {
