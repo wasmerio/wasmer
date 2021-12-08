@@ -2,7 +2,7 @@
 // Allow unused imports while developing.
 #![allow(unused_imports, dead_code)]
 
-use crate::codegen_x64::FuncGen;
+use crate::codegen::FuncGen;
 use crate::config::Singlepass;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline, CodegenError,

@@ -9,7 +9,7 @@
 //! runtime performance.
 
 mod address_map;
-mod codegen_x64;
+mod codegen;
 mod common_decl;
 mod compiler;
 mod config;
