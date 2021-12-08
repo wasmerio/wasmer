@@ -6921,14 +6921,15 @@ impl Machine for MachineX86_64 {
     }
 }
 
-#[cfg(test)]
+// remove the test for now, acquire/release location is now partof FunGen
+/*#[cfg(test)]
 mod test {
     use super::*;
     use dynasmrt::x64::Assembler;
 
     #[test]
     fn test_release_locations_keep_state_nopanic() {
-        let mut machine = Machine::new();
+        let mut machine = MachineX86_64::new();
         let locs = machine.acquire_locations(
             &(0..10)
                 .map(|_| (WpType::I32, MachineValue::Undefined))
@@ -6938,7 +6939,7 @@ mod test {
 
         machine.release_locations_keep_state(&locs);
     }
-}
+}*/
 
 // Constants for the bounds of truncation operations. These are the least or
 // greatest exact floats in either f32 or f64 representation less-than (for
