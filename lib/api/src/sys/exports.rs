@@ -6,7 +6,6 @@ use indexmap::IndexMap;
 use loupe::MemoryUsage;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
-use std::sync::Arc;
 use thiserror::Error;
 use wasmer_engine::Export;
 
@@ -64,7 +63,7 @@ pub enum ExportError {
 /// TODO: add examples of using exports
 #[derive(Clone, Default, MemoryUsage)]
 pub struct Exports {
-    map: Arc<IndexMap<String, Extern>>,
+    map: IndexMap<String, Extern>,
 }
 
 impl Exports {
@@ -76,7 +75,7 @@ impl Exports {
     /// Creates a new `Exports` with capacity `n`.
     pub fn with_capacity(n: usize) -> Self {
         Self {
-            map: Arc::new(IndexMap::with_capacity(n)),
+            map: IndexMap::with_capacity(n),
         }
     }
 
@@ -96,9 +95,7 @@ impl Exports {
         S: Into<String>,
         E: Into<Extern>,
     {
-        Arc::get_mut(&mut self.map)
-            .unwrap()
-            .insert(name.into(), value.into());
+        self.map.insert(name.into(), value.into());
     }
 
     /// Get an export given a `name`.
@@ -274,7 +271,7 @@ where
 impl FromIterator<(String, Extern)> for Exports {
     fn from_iter<I: IntoIterator<Item = (String, Extern)>>(iter: I) -> Self {
         Self {
-            map: Arc::new(IndexMap::from_iter(iter)),
+            map: IndexMap::from_iter(iter),
         }
     }
 }
