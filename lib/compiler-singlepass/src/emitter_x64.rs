@@ -57,7 +57,7 @@ pub enum GPROrMemory {
     Memory(GPR, i32),
 }
 
-pub trait Emitter {
+pub trait EmitterX64 {
     fn get_label(&mut self) -> Label;
     fn get_offset(&self) -> Offset;
     fn get_jmp_instr_size(&self) -> u8;
@@ -618,7 +618,7 @@ macro_rules! avx_round_fn {
     }
 }
 
-impl Emitter for Assembler {
+impl EmitterX64 for Assembler {
     fn get_label(&mut self) -> DynamicLabel {
         self.new_dynamic_label()
     }
