@@ -338,9 +338,6 @@
 <span id="338">338</span>
 <span id="339">339</span>
 <span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals</span>::{<span class="ident">Extern</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::import_object::LikeNamespace</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::native::NativeFunc</span>;
@@ -349,7 +346,6 @@
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::iter</span>::{<span class="ident">ExactSizeIterator</span>, <span class="ident">FromIterator</span>};
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer_engine::Export</span>;
 
@@ -407,7 +403,7 @@
 <span class="doccomment">/// TODO: add examples of using exports</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Exports</span> {
-    <span class="ident">map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Extern</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">map</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Extern</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Exports</span> {
@@ -419,7 +415,7 @@
     <span class="doccomment">/// Creates a new `Exports` with capacity `n`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_capacity</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">map</span>: <span class="ident">Arc::new</span>(<span class="ident">IndexMap::with_capacity</span>(<span class="ident">n</span>)),
+            <span class="ident">map</span>: <span class="ident">IndexMap::with_capacity</span>(<span class="ident">n</span>),
         }
     }
 
@@ -439,9 +435,7 @@
         <span class="ident">S</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
         <span class="ident">E</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span>,
     {
-        <span class="ident">Arc::get_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">map</span>)
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">insert</span>(<span class="ident">name</span>.<span class="ident">into</span>(), <span class="ident">value</span>.<span class="ident">into</span>());
+        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">name</span>.<span class="ident">into</span>(), <span class="ident">value</span>.<span class="ident">into</span>());
     }
 
     <span class="doccomment">/// Get an export given a `name`.</span>
@@ -617,7 +611,7 @@
 <span class="kw">impl</span> <span class="ident">FromIterator</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">Extern</span>)<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Exports</span> {
     <span class="kw">fn</span> <span class="ident">from_iter</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="ident">String</span>, <span class="ident">Extern</span>)<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">iter</span>: <span class="ident">I</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">map</span>: <span class="ident">Arc::new</span>(<span class="ident">IndexMap::from_iter</span>(<span class="ident">iter</span>)),
+            <span class="ident">map</span>: <span class="ident">IndexMap::from_iter</span>(<span class="ident">iter</span>),
         }
     }
 }
