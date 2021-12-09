@@ -254,6 +254,14 @@
 <span id="254">254</span>
 <span id="255">255</span>
 <span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
@@ -360,6 +368,14 @@
     <span class="kw">pub</span> <span class="ident">call_offsets</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">OffsetInfo</span><span class="op">&gt;</span>, <span class="comment">/* suspend_offset -&gt; info */</span>
     <span class="doccomment">/// Trappable offsets.</span>
     <span class="kw">pub</span> <span class="ident">trappable_offsets</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">OffsetInfo</span><span class="op">&gt;</span>, <span class="comment">/* suspend_offset -&gt; info */</span>
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Size</span> {
+    <span class="ident">S8</span>,
+    <span class="ident">S16</span>,
+    <span class="ident">S32</span>,
+    <span class="ident">S64</span>,
 }
 
 <span class="doccomment">/// A kind of suspend offset.</span>

@@ -269,15 +269,28 @@
 <span id="269">269</span>
 <span id="270">270</span>
 <span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_x64</span>::{
-    <span class="ident">gen_import_call_trampoline</span>, <span class="ident">gen_std_dynamic_import_trampoline</span>, <span class="ident">gen_std_trampoline</span>,
-    <span class="ident">CodegenError</span>, <span class="ident">FuncGen</span>,
-};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen::FuncGen</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config::Singlepass</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{
+    <span class="ident">gen_import_call_trampoline</span>, <span class="ident">gen_std_dynamic_import_trampoline</span>, <span class="ident">gen_std_trampoline</span>, <span class="ident">CodegenError</span>,
+};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_x64::MachineX86_64</span>;
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">rayon::prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">ParallelIterator</span>};
@@ -366,6 +379,7 @@
                     <span class="kw-2">&amp;</span><span class="ident">vmoffsets</span>,
                     <span class="ident">i</span>,
                     <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">signatures</span>[<span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">i</span>]],
+                    <span class="ident">target</span>,
                     <span class="ident">calling_convention</span>,
                 )
             })
@@ -395,6 +409,10 @@
                     }
                 }
 
+                <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
+                    <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MachineX86_64::new</span>(),
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented!</span>(),
+                };
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">generator</span> <span class="op">=</span> <span class="ident">FuncGen::new</span>(
                     <span class="ident">module</span>,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>,
@@ -403,6 +421,7 @@
                     <span class="kw-2">&amp;</span><span class="ident">table_styles</span>,
                     <span class="ident">i</span>,
                     <span class="kw-2">&amp;</span><span class="ident">locals</span>,
+                    <span class="ident">machine</span>,
                     <span class="ident">calling_convention</span>,
                 )
                 .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
@@ -424,7 +443,7 @@
             .<span class="ident">values</span>()
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_par_iter_if_rayon</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_type</span><span class="op">|</span> <span class="ident">gen_std_trampoline</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>, <span class="ident">calling_convention</span>))
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_type</span><span class="op">|</span> <span class="ident">gen_std_trampoline</span>(<span class="kw-2">&amp;</span><span class="ident">func_type</span>, <span class="ident">target</span>, <span class="ident">calling_convention</span>))
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_iter</span>()
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
@@ -434,7 +453,12 @@
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_par_iter_if_rayon</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_type</span><span class="op">|</span> {
-                <span class="ident">gen_std_dynamic_import_trampoline</span>(<span class="kw-2">&amp;</span><span class="ident">vmoffsets</span>, <span class="kw-2">&amp;</span><span class="ident">func_type</span>, <span class="ident">calling_convention</span>)
+                <span class="ident">gen_std_dynamic_import_trampoline</span>(
+                    <span class="kw-2">&amp;</span><span class="ident">vmoffsets</span>,
+                    <span class="kw-2">&amp;</span><span class="ident">func_type</span>,
+                    <span class="ident">target</span>,
+                    <span class="ident">calling_convention</span>,
+                )
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_iter</span>()

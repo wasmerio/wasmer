@@ -254,9 +254,46 @@
 <span id="254">254</span>
 <span id="255">255</span>
 <span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
 </pre><pre class="rust"><code><span class="doccomment">//! X64 structures.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::{<span class="ident">MachineState</span>, <span class="ident">MachineValue</span>, <span class="ident">RegisterIndex</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::CombinedRegister</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span> <span class="kw">as</span> <span class="ident">AbstractReg</span>;
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CallingConvention</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
@@ -265,38 +302,22 @@
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u8</span>)]</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GPR</span> {
-    <span class="doccomment">/// RAX register</span>
-    <span class="ident">RAX</span>,
-    <span class="doccomment">/// RCX register</span>
-    <span class="ident">RCX</span>,
-    <span class="doccomment">/// RDX register</span>
-    <span class="ident">RDX</span>,
-    <span class="doccomment">/// RBX register</span>
-    <span class="ident">RBX</span>,
-    <span class="doccomment">/// RSP register</span>
-    <span class="ident">RSP</span>,
-    <span class="doccomment">/// RBP register</span>
-    <span class="ident">RBP</span>,
-    <span class="doccomment">/// RSI register</span>
-    <span class="ident">RSI</span>,
-    <span class="doccomment">/// RDI register</span>
-    <span class="ident">RDI</span>,
-    <span class="doccomment">/// R8 register</span>
-    <span class="ident">R8</span>,
-    <span class="doccomment">/// R9 register</span>
-    <span class="ident">R9</span>,
-    <span class="doccomment">/// R10 register</span>
-    <span class="ident">R10</span>,
-    <span class="doccomment">/// R11 register</span>
-    <span class="ident">R11</span>,
-    <span class="doccomment">/// R12 register</span>
-    <span class="ident">R12</span>,
-    <span class="doccomment">/// R13 register</span>
-    <span class="ident">R13</span>,
-    <span class="doccomment">/// R14 register</span>
-    <span class="ident">R14</span>,
-    <span class="doccomment">/// R15 register</span>
-    <span class="ident">R15</span>,
+    <span class="ident">RAX</span> <span class="op">=</span> <span class="number">0</span>,
+    <span class="ident">RCX</span> <span class="op">=</span> <span class="number">1</span>,
+    <span class="ident">RDX</span> <span class="op">=</span> <span class="number">2</span>,
+    <span class="ident">RBX</span> <span class="op">=</span> <span class="number">3</span>,
+    <span class="ident">RSP</span> <span class="op">=</span> <span class="number">4</span>,
+    <span class="ident">RBP</span> <span class="op">=</span> <span class="number">5</span>,
+    <span class="ident">RSI</span> <span class="op">=</span> <span class="number">6</span>,
+    <span class="ident">RDI</span> <span class="op">=</span> <span class="number">7</span>,
+    <span class="ident">R8</span> <span class="op">=</span> <span class="number">8</span>,
+    <span class="ident">R9</span> <span class="op">=</span> <span class="number">9</span>,
+    <span class="ident">R10</span> <span class="op">=</span> <span class="number">10</span>,
+    <span class="ident">R11</span> <span class="op">=</span> <span class="number">11</span>,
+    <span class="ident">R12</span> <span class="op">=</span> <span class="number">12</span>,
+    <span class="ident">R13</span> <span class="op">=</span> <span class="number">13</span>,
+    <span class="ident">R14</span> <span class="op">=</span> <span class="number">14</span>,
+    <span class="ident">R15</span> <span class="op">=</span> <span class="number">15</span>,
 }
 
 <span class="doccomment">/// XMM registers.</span>
@@ -304,38 +325,102 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">XMM</span> {
-    <span class="doccomment">/// XMM register 0</span>
-    <span class="ident">XMM0</span>,
-    <span class="doccomment">/// XMM register 1</span>
-    <span class="ident">XMM1</span>,
-    <span class="doccomment">/// XMM register 2</span>
-    <span class="ident">XMM2</span>,
-    <span class="doccomment">/// XMM register 3</span>
-    <span class="ident">XMM3</span>,
-    <span class="doccomment">/// XMM register 4</span>
-    <span class="ident">XMM4</span>,
-    <span class="doccomment">/// XMM register 5</span>
-    <span class="ident">XMM5</span>,
-    <span class="doccomment">/// XMM register 6</span>
-    <span class="ident">XMM6</span>,
-    <span class="doccomment">/// XMM register 7</span>
-    <span class="ident">XMM7</span>,
-    <span class="doccomment">/// XMM register 8</span>
-    <span class="ident">XMM8</span>,
-    <span class="doccomment">/// XMM register 9</span>
-    <span class="ident">XMM9</span>,
-    <span class="doccomment">/// XMM register 10</span>
-    <span class="ident">XMM10</span>,
-    <span class="doccomment">/// XMM register 11</span>
-    <span class="ident">XMM11</span>,
-    <span class="doccomment">/// XMM register 12</span>
-    <span class="ident">XMM12</span>,
-    <span class="doccomment">/// XMM register 13</span>
-    <span class="ident">XMM13</span>,
-    <span class="doccomment">/// XMM register 14</span>
-    <span class="ident">XMM14</span>,
-    <span class="doccomment">/// XMM register 15</span>
-    <span class="ident">XMM15</span>,
+    <span class="ident">XMM0</span> <span class="op">=</span> <span class="number">0</span>,
+    <span class="ident">XMM1</span> <span class="op">=</span> <span class="number">1</span>,
+    <span class="ident">XMM2</span> <span class="op">=</span> <span class="number">2</span>,
+    <span class="ident">XMM3</span> <span class="op">=</span> <span class="number">3</span>,
+    <span class="ident">XMM4</span> <span class="op">=</span> <span class="number">4</span>,
+    <span class="ident">XMM5</span> <span class="op">=</span> <span class="number">5</span>,
+    <span class="ident">XMM6</span> <span class="op">=</span> <span class="number">6</span>,
+    <span class="ident">XMM7</span> <span class="op">=</span> <span class="number">7</span>,
+    <span class="ident">XMM8</span> <span class="op">=</span> <span class="number">8</span>,
+    <span class="ident">XMM9</span> <span class="op">=</span> <span class="number">9</span>,
+    <span class="ident">XMM10</span> <span class="op">=</span> <span class="number">10</span>,
+    <span class="ident">XMM11</span> <span class="op">=</span> <span class="number">11</span>,
+    <span class="ident">XMM12</span> <span class="op">=</span> <span class="number">12</span>,
+    <span class="ident">XMM13</span> <span class="op">=</span> <span class="number">13</span>,
+    <span class="ident">XMM14</span> <span class="op">=</span> <span class="number">14</span>,
+    <span class="ident">XMM15</span> <span class="op">=</span> <span class="number">15</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">AbstractReg</span> <span class="kw">for</span> <span class="ident">GPR</span> {
+    <span class="kw">fn</span> <span class="ident">is_callee_save</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">const</span> <span class="ident">IS_CALLEE_SAVE</span>: [<span class="ident">bool</span>; <span class="number">16</span>] <span class="op">=</span> [
+            <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>,
+            <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>,
+        ];
+        <span class="ident">IS_CALLEE_SAVE</span>[<span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>]
+    }
+    <span class="kw">fn</span> <span class="ident">is_reserved</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span> <span class="op">=</span><span class="op">=</span> <span class="ident">GPR::RSP</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span> <span class="op">=</span><span class="op">=</span> <span class="ident">GPR::RBP</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span> <span class="op">=</span><span class="op">=</span> <span class="ident">GPR::R10</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span> <span class="op">=</span><span class="op">=</span> <span class="ident">GPR::R15</span>
+    }
+    <span class="kw">fn</span> <span class="ident">into_index</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+        <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>
+    }
+    <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">GPR</span>, ()<span class="op">&gt;</span> {
+        <span class="kw">const</span> <span class="ident">REGS</span>: [<span class="ident">GPR</span>; <span class="number">16</span>] <span class="op">=</span> [
+            <span class="ident">GPR::RAX</span>,
+            <span class="ident">GPR::RCX</span>,
+            <span class="ident">GPR::RDX</span>,
+            <span class="ident">GPR::RBX</span>,
+            <span class="ident">GPR::RSP</span>,
+            <span class="ident">GPR::RBP</span>,
+            <span class="ident">GPR::RSI</span>,
+            <span class="ident">GPR::RDI</span>,
+            <span class="ident">GPR::R8</span>,
+            <span class="ident">GPR::R9</span>,
+            <span class="ident">GPR::R10</span>,
+            <span class="ident">GPR::R11</span>,
+            <span class="ident">GPR::R12</span>,
+            <span class="ident">GPR::R13</span>,
+            <span class="ident">GPR::R14</span>,
+            <span class="ident">GPR::R15</span>,
+        ];
+        <span class="kw">match</span> <span class="ident">n</span> {
+            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">REGS</span>[<span class="ident">n</span>]),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(()),
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">AbstractReg</span> <span class="kw">for</span> <span class="ident">XMM</span> {
+    <span class="kw">fn</span> <span class="ident">is_callee_save</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">const</span> <span class="ident">IS_CALLEE_SAVE</span>: [<span class="ident">bool</span>; <span class="number">16</span>] <span class="op">=</span> [
+            <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>,
+            <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>,
+        ];
+        <span class="ident">IS_CALLEE_SAVE</span>[<span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>]
+    }
+    <span class="kw">fn</span> <span class="ident">is_reserved</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="bool-val">false</span>
+    }
+    <span class="kw">fn</span> <span class="ident">into_index</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+        <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>
+    }
+    <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">XMM</span>, ()<span class="op">&gt;</span> {
+        <span class="kw">const</span> <span class="ident">REGS</span>: [<span class="ident">XMM</span>; <span class="number">16</span>] <span class="op">=</span> [
+            <span class="ident">XMM::XMM0</span>,
+            <span class="ident">XMM::XMM1</span>,
+            <span class="ident">XMM::XMM2</span>,
+            <span class="ident">XMM::XMM3</span>,
+            <span class="ident">XMM::XMM4</span>,
+            <span class="ident">XMM::XMM5</span>,
+            <span class="ident">XMM::XMM6</span>,
+            <span class="ident">XMM::XMM7</span>,
+            <span class="ident">XMM::XMM8</span>,
+            <span class="ident">XMM::XMM9</span>,
+            <span class="ident">XMM::XMM10</span>,
+            <span class="ident">XMM::XMM11</span>,
+            <span class="ident">XMM::XMM12</span>,
+            <span class="ident">XMM::XMM13</span>,
+            <span class="ident">XMM::XMM14</span>,
+            <span class="ident">XMM::XMM15</span>,
+        ];
+        <span class="kw">match</span> <span class="ident">n</span> {
+            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">REGS</span>[<span class="ident">n</span>]),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(()),
+        }
+    }
 }
 
 <span class="doccomment">/// A machine register under the x86-64 architecture.</span>
@@ -347,43 +432,28 @@
     <span class="ident">XMM</span>(<span class="ident">XMM</span>),
 }
 
-<span class="kw">impl</span> <span class="ident">X64Register</span> {
+<span class="kw">impl</span> <span class="ident">CombinedRegister</span> <span class="kw">for</span> <span class="ident">X64Register</span> {
     <span class="doccomment">/// Returns the index of the register.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RegisterIndex</span> {
+    <span class="kw">fn</span> <span class="ident">to_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">RegisterIndex</span> {
         <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
             <span class="ident">X64Register::GPR</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>),
             <span class="ident">X64Register::XMM</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="number">16</span>),
         }
     }
+    <span class="doccomment">/// Convert from a GPR register</span>
+    <span class="kw">fn</span> <span class="ident">from_gpr</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>())
+    }
+    <span class="doccomment">/// Convert from an SIMD register</span>
+    <span class="kw">fn</span> <span class="ident">from_simd</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>())
+    }
 
     <span class="doccomment">/// Converts a DWARF regnum to X64Register.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_from_dwarf_regnum</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">X64Register</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">_from_dwarf_regnum</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">X64Register</span><span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="ident">x</span> {
-            <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RAX</span>),
-            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RDX</span>),
-            <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RCX</span>),
-            <span class="number">3</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RBX</span>),
-            <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RSI</span>),
-            <span class="number">5</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RDI</span>),
-            <span class="number">6</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RBP</span>),
-            <span class="number">7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::RSP</span>),
-            <span class="number">8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R8</span>),
-            <span class="number">9</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R9</span>),
-            <span class="number">10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R10</span>),
-            <span class="number">11</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R11</span>),
-            <span class="number">12</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R12</span>),
-            <span class="number">13</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R13</span>),
-            <span class="number">14</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R14</span>),
-            <span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::R15</span>),
-
-            <span class="number">17</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM0</span>),
-            <span class="number">18</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM1</span>),
-            <span class="number">19</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM2</span>),
-            <span class="number">20</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM3</span>),
-            <span class="number">21</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM4</span>),
-            <span class="number">22</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM5</span>),
-            <span class="number">23</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM6</span>),
-            <span class="number">24</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::XMM7</span>),
+            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::GPR</span>(<span class="ident">GPR::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>()),
+            <span class="number">17</span>..<span class="op">=</span><span class="number">24</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">X64Register::XMM</span>(<span class="ident">XMM::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="number">17</span>).<span class="ident">unwrap</span>()),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
         })
     }
@@ -392,7 +462,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// To build an instruction, append the memory location as a 32-bit</span>
     <span class="doccomment">/// offset to the stack pointer to this prefix.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_prefix_mov_to_stack</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>]<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">_prefix_mov_to_stack</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>]<span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
             <span class="ident">X64Register::GPR</span>(<span class="ident">gpr</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">gpr</span> {
                 <span class="ident">GPR::RDI</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="number">0x48</span>, <span class="number">0x89</span>, <span class="number">0xbc</span>, <span class="number">0x24</span>],

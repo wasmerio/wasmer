@@ -19,6 +19,8 @@
 <span id="19">19</span>
 <span id="20">20</span>
 <span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A WebAssembly `Compiler` implementation using Singlepass.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Singlepass is a super-fast assembly generator that generates</span>
@@ -30,12 +32,14 @@
 <span class="doccomment">//! runtime performance.</span>
 
 <span class="kw">mod</span> <span class="ident">address_map</span>;
-<span class="kw">mod</span> <span class="ident">codegen_x64</span>;
+<span class="kw">mod</span> <span class="ident">codegen</span>;
 <span class="kw">mod</span> <span class="ident">common_decl</span>;
 <span class="kw">mod</span> <span class="ident">compiler</span>;
 <span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">emitter_x64</span>;
+<span class="kw">mod</span> <span class="ident">location</span>;
 <span class="kw">mod</span> <span class="ident">machine</span>;
+<span class="kw">mod</span> <span class="ident">machine_x64</span>;
 <span class="kw">mod</span> <span class="ident">x64_decl</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::SinglepassCompiler</span>;

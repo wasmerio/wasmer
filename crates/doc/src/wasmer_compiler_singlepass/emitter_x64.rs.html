@@ -1420,7 +1420,25 @@
 <span id="1420">1420</span>
 <span id="1421">1421</span>
 <span id="1422">1422</span>
-</pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">XMM</span>};
+<span id="1423">1423</span>
+<span id="1424">1424</span>
+<span id="1425">1425</span>
+<span id="1426">1426</span>
+<span id="1427">1427</span>
+<span id="1428">1428</span>
+<span id="1429">1429</span>
+<span id="1430">1430</span>
+<span id="1431">1431</span>
+<span id="1432">1432</span>
+<span id="1433">1433</span>
+<span id="1434">1434</span>
+<span id="1435">1435</span>
+<span id="1436">1436</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Multiplier</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{<span class="ident">Label</span>, <span class="ident">Offset</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasm::dynasm</span>;
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::{
     <span class="ident">x64::X64Relocation</span>, <span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>, <span class="ident">DynasmApi</span>, <span class="ident">DynasmLabelApi</span>, <span class="ident">VecAssembler</span>,
@@ -1442,17 +1460,7 @@
     };
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Location</span> {
-    <span class="ident">Imm8</span>(<span class="ident">u8</span>),
-    <span class="ident">Imm32</span>(<span class="ident">u32</span>),
-    <span class="ident">Imm64</span>(<span class="ident">u64</span>),
-    <span class="comment">// Imm128(u128),</span>
-    <span class="ident">GPR</span>(<span class="ident">GPR</span>),
-    <span class="ident">XMM</span>(<span class="ident">XMM</span>),
-    <span class="ident">Memory</span>(<span class="ident">GPR</span>, <span class="ident">i32</span>),
-    <span class="ident">MemoryAddTriple</span>(<span class="ident">GPR</span>, <span class="ident">GPR</span>, <span class="ident">i32</span>),
-}
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Location</span> <span class="op">=</span> <span class="ident">AbstractLocation</span><span class="op">&lt;</span><span class="ident">GPR</span>, <span class="ident">XMM</span><span class="op">&gt;</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Condition</span> {
@@ -1471,14 +1479,6 @@
     <span class="ident">Carry</span>,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Size</span> {
-    <span class="ident">S8</span>,
-    <span class="ident">S16</span>,
-    <span class="ident">S32</span>,
-    <span class="ident">S64</span>,
-}
-
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">XMMOrMemory</span> {
@@ -1493,12 +1493,9 @@
     <span class="ident">Memory</span>(<span class="ident">GPR</span>, <span class="ident">i32</span>),
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Emitter</span> {
-    <span class="kw">type</span> <span class="ident">Label</span>;
-    <span class="kw">type</span> <span class="ident">Offset</span>;
-
-    <span class="kw">fn</span> <span class="ident">get_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Label</span>;
-    <span class="kw">fn</span> <span class="ident">get_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::Offset</span>;
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">EmitterX64</span> {
+    <span class="kw">fn</span> <span class="ident">get_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Label</span>;
+    <span class="kw">fn</span> <span class="ident">get_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Offset</span>;
     <span class="kw">fn</span> <span class="ident">get_jmp_instr_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span>;
 
     <span class="kw">fn</span> <span class="ident">finalize_function</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {}
@@ -1506,7 +1503,7 @@
     <span class="kw">fn</span> <span class="ident">emit_u64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">x</span>: <span class="ident">u64</span>);
     <span class="kw">fn</span> <span class="ident">emit_bytes</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]);
 
-    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>);
+    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
 
     <span class="kw">fn</span> <span class="ident">emit_nop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
 
@@ -1516,11 +1513,11 @@
 
     <span class="kw">fn</span> <span class="ident">emit_mov</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_lea</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
-    <span class="kw">fn</span> <span class="ident">emit_lea_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
+    <span class="kw">fn</span> <span class="ident">emit_lea_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_cdq</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
     <span class="kw">fn</span> <span class="ident">emit_cqo</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
     <span class="kw">fn</span> <span class="ident">emit_xor</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
-    <span class="kw">fn</span> <span class="ident">emit_jmp</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>);
+    <span class="kw">fn</span> <span class="ident">emit_jmp</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_jmp_location</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_set</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">dst</span>: <span class="ident">GPR</span>);
     <span class="kw">fn</span> <span class="ident">emit_push</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>);
@@ -1539,6 +1536,7 @@
     <span class="kw">fn</span> <span class="ident">emit_rol</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_ror</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_and</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
+    <span class="kw">fn</span> <span class="ident">emit_test</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_or</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_bsr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
     <span class="kw">fn</span> <span class="ident">emit_bsf</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>);
@@ -1633,7 +1631,7 @@
 
     <span class="kw">fn</span> <span class="ident">emit_ud2</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
     <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
-    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>);
+    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_call_location</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>);
 
     <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>);
@@ -2056,10 +2054,7 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Emitter</span> <span class="kw">for</span> <span class="ident">Assembler</span> {
-    <span class="kw">type</span> <span class="ident">Label</span> <span class="op">=</span> <span class="ident">DynamicLabel</span>;
-    <span class="kw">type</span> <span class="ident">Offset</span> <span class="op">=</span> <span class="ident">AssemblyOffset</span>;
-
+<span class="kw">impl</span> <span class="ident">EmitterX64</span> <span class="kw">for</span> <span class="ident">Assembler</span> {
     <span class="kw">fn</span> <span class="ident">get_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">DynamicLabel</span> {
         <span class="self">self</span>.<span class="ident">new_dynamic_label</span>()
     }
@@ -2094,7 +2089,7 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>) {
+    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="op">=</span><span class="op">&gt;</span> <span class="ident">label</span>);
     }
 
@@ -2186,32 +2181,32 @@
                     (<span class="ident">Size::S32</span>, <span class="ident">Location::Imm64</span>(<span class="ident">src</span>), <span class="ident">Location::Memory</span>(<span class="ident">dst</span>, <span class="ident">disp</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mov</span> <span class="ident">DWORD</span> [<span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>], <span class="ident">src</span> <span class="kw">as</span> <span class="ident">i32</span>);
                     }
-                    (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::XMM</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movd</span> <span class="ident">Rx</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">Rd</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
                     }
-                    (<span class="ident">Size::S32</span>, <span class="ident">Location::XMM</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movd</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">Rx</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
                     }
-                    (<span class="ident">Size::S32</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Location::XMM</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S32</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movd</span> <span class="ident">Rx</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
                     }
-                    (<span class="ident">Size::S32</span>, <span class="ident">Location::XMM</span>(<span class="ident">src</span>), <span class="ident">Location::Memory</span>(<span class="ident">dst</span>, <span class="ident">disp</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::Memory</span>(<span class="ident">dst</span>, <span class="ident">disp</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movd</span> [<span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>], <span class="ident">Rx</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
                     }
 
-                    (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::XMM</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movq</span> <span class="ident">Rx</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
                     }
-                    (<span class="ident">Size::S64</span>, <span class="ident">Location::XMM</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S64</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movq</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">Rx</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
                     }
-                    (<span class="ident">Size::S64</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Location::XMM</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S64</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movq</span> <span class="ident">Rx</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
                     }
-                    (<span class="ident">Size::S64</span>, <span class="ident">Location::XMM</span>(<span class="ident">src</span>), <span class="ident">Location::Memory</span>(<span class="ident">dst</span>, <span class="ident">disp</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="ident">Size::S64</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::Memory</span>(<span class="ident">dst</span>, <span class="ident">disp</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movq</span> [<span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>], <span class="ident">Rx</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
                     }
-                    (<span class="kw">_</span>, <span class="ident">Location::XMM</span>(<span class="ident">src</span>), <span class="ident">Location::XMM</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                    (<span class="kw">_</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movq</span> <span class="ident">Rx</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">Rx</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
                     }
 
@@ -2228,16 +2223,44 @@
             (<span class="ident">Size::S64</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
             }
-            (<span class="ident">Size::S32</span>, <span class="ident">Location::MemoryAddTriple</span>(<span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">disp</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::Memory2</span>(<span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">mult</span>, <span class="ident">disp</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">match</span> <span class="ident">mult</span> {
+                    <span class="ident">Multiplier::Zero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]),
+                    <span class="ident">Multiplier::One</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                    <span class="ident">Multiplier::Two</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">*</span> <span class="number">2</span> <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                    <span class="ident">Multiplier::Four</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">*</span> <span class="number">4</span> <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                    <span class="ident">Multiplier::Height</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">*</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                };
             }
-            (<span class="ident">Size::S64</span>, <span class="ident">Location::MemoryAddTriple</span>(<span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">disp</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
+            (<span class="ident">Size::S64</span>, <span class="ident">Location::Memory2</span>(<span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">mult</span>, <span class="ident">disp</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">match</span> <span class="ident">mult</span> {
+                    <span class="ident">Multiplier::Zero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]),
+                    <span class="ident">Multiplier::One</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                    <span class="ident">Multiplier::Two</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">*</span> <span class="number">2</span> <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                    <span class="ident">Multiplier::Four</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">*</span> <span class="number">4</span> <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                    <span class="ident">Multiplier::Height</span> <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="ident">Rq</span>(<span class="ident">src1</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">Rq</span>(<span class="ident">src2</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">*</span> <span class="number">8</span> <span class="op">+</span> <span class="ident">disp</span>])
+                    }
+                };
             }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;singlepass can&#39;t emit LEA {:?} {:?} {:?}&quot;</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>),
         }
     }
-    <span class="kw">fn</span> <span class="ident">emit_lea_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
+    <span class="kw">fn</span> <span class="ident">emit_lea_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
         <span class="kw">match</span> <span class="ident">dst</span> {
             <span class="ident">Location::GPR</span>(<span class="ident">x</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">lea</span> <span class="ident">Rq</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">u8</span>), [<span class="op">=</span><span class="op">&gt;</span><span class="ident">label</span>]);
@@ -2256,7 +2279,7 @@
             <span class="macro">panic!</span>(<span class="string">&quot;singlepass can&#39;t emit XOR {:?} {:?} {:?}&quot;</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>)
         });
     }
-    <span class="kw">fn</span> <span class="ident">emit_jmp</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>) {
+    <span class="kw">fn</span> <span class="ident">emit_jmp</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
         <span class="kw">match</span> <span class="ident">condition</span> {
             <span class="ident">Condition::None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">jmp_op!</span>(<span class="ident">jmp</span>, <span class="self">self</span>, <span class="ident">label</span>),
             <span class="ident">Condition::Above</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">jmp_op!</span>(<span class="ident">ja</span>, <span class="self">self</span>, <span class="ident">label</span>),
@@ -2427,6 +2450,11 @@
     <span class="kw">fn</span> <span class="ident">emit_and</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
         <span class="macro">binop_all_nofp!</span>(<span class="ident">and</span>, <span class="self">self</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>, {
             <span class="macro">panic!</span>(<span class="string">&quot;singlepass can&#39;t emit AND {:?} {:?} {:?}&quot;</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>)
+        });
+    }
+    <span class="kw">fn</span> <span class="ident">emit_test</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
+        <span class="macro">binop_all_nofp!</span>(<span class="ident">test</span>, <span class="self">self</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>, {
+            <span class="macro">panic!</span>(<span class="string">&quot;singlepass can&#39;t emit TEST {:?} {:?} {:?}&quot;</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>)
         });
     }
     <span class="kw">fn</span> <span class="ident">emit_or</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
@@ -2815,7 +2843,7 @@
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ret</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident"><span class="self">Self</span>::Label</span>) {
+    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">call</span> <span class="op">=</span><span class="op">&gt;</span><span class="ident">label</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_call_location</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>) {
