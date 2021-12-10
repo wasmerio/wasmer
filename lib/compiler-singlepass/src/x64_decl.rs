@@ -166,35 +166,6 @@ impl CombinedRegister for X64Register {
             _ => return None,
         })
     }
-
-    /// Returns the instruction prefix for `movq %this_reg, ?(%rsp)`.
-    ///
-    /// To build an instruction, append the memory location as a 32-bit
-    /// offset to the stack pointer to this prefix.
-    fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
-        Some(match *self {
-            X64Register::GPR(gpr) => match gpr {
-                GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],
-                GPR::RSI => &[0x48, 0x89, 0xb4, 0x24],
-                GPR::RDX => &[0x48, 0x89, 0x94, 0x24],
-                GPR::RCX => &[0x48, 0x89, 0x8c, 0x24],
-                GPR::R8 => &[0x4c, 0x89, 0x84, 0x24],
-                GPR::R9 => &[0x4c, 0x89, 0x8c, 0x24],
-                _ => return None,
-            },
-            X64Register::XMM(xmm) => match xmm {
-                XMM::XMM0 => &[0x66, 0x0f, 0xd6, 0x84, 0x24],
-                XMM::XMM1 => &[0x66, 0x0f, 0xd6, 0x8c, 0x24],
-                XMM::XMM2 => &[0x66, 0x0f, 0xd6, 0x94, 0x24],
-                XMM::XMM3 => &[0x66, 0x0f, 0xd6, 0x9c, 0x24],
-                XMM::XMM4 => &[0x66, 0x0f, 0xd6, 0xa4, 0x24],
-                XMM::XMM5 => &[0x66, 0x0f, 0xd6, 0xac, 0x24],
-                XMM::XMM6 => &[0x66, 0x0f, 0xd6, 0xb4, 0x24],
-                XMM::XMM7 => &[0x66, 0x0f, 0xd6, 0xbc, 0x24],
-                _ => return None,
-            },
-        })
-    }
 }
 
 /// An allocator that allocates registers for function arguments according to the System V ABI.
