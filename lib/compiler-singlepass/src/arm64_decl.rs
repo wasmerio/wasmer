@@ -183,7 +183,6 @@ impl AbstractReg for NEON {
             NEON::V29,
             NEON::V30,
             NEON::V31,
-
         ];
         match n {
             0..=15 => Ok(REGS[n]),
@@ -237,11 +236,23 @@ pub struct ArgumentRegisterAllocator {
 
 impl ArgumentRegisterAllocator {
     /// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
-    pub fn next(&mut self, ty: Type, calling_convention: CallingConvention) -> Option<ARM64Register> {
+    pub fn next(
+        &mut self,
+        ty: Type,
+        calling_convention: CallingConvention,
+    ) -> Option<ARM64Register> {
         match calling_convention {
             CallingConvention::SystemV => {
-                static GPR_SEQ: &'static [GPR] =
-                    &[GPR::X0, GPR::X1, GPR::X2, GPR::X3, GPR::X4, GPR::X5, GPR::X6, GPR::X7];
+                static GPR_SEQ: &'static [GPR] = &[
+                    GPR::X0,
+                    GPR::X1,
+                    GPR::X2,
+                    GPR::X3,
+                    GPR::X4,
+                    GPR::X5,
+                    GPR::X6,
+                    GPR::X7,
+                ];
                 static NEON_SEQ: &'static [NEON] = &[
                     NEON::V0,
                     NEON::V1,
