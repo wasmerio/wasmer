@@ -70,16 +70,19 @@ pub trait EmitterARM64 {
 
     fn emit_str(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_ldr(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_stur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32);
+    fn emit_ldur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32);
+    fn emit_strbd(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
+    fn emit_ldrai(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
+    fn emit_stpbd(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
+    fn emit_ldpai(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
+    
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_mov_imm(&mut self, dst: Location, val: u64);
 
     fn emit_add(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
     fn emit_sub(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
-
-    fn emit_push(&mut self, sz: Size, src: Location);
-    fn emit_double_push(&mut self, sz: Size, src1: Location, src2: Location);
-    fn emit_pop(&mut self, sz: Size, dst: Location);
-    fn emit_double_pop(&mut self, sz: Size, dst1: Location, dst2: Location);
 
     fn emit_label(&mut self, label: Label);
     fn emit_b_label(&mut self, label: Label);
@@ -198,6 +201,146 @@ impl EmitterARM64 for Assembler {
             _ => unreachable!(),
         }
     }
+    fn emit_stur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32) {
+        match (sz, reg) {
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; stur X(reg), [X(addr), offset]);
+            }
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; stur W(reg), [X(addr), offset]);
+            }
+            (Size::S64, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; stur D(reg), [X(addr), offset]);
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_ldur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32) {
+        match (sz, reg) {
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldur X(reg), [X(addr), offset]);
+            }
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldur W(reg), [X(addr), offset]);
+            }
+            (Size::S64, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldur D(reg), [X(addr), offset]);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn emit_strbd(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
+        match (sz, reg) {
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; str X(reg), [X(addr), -(offset as i32)]!);
+            }
+            (Size::S64, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; str D(reg), [X(addr), -(offset as i32)]!);
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_ldrai(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
+        match (sz, reg) {
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldr X(reg), [X(addr)], offset);
+            }
+            (Size::S64, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldr D(reg), [X(addr)], offset);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn emit_stpbd(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
+        match (sz, reg1, reg2) {
+            (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
+                let reg1 = reg1.into_index() as u32;
+                let reg2 = reg2.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; stp X(reg1), X(reg2), [X(addr), -(offset as i32)]!);
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_ldpai(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
+        match (sz, reg1, reg2) {
+            (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
+                let reg1 = reg1.into_index() as u32;
+                let reg2 = reg2.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldp X(reg1), X(reg2), [X(addr)], offset);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
+        match(sz, src, dst) {
+            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov X(dst), X(src));
+            }
+            (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov W(dst), W(src));
+            }
+            (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov V(dst).D[0], V(src).D[0]);
+            }
+            (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov V(dst).S[0], V(src).S[0]);
+            }
+            (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov V(dst).D[0], X(src));
+            }
+            (Size::S32, Location::GPR(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov V(dst).S[0], W(src));
+            }
+            (Size::S64, Location::SIMD(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov X(dst), V(src).D[0]);
+            }
+            (Size::S32, Location::SIMD(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mov W(dst), V(src).S[0]);
+            }
+            _ => unreachable!(),
+        }
+    }
 
     fn emit_mov_imm(&mut self, dst: Location, val: u64) {
         match dst {
@@ -229,6 +372,16 @@ impl EmitterARM64 for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; add W(dst), W(src1), W(src2));
             }
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; add X(dst), X(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; add W(dst), W(src1), imm as u32);
+            }
             _ => panic!(
                 "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
                 sz, src1, src2, dst
@@ -249,62 +402,19 @@ impl EmitterARM64 for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; sub W(dst), W(src1), W(src2));
             }
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sub X(dst), X(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sub W(dst), W(src1), imm as u32);
+            }
             _ => panic!(
                 "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
                 sz, src1, src2, dst
-            ),
-        }
-    }
-
-    fn emit_push(&mut self, sz: Size, src: Location) {
-        match (sz, src) {
-            (Size::S64, Location::GPR(src)) => {
-                let src = src.into_index() as u32;
-                dynasm!(self ; str X(src), [sp, -16]!);
-            }
-            (Size::S64, Location::SIMD(src)) => {
-                let src = src.into_index() as u32;
-                dynasm!(self ; str Q(src), [sp, -16]!);
-            }
-            _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, src),
-        }
-    }
-    fn emit_double_push(&mut self, sz: Size, src1: Location, src2: Location) {
-        match (sz, src1, src2) {
-            (Size::S64, Location::GPR(src1), Location::GPR(src2)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                dynasm!(self ; stp X(src1), X(src2), [sp, -16]!);
-            }
-            _ => panic!(
-                "singlepass can't emit DOUBLE PUSH {:?} {:?} {:?}",
-                sz, src1, src2
-            ),
-        }
-    }
-    fn emit_pop(&mut self, sz: Size, dst: Location) {
-        match (sz, dst) {
-            (Size::S64, Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; ldr X(dst), [sp], 16);
-            }
-            (Size::S64, Location::SIMD(dst)) => {
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; ldr Q(dst), [sp], 16);
-            }
-            _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, dst),
-        }
-    }
-    fn emit_double_pop(&mut self, sz: Size, dst1: Location, dst2: Location) {
-        match (sz, dst1, dst2) {
-            (Size::S64, Location::GPR(dst1), Location::GPR(dst2)) => {
-                let dst1 = dst1.into_index() as u32;
-                let dst2 = dst2.into_index() as u32;
-                dynasm!(self ; ldp X(dst1), X(dst2), [sp], 16);
-            }
-            _ => panic!(
-                "singlepass can't emit DOUBLE PUSH {:?} {:?} {:?}",
-                sz, dst1, dst2
             ),
         }
     }
