@@ -1,8 +1,7 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
 use crate::location::Location as AbstractLocation;
-use crate::machine::Machine;
-use crate::machine::{MemoryImmediate, TrapTable};
+use crate::machine::*;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 use dynasmrt::{x64::X64Relocation, VecAssembler};
@@ -6916,42 +6915,3 @@ impl Machine for MachineX86_64 {
         }
     }
 }
-
-// Constants for the bounds of truncation operations. These are the least or
-// greatest exact floats in either f32 or f64 representation less-than (for
-// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
-// min (for least) or max (for greatest), when rounding towards zero.
-
-/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
-const GEF32_LT_I32_MIN: f32 = -2147483904.0;
-/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
-const LEF32_GT_I32_MAX: f32 = 2147483648.0;
-/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
-const GEF32_LT_I64_MIN: f32 = -9223373136366403584.0;
-/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
-const LEF32_GT_I64_MAX: f32 = 9223372036854775808.0;
-/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
-const GEF32_LT_U32_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
-const LEF32_GT_U32_MAX: f32 = 4294967296.0;
-/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
-const GEF32_LT_U64_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
-const LEF32_GT_U64_MAX: f32 = 18446744073709551616.0;
-
-/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
-const GEF64_LT_I32_MIN: f64 = -2147483649.0;
-/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
-const LEF64_GT_I32_MAX: f64 = 2147483648.0;
-/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
-const GEF64_LT_I64_MIN: f64 = -9223372036854777856.0;
-/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
-const LEF64_GT_I64_MAX: f64 = 9223372036854775808.0;
-/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
-const GEF64_LT_U32_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
-const LEF64_GT_U32_MAX: f64 = 4294967296.0;
-/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
-const GEF64_LT_U64_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
-const LEF64_GT_U64_MAX: f64 = 18446744073709551616.0;

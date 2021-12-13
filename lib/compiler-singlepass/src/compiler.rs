@@ -4,9 +4,11 @@
 
 use crate::codegen::FuncGen;
 use crate::config::Singlepass;
+use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline, CodegenError,
 };
+use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
 use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
@@ -58,17 +60,18 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        /*if target.triple().operating_system == OperatingSystem::Windows {
-            return Err(CompileError::UnsupportedTarget(
-                OperatingSystem::Windows.to_string(),
-            ));
-        }*/
-        if target.triple().architecture != Architecture::X86_64 {
-            return Err(CompileError::UnsupportedTarget(
-                target.triple().architecture.to_string(),
-            ));
+        match target.triple().architecture {
+            Architecture::X86_64 => {}
+            Architecture::Aarch64(_) => {}
+            _ => {
+                return Err(CompileError::UnsupportedTarget(
+                    target.triple().architecture.to_string(),
+                ))
+            }
         }
-        if !target.cpu_features().contains(CpuFeature::AVX) {
+        if target.triple().architecture != Architecture::X86_64
+            && !target.cpu_features().contains(CpuFeature::AVX)
+        {
             return Err(CompileError::UnsupportedTarget(
                 "x86_64 without AVX".to_string(),
             ));
@@ -126,30 +129,53 @@ impl Compiler for SinglepassCompiler {
                     }
                 }
 
-                let machine = match target.triple().architecture {
-                    Architecture::X86_64 => MachineX86_64::new(),
+                match target.triple().architecture {
+                    Architecture::X86_64 => {
+                        let machine = MachineX86_64::new();
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            &memory_styles,
+                            &table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )
+                        .map_err(to_compile_error)?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op).map_err(to_compile_error)?;
+                        }
+
+                        Ok(generator.finalize(&input))
+                    }
+                    Architecture::Aarch64(_) => {
+                        let machine = MachineARM64::new();
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            &memory_styles,
+                            &table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )
+                        .map_err(to_compile_error)?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op).map_err(to_compile_error)?;
+                        }
+
+                        Ok(generator.finalize(&input))
+                    }
                     _ => unimplemented!(),
-                };
-                let mut generator = FuncGen::new(
-                    module,
-                    &self.config,
-                    &vmoffsets,
-                    &memory_styles,
-                    &table_styles,
-                    i,
-                    &locals,
-                    machine,
-                    calling_convention,
-                )
-                .map_err(to_compile_error)?;
-
-                while generator.has_control_frames() {
-                    generator.set_srcloc(reader.original_position() as u32);
-                    let op = reader.read_operator()?;
-                    generator.feed_operator(op).map_err(to_compile_error)?;
                 }
-
-                Ok(generator.finalize(&input))
             })
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()
@@ -252,15 +278,6 @@ mod tests {
     #[test]
     fn errors_for_unsupported_targets() {
         let compiler = SinglepassCompiler::new(Singlepass::default());
-
-        // Compile for win64
-        /*let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
-        let (mut info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win64, &mut info, &translation, inputs);
-        match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"),
-            error => panic!("Unexpected error: {:?}", error),
-        };*/
 
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());

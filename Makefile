@@ -179,6 +179,11 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
+		ifeq ($(IS_AARCH64), 1)
+			ifneq ($(IS_WINDOWS), 1)
+				compilers += singlepass
+			endif
+		endif
 	endif
 endif
 
