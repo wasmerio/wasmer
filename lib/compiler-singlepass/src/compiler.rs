@@ -69,7 +69,7 @@ impl Compiler for SinglepassCompiler {
                 ))
             }
         }
-        if target.triple().architecture != Architecture::X86_64
+        if target.triple().architecture == Architecture::X86_64
             && !target.cpu_features().contains(CpuFeature::AVX)
         {
             return Err(CompileError::UnsupportedTarget(

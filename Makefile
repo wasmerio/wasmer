@@ -255,6 +255,9 @@ ifeq ($(ENABLE_SINGLEPASS), 1)
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-universal
 		endif
+		ifeq ($(IS_AARCH64), 1)
+			compilers_engines += singlepass-universal
+		endif
 	endif
 endif
 
