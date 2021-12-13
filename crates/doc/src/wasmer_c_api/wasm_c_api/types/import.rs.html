@@ -78,13 +78,13 @@
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_importtype_new</span>(
-    <span class="ident">module</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_name_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_name_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">module</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_name_t</span><span class="op">&gt;</span>,
+    <span class="ident">name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_name_t</span><span class="op">&gt;</span>,
     <span class="ident">extern_type</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_externtype_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_importtype_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_importtype_t</span> {
-        <span class="ident">name</span>: <span class="kw-2">*</span><span class="ident">name</span><span class="question-mark">?</span>,
-        <span class="ident">module</span>: <span class="kw-2">*</span><span class="ident">module</span><span class="question-mark">?</span>,
+        <span class="ident">name</span>: <span class="ident">name</span><span class="question-mark">?</span>.<span class="ident">take</span>().<span class="ident">into</span>(),
+        <span class="ident">module</span>: <span class="ident">module</span><span class="question-mark">?</span>.<span class="ident">take</span>().<span class="ident">into</span>(),
         <span class="ident">extern_type</span>: <span class="kw-2">*</span><span class="ident">extern_type</span><span class="question-mark">?</span>,
     }))
 }
