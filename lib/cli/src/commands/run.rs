@@ -23,6 +23,7 @@ use wasi::Wasi;
 /// The options for the `wasmer run` subcommand
 pub struct Run {
     /// Disable the cache
+    #[cfg(feature = "cache")]
     #[structopt(long = "disable-cache")]
     disable_cache: bool,
 
@@ -43,6 +44,7 @@ pub struct Run {
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
     /// as if no `cache-key` argument was passed.
+    #[cfg(feature = "cache")]
     #[structopt(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
@@ -64,6 +66,7 @@ pub struct Run {
     #[structopt(long = "debug", short = "d")]
     debug: bool,
 
+    #[cfg(feature = "debug")]
     #[structopt(short, long, parse(from_occurrences))]
     verbose: u8,
 
@@ -94,21 +97,6 @@ impl Run {
 
     fn inner_execute(&self) -> Result<()> {
         let module = self.get_module()?;
-        // Do we want to invoke a function?
-        if let Some(ref invoke) = self.invoke {
-            let imports = imports! {};
-            let instance = Instance::new(&module, &imports)?;
-            let result = self.invoke_function(&instance, &invoke, &self.args)?;
-            println!(
-                "{}",
-                result
-                    .iter()
-                    .map(|val| val.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            );
-            return Ok(());
-        }
         #[cfg(feature = "emscripten")]
         {
             use wasmer_emscripten::{
@@ -117,6 +105,9 @@ impl Run {
             };
             // TODO: refactor this
             if is_emscripten_module(&module) {
+                if self.invoke.is_some() {
+                    bail!("--invoke is not supported with emscripten modules");
+                }
                 let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
                     .map_err(|e| anyhow!("{}", e))?;
                 let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
@@ -154,7 +145,7 @@ impl Run {
 
         // If WASI is enabled, try to execute it with it
         #[cfg(feature = "wasi")]
-        {
+        let instance = {
             use std::collections::BTreeSet;
             use wasmer_wasi::WasiVersion;
 
@@ -187,21 +178,45 @@ impl Run {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    return self
-                        .wasi
-                        .execute(module, program_name, self.args.clone())
-                        .with_context(|| "WASI execution failed");
+                    self.wasi
+                        .instantiate(&module, program_name, self.args.clone())
+                        .with_context(|| "failed to instantiate WASI module")?
                 }
                 // not WASI
-                _ => (),
+                _ => Instance::new(&module, &imports! {})?,
             }
+        };
+        #[cfg(not(feature = "wasi"))]
+        let instance = Instance::new(&module, &imports! {})?;
+
+        // If this module exports an _initialize function, run that first.
+        if let Ok(initialize) = instance.exports.get_function("_initialize") {
+            initialize
+                .call(&[])
+                .with_context(|| "failed to run _initialize function")?;
         }
 
-        // Try to instantiate the wasm file, with no provided imports
-        let imports = imports! {};
-        let instance = Instance::new(&module, &imports)?;
-        let start: Function = self.try_find_function(&instance, "_start", &[])?;
-        start.call(&[])?;
+        // Do we want to invoke a function?
+        if let Some(ref invoke) = self.invoke {
+            let imports = imports! {};
+            let instance = Instance::new(&module, &imports)?;
+            let result = self.invoke_function(&instance, &invoke, &self.args)?;
+            println!(
+                "{}",
+                result
+                    .iter()
+                    .map(|val| val.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            );
+        } else {
+            let start: Function = self.try_find_function(&instance, "_start", &[])?;
+            let result = start.call(&[]);
+            #[cfg(feature = "wasi")]
+            self.wasi.handle_result(result)?;
+            #[cfg(not(feature = "wasi"))]
+            result?;
+        }
 
         Ok(())
     }

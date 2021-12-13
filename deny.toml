@@ -171,13 +171,13 @@ deny = [
 skip = [
     { name = "ahash", version = "=0.4.7" },
     { name = "hashbrown", version = "=0.9.1" },
-    { name = "cfg-if", version = "0.1.10" },
+    { name = "cfg-if", version = "=0.1.10" },
+    { name = "gimli", version = "=0.25.0" },
     { name = "strsim", version = "=0.8.0" },
-    { name = "semver", version = "=0.11.0" },
     { name = "semver", version = "=0.9.0" },
+    { name = "semver", version = "=0.11.0" },
     { name = "semver-parser", version = "=0.7.0" },
     { name = "rustc_version", version = "=0.2.3" },
-    { name = "itertools", version = "0.9.0" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate 
 # detection. Unlike skip, it also includes the entire tree of transitive 
