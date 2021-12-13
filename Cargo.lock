@@ -2275,22 +2275,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13a4ec180a2de59b57434704ccfad967f789b12737738798fa08798cd5824c16"
 
 [[package]]
-name = "test-env-log"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877189d680101869f65ef94168105d6c188b3a143c13a2d42cf8a09c4c704f8a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "test-generator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "target-lexicon 0.12.2",
+]
+
+[[package]]
+name = "test-log"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb78caec569a40f42c078c798c0e35b922d9054ec28e166f0d6ac447563d91a4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -3180,8 +3180,8 @@ dependencies = [
  "rustc_version 0.4.0",
  "serial_test",
  "tempfile",
- "test-env-log",
  "test-generator",
+ "test-log",
  "tracing",
  "tracing-subscriber",
  "wasi-test-generator",

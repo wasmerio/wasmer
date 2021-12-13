@@ -85,7 +85,7 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
         new_sig.ident = test_name;
         new_sig.inputs = ::syn::punctuated::Punctuated::new();
         let f = quote! {
-            #[test_env_log::test]
+            #[test_log::test]
             #attrs
             #[cfg(feature = #engine_feature_name)]
             #new_sig {
