@@ -76,3 +76,152 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     instance.exports.get_function("read_memory")?.call(&[])?;
     Ok(())
 }
+
+#[compiler_test(issues)]
+fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
+    let store = config.store();
+    let memory = Memory::new(
+        &store,
+        MemoryType::new(Pages(1024), Some(Pages(2048)), false),
+    )
+    .unwrap();
+
+    #[derive(Clone, WasmerEnv)]
+    pub struct Env {
+        memory: Memory,
+    }
+
+    pub fn banana(
+        env: &Env,
+        a: u64,
+        b: u64,
+        c: u64,
+        d: u64,
+        e: u64,
+        f: u64,
+        g: u64,
+        h: u64,
+    ) -> u64 {
+        println!("{:?}", (a, b, c, d, e, f, g, h));
+        let view = env.memory.view::<u8>();
+        let bytes = view
+            .get(e as usize..(e + d) as usize)
+            .unwrap()
+            .into_iter()
+            .map(|b| b.get())
+            .collect::<Vec<u8>>();
+        let input_string = std::str::from_utf8(&bytes).unwrap();
+        assert_eq!(input_string, "bananapeach");
+        0
+    }
+
+    pub fn mango(env: &Env, a: u64) {}
+
+    pub fn chaenomeles(env: &Env, a: u64) -> u64 {
+        0
+    }
+
+    pub fn peach(env: &Env, a: u64, b: u64) -> u64 {
+        0
+    }
+
+    pub fn gas(env: &Env, a: u32) {}
+
+    let wat = r#"
+    (module
+      (type (;0;) (func (param i64)))
+      (type (;1;) (func (param i64) (result i64)))
+      (type (;2;) (func (param i64 i64) (result i64)))
+      (type (;3;) (func (param i64 i64 i64 i64 i64 i64 i64 i64) (result i64)))
+      (type (;4;) (func))
+      (import "env" "mango" (func (;0;) (type 0)))
+      (import "env" "chaenomeles" (func (;1;) (type 1)))
+      (import "env" "peach" (func (;2;) (type 2)))
+      (import "env" "banana" (func (;3;) (type 3)))
+      (import "env" "memory" (memory (;0;) 1024 2048))
+      (func (;4;) (type 4)
+        (local i32 i64)
+        global.get 0
+        i32.const 32
+        i32.sub
+        local.tee 0
+        global.set 0
+        local.get 0
+        i32.const 8
+        i32.add
+        i64.const 0
+        i64.store
+        local.get 0
+        i64.const 0
+        i64.store
+        i64.const 0
+        call 0
+        i64.const 0
+        call 1
+        local.set 1
+        local.get 0
+        i64.const 0
+        i64.store offset=24
+        local.get 0
+        i64.const 0
+        i64.store offset=16
+        i64.const 0
+        i64.const 0
+        call 2
+        local.get 1
+        local.get 0
+        i64.extend_i32_u
+        i64.const 11
+        i32.const 1048576
+        i64.extend_i32_u
+        i64.const 0
+        i64.const 0
+        local.get 0
+        i32.const 16
+        i32.add
+        i64.extend_i32_u
+        call 3
+        return)
+      (global (;0;) (mut i32) (i32.const 1048576))
+      (global (;1;) i32 (i32.const 1048587))
+      (global (;2;) i32 (i32.const 1048592))
+      (global (;3;) (mut i32) (i32.const 0))
+      (export "memory" (memory 0))
+      (export "repro" (func 4))
+      (export "__data_end" (global 1))
+      (export "__heap_base" (global 2))
+      (data (;0;) (i32.const 1048576) "bananapeach"))
+    "#;
+
+    let module = Module::new(&store, wat)?;
+    let env = Env {
+        memory: memory.clone(),
+    };
+    let mut exports = Exports::new();
+    exports.insert("memory", memory);
+    exports.insert(
+        "banana",
+        Function::new_native_with_env(&store, env.clone(), banana),
+    );
+    exports.insert(
+        "peach",
+        Function::new_native_with_env(&store, env.clone(), peach),
+    );
+    exports.insert(
+        "chaenomeles",
+        Function::new_native_with_env(&store, env.clone(), chaenomeles),
+    );
+    exports.insert(
+        "mango",
+        Function::new_native_with_env(&store, env.clone(), mango),
+    );
+    exports.insert(
+        "gas",
+        Function::new_native_with_env(&store, env.clone(), gas),
+    );
+    let mut imports = ImportObject::new();
+    imports.register("env", exports);
+    let instance = Instance::new(&module, &imports)?;
+    instance.exports.get_function("repro")?.call(&[])?;
+    Ok(())
+}
