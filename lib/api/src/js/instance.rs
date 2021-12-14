@@ -173,6 +173,12 @@ impl Instance {
     pub fn store(&self) -> &Store {
         self.module.store()
     }
+
+    /// Returns the inner WebAssembly Instance
+    #[doc(hidden)]
+    pub fn raw(&self) -> &WebAssembly::Instance {
+        &self.instance
+    }
 }
 
 impl fmt::Debug for Instance {
