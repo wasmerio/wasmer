@@ -1,5 +1,6 @@
 use crate::common_decl::*;
 use crate::location::{Location, Reg};
+use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
 use dynasmrt::{AssemblyOffset, DynamicLabel};
 use std::collections::BTreeMap;
@@ -2166,11 +2167,17 @@ pub fn gen_std_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let machine = match target.triple().architecture {
-        Architecture::X86_64 => MachineX86_64::new(),
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            let machine = MachineX86_64::new();
+            machine.gen_std_trampoline(sig, calling_convention)
+        }
+        Architecture::Aarch64(_) => {
+            let machine = MachineARM64::new();
+            machine.gen_std_trampoline(sig, calling_convention)
+        }
         _ => unimplemented!(),
-    };
-    machine.gen_std_trampoline(sig, calling_convention)
+    }
 }
 /// Generates dynamic import function call trampoline for a function type.
 pub fn gen_std_dynamic_import_trampoline(
@@ -2179,11 +2186,17 @@ pub fn gen_std_dynamic_import_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let machine = match target.triple().architecture {
-        Architecture::X86_64 => MachineX86_64::new(),
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            let machine = MachineX86_64::new();
+            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+        }
+        Architecture::Aarch64(_) => {
+            let machine = MachineARM64::new();
+            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+        }
         _ => unimplemented!(),
-    };
-    machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+    }
 }
 /// Singlepass calls import functions through a trampoline.
 pub fn gen_import_call_trampoline(
@@ -2193,11 +2206,17 @@ pub fn gen_import_call_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> CustomSection {
-    let machine = match target.triple().architecture {
-        Architecture::X86_64 => MachineX86_64::new(),
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            let machine = MachineX86_64::new();
+            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+        }
+        Architecture::Aarch64(_) => {
+            let machine = MachineARM64::new();
+            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+        }
         _ => unimplemented!(),
-    };
-    machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+    }
 }
 
 // Constants for the bounds of truncation operations. These are the least or

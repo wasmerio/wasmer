@@ -4,6 +4,7 @@ use crate::common_decl::*;
 use crate::emitter_arm64::*;
 use crate::location::Location as AbstractLocation;
 use crate::machine::*;
+use dynasm::dynasm;
 use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
@@ -46,22 +47,70 @@ impl MachineARM64 {
     }
     fn emit_relaxed_binop(
         &mut self,
-        _op: fn(&mut Assembler, Size, Location, Location),
-        _sz: Size,
-        _src: Location,
-        _dst: Location,
+        op: fn(&mut Assembler, Size, Location, Location),
+        sz: Size,
+        src: Location,
+        dst: Location,
     ) {
-        unimplemented!();
+        match (src, dst) {
+            (Location::GPR(_), Location::GPR(_)) => {
+                op(&mut self.assembler, sz, src, dst);
+            }
+            (Location::Memory(_, _), Location::Memory(_, _)) => {
+                let temp_src = self.acquire_temp_gpr().unwrap();
+                let temp_dst = self.acquire_temp_gpr().unwrap();
+                self.move_location(sz, src, Location::GPR(temp_src));
+                self.move_location(sz, dst, Location::GPR(temp_dst));
+                op(
+                    &mut self.assembler,
+                    sz,
+                    Location::GPR(temp_src),
+                    Location::GPR(temp_dst),
+                );
+                self.release_gpr(temp_dst);
+                self.release_gpr(temp_src);
+            }
+            /*(Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => {
+            }
+            (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,*/
+            (Location::Imm64(_), Location::Memory(_, _))
+            | (Location::Imm64(_), Location::GPR(_))
+            | (Location::Imm32(_), Location::Memory(_, _))
+            | (Location::Imm32(_), Location::GPR(_)) => {
+                let temp = self.acquire_temp_gpr().unwrap();
+                self.move_location(sz, src, Location::GPR(temp));
+                op(&mut self.assembler, sz, Location::GPR(temp), dst);
+                self.release_gpr(temp);
+            }
+            (_, Location::SIMD(_)) => {
+                let temp = self.acquire_temp_gpr().unwrap();
+                self.move_location(sz, src, Location::GPR(temp));
+                op(&mut self.assembler, sz, Location::GPR(temp), dst);
+                self.release_gpr(temp);
+            }
+            _ => panic!(
+                "singlepass can't emit relaxed_binop {:?} {:?} => {:?}",
+                sz, src, dst
+            ),
+        };
     }
     /// I32 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i32(
         &mut self,
-        _f: fn(&mut Assembler, Size, Location, Location),
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
+        f: fn(&mut Assembler, Size, Location, Location),
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
     ) {
-        unimplemented!();
+        if loc_a != ret {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            self.emit_relaxed_mov(Size::S32, loc_a, Location::GPR(tmp));
+            self.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp));
+            self.emit_relaxed_mov(Size::S32, Location::GPR(tmp), ret);
+            self.release_gpr(tmp);
+        } else {
+            self.emit_relaxed_binop(f, Size::S32, loc_b, ret);
+        }
     }
     /// I64 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i64(
@@ -124,17 +173,133 @@ impl MachineARM64 {
 
     fn memory_op<F: FnOnce(&mut Self, GPR)>(
         &mut self,
-        _addr: Location,
-        _memarg: &MemoryImmediate,
-        _check_alignment: bool,
-        _value_size: usize,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
-        _cb: F,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        check_alignment: bool,
+        value_size: usize,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+        cb: F,
     ) {
-        unimplemented!();
+        let tmp_addr = self.acquire_temp_gpr().unwrap();
+
+        // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
+        let (base_loc, bound_loc) = if imported_memories {
+            // Imported memories require one level of indirection.
+            self.emit_relaxed_binop(
+                Assembler::emit_mov,
+                Size::S64,
+                Location::Memory(self.get_vmctx_reg(), offset),
+                Location::GPR(tmp_addr),
+            );
+            (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
+        } else {
+            (
+                Location::Memory(self.get_vmctx_reg(), offset),
+                Location::Memory(self.get_vmctx_reg(), offset + 8),
+            )
+        };
+
+        let tmp_base = self.acquire_temp_gpr().unwrap();
+        let tmp_bound = self.acquire_temp_gpr().unwrap();
+
+        // Load base into temporary register.
+        self.assembler
+            .emit_ldr(Size::S64, Location::GPR(tmp_base), base_loc);
+
+        // Load bound into temporary register, if needed.
+        if need_check {
+            self.assembler
+                .emit_ldr(Size::S64, Location::GPR(tmp_bound), bound_loc);
+
+            // Wasm -> Effective.
+            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+            self.assembler.emit_add(
+                Size::S64,
+                Location::GPR(tmp_bound),
+                Location::GPR(tmp_base),
+                Location::GPR(tmp_bound),
+            );
+            if value_size < 256 {
+                self.assembler.emit_sub(
+                    Size::S64,
+                    Location::GPR(tmp_bound),
+                    Location::GPR(tmp_bound),
+                    Location::Imm8(value_size as u8),
+                );
+            } else {
+                // reusing tmp_base
+                self.assembler
+                    .emit_mov_imm(Location::GPR(tmp_base), value_size as u64);
+                self.assembler.emit_sub(
+                    Size::S64,
+                    Location::GPR(tmp_bound),
+                    Location::GPR(tmp_base),
+                    Location::GPR(tmp_bound),
+                );
+            }
+        }
+
+        // Load effective address.
+        // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
+        // might be reused.
+        self.assembler
+            .emit_mov(Size::S32, addr, Location::GPR(tmp_addr));
+
+        // Add offset to memory address.
+        if memarg.offset != 0 {
+            self.assembler.emit_add(
+                Size::S32,
+                Location::Imm32(memarg.offset),
+                Location::GPR(tmp_addr),
+                Location::GPR(tmp_addr),
+            );
+
+            // Trap if offset calculation overflowed.
+            self.assembler
+                .emit_bcond_label(Condition::Cs, heap_access_oob);
+        }
+
+        // Wasm linear memory -> real memory
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(tmp_base),
+            Location::GPR(tmp_addr),
+            Location::GPR(tmp_addr),
+        );
+
+        if need_check {
+            // Trap if the end address of the requested area is above that of the linear memory.
+            self.assembler
+                .emit_cmp(Size::S64, Location::GPR(tmp_bound), Location::GPR(tmp_addr));
+
+            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
+            self.assembler
+                .emit_bcond_label(Condition::Hi, heap_access_oob);
+        }
+
+        self.release_gpr(tmp_bound);
+        self.release_gpr(tmp_base);
+
+        let align = memarg.align;
+        if check_alignment && align != 1 {
+            self.assembler.emit_tst(
+                Size::S64,
+                Location::Imm32((align - 1).into()),
+                Location::GPR(tmp_addr),
+            );
+            self.assembler
+                .emit_bcond_label(Condition::Ne, heap_access_oob);
+        }
+        let begin = self.assembler.get_offset().0;
+        cb(self, tmp_addr);
+        let end = self.assembler.get_offset().0;
+        self.mark_address_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, begin, end);
+
+        self.release_gpr(tmp_addr);
     }
 
     fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
@@ -275,15 +440,21 @@ impl MachineARM64 {
     }
 
     fn offset_is_ok(&self, size: Size, offset: i32) -> bool {
-        if offset<0 { return false;}
+        if offset < 0 {
+            return false;
+        }
         let shift = match size {
             Size::S8 => 0,
             Size::S16 => 1,
             Size::S32 => 2,
             Size::S64 => 3,
         };
-        if offset >= 0x1000<<shift { return false; }
-        if (offset>>shift)<<shift != offset { return false; }
+        if offset >= 0x1000 << shift {
+            return false;
+        }
+        if (offset >> shift) << shift != offset {
+            return false;
+        }
         return true;
     }
 
@@ -293,10 +464,16 @@ impl MachineARM64 {
                 let offset = if self.pushed {
                     8
                 } else {
-                    self.assembler.emit_sub(Size::S64, Location::GPR(GPR::XzrSp), Location::GPR(GPR::XzrSp), Location::Imm8(16));
+                    self.assembler.emit_sub(
+                        Size::S64,
+                        Location::GPR(GPR::XzrSp),
+                        Location::Imm8(16),
+                        Location::GPR(GPR::XzrSp),
+                    );
                     0
                 };
-                self.assembler.emit_str(Size::S64, src, Location::Memory(GPR::XzrSp, offset));
+                self.assembler
+                    .emit_str(Size::S64, src, Location::Memory(GPR::XzrSp, offset));
                 self.pushed = !self.pushed;
             }
             _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, src),
@@ -306,7 +483,8 @@ impl MachineARM64 {
         if !self.pushed {
             match (sz, src1, src2) {
                 (Size::S64, Location::GPR(_), Location::GPR(_)) => {
-                    self.assembler.emit_stpbd(Size::S64, src1, src2, GPR::XzrSp, 16);
+                    self.assembler
+                        .emit_stpbd(Size::S64, src1, src2, GPR::XzrSp, 16);
                 }
                 _ => {
                     self.emit_push(sz, src1);
@@ -321,14 +499,16 @@ impl MachineARM64 {
     fn emit_pop(&mut self, sz: Size, dst: Location) {
         match (sz, dst) {
             (Size::S64, Location::GPR(_)) | (Size::S64, Location::SIMD(_)) => {
-                let offset = if self.pushed {
-                    0
-                } else {
-                    8
-                };
-                self.assembler.emit_ldr(Size::S64, dst, Location::Memory(GPR::XzrSp, offset));
+                let offset = if self.pushed { 0 } else { 8 };
+                self.assembler
+                    .emit_ldr(Size::S64, dst, Location::Memory(GPR::XzrSp, offset));
                 if self.pushed {
-                    self.assembler.emit_add(Size::S64, Location::GPR(GPR::XzrSp), Location::GPR(GPR::XzrSp), Location::Imm8(16));
+                    self.assembler.emit_add(
+                        Size::S64,
+                        Location::GPR(GPR::XzrSp),
+                        Location::Imm8(16),
+                        Location::GPR(GPR::XzrSp),
+                    );
                 }
                 self.pushed = !self.pushed;
             }
@@ -339,7 +519,8 @@ impl MachineARM64 {
         if !self.pushed {
             match (sz, dst1, dst2) {
                 (Size::S64, Location::GPR(_), Location::GPR(_)) => {
-                    self.assembler.emit_ldpai(Size::S64, dst1, dst2, GPR::XzrSp, 16);
+                    self.assembler
+                        .emit_ldpai(Size::S64, dst1, dst2, GPR::XzrSp, 16);
                 }
                 _ => {
                     self.emit_pop(sz, dst2);
@@ -505,7 +686,8 @@ impl Machine for MachineARM64 {
             Location::Imm8((used_neons.len() * 8) as u8)
         } else {
             let tmp = self.pick_temp_gpr().unwrap();
-            self.assembler.emit_mov_imm(Location::GPR(tmp), (used_neons.len() * 8) as u64);
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp), (used_neons.len() * 8) as u64);
             Location::GPR(tmp)
         };
         self.assembler.emit_add(
@@ -587,7 +769,8 @@ impl Machine for MachineARM64 {
             Location::Imm8(delta_stack_offset as u8)
         } else {
             let tmp = self.pick_temp_gpr().unwrap();
-            self.assembler.emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64);
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64);
             Location::GPR(tmp)
         };
         self.assembler.emit_sub(
@@ -603,7 +786,8 @@ impl Machine for MachineARM64 {
             Location::Imm8(delta_stack_offset as u8)
         } else {
             let tmp = self.pick_temp_gpr().unwrap();
-            self.assembler.emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64);
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64);
             Location::GPR(tmp)
         };
         self.assembler.emit_add(
@@ -620,7 +804,8 @@ impl Machine for MachineARM64 {
             Location::Imm8(delta_stack_offset as u8)
         } else {
             let tmp = self.pick_temp_gpr().unwrap();
-            self.assembler.emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64);
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp), delta_stack_offset as u64);
             Location::GPR(tmp)
         };
         self.assembler.emit_add(
@@ -678,13 +863,21 @@ impl Machine for MachineARM64 {
     }
     // Move a local to the stack
     fn move_local(&mut self, stack_offset: i32, location: Location) {
-        if stack_offset<256 {
-            self.assembler.emit_stur(Size::S64, location, GPR::X27, -stack_offset);
+        if stack_offset < 256 {
+            self.assembler
+                .emit_stur(Size::S64, location, GPR::X27, -stack_offset);
         } else {
             let tmp = self.pick_temp_gpr().unwrap();
-            self.assembler.emit_mov_imm(Location::GPR(tmp), stack_offset as u64);
-            self.assembler.emit_sub(Size::S64, Location::GPR(GPR::X27), Location::GPR(tmp), Location::GPR(tmp));
-            self.assembler.emit_str(Size::S64, location, Location::GPR(tmp));
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp), stack_offset as u64);
+            self.assembler.emit_sub(
+                Size::S64,
+                Location::GPR(GPR::X27),
+                Location::GPR(tmp),
+                Location::GPR(tmp),
+            );
+            self.assembler
+                .emit_str(Size::S64, location, Location::GPR(tmp));
         }
     }
 
@@ -712,28 +905,86 @@ impl Machine for MachineARM64 {
     // move a location to another
     fn move_location(&mut self, size: Size, source: Location, dest: Location) {
         match source {
-            Location::GPR(_) | Location::SIMD(_) => {
-                match dest {
-                    Location::GPR(_) | Location::SIMD(_) => self.assembler.emit_mov(size, source, dest),
-                    Location::Memory(addr, offs) => {
-                        if self.offset_is_ok(size, offs) {
-                            self.assembler.emit_str(size, source, dest); 
+            Location::GPR(_) | Location::SIMD(_) => match dest {
+                Location::GPR(_) | Location::SIMD(_) => self.assembler.emit_mov(size, source, dest),
+                Location::Memory(addr, offs) => {
+                    if self.offset_is_ok(size, offs) {
+                        self.assembler.emit_str(size, source, dest);
+                    } else if offs > -256 && offs < 256 {
+                        self.assembler.emit_stur(size, dest, addr, offs);
+                    } else {
+                        let tmp = self.pick_temp_gpr().unwrap();
+                        if offs < 0 {
+                            self.assembler
+                                .emit_mov_imm(Location::GPR(tmp), (-offs) as u64);
+                            self.assembler.emit_sub(
+                                Size::S64,
+                                Location::GPR(addr),
+                                Location::GPR(tmp),
+                                Location::GPR(tmp),
+                            );
                         } else {
-                            let tmp = self.pick_temp_gpr().unwrap();
-                            if offs < 0 {
-                                self.assembler.emit_mov_imm(Location::GPR(tmp), (-offs) as u64);
-                                self.assembler.emit_sub(Size::S64, Location::GPR(addr), Location::GPR(tmp), Location::GPR(tmp));
-                            } else {
-                                self.assembler.emit_mov_imm(Location::GPR(tmp), offs as u64);
-                                self.assembler.emit_add(Size::S64, Location::GPR(addr), Location::GPR(tmp), Location::GPR(tmp));
-                            }
-                            self.assembler.emit_str(size, source,Location::GPR(tmp));
+                            self.assembler.emit_mov_imm(Location::GPR(tmp), offs as u64);
+                            self.assembler.emit_add(
+                                Size::S64,
+                                Location::GPR(addr),
+                                Location::GPR(tmp),
+                                Location::GPR(tmp),
+                            );
                         }
+                        self.assembler.emit_str(size, source, Location::GPR(tmp));
                     }
-                    _ => unimplemented!(),
                 }
-            }
-            _ => unimplemented!(),
+                _ => panic!(
+                    "singlepass can't emit move_location {:?} {:?} => {:?}",
+                    size, source, dest
+                ),
+            },
+            Location::Imm8(_) | Location::Imm32(_) | Location::Imm64(_) => match dest {
+                Location::GPR(_) => self.assembler.emit_mov(size, source, dest),
+                _ => panic!(
+                    "singlepass can't emit move_location {:?} {:?} => {:?}",
+                    size, source, dest
+                ),
+            },
+            Location::Memory(addr, offs) => match dest {
+                Location::GPR(_) => {
+                    if self.offset_is_ok(size, offs) {
+                        self.assembler.emit_ldr(size, dest, source);
+                    } else if offs > -256 && offs < 256 {
+                        self.assembler.emit_ldur(size, dest, addr, offs);
+                    } else {
+                        let tmp = self.pick_temp_gpr().unwrap();
+                        if offs < 0 {
+                            self.assembler
+                                .emit_mov_imm(Location::GPR(tmp), (-offs) as u64);
+                            self.assembler.emit_sub(
+                                Size::S64,
+                                Location::GPR(addr),
+                                Location::GPR(tmp),
+                                Location::GPR(tmp),
+                            );
+                        } else {
+                            self.assembler.emit_mov_imm(Location::GPR(tmp), offs as u64);
+                            self.assembler.emit_add(
+                                Size::S64,
+                                Location::GPR(addr),
+                                Location::GPR(tmp),
+                                Location::GPR(tmp),
+                            );
+                        }
+                        self.assembler.emit_ldr(size, source, Location::GPR(tmp));
+                    }
+                }
+                _ => panic!(
+                    "singlepass can't emit move_location {:?} {:?} => {:?}",
+                    size, source, dest
+                ),
+            },
+            _ => panic!(
+                "singlepass can't emit move_location {:?} {:?} => {:?}",
+                size, source, dest
+            ),
         }
     }
     // move a location to another
@@ -756,7 +1007,25 @@ impl Machine for MachineARM64 {
     }
     // Restore save_area
     fn restore_saved_area(&mut self, saved_area_offset: i32) {
-        unimplemented!();
+        if saved_area_offset < 256 {
+            self.assembler.emit_sub(
+                Size::S64,
+                Location::GPR(GPR::X27),
+                Location::Imm8(saved_area_offset as u8),
+                Location::GPR(GPR::XzrSp),
+            );
+        } else {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp), saved_area_offset as u64);
+            self.assembler.emit_sub(
+                Size::S64,
+                Location::GPR(GPR::X27),
+                Location::GPR(tmp),
+                Location::GPR(GPR::XzrSp),
+            );
+            self.release_gpr(tmp);
+        }
     }
     // Pop a location
     fn pop_location(&mut self, location: Location) {
@@ -781,11 +1050,7 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_function_prolog(&mut self) {
-        self.emit_double_push(
-            Size::S64,
-            Location::GPR(GPR::X27),
-            Location::GPR(GPR::X30),
-        ); // save LR too
+        self.emit_double_push(Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X30)); // save LR too
         self.move_location(
             Size::S64,
             Location::GPR(GPR::XzrSp),
@@ -983,7 +1248,7 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_binop_add32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        unimplemented!();
+        self.emit_binop_i32(Assembler::emit_add2, loc_a, loc_b, ret);
     }
     fn emit_binop_sub32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         unimplemented!();
@@ -1100,7 +1365,19 @@ impl Machine for MachineARM64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        unimplemented!();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_ldur(Size::S32, ret, addr, 0);
+            },
+        );
     }
     fn i32_load_8u(
         &mut self,
@@ -1112,7 +1389,19 @@ impl Machine for MachineARM64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        unimplemented!();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_ldrb(Size::S32, ret, addr, 0);
+            },
+        );
     }
     fn i32_load_8s(
         &mut self,
@@ -1124,7 +1413,19 @@ impl Machine for MachineARM64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        unimplemented!();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_ldrsb(Size::S32, ret, addr, 0);
+            },
+        );
     }
     fn i32_load_16u(
         &mut self,
@@ -1136,7 +1437,19 @@ impl Machine for MachineARM64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        unimplemented!();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_ldrh(Size::S32, ret, addr, 0);
+            },
+        );
     }
     fn i32_load_16s(
         &mut self,
@@ -1148,7 +1461,19 @@ impl Machine for MachineARM64 {
         offset: i32,
         heap_access_oob: Label,
     ) {
-        unimplemented!();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler.emit_ldrsh(Size::S32, ret, addr, 0);
+            },
+        );
     }
     fn i32_atomic_load(
         &mut self,
@@ -1561,7 +1886,38 @@ impl Machine for MachineARM64 {
         reloc_target: RelocationTarget,
         relocations: &mut Vec<Relocation>,
     ) {
-        unimplemented!();
+        let reloc_at = self.assembler.get_offset().0;
+        relocations.push(Relocation {
+            kind: RelocationKind::Arm64Movw0,
+            reloc_target,
+            offset: reloc_at as u32,
+            addend: 0,
+        });
+        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 0);
+        let reloc_at = self.assembler.get_offset().0;
+        relocations.push(Relocation {
+            kind: RelocationKind::Arm64Movw1,
+            reloc_target,
+            offset: reloc_at as u32,
+            addend: 0,
+        });
+        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 16);
+        let reloc_at = self.assembler.get_offset().0;
+        relocations.push(Relocation {
+            kind: RelocationKind::Arm64Movw2,
+            reloc_target,
+            offset: reloc_at as u32,
+            addend: 0,
+        });
+        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 32);
+        let reloc_at = self.assembler.get_offset().0;
+        relocations.push(Relocation {
+            kind: RelocationKind::Arm64Movw3,
+            reloc_target,
+            offset: reloc_at as u32,
+            addend: 0,
+        });
+        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 48);
     }
 
     fn emit_binop_add64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
@@ -2524,7 +2880,7 @@ impl Machine for MachineARM64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> FunctionBody {
-        unimplemented!();
+        gen_std_trampoline_arm64(sig, calling_convention)
     }
     // Generates dynamic import function call trampoline for a function type.
     fn gen_std_dynamic_import_trampoline(
@@ -2533,7 +2889,7 @@ impl Machine for MachineARM64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> FunctionBody {
-        unimplemented!();
+        gen_std_dynamic_import_trampoline_arm64(vmoffsets, sig, calling_convention)
     }
     // Singlepass calls import functions through a trampoline.
     fn gen_import_call_trampoline(
@@ -2543,6 +2899,6 @@ impl Machine for MachineARM64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> CustomSection {
-        unimplemented!();
+        gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention)
     }
 }
