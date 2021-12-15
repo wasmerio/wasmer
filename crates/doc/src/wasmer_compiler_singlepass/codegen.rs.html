@@ -6194,7 +6194,7 @@
         }
 
         <span class="kw">if</span> <span class="ident">delta_stack_offset</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">adjust_stack</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>);
+            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">restore_stack</span>(<span class="ident">delta_stack_offset</span> <span class="kw">as</span> <span class="ident">u32</span>);
         }
     }
     <span class="doccomment">/// Releases locations used for stack value.</span>
