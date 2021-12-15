@@ -337,7 +337,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         if delta_stack_offset != 0 {
-            self.machine.adjust_stack(delta_stack_offset as u32);
+            self.machine.restore_stack(delta_stack_offset as u32);
         }
     }
     /// Releases locations used for stack value.
