@@ -1,18 +1,17 @@
 use crate::arm64_decl::new_machine_state;
-use crate::arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON};
+use crate::arm64_decl::{GPR, NEON};
 use crate::common_decl::*;
 use crate::emitter_arm64::*;
 use crate::location::Location as AbstractLocation;
 use crate::machine::*;
-use dynasm::dynasm;
 use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    CallingConvention, CustomSection, CustomSectionProtection, FunctionBody, InstructionAddressMap,
-    Relocation, RelocationKind, RelocationTarget, SectionBody, SourceLoc, TrapInformation,
+    CallingConvention, CustomSection, FunctionBody, InstructionAddressMap, Relocation,
+    RelocationKind, RelocationTarget, SourceLoc, TrapInformation,
 };
-use wasmer_types::{FunctionIndex, FunctionType, Type};
+use wasmer_types::{FunctionIndex, FunctionType};
 use wasmer_vm::{TrapCode, VMOffsets};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
@@ -51,48 +50,87 @@ impl MachineARM64 {
         sz: Size,
         src: Location,
         dst: Location,
+        putback: bool,
     ) {
-        match (src, dst) {
-            (Location::GPR(_), Location::GPR(_)) => {
-                op(&mut self.assembler, sz, src, dst);
+        let mut temps = vec![];
+        let src = self.location_to_reg(sz, src, &mut temps, false);
+        let dest = self.location_to_reg(sz, dst, &mut temps, false);
+        op(&mut self.assembler, sz, src, dest);
+        if dst != dest && putback {
+            self.move_location(sz, dest, dst);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+    }
+    fn location_to_reg(
+        &mut self,
+        sz: Size,
+        src: Location,
+        temps: &mut Vec<GPR>,
+        allow_imm8: bool,
+    ) -> Location {
+        match src {
+            Location::GPR(_) => src,
+            Location::Imm8(val) => {
+                if allow_imm8 {
+                    src
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    temps.push(tmp.clone());
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                    Location::GPR(tmp)
+                }
             }
-            (Location::Memory(_, _), Location::Memory(_, _)) => {
-                let temp_src = self.acquire_temp_gpr().unwrap();
-                let temp_dst = self.acquire_temp_gpr().unwrap();
-                self.move_location(sz, src, Location::GPR(temp_src));
-                self.move_location(sz, dst, Location::GPR(temp_dst));
-                op(
-                    &mut self.assembler,
-                    sz,
-                    Location::GPR(temp_src),
-                    Location::GPR(temp_dst),
-                );
-                self.release_gpr(temp_dst);
-                self.release_gpr(temp_src);
+            Location::Imm32(val) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                temps.push(tmp.clone());
+                self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                Location::GPR(tmp)
             }
-            /*(Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => {
+            Location::Imm64(val) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                temps.push(tmp.clone());
+                self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                Location::GPR(tmp)
             }
-            (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,*/
-            (Location::Imm64(_), Location::Memory(_, _))
-            | (Location::Imm64(_), Location::GPR(_))
-            | (Location::Imm32(_), Location::Memory(_, _))
-            | (Location::Imm32(_), Location::GPR(_)) => {
-                let temp = self.acquire_temp_gpr().unwrap();
-                self.move_location(sz, src, Location::GPR(temp));
-                op(&mut self.assembler, sz, Location::GPR(temp), dst);
-                self.release_gpr(temp);
+            Location::Memory(reg, val) => {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                temps.push(tmp.clone());
+                if val > -256 && val < 256 {
+                    self.assembler.emit_ldur(sz, Location::GPR(tmp), reg, val);
+                } else {
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                    self.assembler.emit_ldr(
+                        sz,
+                        Location::GPR(tmp),
+                        Location::Memory2(reg, tmp, Multiplier::One, 0),
+                    );
+                }
+                Location::GPR(tmp)
             }
-            (_, Location::SIMD(_)) => {
-                let temp = self.acquire_temp_gpr().unwrap();
-                self.move_location(sz, src, Location::GPR(temp));
-                op(&mut self.assembler, sz, Location::GPR(temp), dst);
-                self.release_gpr(temp);
-            }
-            _ => panic!(
-                "singlepass can't emit relaxed_binop {:?} {:?} => {:?}",
-                sz, src, dst
-            ),
-        };
+            _ => panic!("singlepass can't emit location_to_reg {:?} {:?}", sz, src),
+        }
+    }
+    fn emit_relaxed_binop3(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location, Location),
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) {
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(sz, src1, &mut temps, false);
+        let src2 = self.location_to_reg(sz, src2, &mut temps, true);
+        let dest = self.location_to_reg(sz, dst, &mut temps, false);
+        op(&mut self.assembler, sz, src1, src2, dest);
+        if dst != dest {
+            self.move_location(sz, dest, dst);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     /// I32 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i32(
@@ -105,11 +143,11 @@ impl MachineARM64 {
         if loc_a != ret {
             let tmp = self.acquire_temp_gpr().unwrap();
             self.emit_relaxed_mov(Size::S32, loc_a, Location::GPR(tmp));
-            self.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp));
+            self.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp), true);
             self.emit_relaxed_mov(Size::S32, Location::GPR(tmp), ret);
             self.release_gpr(tmp);
         } else {
-            self.emit_relaxed_binop(f, Size::S32, loc_b, ret);
+            self.emit_relaxed_binop(f, Size::S32, loc_b, ret, true);
         }
     }
     /// I64 binary operation with both operands popped from the virtual stack.
@@ -123,11 +161,11 @@ impl MachineARM64 {
         if loc_a != ret {
             let tmp = self.acquire_temp_gpr().unwrap();
             self.emit_relaxed_mov(Size::S64, loc_a, Location::GPR(tmp));
-            self.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp));
+            self.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp), true);
             self.emit_relaxed_mov(Size::S64, Location::GPR(tmp), ret);
             self.release_gpr(tmp);
         } else {
-            self.emit_relaxed_binop(f, Size::S64, loc_b, ret);
+            self.emit_relaxed_binop(f, Size::S64, loc_b, ret, true);
         }
     }
     /// I64 comparison with.
@@ -193,6 +231,7 @@ impl MachineARM64 {
                 Size::S64,
                 Location::Memory(self.get_vmctx_reg(), offset),
                 Location::GPR(tmp_addr),
+                true,
             );
             (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
         } else {
@@ -559,9 +598,7 @@ impl Machine for MachineARM64 {
 
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[
-            X0, X1, X2, X3, X4, X5, X6, X7, X8, X9, X10, X11, X12, X13, X14, X15,
-        ];
+        static REGS: &[GPR] = &[X6, X7, X9, X10, X11, X12, X13, X14, X15, X22, X23, X24, X25];
         for r in REGS {
             if !self.used_gprs.contains(r) {
                 return Some(*r);
@@ -573,7 +610,7 @@ impl Machine for MachineARM64 {
     // Picks an unused general purpose register for internal temporary use.
     fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[X0, X1, X2, X3, X4, X5, X6, X7];
+        static REGS: &[GPR] = &[X1, X2, X3, X4, X5, X8];
         for r in REGS {
             if !self.used_gprs.contains(r) {
                 return Some(*r);
@@ -1179,7 +1216,15 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_call_location(&mut self, location: Location) {
-        unimplemented!();
+        let mut temps = vec![];
+        let loc = self.location_to_reg(Size::S64, location, &mut temps, false);
+        match loc {
+            Location::GPR(reg) => self.assembler.emit_call_register(reg),
+            _ => unreachable!(),
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
 
     fn location_address(&mut self, size: Size, source: Location, dest: Location) {
@@ -1199,17 +1244,41 @@ impl Machine for MachineARM64 {
         unimplemented!();
     }
     // math
-    fn location_add(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
-        unimplemented!();
+    fn location_add(&mut self, size: Size, source: Location, dest: Location, flags: bool) {
+        let mut temps = vec![];
+        let src = self.location_to_reg(size, source, &mut temps, true);
+        let dst = self.location_to_reg(size, dest, &mut temps, false);
+        if flags {
+            self.assembler.emit_adds(size, dst, src, dst);
+        } else {
+            self.assembler.emit_add(size, dst, src, dst);
+        }
+        if dst != dest {
+            self.move_location(size, dst, dest);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn location_sub(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
-        unimplemented!();
+    fn location_sub(&mut self, size: Size, source: Location, dest: Location, flags: bool) {
+        let mut temps = vec![];
+        let src = self.location_to_reg(size, source, &mut temps, true);
+        let dst = self.location_to_reg(size, dest, &mut temps, false);
+        if flags {
+            self.assembler.emit_subs(size, dst, src, dst);
+        } else {
+            self.assembler.emit_sub(size, dst, src, dst);
+        }
+        if dst != dest {
+            self.move_location(size, dst, dest);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn location_cmp(&mut self, size: Size, source: Location, dest: Location) {
-        unimplemented!();
+        self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false);
     }
-    // (un)conditionnal jmp
-    // (un)conditionnal jmp
     fn jmp_unconditionnal(&mut self, label: Label) {
         self.assembler.emit_b_label(label);
     }
@@ -1253,7 +1322,7 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_memory_fence(&mut self) {
-        // nothing on x86_64
+        self.assembler.emit_dmb();
     }
 
     fn location_neg(
@@ -1268,15 +1337,24 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) {
-        unimplemented!();
+        let tmp = self.acquire_temp_gpr().unwrap();
+        self.assembler
+            .emit_mov_imm(Location::GPR(tmp), imm32 as u64);
+        self.assembler.emit_mul(
+            size,
+            Location::GPR(gpr),
+            Location::GPR(tmp),
+            Location::GPR(gpr),
+        );
+        self.release_gpr(tmp);
     }
 
     // relaxed binop based...
     fn emit_relaxed_mov(&mut self, sz: Size, src: Location, dst: Location) {
-        unimplemented!();
+        self.emit_relaxed_binop(Assembler::emit_mov, sz, src, dst, true);
     }
     fn emit_relaxed_cmp(&mut self, sz: Size, src: Location, dst: Location) {
-        unimplemented!();
+        self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst, false);
     }
     fn emit_relaxed_zero_extension(
         &mut self,
@@ -1298,10 +1376,10 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_binop_add32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i32(Assembler::emit_add2, loc_a, loc_b, ret);
+        self.emit_relaxed_binop3(Assembler::emit_add, Size::S32, loc_a, loc_b, ret);
     }
     fn emit_binop_sub32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        unimplemented!();
+        self.emit_relaxed_binop3(Assembler::emit_sub, Size::S32, loc_a, loc_b, ret);
     }
     fn emit_binop_mul32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         unimplemented!();
