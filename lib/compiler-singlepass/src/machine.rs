@@ -104,6 +104,8 @@ pub trait Machine {
     fn push_used_simd(&mut self);
     /// Pop used simd regs to the stack
     fn pop_used_simd(&mut self);
+    /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
+    fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32);
     /// Marks each address in the code range emitted by `f` with the trap code `code`.

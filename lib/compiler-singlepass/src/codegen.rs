@@ -290,6 +290,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             ret.push(loc);
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.adjust_stack(delta_stack_offset as u32);
         }
@@ -335,7 +336,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             self.state.wasm_stack.pop().unwrap();
         }
-
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.restore_stack(delta_stack_offset as u32);
         }
@@ -376,6 +377,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.state.wasm_stack.pop().unwrap();
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.adjust_stack(delta_stack_offset as u32);
         }
@@ -421,6 +423,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.pop_stack_locals(delta_stack_offset as u32);
         }
@@ -457,6 +460,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.pop_stack_locals(delta_stack_offset as u32);
         }
@@ -504,6 +508,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         static_area_size += num_mem_slots * 8;
 
         // Allocate save area, without actually writing to it.
+        static_area_size = self.machine.round_stack_adjust(static_area_size);
         self.machine.adjust_stack(static_area_size as _);
 
         // Save callee-saved registers.
@@ -517,7 +522,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Save R15 for vmctx use.
+        // Save the Reg use for vmctx.
         self.stack_offset.0 += 8;
         self.machine.move_local(
             self.stack_offset.0 as i32,
@@ -741,6 +746,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let mut stack_offset: usize = 0;
 
+        while self
+            .machine
+            .round_stack_adjust(used_gprs.len() * 8 + used_simds.len() * 8)
+            != used_gprs.len() * 8 + used_simds.len() * 8 + stack_offset
+        {
+            // on ARM64, push use 2 bytes slot, because stack as to stay 16bytes aligned
+            stack_offset += 8;
+        }
+
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
             if let Location::Memory(_, _) =
@@ -751,7 +765,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         // Align stack to 16 bytes.
-        if (self.get_stack_offset() + used_gprs.len() * 8 + used_simds.len() * 8 + stack_offset)
+        if (self.get_stack_offset()
+            + self
+                .machine
+                .round_stack_adjust(used_gprs.len() * 8 + used_simds.len() * 8)
+            + stack_offset)
             % 16
             != 0
         {
@@ -831,10 +849,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.get_param_location(0, calling_convention),
         ); // vmctx
 
-        if (self.state.stack_values.len() % 2) != 1 {
-            return Err(CodegenError {
-                message: "emit_call_native: explicit shadow takes one slot".to_string(),
-            });
+        if self.machine.round_stack_adjust(8) == 8 {
+            if (self.state.stack_values.len() % 2) != 1 {
+                return Err(CodegenError {
+                    message: "emit_call_native: explicit shadow takes one slot".to_string(),
+                });
+            }
         }
 
         if stack_padding > 0 {
@@ -945,9 +965,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn emit_head(&mut self) -> Result<(), CodegenError> {
-        // TODO: Patchpoint is not emitted for now, and ARM trampoline is not prepended.
-
-        // Normal x86 entry prologue.
         self.machine.emit_function_prolog();
 
         // Initialize locals.

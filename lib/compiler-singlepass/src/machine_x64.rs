@@ -1774,6 +1774,11 @@ impl Machine for MachineX86_64 {
         Location::Memory(GPR::RBP, -stack_offset)
     }
 
+    // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
+    fn round_stack_adjust(&self, value: usize) -> usize {
+        value
+    }
+
     // Adjust stack for locals
     fn adjust_stack(&mut self, delta_stack_offset: u32) {
         self.assembler.emit_sub(

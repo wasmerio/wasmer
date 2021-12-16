@@ -1,4 +1,4 @@
-pub use crate::arm64_decl::{GPR, NEON};
+pub use crate::arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON};
 use crate::common_decl::Size;
 use crate::location::Location as AbstractLocation;
 pub use crate::location::{Multiplier, Reg};
@@ -82,6 +82,16 @@ pub enum GPROrMemory {
     Memory(GPR, i32),
 }
 
+fn is_immediate_64bit_encodable(value: u64) -> bool {
+    let offset = value.trailing_zeros() & 0b11_0000;
+    let masked = 0xffff & (value >> offset);
+    if (masked << offset) == value {
+        true
+    } else {
+        false
+    }
+}
+
 pub trait EmitterARM64 {
     fn get_label(&mut self) -> Label;
     fn get_offset(&self) -> Offset;
@@ -93,10 +103,10 @@ pub trait EmitterARM64 {
     fn emit_ldr(&mut self, sz: Size, reg: Location, addr: Location);
     fn emit_stur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32);
     fn emit_ldur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32);
-    fn emit_strbd(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_ldrai(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_stpbd(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
-    fn emit_ldpai(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
+    fn emit_strdb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
+    fn emit_ldria(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
+    fn emit_stpdb(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
+    fn emit_ldpia(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
 
     fn emit_ldrb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
     fn emit_ldrh(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
@@ -123,6 +133,7 @@ pub trait EmitterARM64 {
     fn emit_label(&mut self, label: Label);
     fn emit_b_label(&mut self, label: Label);
     fn emit_bcond_label(&mut self, condition: Condition, label: Label);
+    fn emit_b_register(&mut self, reg: GPR);
     fn emit_call_label(&mut self, label: Label);
     fn emit_call_register(&mut self, reg: GPR);
     fn emit_ret(&mut self);
@@ -278,7 +289,7 @@ impl EmitterARM64 for Assembler {
         }
     }
 
-    fn emit_strbd(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
+    fn emit_strdb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -293,7 +304,7 @@ impl EmitterARM64 for Assembler {
             _ => unreachable!(),
         }
     }
-    fn emit_ldrai(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
+    fn emit_ldria(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -309,7 +320,7 @@ impl EmitterARM64 for Assembler {
         }
     }
 
-    fn emit_stpbd(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
+    fn emit_stpdb(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
         match (sz, reg1, reg2) {
             (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
                 let reg1 = reg1.into_index() as u32;
@@ -320,7 +331,7 @@ impl EmitterARM64 for Assembler {
             _ => unreachable!(),
         }
     }
-    fn emit_ldpai(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
+    fn emit_ldpia(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
         match (sz, reg1, reg2) {
             (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
                 let reg1 = reg1.into_index() as u32;
@@ -484,7 +495,23 @@ impl EmitterARM64 for Assembler {
         match dst {
             Location::GPR(dst) => {
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; mov W(dst), val)
+                if is_immediate_64bit_encodable(val) {
+                    dynasm!(self ; mov W(dst), val);
+                } else {
+                    dynasm!(self ; movz W(dst), (val&0xffff) as u32);
+                    let val = val >> 16;
+                    if val != 0 {
+                        dynasm!(self ; movk X(dst), (val&0xffff) as u32, LSL 16);
+                        let val = val >> 16;
+                        if val != 0 {
+                            dynasm!(self ; movk X(dst), (val&0xffff) as u32, LSL 32);
+                            let val = val >> 16;
+                            if val != 0 {
+                                dynasm!(self ; movk X(dst), (val&0xffff) as u32, LSL 48);
+                            }
+                        }
+                    }
+                }
             }
             _ => panic!("singlepass can't emit MOVW {:?}", dst),
         }
@@ -679,6 +706,9 @@ impl EmitterARM64 for Assembler {
             Condition::Uncond => dynasm!(self ; b => label),
         }
     }
+    fn emit_b_register(&mut self, reg: GPR) {
+        dynasm!(self ; br X(reg.into_index() as u32));
+    }
     fn emit_call_label(&mut self, label: Label) {
         dynasm!(self ; bl =>label);
     }
@@ -700,8 +730,8 @@ pub fn gen_std_trampoline_arm64(
 ) -> FunctionBody {
     let mut a = Assembler::new(0);
 
-    let fptr = GPR::X19;
-    let args = GPR::X20;
+    let fptr = GPR::X26;
+    let args = GPR::X8;
 
     dynasm!(a
         ; .arch aarch64
@@ -727,8 +757,8 @@ pub fn gen_std_trampoline_arm64(
     // `callee_vmctx` is already in the first argument register, so no need to move.
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
-            Type::I32 => Size::S32,
-            Type::I64 => Size::S64,
+            Type::I32 | Type::F32 => Size::S32,
+            Type::I64 | Type::F64 => Size::S64,
             _ => unimplemented!(),
         };
         match i {
@@ -782,7 +812,132 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     calling_convention: CallingConvention,
 ) -> FunctionBody {
     let mut a = Assembler::new(0);
-    dynasm!(a ; .arch aarch64 ; ret);
+    // Allocate argument array.
+    let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 16;
+    // Save LR and X20, as scratch register
+    a.emit_stpdb(
+        Size::S64,
+        Location::GPR(GPR::X30),
+        Location::GPR(GPR::X20),
+        GPR::XzrSp,
+        16,
+    );
+
+    if stack_offset < 256 + 16 {
+        a.emit_sub(
+            Size::S64,
+            Location::GPR(GPR::XzrSp),
+            Location::Imm8((stack_offset - 16) as _),
+            Location::GPR(GPR::XzrSp),
+        );
+    } else {
+        a.emit_mov_imm(Location::GPR(GPR::X20), (stack_offset - 16) as u64);
+        a.emit_sub(
+            Size::S64,
+            Location::GPR(GPR::XzrSp),
+            Location::GPR(GPR::X20),
+            Location::GPR(GPR::XzrSp),
+        );
+    }
+
+    // Copy arguments.
+    if !sig.params().is_empty() {
+        let mut argalloc = ArgumentRegisterAllocator::default();
+        argalloc.next(Type::I64, calling_convention).unwrap(); // skip VMContext
+
+        let mut stack_param_count: usize = 0;
+
+        for (i, ty) in sig.params().iter().enumerate() {
+            let source_loc = match argalloc.next(*ty, calling_convention) {
+                Some(ARM64Register::GPR(gpr)) => Location::GPR(gpr),
+                Some(ARM64Register::NEON(neon)) => Location::SIMD(neon),
+                None => {
+                    a.emit_ldr(
+                        Size::S64,
+                        Location::GPR(GPR::X20),
+                        Location::Memory(GPR::XzrSp, (stack_offset + stack_param_count * 8) as _),
+                    );
+                    stack_param_count += 1;
+                    Location::GPR(GPR::X20)
+                }
+            };
+            a.emit_str(
+                Size::S64,
+                source_loc,
+                Location::Memory(GPR::XzrSp, (i * 16) as _),
+            );
+
+            // Zero upper 64 bits.
+            a.emit_str(
+                Size::S64,
+                Location::GPR(GPR::XzrSp),                       // XZR here
+                Location::Memory(GPR::XzrSp, (i * 16 + 8) as _), // XSP here
+            );
+        }
+    }
+
+    match calling_convention {
+        _ => {
+            // Load target address.
+            a.emit_ldr(
+                Size::S64,
+                Location::GPR(GPR::X20),
+                Location::Memory(
+                    GPR::X0,
+                    vmoffsets.vmdynamicfunction_import_context_address() as i32,
+                ),
+            );
+            // Load values array.
+            a.emit_add(
+                Size::S64,
+                Location::GPR(GPR::XzrSp),
+                Location::Imm8(0),
+                Location::GPR(GPR::X1),
+            );
+        }
+    };
+
+    // Call target.
+    a.emit_call_register(GPR::X20);
+
+    // Fetch return value.
+    if !sig.results().is_empty() {
+        assert_eq!(sig.results().len(), 1);
+        a.emit_ldr(
+            Size::S64,
+            Location::GPR(GPR::X0),
+            Location::Memory(GPR::XzrSp, 0),
+        );
+    }
+
+    // Release values array.
+    if stack_offset < 256 + 16 {
+        a.emit_add(
+            Size::S64,
+            Location::GPR(GPR::XzrSp),
+            Location::Imm32((stack_offset - 16) as _),
+            Location::GPR(GPR::XzrSp),
+        );
+    } else {
+        a.emit_mov_imm(Location::GPR(GPR::X20), (stack_offset - 16) as u64);
+        a.emit_add(
+            Size::S64,
+            Location::GPR(GPR::XzrSp),
+            Location::GPR(GPR::X20),
+            Location::GPR(GPR::XzrSp),
+        );
+    }
+    a.emit_ldpia(
+        Size::S64,
+        Location::GPR(GPR::X30),
+        Location::GPR(GPR::X20),
+        GPR::XzrSp,
+        16,
+    );
+
+    // Return.
+    a.emit_ret();
+
     FunctionBody {
         body: a.finalize().unwrap().to_vec(),
         unwind_info: None,
@@ -796,7 +951,158 @@ pub fn gen_import_call_trampoline_arm64(
     calling_convention: CallingConvention,
 ) -> CustomSection {
     let mut a = Assembler::new(0);
-    dynasm!(a ; .arch aarch64 ; ret);
+
+    // Singlepass internally treats all arguments as integers
+    // For the standard System V calling convention requires
+    //  floating point arguments to be passed in NEON registers.
+    //  Translation is expensive, so only do it if needed.
+    if sig
+        .params()
+        .iter()
+        .any(|&x| x == Type::F32 || x == Type::F64)
+    {
+        match calling_convention {
+            _ => {
+                let mut param_locations: Vec<Location> = vec![];
+
+                // Allocate stack space for arguments.
+                let stack_offset: i32 = if sig.params().len() > 5 {
+                    5 * 8
+                } else {
+                    (sig.params().len() as i32) * 8
+                };
+                let stack_offset = if stack_offset & 15 != 0 {
+                    stack_offset + 8
+                } else {
+                    stack_offset
+                };
+                if stack_offset > 0 {
+                    if stack_offset < 256 {
+                        a.emit_sub(
+                            Size::S64,
+                            Location::GPR(GPR::XzrSp),
+                            Location::Imm8(stack_offset as u8),
+                            Location::GPR(GPR::XzrSp),
+                        );
+                    } else {
+                        a.emit_mov_imm(Location::GPR(GPR::X16), stack_offset as u64);
+                        a.emit_sub(
+                            Size::S64,
+                            Location::GPR(GPR::XzrSp),
+                            Location::GPR(GPR::X16),
+                            Location::GPR(GPR::XzrSp),
+                        );
+                    }
+                }
+
+                // Store all arguments to the stack to prevent overwrite.
+                for i in 0..sig.params().len() {
+                    let loc = match i {
+                        0..=6 => {
+                            static PARAM_REGS: &[GPR] = &[
+                                GPR::X1,
+                                GPR::X2,
+                                GPR::X3,
+                                GPR::X4,
+                                GPR::X5,
+                                GPR::X6,
+                                GPR::X7,
+                            ];
+                            let loc = Location::Memory(GPR::XzrSp, (i * 8) as i32);
+                            a.emit_str(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
+                            loc
+                        }
+                        _ => Location::Memory(GPR::XzrSp, stack_offset + ((i - 5) * 8) as i32),
+                    };
+                    param_locations.push(loc);
+                }
+
+                // Copy arguments.
+                let mut argalloc = ArgumentRegisterAllocator::default();
+                argalloc.next(Type::I64, calling_convention).unwrap(); // skip VMContext
+                let mut caller_stack_offset: i32 = 0;
+                for (i, ty) in sig.params().iter().enumerate() {
+                    let prev_loc = param_locations[i];
+                    let targ = match argalloc.next(*ty, calling_convention) {
+                        Some(ARM64Register::GPR(gpr)) => Location::GPR(gpr),
+                        Some(ARM64Register::NEON(neon)) => Location::SIMD(neon),
+                        None => {
+                            // No register can be allocated. Put this argument on the stack.
+                            a.emit_ldr(Size::S64, Location::GPR(GPR::X20), prev_loc);
+                            a.emit_str(
+                                Size::S64,
+                                Location::GPR(GPR::X20),
+                                Location::Memory(
+                                    GPR::XzrSp,
+                                    stack_offset + 8 + caller_stack_offset,
+                                ),
+                            );
+                            caller_stack_offset += 8;
+                            continue;
+                        }
+                    };
+                    a.emit_ldr(Size::S64, targ, prev_loc);
+                }
+
+                // Restore stack pointer.
+                if stack_offset > 0 {
+                    if stack_offset < 256 {
+                        a.emit_add(
+                            Size::S64,
+                            Location::GPR(GPR::XzrSp),
+                            Location::Imm8(stack_offset as u8),
+                            Location::GPR(GPR::XzrSp),
+                        );
+                    } else {
+                        a.emit_mov_imm(Location::GPR(GPR::X16), stack_offset as u64);
+                        a.emit_add(
+                            Size::S64,
+                            Location::GPR(GPR::XzrSp),
+                            Location::GPR(GPR::X16),
+                            Location::GPR(GPR::XzrSp),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // Emits a tail call trampoline that loads the address of the target import function
+    // from Ctx and jumps to it.
+
+    let offset = vmoffsets.vmctx_vmfunction_import(index);
+    // for ldr, offset needs to be a multiple of 8, wich often is not
+    // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
+    let offset = if offset > 255 {
+        a.emit_mov_imm(Location::GPR(GPR::X16), offset as u64);
+        a.emit_add(
+            Size::S64,
+            Location::GPR(GPR::X0),
+            Location::GPR(GPR::X16),
+            Location::GPR(GPR::X0),
+        );
+        0
+    } else {
+        offset
+    };
+    match calling_convention {
+        _ => {
+            a.emit_ldur(
+                Size::S64,
+                Location::GPR(GPR::X16),
+                GPR::X0,
+                offset as i32, // function pointer
+            );
+            a.emit_ldur(
+                Size::S64,
+                Location::GPR(GPR::X0),
+                GPR::X0,
+                offset as i32 + 8, // target vmctx
+            );
+        }
+    }
+    a.emit_b_register(GPR::X16);
+
     let section_body = SectionBody::new_with_vec(a.finalize().unwrap().to_vec());
 
     CustomSection {
