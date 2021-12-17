@@ -32,6 +32,23 @@ pub struct MachineARM64 {
     pushed: bool,
 }
 
+#[allow(dead_code)]
+enum ImmType {
+    None,
+    Bits8,
+    Shift32,
+    Shift32No0,
+    Shift64,
+    Shift64No0,
+    Logical32,
+    Logical64,
+    UnscaledOffset,
+    OffsetByte,
+    OffsetWord,
+    OffsetDWord,
+    OffsetQuad,
+}
+
 impl MachineARM64 {
     pub fn new() -> Self {
         MachineARM64 {
@@ -53,8 +70,8 @@ impl MachineARM64 {
         putback: bool,
     ) {
         let mut temps = vec![];
-        let src = self.location_to_reg(sz, src, &mut temps, false);
-        let dest = self.location_to_reg(sz, dst, &mut temps, false);
+        let src = self.location_to_reg(sz, src, &mut temps, ImmType::None);
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None);
         op(&mut self.assembler, sz, src, dest);
         if dst != dest && putback {
             self.move_location(sz, dest, dst);
@@ -63,17 +80,36 @@ impl MachineARM64 {
             self.release_gpr(r);
         }
     }
+
+    fn compatible_imm(&self, imm: i64, ty: ImmType) -> bool {
+        match ty {
+            ImmType::None => false,
+            ImmType::Bits8 => imm >= 0 && imm < 256,
+            ImmType::Shift32 => imm >= 0 && imm < 32,
+            ImmType::Shift32No0 => imm > 0 && imm < 32,
+            ImmType::Shift64 => imm >= 0 && imm < 64,
+            ImmType::Shift64No0 => imm > 0 && imm < 64,
+            ImmType::Logical32 => encode_logical_immediate_32bit(imm as u32).is_some(),
+            ImmType::Logical64 => encode_logical_immediate_64bit(imm as u64).is_some(),
+            ImmType::UnscaledOffset => imm > -256 && imm < 256,
+            ImmType::OffsetByte => imm >= 0 && imm < 0x1000,
+            ImmType::OffsetWord => imm & 1 == 0 && imm >= 0 && imm < 0x2000,
+            ImmType::OffsetDWord => imm & 3 == 0 && imm >= 0 && imm < 0x4000,
+            ImmType::OffsetQuad => imm & 7 == 0 && imm >= 0 && imm < 0x8000,
+        }
+    }
+
     fn location_to_reg(
         &mut self,
         sz: Size,
         src: Location,
         temps: &mut Vec<GPR>,
-        allow_imm8: bool,
+        allow_imm: ImmType,
     ) -> Location {
         match src {
             Location::GPR(_) => src,
             Location::Imm8(val) => {
-                if allow_imm8 {
+                if self.compatible_imm(val as i64, allow_imm) {
                     src
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
@@ -83,21 +119,29 @@ impl MachineARM64 {
                 }
             }
             Location::Imm32(val) => {
-                let tmp = self.acquire_temp_gpr().unwrap();
-                temps.push(tmp.clone());
-                self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
-                Location::GPR(tmp)
+                if self.compatible_imm(val as i64, allow_imm) {
+                    src
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    temps.push(tmp.clone());
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                    Location::GPR(tmp)
+                }
             }
             Location::Imm64(val) => {
-                let tmp = self.acquire_temp_gpr().unwrap();
-                temps.push(tmp.clone());
-                self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
-                Location::GPR(tmp)
+                if self.compatible_imm(val as i64, allow_imm) {
+                    src
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    temps.push(tmp.clone());
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                    Location::GPR(tmp)
+                }
             }
             Location::Memory(reg, val) => {
                 let tmp = self.acquire_temp_gpr().unwrap();
                 temps.push(tmp.clone());
-                if val > -256 && val < 256 {
+                if self.compatible_imm(val as i64, ImmType::UnscaledOffset) {
                     self.assembler.emit_ldur(sz, Location::GPR(tmp), reg, val);
                 } else {
                     self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
@@ -119,11 +163,12 @@ impl MachineARM64 {
         src1: Location,
         src2: Location,
         dst: Location,
+        allow_imm: ImmType,
     ) {
         let mut temps = vec![];
-        let src1 = self.location_to_reg(sz, src1, &mut temps, false);
-        let src2 = self.location_to_reg(sz, src2, &mut temps, true);
-        let dest = self.location_to_reg(sz, dst, &mut temps, false);
+        let src1 = self.location_to_reg(sz, src1, &mut temps, ImmType::None);
+        let src2 = self.location_to_reg(sz, src2, &mut temps, allow_imm);
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None);
         op(&mut self.assembler, sz, src1, src2, dest);
         if dst != dest {
             self.move_location(sz, dest, dst);
@@ -135,9 +180,9 @@ impl MachineARM64 {
     fn emit_relaxed_ldr64(&mut self, dst: Location, src: Location) {
         match src {
             Location::Memory(addr, offset) => {
-                if offset & 0x7 == 0 {
+                if self.compatible_imm(offset as i64, ImmType::OffsetQuad) {
                     self.assembler.emit_ldr(Size::S64, dst, src);
-                } else if offset > -256 && offset < 256 {
+                } else if self.compatible_imm(offset as i64, ImmType::UnscaledOffset) {
                     self.assembler.emit_ldur(Size::S64, dst, addr, offset);
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
@@ -1118,7 +1163,7 @@ impl Machine for MachineARM64 {
 
     fn emit_call_location(&mut self, location: Location) {
         let mut temps = vec![];
-        let loc = self.location_to_reg(Size::S64, location, &mut temps, false);
+        let loc = self.location_to_reg(Size::S64, location, &mut temps, ImmType::None);
         match loc {
             Location::GPR(reg) => self.assembler.emit_call_register(reg),
             _ => unreachable!(),
@@ -1147,8 +1192,8 @@ impl Machine for MachineARM64 {
     // math
     fn location_add(&mut self, size: Size, source: Location, dest: Location, flags: bool) {
         let mut temps = vec![];
-        let src = self.location_to_reg(size, source, &mut temps, true);
-        let dst = self.location_to_reg(size, dest, &mut temps, false);
+        let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits8);
+        let dst = self.location_to_reg(size, dest, &mut temps, ImmType::None);
         if flags {
             self.assembler.emit_adds(size, dst, src, dst);
         } else {
@@ -1163,8 +1208,8 @@ impl Machine for MachineARM64 {
     }
     fn location_sub(&mut self, size: Size, source: Location, dest: Location, flags: bool) {
         let mut temps = vec![];
-        let src = self.location_to_reg(size, source, &mut temps, true);
-        let dst = self.location_to_reg(size, dest, &mut temps, false);
+        let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits8);
+        let dst = self.location_to_reg(size, dest, &mut temps, ImmType::None);
         if flags {
             self.assembler.emit_subs(size, dst, src, dst);
         } else {
@@ -1294,13 +1339,34 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_binop_add32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_binop3(Assembler::emit_add, Size::S32, loc_a, loc_b, ret);
+        self.emit_relaxed_binop3(
+            Assembler::emit_add,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits8,
+        );
     }
     fn emit_binop_sub32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_binop3(Assembler::emit_sub, Size::S32, loc_a, loc_b, ret);
+        self.emit_relaxed_binop3(
+            Assembler::emit_sub,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits8,
+        );
     }
     fn emit_binop_mul32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_binop3(Assembler::emit_mul, Size::S32, loc_a, loc_b, ret);
+        self.emit_relaxed_binop3(
+            Assembler::emit_mul,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
     fn emit_binop_udiv32(
         &mut self,
@@ -1338,14 +1404,35 @@ impl Machine for MachineARM64 {
     ) -> usize {
         unimplemented!();
     }
-    fn emit_binop_and32(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn emit_binop_and32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_and,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Logical32,
+        );
     }
-    fn emit_binop_or32(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn emit_binop_or32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_or,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Logical32,
+        );
     }
-    fn emit_binop_xor32(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn emit_binop_xor32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_eor,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Logical32,
+        );
     }
     fn i32_cmp_ge_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
@@ -1386,20 +1473,71 @@ impl Machine for MachineARM64 {
     fn i32_popcnt(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_shl(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i32_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_lsl,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift32No0,
+        );
     }
-    fn i32_shr(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i32_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_lsr,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift32No0,
+        );
     }
-    fn i32_sar(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i32_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_asr,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift32No0,
+        );
     }
-    fn i32_rol(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i32_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let src2 = match loc_b {
+            Location::Imm8(imm) => Location::Imm8(32 - (imm & 31)),
+            Location::Imm32(imm) => Location::Imm8(32 - (imm & 31) as u8),
+            Location::Imm64(imm) => Location::Imm8(32 - (imm & 31) as u8),
+            _ => {
+                let tmp1 =
+                    self.location_to_reg(Size::S32, Location::Imm32(32), &mut temps, ImmType::None);
+                let tmp2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None);
+                self.assembler.emit_sub(Size::S32, tmp1, tmp2, tmp2);
+                tmp2
+            }
+        };
+        self.emit_relaxed_binop3(
+            Assembler::emit_ror,
+            Size::S32,
+            loc_a,
+            src2,
+            ret,
+            ImmType::Shift32No0,
+        );
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn i32_ror(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i32_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_ror,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift32No0,
+        );
     }
     fn i32_load(
         &mut self,
@@ -2011,14 +2149,35 @@ impl Machine for MachineARM64 {
     ) -> usize {
         unimplemented!();
     }
-    fn emit_binop_and64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn emit_binop_and64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_and,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Logical64,
+        );
     }
-    fn emit_binop_or64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn emit_binop_or64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_or,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Logical64,
+        );
     }
-    fn emit_binop_xor64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn emit_binop_xor64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_eor,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Logical64,
+        );
     }
     fn i64_cmp_ge_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
@@ -2059,20 +2218,72 @@ impl Machine for MachineARM64 {
     fn i64_popcnt(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_shl(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i64_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_lsl,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift64No0,
+        );
     }
-    fn i64_shr(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i64_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_lsr,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift64No0,
+        );
     }
-    fn i64_sar(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i64_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_asr,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift64No0,
+        );
     }
-    fn i64_rol(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i64_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        // there is no ROL on ARM64. We use ROR with 64-value instead
+        let mut temps = vec![];
+        let src2 = match loc_b {
+            Location::Imm8(imm) => Location::Imm8(64 - (imm & 63)),
+            Location::Imm32(imm) => Location::Imm8(64 - (imm & 63) as u8),
+            Location::Imm64(imm) => Location::Imm8(64 - (imm & 63) as u8),
+            _ => {
+                let tmp1 =
+                    self.location_to_reg(Size::S64, Location::Imm32(64), &mut temps, ImmType::None);
+                let tmp2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None);
+                self.assembler.emit_sub(Size::S64, tmp1, tmp2, tmp2);
+                tmp2
+            }
+        };
+        self.emit_relaxed_binop3(
+            Assembler::emit_ror,
+            Size::S64,
+            loc_a,
+            src2,
+            ret,
+            ImmType::Shift64No0,
+        );
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn i64_ror(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn i64_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3(
+            Assembler::emit_ror,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Shift64No0,
+        );
     }
     fn i64_load(
         &mut self,

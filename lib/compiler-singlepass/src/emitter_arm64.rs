@@ -4,6 +4,7 @@ use crate::location::Location as AbstractLocation;
 pub use crate::location::{Multiplier, Reg};
 pub use crate::machine::{Label, Offset};
 use dynasm::dynasm;
+pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
     aarch64::Aarch64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
     VecAssembler,
@@ -124,6 +125,15 @@ pub trait EmitterARM64 {
 
     fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_tst(&mut self, sz: Size, src: Location, dst: Location);
+
+    fn emit_lsl(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_lsr(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_asr(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_ror(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+
+    fn emit_or(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_and(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_eor(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
 
     fn emit_label(&mut self, label: Label);
     fn emit_load_label(&mut self, reg: GPR, label: Label);
@@ -561,12 +571,6 @@ impl EmitterARM64 for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; add X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2 as u32;
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(src1), src2);
-            }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
@@ -579,11 +583,23 @@ impl EmitterARM64 for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; add X(dst), X(src1), imm as u32);
             }
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; add X(dst), X(src1), imm);
+            }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; add W(dst), W(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; add W(dst), W(src1), imm);
             }
             _ => panic!(
                 "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
@@ -614,6 +630,16 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; sub W(dst), W(src1), imm as u32);
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sub X(dst), X(src1), imm);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sub W(dst), W(src1), imm);
             }
             _ => panic!(
                 "singlepass can't emit SUB {:?} {:?} {:?} {:?}",
@@ -718,8 +744,8 @@ impl EmitterARM64 for Assembler {
                 dynasm!(self ; add X(dst), X(src1), X(src2), LSL lsl);
             }
             _ => panic!(
-                "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
-                sz, src1, src2, dst
+                "singlepass can't emit ADD {:?} {:?} {:?} {:?} LSL {:?}",
+                sz, src1, src2, dst, lsl
             ),
         }
     }
@@ -747,6 +773,10 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::Imm8(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; add W(dst), W(dst), imm as u32);
+            }
+            (Size::S32, Location::Imm32(imm), Location::GPR(dst)) => {
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; add W(dst), W(dst), imm);
             }
             _ => panic!("singlepass can't emit ADD {:?} {:?} {:?}", sz, src, dst),
         }
@@ -819,6 +849,293 @@ impl EmitterARM64 for Assembler {
             _ => unreachable!(),
         }
     }
+
+    fn emit_lsl(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsl X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsl X(dst), X(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsl W(dst), W(src1), W(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsl X(dst), X(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsl W(dst), W(src1), imm as u32);
+            }
+            _ => panic!(
+                "singlepass can't emit LSL {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_asr(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; asr X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u32;
+                let dst = dst.into_index() as u32;
+                if src2 == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; asr X(dst), X(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; asr W(dst), W(src1), W(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                if imm == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; asr X(dst), X(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; asr W(dst), W(src1), imm as u32);
+            }
+            _ => panic!(
+                "singlepass can't emit ASR {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_lsr(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsr X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u32;
+                let dst = dst.into_index() as u32;
+                if src2 == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; lsr X(dst), X(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsr W(dst), W(src1), W(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                if imm == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; lsr X(dst), X(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; lsr W(dst), W(src1), imm as u32);
+            }
+            _ => panic!(
+                "singlepass can't emit LSR {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_ror(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ror X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u32;
+                let dst = dst.into_index() as u32;
+                if src2 == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ror X(dst), X(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ror W(dst), W(src1), W(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                if imm == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ror X(dst), X(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ror W(dst), W(src1), imm as u32);
+            }
+            _ => panic!(
+                "singlepass can't emit ROR {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+
+    fn emit_or(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; orr X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u64;
+                let dst = dst.into_index() as u32;
+                if !encode_logical_immediate_64bit(src2 as u64).is_some() {
+                    unreachable!();
+                }
+                dynasm!(self ; orr X(dst), X(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u32;
+                let dst = dst.into_index() as u32;
+                if !encode_logical_immediate_32bit(src2).is_some() {
+                    unreachable!();
+                }
+                dynasm!(self ; orr W(dst), W(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; orr W(dst), W(src1), W(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit OR {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_and(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; and X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u64;
+                let dst = dst.into_index() as u32;
+                if !encode_logical_immediate_64bit(src2 as u64).is_some() {
+                    unreachable!();
+                }
+                dynasm!(self ; and X(dst), X(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u32;
+                let dst = dst.into_index() as u32;
+                if !encode_logical_immediate_32bit(src2).is_some() {
+                    unreachable!();
+                }
+                dynasm!(self ; and W(dst), W(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; and W(dst), W(src1), W(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit AND {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_eor(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; eor X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u64;
+                let dst = dst.into_index() as u32;
+                if !encode_logical_immediate_64bit(src2 as u64).is_some() {
+                    unreachable!();
+                }
+                dynasm!(self ; eor X(dst), X(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2 as u32;
+                let dst = dst.into_index() as u32;
+                if !encode_logical_immediate_32bit(src2).is_some() {
+                    unreachable!();
+                }
+                dynasm!(self ; eor W(dst), W(src1), src2);
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; eor W(dst), W(src1), W(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit EOR {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+
     fn emit_label(&mut self, label: Label) {
         dynasm!(self ; => label);
     }
