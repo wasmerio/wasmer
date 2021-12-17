@@ -2,6 +2,7 @@
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
 use crate::Exports;
+use crate::Extern;
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
@@ -115,6 +116,24 @@ impl ImportObject {
     pub fn get_namespace_exports(&self, name: &str) -> Option<Exports> {
         let map = self.map.lock().unwrap();
         map.get(name).and_then(|ns| ns.as_exports())
+    }
+
+    /// Returns a list of all externs defined in all namespaces.
+    pub fn externs_vec(&self) -> Vec<(String, String, Extern)> {
+        let mut out = Vec::new();
+        let guard = self.map.lock().unwrap();
+        let map = guard.borrow();
+        for (namespace, ns) in map.iter() {
+            match ns.as_exports() {
+                Some(exports) => {
+                    for (name, extern_) in exports.iter() {
+                        out.push((namespace.clone(), name.clone(), extern_.clone()));
+                    }
+                }
+                None => {}
+            }
+        }
+        out
     }
 
     fn get_objects(&self) -> VecDeque<((String, String), Export)> {
