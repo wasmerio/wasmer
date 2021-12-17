@@ -118,7 +118,7 @@ impl ImportObject {
         map.get(name).and_then(|ns| ns.as_exports())
     }
 
-    /// Returns the externs
+    /// Returns a list of all externs defined in all namespaces.
     pub fn externs_vec(&self) -> Vec<(String, String, Extern)> {
         let mut out = Vec::new();
         let guard = self.map.lock().unwrap();
