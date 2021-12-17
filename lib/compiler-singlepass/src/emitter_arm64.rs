@@ -82,16 +82,6 @@ pub enum GPROrMemory {
     Memory(GPR, i32),
 }
 
-fn is_immediate_64bit_encodable(value: u64) -> bool {
-    let offset = value.trailing_zeros() & 0b11_0000;
-    let masked = 0xffff & (value >> offset);
-    if (masked << offset) == value {
-        true
-    } else {
-        false
-    }
-}
-
 pub trait EmitterARM64 {
     fn get_label(&mut self) -> Label;
     fn get_offset(&self) -> Offset;
@@ -536,8 +526,10 @@ impl EmitterARM64 for Assembler {
         match dst {
             Location::GPR(dst) => {
                 let dst = dst.into_index() as u32;
-                if is_immediate_64bit_encodable(val) {
-                    dynasm!(self ; mov W(dst), val);
+                let offset = val.trailing_zeros() & 48;
+                let masked = 0xffff & (val >> offset);
+                if (masked << offset) == val {
+                    dynasm!(self ; movz X(dst), masked as u32, LSL offset);
                 } else {
                     dynasm!(self ; movz W(dst), (val&0xffff) as u32);
                     let val = val >> 16;
