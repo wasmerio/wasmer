@@ -690,8 +690,8 @@ mod js {
 
         impl std::error::Error for ExitCode {}
 
-        fn early_exit() {
-            RuntimeError::raise(Box::new(ExitCode(1)));
+        fn early_exit() -> Result<(), RuntimeError> {
+            Err(RuntimeError::custom(Box::new(ExitCode(1))))
         }
 
         let import_object = imports! {
