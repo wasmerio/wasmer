@@ -132,6 +132,28 @@ impl MachineARM64 {
             self.release_gpr(r);
         }
     }
+    fn emit_relaxed_ldr64(&mut self, dst: Location, src: Location) {
+        match src {
+            Location::Memory(addr, offset) => {
+                if offset & 0x7 == 0 {
+                    self.assembler.emit_ldr(Size::S64, dst, src);
+                } else if offset > -256 && offset < 256 {
+                    self.assembler.emit_ldur(Size::S64, dst, addr, offset);
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_ldr(
+                        Size::S64,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
     /// I32 binary operation with both operands popped from the virtual stack.
     /*fn emit_binop_i32(
         &mut self,
@@ -245,13 +267,11 @@ impl MachineARM64 {
         let tmp_bound = self.acquire_temp_gpr().unwrap();
 
         // Load base into temporary register.
-        self.assembler
-            .emit_ldr(Size::S64, Location::GPR(tmp_base), base_loc);
+        self.emit_relaxed_ldr64(Location::GPR(tmp_base), base_loc);
 
         // Load bound into temporary register, if needed.
         if need_check {
-            self.assembler
-                .emit_ldr(Size::S64, Location::GPR(tmp_bound), bound_loc);
+            self.emit_relaxed_ldr64(Location::GPR(tmp_bound), bound_loc);
 
             // Wasm -> Effective.
             // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,

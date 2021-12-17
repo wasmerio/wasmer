@@ -264,6 +264,19 @@ impl EmitterARM64 for Assembler {
                 let disp = disp as u32;
                 dynasm!(self ; ldrb W(reg), [X(addr), disp]);
             }
+            (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldr X(reg), [X(addr), X(r2), LSL mult]);
+            }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
