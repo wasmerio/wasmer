@@ -746,15 +746,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let mut stack_offset: usize = 0;
 
-        while self
-            .machine
-            .round_stack_adjust(used_gprs.len() * 8 + used_simds.len() * 8)
-            != used_gprs.len() * 8 + used_simds.len() * 8 + stack_offset
-        {
-            // on ARM64, push use 2 bytes slot, because stack as to stay 16bytes aligned
-            stack_offset += 8;
-        }
-
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
             if let Location::Memory(_, _) =
@@ -765,17 +756,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         // Align stack to 16 bytes.
-        if (self.get_stack_offset()
-            + self
-                .machine
-                .round_stack_adjust(used_gprs.len() * 8 + used_simds.len() * 8)
-            + stack_offset)
-            % 16
-            != 0
-        {
-            self.machine.adjust_stack(8);
-            stack_offset += 8;
-            self.state.stack_values.push(MachineValue::Undefined);
+        if self.machine.round_stack_adjust(8) == 8 {
+            if (self.get_stack_offset() + used_gprs.len() * 8 + used_simds.len() * 8 + stack_offset)
+                % 16
+                != 0
+            {
+                self.machine.adjust_stack(8);
+                stack_offset += 8;
+                self.state.stack_values.push(MachineValue::Undefined);
+            }
         }
 
         let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
@@ -883,8 +872,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
-            self.machine
-                .restore_stack((stack_offset + stack_padding) as u32);
+            self.machine.restore_stack(
+                self.machine
+                    .round_stack_adjust(stack_offset + stack_padding) as u32,
+            );
             if (stack_offset % 8) != 0 {
                 return Err(CodegenError {
                     message: "emit_call_native: Bad restoring stack alignement".to_string(),
