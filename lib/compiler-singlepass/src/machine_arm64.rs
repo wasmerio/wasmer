@@ -133,7 +133,7 @@ impl MachineARM64 {
         }
     }
     /// I32 binary operation with both operands popped from the virtual stack.
-    fn emit_binop_i32(
+    /*fn emit_binop_i32(
         &mut self,
         f: fn(&mut Assembler, Size, Location, Location),
         loc_a: Location,
@@ -149,9 +149,9 @@ impl MachineARM64 {
         } else {
             self.emit_relaxed_binop(f, Size::S32, loc_b, ret, true);
         }
-    }
+    }*/
     /// I64 binary operation with both operands popped from the virtual stack.
-    fn emit_binop_i64(
+    /*fn emit_binop_i64(
         &mut self,
         f: fn(&mut Assembler, Size, Location, Location),
         loc_a: Location,
@@ -167,9 +167,9 @@ impl MachineARM64 {
         } else {
             self.emit_relaxed_binop(f, Size::S64, loc_b, ret, true);
         }
-    }
+    }*/
     /// I64 comparison with.
-    fn emit_cmpop_i64_dynamic_b(
+    /*fn emit_cmpop_i64_dynamic_b(
         &mut self,
         _c: Condition,
         _loc_a: Location,
@@ -177,9 +177,9 @@ impl MachineARM64 {
         _ret: Location,
     ) {
         unimplemented!();
-    }
+    }*/
     /// I64 shift with both operands popped from the virtual stack.
-    fn emit_shift_i64(
+    /*fn emit_shift_i64(
         &mut self,
         _f: fn(&mut Assembler, Size, Location, Location),
         _loc_a: Location,
@@ -187,9 +187,9 @@ impl MachineARM64 {
         _ret: Location,
     ) {
         unimplemented!();
-    }
+    }*/
     /// I32 comparison with.
-    fn emit_cmpop_i32_dynamic_b(
+    /*fn emit_cmpop_i32_dynamic_b(
         &mut self,
         _c: Condition,
         _loc_a: Location,
@@ -197,9 +197,9 @@ impl MachineARM64 {
         _ret: Location,
     ) {
         unimplemented!();
-    }
+    }*/
     /// I32 shift with both operands popped from the virtual stack.
-    fn emit_shift_i32(
+    /*fn emit_shift_i32(
         &mut self,
         _f: fn(&mut Assembler, Size, Location, Location),
         _loc_a: Location,
@@ -207,7 +207,7 @@ impl MachineARM64 {
         _ret: Location,
     ) {
         unimplemented!();
-    }
+    }*/
 
     fn memory_op<F: FnOnce(&mut Self, GPR)>(
         &mut self,
@@ -341,7 +341,7 @@ impl MachineARM64 {
         self.release_gpr(tmp_addr);
     }
 
-    fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
+    /*fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
         &mut self,
         _loc: Location,
         _target: Location,
@@ -357,126 +357,7 @@ impl MachineARM64 {
         _cb: F,
     ) {
         unimplemented!();
-    }
-
-    // Checks for underflow/overflow/nan.
-    fn emit_f32_int_conv_check(
-        &mut self,
-        _reg: NEON,
-        _lower_bound: f32,
-        _upper_bound: f32,
-        _underflow_label: Label,
-        _overflow_label: Label,
-        _nan_label: Label,
-        _succeed_label: Label,
-    ) {
-        unimplemented!();
-    }
-
-    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F32.
-    fn emit_f32_int_conv_check_trap(&mut self, reg: NEON, lower_bound: f32, upper_bound: f32) {
-        unimplemented!();
-    }
-    fn emit_f32_int_conv_check_sat<
-        F1: FnOnce(&mut Self),
-        F2: FnOnce(&mut Self),
-        F3: FnOnce(&mut Self),
-        F4: FnOnce(&mut Self),
-    >(
-        &mut self,
-        _reg: NEON,
-        _lower_bound: f32,
-        _upper_bound: f32,
-        _underflow_cb: F1,
-        _overflow_cb: F2,
-        _nan_cb: Option<F3>,
-        _convert_cb: F4,
-    ) {
-        unimplemented!();
-    }
-    // Checks for underflow/overflow/nan.
-    fn emit_f64_int_conv_check(
-        &mut self,
-        _reg: NEON,
-        _lower_bound: f64,
-        _upper_bound: f64,
-        _underflow_label: Label,
-        _overflow_label: Label,
-        _nan_label: Label,
-        _succeed_label: Label,
-    ) {
-        unimplemented!();
-    }
-    // Checks for underflow/overflow/nan before IxxTrunc{U/S}F64.. return offset/len for trap_overflow and trap_badconv
-    fn emit_f64_int_conv_check_trap(&mut self, reg: NEON, lower_bound: f64, upper_bound: f64) {
-        unimplemented!();
-    }
-    fn emit_f64_int_conv_check_sat<
-        F1: FnOnce(&mut Self),
-        F2: FnOnce(&mut Self),
-        F3: FnOnce(&mut Self),
-        F4: FnOnce(&mut Self),
-    >(
-        &mut self,
-        _reg: NEON,
-        _lower_bound: f64,
-        _upper_bound: f64,
-        _underflow_cb: F1,
-        _overflow_cb: F2,
-        _nan_cb: Option<F3>,
-        _convert_cb: F4,
-    ) {
-        unimplemented!();
-    }
-
-    fn convert_i64_f64_u_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i64_f64_u_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i64_f64_s_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i64_f64_s_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f64_s_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f64_s_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f64_u_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f64_u_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i64_f32_u_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i64_f32_u_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i64_f32_s_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i64_f32_s_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f32_s_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f32_s_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f32_u_s(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
-    fn convert_i32_f32_u_u(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
-    }
+    }*/
 
     fn offset_is_ok(&self, size: Size, offset: i32) -> bool {
         if offset < 0 {
@@ -888,7 +769,7 @@ impl Machine for MachineARM64 {
     }
 
     // Zero a location that is 32bits
-    fn zero_location(&mut self, size: Size, location: Location) {
+    fn zero_location(&mut self, _size: Size, location: Location) {
         match location {
             Location::GPR(_) => self.assembler.emit_mov_imm(location, 0u64),
             _ => unreachable!(),
@@ -941,7 +822,7 @@ impl Machine for MachineARM64 {
     }
 
     // List of register to save, depending on the CallingConvention
-    fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
+    fn list_to_save(&self, _calling_convention: CallingConvention) -> Vec<Location> {
         vec![]
     }
 
@@ -1063,19 +944,19 @@ impl Machine for MachineARM64 {
     // move a location to another
     fn move_location_extend(
         &mut self,
-        size_val: Size,
-        signed: bool,
-        source: Location,
-        size_op: Size,
-        dest: Location,
+        _size_val: Size,
+        _signed: bool,
+        _source: Location,
+        _size_op: Size,
+        _dest: Location,
     ) {
         unimplemented!();
     }
-    fn load_address(&mut self, size: Size, reg: Location, mem: Location) {
+    fn load_address(&mut self, _size: Size, _reg: Location, _mem: Location) {
         unimplemented!();
     }
     // Init the stack loc counter
-    fn init_stack_loc(&mut self, init_stack_loc_cnt: u64, last_stack_loc: Location) {
+    fn init_stack_loc(&mut self, _init_stack_loc_cnt: u64, _last_stack_loc: Location) {
         unimplemented!();
     }
     // Restore save_area
@@ -1177,7 +1058,7 @@ impl Machine for MachineARM64 {
     fn arch_supports_canonicalize_nan(&self) -> bool {
         self.assembler.arch_supports_canonicalize_nan()
     }
-    fn canonicalize_nan(&mut self, sz: Size, input: Location, output: Location) {
+    fn canonicalize_nan(&mut self, _sz: Size, _input: Location, _output: Location) {
         unimplemented!();
     }
 
@@ -1227,20 +1108,20 @@ impl Machine for MachineARM64 {
         }
     }
 
-    fn location_address(&mut self, size: Size, source: Location, dest: Location) {
+    fn location_address(&mut self, _size: Size, _source: Location, _dest: Location) {
         unimplemented!();
     }
     // logic
-    fn location_and(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+    fn location_and(&mut self, _size: Size, _source: Location, _dest: Location, _flags: bool) {
         unimplemented!();
     }
-    fn location_xor(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+    fn location_xor(&mut self, _size: Size, _source: Location, _dest: Location, _flags: bool) {
         unimplemented!();
     }
-    fn location_or(&mut self, size: Size, source: Location, dest: Location, _flags: bool) {
+    fn location_or(&mut self, _size: Size, _source: Location, _dest: Location, _flags: bool) {
         unimplemented!();
     }
-    fn location_test(&mut self, size: Size, source: Location, dest: Location) {
+    fn location_test(&mut self, _size: Size, _source: Location, _dest: Location) {
         unimplemented!();
     }
     // math
@@ -1302,7 +1183,7 @@ impl Machine for MachineARM64 {
     }
 
     // jmp table
-    fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) {
+    fn emit_jmp_to_jumptable(&mut self, _label: Label, _cond: Location) {
         unimplemented!();
     }
 
@@ -1327,11 +1208,11 @@ impl Machine for MachineARM64 {
 
     fn location_neg(
         &mut self,
-        size_val: Size, // size of src
-        signed: bool,
-        source: Location,
-        size_op: Size,
-        dest: Location,
+        _size_val: Size, // size of src
+        _signed: bool,
+        _source: Location,
+        _size_op: Size,
+        _dest: Location,
     ) {
         unimplemented!();
     }
@@ -1358,19 +1239,19 @@ impl Machine for MachineARM64 {
     }
     fn emit_relaxed_zero_extension(
         &mut self,
-        sz_src: Size,
-        src: Location,
-        sz_dst: Size,
-        dst: Location,
+        _sz_src: Size,
+        _src: Location,
+        _sz_dst: Size,
+        _dst: Location,
     ) {
         unimplemented!();
     }
     fn emit_relaxed_sign_extension(
         &mut self,
-        sz_src: Size,
-        src: Location,
-        sz_dst: Size,
-        dst: Location,
+        _sz_src: Size,
+        _src: Location,
+        _sz_dst: Size,
+        _dst: Location,
     ) {
         unimplemented!();
     }
@@ -1382,105 +1263,105 @@ impl Machine for MachineARM64 {
         self.emit_relaxed_binop3(Assembler::emit_sub, Size::S32, loc_a, loc_b, ret);
     }
     fn emit_binop_mul32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        unimplemented!();
+        self.emit_relaxed_binop3(Assembler::emit_mul, Size::S32, loc_a, loc_b, ret);
     }
     fn emit_binop_udiv32(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
     fn emit_binop_sdiv32(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
     fn emit_binop_urem32(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
     fn emit_binop_srem32(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
-    fn emit_binop_and32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_and32(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn emit_binop_or32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_or32(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn emit_binop_xor32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_xor32(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_ge_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_ge_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_gt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_gt_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_le_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_le_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_lt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_lt_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_ge_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_ge_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_gt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_gt_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_le_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_le_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_lt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_lt_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_ne(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_cmp_eq(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_clz(&mut self, loc: Location, ret: Location) {
+    fn i32_clz(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_ctz(&mut self, loc: Location, ret: Location) {
+    fn i32_ctz(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_popcnt(&mut self, loc: Location, ret: Location) {
+    fn i32_popcnt(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_shl(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_shr(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_sar(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_rol(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i32_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i32_ror(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
     fn i32_load(
@@ -1605,406 +1486,406 @@ impl Machine for MachineARM64 {
     }
     fn i32_atomic_load(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_atomic_load_8u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_atomic_load_16u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_save(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_save_8(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_save_16(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_atomic_save(
         &mut self,
-        value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_atomic_save_8(
         &mut self,
-        value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i32_atomic_save_16(
         &mut self,
-        value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Add with i32
     fn i32_atomic_add(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Add with u8
     fn i32_atomic_add_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Add with u16
     fn i32_atomic_add_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Sub with i32
     fn i32_atomic_sub(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Sub with u8
     fn i32_atomic_sub_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Sub with u16
     fn i32_atomic_sub_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic And with i32
     fn i32_atomic_and(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic And with u8
     fn i32_atomic_and_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic And with u16
     fn i32_atomic_and_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Or with i32
     fn i32_atomic_or(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Or with u8
     fn i32_atomic_or_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Or with u16
     fn i32_atomic_or_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Xor with i32
     fn i32_atomic_xor(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Xor with u8
     fn i32_atomic_xor_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Xor with u16
     fn i32_atomic_xor_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Exchange with i32
     fn i32_atomic_xchg(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Exchange with u8
     fn i32_atomic_xchg_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Exchange with u16
     fn i32_atomic_xchg_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Exchange with i32
     fn i32_atomic_cmpxchg(
         &mut self,
-        new: Location,
-        cmp: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _new: Location,
+        _cmp: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Exchange with u8
     fn i32_atomic_cmpxchg_8u(
         &mut self,
-        new: Location,
-        cmp: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _new: Location,
+        _cmp: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i32 atomic Exchange with u16
     fn i32_atomic_cmpxchg_16u(
         &mut self,
-        new: Location,
-        cmp: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _new: Location,
+        _cmp: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
@@ -2048,958 +1929,938 @@ impl Machine for MachineARM64 {
         self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 48);
     }
 
-    fn emit_binop_add64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_add64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn emit_binop_sub64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_sub64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn emit_binop_mul64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_mul64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
     fn emit_binop_udiv64(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
     fn emit_binop_sdiv64(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
     fn emit_binop_urem64(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
     fn emit_binop_srem64(
         &mut self,
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-        integer_division_by_zero: Label,
+        _loc_a: Location,
+        _loc_b: Location,
+        _ret: Location,
+        _integer_division_by_zero: Label,
     ) -> usize {
         unimplemented!();
     }
-    fn emit_binop_and64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_and64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn emit_binop_or64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_or64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn emit_binop_xor64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn emit_binop_xor64(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_ge_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_ge_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_gt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_gt_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_le_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_le_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_lt_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_lt_s(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_ge_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_ge_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_gt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_gt_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_le_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_le_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_lt_u(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_lt_u(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_ne(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_cmp_eq(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_clz(&mut self, loc: Location, ret: Location) {
+    fn i64_clz(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_ctz(&mut self, loc: Location, ret: Location) {
+    fn i64_ctz(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_popcnt(&mut self, loc: Location, ret: Location) {
+    fn i64_popcnt(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_shl(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_shr(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_sar(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_rol(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn i64_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn i64_ror(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
     fn i64_load(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_load_8u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_load_8s(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_load_16u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_load_16s(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_load_32u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_load_32s(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_load(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_load_8u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_load_16u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_load_32u(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_save(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_save_8(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_save_16(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_save_32(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_save(
         &mut self,
-        value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_save_8(
         &mut self,
-        value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_save_16(
         &mut self,
-        value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn i64_atomic_save_32(
         &mut self,
-        value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Add with i64
     fn i64_atomic_add(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Add with u8
     fn i64_atomic_add_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Add with u16
     fn i64_atomic_add_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Add with u32
     fn i64_atomic_add_32u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Sub with i64
     fn i64_atomic_sub(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Sub with u8
     fn i64_atomic_sub_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Sub with u16
     fn i64_atomic_sub_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Sub with u32
     fn i64_atomic_sub_32u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic And with i64
     fn i64_atomic_and(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic And with u8
     fn i64_atomic_and_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic And with u16
     fn i64_atomic_and_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic And with u32
     fn i64_atomic_and_32u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Or with i64
     fn i64_atomic_or(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Or with u8
     fn i64_atomic_or_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Or with u16
     fn i64_atomic_or_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Or with u32
     fn i64_atomic_or_32u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic xor with i64
     fn i64_atomic_xor(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic xor with u8
     fn i64_atomic_xor_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic xor with u16
     fn i64_atomic_xor_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic xor with u32
     fn i64_atomic_xor_32u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with i64
     fn i64_atomic_xchg(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with u8
     fn i64_atomic_xchg_8u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with u16
     fn i64_atomic_xchg_16u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with u32
     fn i64_atomic_xchg_32u(
         &mut self,
-        loc: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _loc: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with i64
     fn i64_atomic_cmpxchg(
         &mut self,
-        new: Location,
-        cmp: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _new: Location,
+        _cmp: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with u8
     fn i64_atomic_cmpxchg_8u(
         &mut self,
-        new: Location,
-        cmp: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _new: Location,
+        _cmp: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with u16
     fn i64_atomic_cmpxchg_16u(
         &mut self,
-        new: Location,
-        cmp: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _new: Location,
+        _cmp: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     // i64 atomic Exchange with u32
     fn i64_atomic_cmpxchg_32u(
         &mut self,
-        new: Location,
-        cmp: Location,
-        target: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _new: Location,
+        _cmp: Location,
+        _target: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
 
     fn f32_load(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn f32_save(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        canonicalize: bool,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _canonicalize: bool,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn f64_load(
         &mut self,
-        addr: Location,
-        memarg: &MemoryImmediate,
-        ret: Location,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _addr: Location,
+        _memarg: &MemoryImmediate,
+        _ret: Location,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
     fn f64_save(
         &mut self,
-        target_value: Location,
-        memarg: &MemoryImmediate,
-        target_addr: Location,
-        canonicalize: bool,
-        need_check: bool,
-        imported_memories: bool,
-        offset: i32,
-        heap_access_oob: Label,
+        _target_value: Location,
+        _memarg: &MemoryImmediate,
+        _target_addr: Location,
+        _canonicalize: bool,
+        _need_check: bool,
+        _imported_memories: bool,
+        _offset: i32,
+        _heap_access_oob: Label,
     ) {
         unimplemented!();
     }
 
-    fn convert_f64_i64(&mut self, loc: Location, signed: bool, ret: Location) {
+    fn convert_f64_i64(&mut self, _loc: Location, _signed: bool, _ret: Location) {
         unimplemented!();
     }
-    fn convert_f64_i32(&mut self, loc: Location, signed: bool, ret: Location) {
+    fn convert_f64_i32(&mut self, _loc: Location, _signed: bool, _ret: Location) {
         unimplemented!();
     }
-    fn convert_f32_i64(&mut self, loc: Location, signed: bool, ret: Location) {
+    fn convert_f32_i64(&mut self, _loc: Location, _signed: bool, _ret: Location) {
         unimplemented!();
     }
-    fn convert_f32_i32(&mut self, loc: Location, signed: bool, ret: Location) {
+    fn convert_f32_i32(&mut self, _loc: Location, _signed: bool, _ret: Location) {
         unimplemented!();
     }
-    fn convert_i64_f64(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
-        match (signed, sat) {
-            (false, true) => self.convert_i64_f64_u_s(loc, ret),
-            (false, false) => self.convert_i64_f64_u_u(loc, ret),
-            (true, true) => self.convert_i64_f64_s_s(loc, ret),
-            (true, false) => self.convert_i64_f64_s_u(loc, ret),
-        }
-    }
-    fn convert_i32_f64(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
-        match (signed, sat) {
-            (false, true) => self.convert_i32_f64_u_s(loc, ret),
-            (false, false) => self.convert_i32_f64_u_u(loc, ret),
-            (true, true) => self.convert_i32_f64_s_s(loc, ret),
-            (true, false) => self.convert_i32_f64_s_u(loc, ret),
-        }
-    }
-    fn convert_i64_f32(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
-        match (signed, sat) {
-            (false, true) => self.convert_i64_f32_u_s(loc, ret),
-            (false, false) => self.convert_i64_f32_u_u(loc, ret),
-            (true, true) => self.convert_i64_f32_s_s(loc, ret),
-            (true, false) => self.convert_i64_f32_s_u(loc, ret),
-        }
-    }
-    fn convert_i32_f32(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
-        match (signed, sat) {
-            (false, true) => self.convert_i32_f32_u_s(loc, ret),
-            (false, false) => self.convert_i32_f32_u_u(loc, ret),
-            (true, true) => self.convert_i32_f32_s_s(loc, ret),
-            (true, false) => self.convert_i32_f32_s_u(loc, ret),
-        }
-    }
-    fn convert_f64_f32(&mut self, loc: Location, ret: Location) {
+    fn convert_i64_f64(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
         unimplemented!();
     }
-    fn convert_f32_f64(&mut self, loc: Location, ret: Location) {
+    fn convert_i32_f64(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
         unimplemented!();
     }
-    fn f64_neg(&mut self, loc: Location, ret: Location) {
+    fn convert_i64_f32(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
         unimplemented!();
     }
-    fn f64_abs(&mut self, loc: Location, ret: Location) {
+    fn convert_i32_f32(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
         unimplemented!();
     }
-    fn emit_i64_copysign(&mut self, tmp1: GPR, tmp2: GPR) {
+    fn convert_f64_f32(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_sqrt(&mut self, loc: Location, ret: Location) {
+    fn convert_f32_f64(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_trunc(&mut self, loc: Location, ret: Location) {
+    fn f64_neg(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_ceil(&mut self, loc: Location, ret: Location) {
+    fn f64_abs(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_floor(&mut self, loc: Location, ret: Location) {
+    fn emit_i64_copysign(&mut self, _tmp1: GPR, _tmp2: GPR) {
         unimplemented!();
     }
-    fn f64_nearest(&mut self, loc: Location, ret: Location) {
+    fn f64_sqrt(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_trunc(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_ceil(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_floor(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_nearest(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_cmp_ge(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_cmp_gt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_cmp_le(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_cmp_lt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_cmp_ne(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_sub(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_cmp_eq(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_mul(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_min(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_div(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f64_max(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_neg(&mut self, loc: Location, ret: Location) {
+    fn f64_add(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_abs(&mut self, loc: Location, ret: Location) {
+    fn f64_sub(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn emit_i32_copysign(&mut self, tmp1: GPR, tmp2: GPR) {
+    fn f64_mul(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_sqrt(&mut self, loc: Location, ret: Location) {
+    fn f64_div(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_trunc(&mut self, loc: Location, ret: Location) {
+    fn f32_neg(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_ceil(&mut self, loc: Location, ret: Location) {
+    fn f32_abs(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_floor(&mut self, loc: Location, ret: Location) {
+    fn emit_i32_copysign(&mut self, _tmp1: GPR, _tmp2: GPR) {
         unimplemented!();
     }
-    fn f32_nearest(&mut self, loc: Location, ret: Location) {
+    fn f32_sqrt(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_trunc(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_ceil(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_floor(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_nearest(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_cmp_ge(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_cmp_gt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_cmp_le(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_cmp_lt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_cmp_ne(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_sub(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_cmp_eq(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_mul(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_min(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_div(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+    fn f32_max(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
+        unimplemented!();
+    }
+    fn f32_add(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
+        unimplemented!();
+    }
+    fn f32_sub(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
+        unimplemented!();
+    }
+    fn f32_mul(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
+        unimplemented!();
+    }
+    fn f32_div(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
         unimplemented!();
     }
 
