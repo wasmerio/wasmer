@@ -1203,8 +1203,25 @@ impl Machine for MachineARM64 {
     }
 
     // jmp table
-    fn emit_jmp_to_jumptable(&mut self, _label: Label, _cond: Location) {
-        unimplemented!();
+    fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) {
+        let tmp1 = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp1);
+        let tmp2 = self.pick_temp_gpr().unwrap();
+        self.reserve_gpr(tmp2);
+
+        self.assembler.emit_load_label(tmp1, label);
+        self.move_location(Size::S32, cond, Location::GPR(tmp2));
+
+        self.assembler.emit_add_lsl(
+            Size::S64,
+            Location::GPR(tmp1),
+            Location::GPR(tmp2),
+            2,
+            Location::GPR(tmp2),
+        );
+        self.assembler.emit_b_register(tmp2);
+        self.release_gpr(tmp2);
+        self.release_gpr(tmp1);
     }
 
     fn align_for_loop(&mut self) {

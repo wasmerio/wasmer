@@ -117,6 +117,8 @@ pub trait EmitterARM64 {
     fn emit_adds(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
     fn emit_subs(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
 
+    fn emit_add_lsl(&mut self, sz: Size, src1: Location, src2: Location, lsl: u32, dst: Location);
+
     fn emit_add2(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_sub2(&mut self, sz: Size, src: Location, dst: Location);
 
@@ -124,6 +126,7 @@ pub trait EmitterARM64 {
     fn emit_tst(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_label(&mut self, label: Label);
+    fn emit_load_label(&mut self, reg: GPR, label: Label);
     fn emit_b_label(&mut self, label: Label);
     fn emit_bcond_label(&mut self, condition: Condition, label: Label);
     fn emit_b_register(&mut self, reg: GPR);
@@ -706,6 +709,20 @@ impl EmitterARM64 for Assembler {
             ),
         }
     }
+    fn emit_add_lsl(&mut self, sz: Size, src1: Location, src2: Location, lsl: u32, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; add X(dst), X(src1), X(src2), LSL lsl);
+            }
+            _ => panic!(
+                "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
     fn emit_add2(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
@@ -804,6 +821,10 @@ impl EmitterARM64 for Assembler {
     }
     fn emit_label(&mut self, label: Label) {
         dynasm!(self ; => label);
+    }
+    fn emit_load_label(&mut self, reg: GPR, label: Label) {
+        let reg = reg.into_index() as u32;
+        dynasm!(self ; adr X(reg), =>label);
     }
     fn emit_b_label(&mut self, label: Label) {
         dynasm!(self ; b =>label);
