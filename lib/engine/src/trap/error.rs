@@ -107,8 +107,29 @@ impl RuntimeError {
     }
 
     /// Raises a custom user Error
+    #[deprecated(since = "2.1.1", note = "prefer using RuntimeError::custom instead")]
     pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
         unsafe { raise_user_trap(error) }
+    }
+
+    /// Creates a custom user Error.
+    ///
+    /// This error object can be passed through Wasm frames and later retrieved
+    /// using the `downcast` method.
+    pub fn custom(error: Box<dyn Error + Send + Sync>) -> Self {
+        match error.downcast::<Self>() {
+            // The error is already a RuntimeError, we return it directly
+            Ok(runtime_error) => *runtime_error,
+            Err(error) => {
+                let info = FRAME_INFO.read().unwrap();
+                Self::new_with_trace(
+                    &info,
+                    None,
+                    RuntimeErrorSource::User(error),
+                    Backtrace::new_unresolved(),
+                )
+            }
+        }
     }
 
     fn new_with_trace(

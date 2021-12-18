@@ -34,6 +34,10 @@ enum RuntimeErrorSource {
     Js(JsValue),
 }
 
+/// This is a hack to ensure the error type is Send+Sync
+unsafe impl Send for RuntimeErrorSource {}
+unsafe impl Sync for RuntimeErrorSource {}
+
 impl fmt::Display for RuntimeErrorSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -58,24 +62,26 @@ impl RuntimeError {
         }
     }
 
-    /// Creates a new user `RuntimeError` with the given `error`.
-    pub fn user(error: impl Error + Send + Sync + 'static) -> Self {
-        RuntimeError {
-            inner: Arc::new(RuntimeErrorSource::User(Box::new(error))),
-        }
-    }
-
     /// Raises a custom user Error
+    #[deprecated(since = "2.1.1", note = "prefer using RuntimeError::custom instead")]
     pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
-        let error = if error.is::<RuntimeError>() {
-            *error.downcast::<RuntimeError>().unwrap()
-        } else {
-            RuntimeError {
-                inner: Arc::new(RuntimeErrorSource::User(error)),
-            }
-        };
+        let error = Self::custom(error);
         let js_error: JsValue = error.into();
         wasm_bindgen::throw_val(js_error)
+    }
+
+    /// Creates a custom user Error.
+    ///
+    /// This error object can be passed through Wasm frames and later retrieved
+    /// using the `downcast` method.
+    pub fn custom(error: Box<dyn Error + Send + Sync>) -> Self {
+        match error.downcast::<Self>() {
+            // The error is already a RuntimeError, we return it directly
+            Ok(runtime_error) => *runtime_error,
+            Err(error) => RuntimeError {
+                inner: Arc::new(RuntimeErrorSource::User(error)),
+            },
+        }
     }
 
     /// Returns a reference the `message` stored in `Trap`.

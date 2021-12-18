@@ -644,6 +644,7 @@ impl wasmer_types::WasmValueType for Function {
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {
+    use super::RuntimeError;
     use super::VMFunctionBody;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
@@ -1125,6 +1126,7 @@ mod inner {
                         }));
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(),
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
                             _ => unimplemented!(),
                             // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
                             // Err(panic) => unsafe { resume_panic(panic) },
@@ -1170,6 +1172,7 @@ mod inner {
                         }));
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(),
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
                             _ => unimplemented!(),
                             // Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
                             // Err(panic) => unsafe { resume_panic(panic) },

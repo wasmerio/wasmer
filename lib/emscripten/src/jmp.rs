@@ -59,16 +59,14 @@ impl Error for LongJumpRet {}
 /// _longjmp
 // This function differs from the js implementation, it should return Result<(), &'static str>
 #[allow(unreachable_code)]
-pub fn _longjmp(ctx: &EmEnv, env_addr: i32, val: c_int) {
+pub fn _longjmp(ctx: &EmEnv, env_addr: i32, val: c_int) -> Result<(), RuntimeError> {
     let val = if val == 0 { 1 } else { val };
     get_emscripten_data(ctx)
         .set_threw_ref()
         .expect("set_threw is None")
         .call(env_addr, val)
         .expect("set_threw failed to call");
-    // TODO: return Err("longjmp")
-    RuntimeError::raise(Box::new(LongJumpRet));
-    unreachable!();
+    Err(RuntimeError::custom(Box::new(LongJumpRet)))
 }
 
 // extern "C" {
