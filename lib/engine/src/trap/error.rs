@@ -116,7 +116,7 @@ impl RuntimeError {
     ///
     /// This error object can be passed through Wasm frames and later retrieved
     /// using the `downcast` method.
-    pub fn custom(error: Box<dyn Error + Send + Sync>) -> Self {
+    pub fn user(error: Box<dyn Error + Send + Sync>) -> Self {
         match error.downcast::<Self>() {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,
