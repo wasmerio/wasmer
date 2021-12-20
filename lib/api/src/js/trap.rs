@@ -63,7 +63,7 @@ impl RuntimeError {
     }
 
     /// Raises a custom user Error
-    #[deprecated(since = "2.1.1", note = "prefer using RuntimeError::custom instead")]
+    #[deprecated(since = "2.1.1", note = "return a Result from host functions instead")]
     pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
         let error = Self::custom(error);
         let js_error: JsValue = error.into();
