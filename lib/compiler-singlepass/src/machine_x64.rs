@@ -2314,6 +2314,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2336,6 +2337,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2357,6 +2359,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2379,6 +2382,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
@@ -3751,6 +3755,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3773,6 +3778,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3794,6 +3800,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3816,6 +3823,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();

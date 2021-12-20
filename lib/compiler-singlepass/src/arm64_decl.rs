@@ -242,7 +242,7 @@ impl ArgumentRegisterAllocator {
         calling_convention: CallingConvention,
     ) -> Option<ARM64Register> {
         match calling_convention {
-            CallingConvention::SystemV => {
+            CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
                 static GPR_SEQ: &'static [GPR] = &[
                     GPR::X0,
                     GPR::X1,

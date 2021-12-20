@@ -85,6 +85,7 @@ pub struct FuncGen<'a, M: Machine> {
 
 struct SpecialLabelSet {
     integer_division_by_zero: Label,
+    integer_overflow: Label,
     heap_access_oob: Label,
     table_access_oob: Label,
     indirect_call_null: Label,
@@ -1032,6 +1033,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let mut machine = machine;
         let special_labels = SpecialLabelSet {
             integer_division_by_zero: machine.get_label(),
+            integer_overflow: machine.get_label(),
             heap_access_oob: machine.get_label(),
             table_access_oob: machine.get_label(),
             indirect_call_null: machine.get_label(),
@@ -1303,6 +1305,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1313,6 +1316,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1323,6 +1327,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1333,6 +1338,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1469,6 +1475,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1480,6 +1487,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1491,6 +1499,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1502,6 +1511,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -5768,6 +5778,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .emit_label(self.special_labels.integer_division_by_zero);
         self.machine
             .mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
+        self.machine.emit_illegal_op();
+
+        self.machine
+            .emit_label(self.special_labels.integer_overflow);
+        self.machine
+            .mark_address_with_trap_code(TrapCode::IntegerOverflow);
         self.machine.emit_illegal_op();
 
         self.machine.emit_label(self.special_labels.heap_access_oob);

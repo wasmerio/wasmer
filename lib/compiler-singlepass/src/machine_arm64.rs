@@ -580,42 +580,6 @@ impl MachineARM64 {
             self.release_gpr(r);
         }
     }
-    /// I32 binary operation with both operands popped from the virtual stack.
-    /*fn emit_binop_i32(
-        &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-    ) {
-        if loc_a != ret {
-            let tmp = self.acquire_temp_gpr().unwrap();
-            self.emit_relaxed_mov(Size::S32, loc_a, Location::GPR(tmp));
-            self.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp), true);
-            self.emit_relaxed_mov(Size::S32, Location::GPR(tmp), ret);
-            self.release_gpr(tmp);
-        } else {
-            self.emit_relaxed_binop(f, Size::S32, loc_b, ret, true);
-        }
-    }*/
-    /// I64 binary operation with both operands popped from the virtual stack.
-    /*fn emit_binop_i64(
-        &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
-        loc_a: Location,
-        loc_b: Location,
-        ret: Location,
-    ) {
-        if loc_a != ret {
-            let tmp = self.acquire_temp_gpr().unwrap();
-            self.emit_relaxed_mov(Size::S64, loc_a, Location::GPR(tmp));
-            self.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp), true);
-            self.emit_relaxed_mov(Size::S64, Location::GPR(tmp), ret);
-            self.release_gpr(tmp);
-        } else {
-            self.emit_relaxed_binop(f, Size::S64, loc_b, ret, true);
-        }
-    }*/
     /// I64 comparison with.
     fn emit_cmpop_i64_dynamic_b(
         &mut self,
@@ -1764,12 +1728,36 @@ impl Machine for MachineARM64 {
     }
     fn emit_relaxed_sign_extension(
         &mut self,
-        _sz_src: Size,
-        _src: Location,
-        _sz_dst: Size,
-        _dst: Location,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
     ) {
-        unimplemented!();
+        match (src, dst) {
+            (Location::Memory(_, _), Location::GPR(_)) => match sz_src {
+                Size::S8 => self.emit_relaxed_ldr8s(sz_dst, dst, src),
+                Size::S16 => self.emit_relaxed_ldr16s(sz_dst, dst, src),
+                Size::S32 => self.emit_relaxed_ldr32s(dst, src),
+                _ => unreachable!(),
+            },
+            _ => {
+                let mut temps = vec![];
+                let src = self.location_to_reg(sz_dst, src, &mut temps, ImmType::None, None);
+                let dest = self.location_to_reg(sz_dst, dst, &mut temps, ImmType::None, None);
+                match sz_src {
+                    Size::S8 => self.assembler.emit_sxtb(sz_dst, src, dest),
+                    Size::S16 => self.assembler.emit_sxth(sz_dst, src, dest),
+                    Size::S32 => self.assembler.emit_sxtw(sz_dst, src, dest),
+                    _ => unreachable!(),
+                };
+                if dst != dest {
+                    self.move_location(sz_dst, dest, dst);
+                }
+                for r in temps {
+                    self.release_gpr(r);
+                }
+            }
+        }
     }
 
     fn emit_binop_add32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
@@ -1808,6 +1796,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, None);
@@ -1832,6 +1821,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, None);
@@ -1840,7 +1830,23 @@ impl Machine for MachineARM64 {
 
         self.assembler
             .emit_cbz_label(Size::S32, src2, integer_division_by_zero);
+        let label_nooverflow = self.assembler.get_label();
+        let tmp = self.location_to_reg(
+            Size::S32,
+            Location::Imm32(0x80000000),
+            &mut temps,
+            ImmType::None,
+            None,
+        );
+        self.assembler.emit_cmp(Size::S32, tmp, src1);
+        self.assembler
+            .emit_bcond_label(Condition::Ne, label_nooverflow);
+        self.assembler.emit_movn(Size::S32, tmp, 0);
+        self.assembler.emit_cmp(Size::S32, tmp, src2);
+        self.assembler
+            .emit_bcond_label(Condition::Eq, integer_overflow);
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_label(label_nooverflow);
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest);
         if ret != dest {
             self.move_location(Size::S32, dest, ret);
@@ -1856,6 +1862,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, None);
@@ -1885,12 +1892,37 @@ impl Machine for MachineARM64 {
     }
     fn emit_binop_srem32(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        let dest = if dest == src1 || dest == src2 {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            self.assembler.emit_mov(Size::S32, dest, Location::GPR(tmp));
+            Location::GPR(tmp)
+        } else {
+            dest
+        };
+        self.assembler
+            .emit_cbz_label(Size::S32, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_sdiv(Size::S32, src1, src2, dest);
+        // unsigned remainder : src1 - (src1/src2)*src2
+        self.assembler.emit_msub(Size::S32, dest, src2, src1, dest);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_and32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_relaxed_binop3(
@@ -1968,8 +2000,45 @@ impl Machine for MachineARM64 {
             self.release_gpr(r);
         }
     }
-    fn i32_popcnt(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn i32_popcnt(&mut self, loc: Location, ret: Location) {
+        // no opcode for that.
+        // 2 solutions: using NEON CNT, that count bits per Byte, or using clz with some shift and loop
+        let mut temps = vec![];
+        let src = self.location_to_reg(Size::S32, loc, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        let src = if src == loc {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            self.assembler.emit_mov(Size::S32, src, Location::GPR(tmp));
+            Location::GPR(tmp)
+        } else {
+            src
+        };
+        let tmp = {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            Location::GPR(tmp)
+        };
+        let label_loop = self.assembler.get_label();
+        let label_exit = self.assembler.get_label();
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest); // 0 => dest
+        self.assembler.emit_cbz_label(Size::S32, src, label_exit); // src==0, exit
+        self.assembler.emit_label(label_loop); // loop:
+        self.assembler
+            .emit_add(Size::S32, dest, Location::Imm8(1), dest); // inc dest
+        self.assembler.emit_clz(Size::S32, src, tmp); // clz src => tmp
+        self.assembler
+            .emit_add(Size::S32, tmp, Location::Imm8(1), tmp); // inc tmp
+        self.assembler.emit_lsl(Size::S32, src, tmp, src); // src << tmp => src
+        self.assembler.emit_cbnz_label(Size::S32, src, label_loop); // if src!=0 goto loop
+        self.assembler.emit_label(label_exit);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn i32_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_relaxed_binop3(
@@ -2679,6 +2748,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, None);
@@ -2703,6 +2773,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, None);
@@ -2711,7 +2782,23 @@ impl Machine for MachineARM64 {
 
         self.assembler
             .emit_cbz_label(Size::S64, src2, integer_division_by_zero);
+        let label_nooverflow = self.assembler.get_label();
+        let tmp = self.location_to_reg(
+            Size::S64,
+            Location::Imm64(0x8000000000000000),
+            &mut temps,
+            ImmType::None,
+            None,
+        );
+        self.assembler.emit_cmp(Size::S64, tmp, src1);
+        self.assembler
+            .emit_bcond_label(Condition::Ne, label_nooverflow);
+        self.assembler.emit_movn(Size::S64, tmp, 0);
+        self.assembler.emit_cmp(Size::S64, tmp, src2);
+        self.assembler
+            .emit_bcond_label(Condition::Eq, integer_overflow);
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_label(label_nooverflow);
         self.assembler.emit_sdiv(Size::S64, src1, src2, dest);
         if ret != dest {
             self.move_location(Size::S64, dest, ret);
@@ -2727,6 +2814,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, None);
@@ -2756,12 +2844,37 @@ impl Machine for MachineARM64 {
     }
     fn emit_binop_srem64(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        let dest = if dest == src1 || dest == src2 {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            self.assembler.emit_mov(Size::S64, dest, Location::GPR(tmp));
+            Location::GPR(tmp)
+        } else {
+            dest
+        };
+        self.assembler
+            .emit_cbz_label(Size::S64, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_sdiv(Size::S64, src1, src2, dest);
+        // unsigned remainder : src1 - (src1/src2)*src2
+        self.assembler.emit_msub(Size::S64, dest, src2, src1, dest);
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_and64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_relaxed_binop3(
@@ -2839,8 +2952,43 @@ impl Machine for MachineARM64 {
             self.release_gpr(r);
         }
     }
-    fn i64_popcnt(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn i64_popcnt(&mut self, loc: Location, ret: Location) {
+        let mut temps = vec![];
+        let src = self.location_to_reg(Size::S64, loc, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        let src = if src == loc {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            self.assembler.emit_mov(Size::S64, src, Location::GPR(tmp));
+            Location::GPR(tmp)
+        } else {
+            src
+        };
+        let tmp = {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            Location::GPR(tmp)
+        };
+        let label_loop = self.assembler.get_label();
+        let label_exit = self.assembler.get_label();
+        self.assembler
+            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest);
+        self.assembler.emit_cbz_label(Size::S64, src, label_exit);
+        self.assembler.emit_label(label_loop);
+        self.assembler
+            .emit_add(Size::S32, dest, Location::Imm8(1), dest);
+        self.assembler.emit_clz(Size::S64, src, tmp);
+        self.assembler
+            .emit_add(Size::S32, tmp, Location::Imm8(1), tmp);
+        self.assembler.emit_lsl(Size::S64, src, tmp, src);
+        self.assembler.emit_cbnz_label(Size::S64, src, label_loop);
+        self.assembler.emit_label(label_exit);
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn i64_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_relaxed_binop3(
