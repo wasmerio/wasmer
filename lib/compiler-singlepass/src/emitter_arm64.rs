@@ -100,13 +100,13 @@ pub trait EmitterARM64 {
     fn emit_stpdb(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
     fn emit_ldpia(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
 
-    fn emit_ldrb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_ldrh(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_ldrsb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_ldrsh(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_ldrsw(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_strb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
-    fn emit_strh(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
+    fn emit_ldrb(&mut self, sz: Size, reg: Location, dst: Location);
+    fn emit_ldrh(&mut self, sz: Size, reg: Location, dst: Location);
+    fn emit_ldrsb(&mut self, sz: Size, reg: Location, dst: Location);
+    fn emit_ldrsh(&mut self, sz: Size, reg: Location, dst: Location);
+    fn emit_ldrsw(&mut self, sz: Size, reg: Location, dst: Location);
+    fn emit_strb(&mut self, sz: Size, reg: Location, dst: Location);
+    fn emit_strh(&mut self, sz: Size, reg: Location, dst: Location);
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
 
@@ -234,7 +234,16 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; str D(reg), [X(addr), disp]);
             }
-            _ => unreachable!(),
+            (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let disp = disp as u32;
+                if (disp & 0x7) != 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; str S(reg), [X(addr), disp]);
+            }
+            _ => panic!("singlepass can't emit STR {:?}, {:?}, {:?}", sz, reg, addr),
         }
     }
     fn emit_ldr(&mut self, sz: Size, reg: Location, addr: Location) {
@@ -242,33 +251,36 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                let disp = disp as u32;
-                if (disp & 0x7) != 0 {
+                if (disp & 0x7) != 0 || disp < 0 || disp >= 0x8000 {
                     unreachable!();
                 }
+                let disp = disp as u32;
                 dynasm!(self ; ldr X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                let disp = disp as u32;
-                if (disp & 0x3) != 0 {
+                if (disp & 0x3) != 0 || disp < 0 || disp >= 0x4000 {
                     unreachable!();
                 }
+                let disp = disp as u32;
                 dynasm!(self ; ldr W(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                let disp = disp as u32;
-                if (disp & 0x1) != 0 {
+                if (disp & 0x1) != 0 || disp < 0 || disp >= 0x2000 {
                     unreachable!();
                 }
+                let disp = disp as u32;
                 dynasm!(self ; ldrh W(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                if disp < 0 || disp >= 0x1000 {
+                    unreachable!();
+                }
                 let disp = disp as u32;
                 dynasm!(self ; ldrb W(reg), [X(addr), disp]);
             }
@@ -294,7 +306,16 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; ldr D(reg), [X(addr), disp]);
             }
-            _ => unreachable!(),
+            (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let disp = disp as u32;
+                if (disp & 0x7) != 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldr S(reg), [X(addr), disp]);
+            }
+            _ => panic!("singlepass can't emit LDR {:?}, {:?}, {:?}", sz, reg, addr),
         }
     }
     fn emit_stur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32) {
@@ -398,125 +419,210 @@ impl EmitterARM64 for Assembler {
         }
     }
 
-    fn emit_ldrb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        match (sz, reg) {
-            (Size::S64, Location::GPR(reg)) => {
+    fn emit_ldrb(&mut self, _sz: Size, reg: Location, dst: Location) {
+        match (reg, dst) {
+            (Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; ldrb W(reg), [X(addr), offset]);
             }
-            (Size::S32, Location::GPR(reg)) => {
+            (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; ldrb W(reg), [X(addr), offset]);
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldrb W(reg), [X(addr), X(r2), LSL mult]);
             }
-            _ => panic!(
-                "singlepass can't emit LDRB {:?}, {:?}, {:?}, {:?}",
-                sz, reg, addr, offset
-            ),
+            _ => panic!("singlepass can't emit LDRB {:?}, {:?}", reg, dst),
         }
     }
-    fn emit_ldrh(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        match (sz, reg) {
-            (Size::S64, Location::GPR(reg)) => {
+    fn emit_ldrh(&mut self, _sz: Size, reg: Location, dst: Location) {
+        match (reg, dst) {
+            (Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; ldrh W(reg), [X(addr), offset]);
             }
-            (Size::S32, Location::GPR(reg)) => {
+            (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; ldrh W(reg), [X(addr), offset]);
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldrh W(reg), [X(addr), X(r2), LSL mult]);
             }
-            _ => panic!(
-                "singlepass can't emit LDRH {:?}, {:?}, {:?}, {:?}",
-                sz, reg, addr, offset
-            ),
+            _ => panic!("singlepass can't emit LDRH {:?}, {:?}", reg, dst),
         }
     }
-    fn emit_ldrsb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        match (sz, reg) {
-            (Size::S64, Location::GPR(reg)) => {
+    fn emit_ldrsb(&mut self, sz: Size, reg: Location, dst: Location) {
+        match (sz, reg, dst) {
+            (Size::S64, Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; ldrsb X(reg), [X(addr), offset]);
             }
-            (Size::S32, Location::GPR(reg)) => {
+            (Size::S32, Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; ldrsb W(reg), [X(addr), offset]);
             }
-            _ => panic!(
-                "singlepass can't emit LDRSB {:?}, {:?}, {:?}, {:?}",
-                sz, reg, addr, offset
-            ),
-        }
-    }
-    fn emit_ldrsh(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        match (sz, reg) {
-            (Size::S64, Location::GPR(reg)) => {
+            (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldrsb X(reg), [X(addr), X(r2), LSL mult]);
+            }
+            (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldrsb W(reg), [X(addr), X(r2), LSL mult]);
+            }
+            _ => panic!("singlepass can't emit LDRSB {:?}, {:?}, {:?}", sz, reg, dst),
+        }
+    }
+    fn emit_ldrsh(&mut self, sz: Size, reg: Location, dst: Location) {
+        match (sz, reg, dst) {
+            (Size::S64, Location::GPR(reg), Location::Memory(addr, offset)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; ldrsh X(reg), [X(addr), offset]);
             }
-            (Size::S32, Location::GPR(reg)) => {
+            (Size::S32, Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; ldrsh W(reg), [X(addr), offset]);
             }
-            _ => panic!(
-                "singlepass can't emit LDRSH {:?}, {:?}, {:?}, {:?}",
-                sz, reg, addr, offset
-            ),
-        }
-    }
-    fn emit_ldrsw(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        match (sz, reg) {
-            (Size::S64, Location::GPR(reg)) => {
+            (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldrsh X(reg), [X(addr), X(r2), LSL mult]);
+            }
+            (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldrsh W(reg), [X(addr), X(r2), LSL mult]);
+            }
+            _ => panic!("singlepass can't emit LDRSH {:?}, {:?}, {:?}", sz, reg, dst),
+        }
+    }
+    fn emit_ldrsw(&mut self, sz: Size, reg: Location, dst: Location) {
+        match (sz, reg, dst) {
+            (Size::S64, Location::GPR(reg), Location::Memory(addr, offset)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; ldrsw X(reg), [X(addr), offset]);
             }
-            _ => panic!(
-                "singlepass can't emit LDRSW {:?}, {:?}, {:?}, {:?}",
-                sz, reg, addr, offset
-            ),
+            (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; ldrsw X(reg), [X(addr), X(r2), LSL mult]);
+            }
+            _ => panic!("singlepass can't emit LDRSW {:?}, {:?}, {:?}", sz, reg, dst),
         }
     }
-    fn emit_strb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        match (sz, reg) {
-            (Size::S64, Location::GPR(reg)) => {
+    fn emit_strb(&mut self, _sz: Size, reg: Location, dst: Location) {
+        match (reg, dst) {
+            (Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; strb W(reg), [X(addr), offset]);
             }
-            (Size::S32, Location::GPR(reg)) => {
+            (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; strb W(reg), [X(addr), offset]);
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; strb W(reg), [X(addr), X(r2), LSL mult]);
             }
-            _ => panic!(
-                "singlepass can't emit STRB {:?}, {:?}, {:?}, {:?}",
-                sz, reg, addr, offset
-            ),
+            _ => panic!("singlepass can't emit STRB {:?}, {:?}", reg, dst),
         }
     }
-    fn emit_strh(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        match (sz, reg) {
-            (Size::S64, Location::GPR(reg)) => {
+    fn emit_strh(&mut self, _sz: Size, reg: Location, dst: Location) {
+        match (reg, dst) {
+            (Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
+                let offset = offset as u32;
                 dynasm!(self ; strh W(reg), [X(addr), offset]);
             }
-            (Size::S32, Location::GPR(reg)) => {
+            (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; strh W(reg), [X(addr), offset]);
+                let r2 = r2.into_index() as u32;
+                if offs != 0 {
+                    unreachable!();
+                }
+                let mult = mult as u32;
+                if mult == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; strh W(reg), [X(addr), X(r2), LSL mult]);
             }
-            _ => panic!(
-                "singlepass can't emit STRH {:?}, {:?}, {:?}, {:?}",
-                sz, reg, addr, offset
-            ),
+            _ => panic!("singlepass can't emit STRH {:?}, {:?}", reg, dst),
         }
     }
 

@@ -72,6 +72,10 @@ cranelift spec::simd::simd_int_to_int_extend
 # Windows doesn't overcommit and fails to allocate 4GB of memory
 windows wasmer::max_size_of_memory
 
+# Some AARCH64 CPU have issue with segfault writin 64bits on border page, where the 1 32bits might be written.
+aarch64 spec::align
+aarch64 spec::memory_trap
+
 # Frontends
 
 ## WASI

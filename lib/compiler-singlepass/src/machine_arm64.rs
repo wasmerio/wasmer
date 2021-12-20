@@ -88,18 +88,18 @@ impl MachineARM64 {
         match ty {
             ImmType::None => false,
             ImmType::NoneXzr => false,
-            ImmType::Bits8 => imm >= 0 && imm < 256,
-            ImmType::Shift32 => imm >= 0 && imm < 32,
-            ImmType::Shift32No0 => imm > 0 && imm < 32,
-            ImmType::Shift64 => imm >= 0 && imm < 64,
-            ImmType::Shift64No0 => imm > 0 && imm < 64,
+            ImmType::Bits8 => (imm >= 0) && (imm < 256),
+            ImmType::Shift32 => (imm >= 0) && (imm < 32),
+            ImmType::Shift32No0 => (imm > 0) && (imm < 32),
+            ImmType::Shift64 => (imm >= 0) && (imm < 64),
+            ImmType::Shift64No0 => (imm > 0) && (imm < 64),
             ImmType::Logical32 => encode_logical_immediate_32bit(imm as u32).is_some(),
             ImmType::Logical64 => encode_logical_immediate_64bit(imm as u64).is_some(),
-            ImmType::UnscaledOffset => imm > -256 && imm < 256,
-            ImmType::OffsetByte => imm >= 0 && imm < 0x1000,
-            ImmType::OffsetHWord => imm & 1 == 0 && imm >= 0 && imm < 0x2000,
-            ImmType::OffsetWord => imm & 3 == 0 && imm >= 0 && imm < 0x4000,
-            ImmType::OffsetDWord => imm & 7 == 0 && imm >= 0 && imm < 0x8000,
+            ImmType::UnscaledOffset => (imm > -256) && (imm < 256),
+            ImmType::OffsetByte => (imm >= 0) && (imm < 0x1000),
+            ImmType::OffsetHWord => (imm & 1 == 0) && (imm >= 0) && (imm < 0x2000),
+            ImmType::OffsetWord => (imm & 3 == 0) && (imm >= 0) && (imm < 0x4000),
+            ImmType::OffsetDWord => (imm & 7 == 0) && (imm >= 0) && (imm < 0x8000),
         }
     }
 
@@ -112,7 +112,7 @@ impl MachineARM64 {
         wanted: Option<GPR>,
     ) -> Location {
         match src {
-            Location::GPR(_) => src,
+            Location::GPR(_) | Location::SIMD(_) => src,
             Location::Imm8(val) => {
                 if allow_imm == ImmType::NoneXzr && val == 0 {
                     Location::GPR(GPR::XzrSp)
@@ -272,6 +272,106 @@ impl MachineARM64 {
             _ => unreachable!(),
         }
     }
+    fn emit_relaxed_ldr32s(&mut self, dst: Location, src: Location) {
+        match src {
+            Location::Memory(addr, offset) => {
+                if self.compatible_imm(offset as i64, ImmType::OffsetWord) {
+                    self.assembler.emit_ldrsw(Size::S64, dst, src);
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_ldrsw(
+                        Size::S64,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_relaxed_ldr16(&mut self, dst: Location, src: Location) {
+        match src {
+            Location::Memory(addr, offset) => {
+                if self.compatible_imm(offset as i64, ImmType::OffsetHWord) {
+                    self.assembler.emit_ldrh(Size::S32, dst, src);
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_ldrh(
+                        Size::S32,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_relaxed_ldr16s(&mut self, sz: Size, dst: Location, src: Location) {
+        match src {
+            Location::Memory(addr, offset) => {
+                if self.compatible_imm(offset as i64, ImmType::OffsetHWord) {
+                    self.assembler.emit_ldrsh(sz, dst, src);
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_ldrsh(
+                        sz,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_relaxed_ldr8(&mut self, dst: Location, src: Location) {
+        match src {
+            Location::Memory(addr, offset) => {
+                if self.compatible_imm(offset as i64, ImmType::OffsetByte) {
+                    self.assembler.emit_ldrb(Size::S32, dst, src);
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_ldrb(
+                        Size::S32,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_relaxed_ldr8s(&mut self, sz: Size, dst: Location, src: Location) {
+        match src {
+            Location::Memory(addr, offset) => {
+                if self.compatible_imm(offset as i64, ImmType::OffsetByte) {
+                    self.assembler.emit_ldrsb(sz, dst, src);
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_ldrsb(
+                        sz,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
     fn emit_relaxed_str64(&mut self, dst: Location, src: Location) {
         let mut temps = vec![];
         let dst = self.location_to_reg(Size::S64, dst, &mut temps, ImmType::NoneXzr, None);
@@ -293,7 +393,7 @@ impl MachineARM64 {
                     self.release_gpr(tmp);
                 }
             }
-            _ => unreachable!(),
+            _ => panic!("singlepass can't emit str64 {:?} {:?}", dst, src),
         }
         for r in temps {
             self.release_gpr(r);
@@ -313,6 +413,57 @@ impl MachineARM64 {
                     self.assembler
                         .emit_mov_imm(Location::GPR(tmp), offset as u64);
                     self.assembler.emit_str(
+                        Size::S32,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+    }
+    fn emit_relaxed_str16(&mut self, dst: Location, src: Location) {
+        let mut temps = vec![];
+        let dst = self.location_to_reg(Size::S64, dst, &mut temps, ImmType::NoneXzr, None);
+        match src {
+            Location::Memory(addr, offset) => {
+                if self.compatible_imm(offset as i64, ImmType::OffsetHWord) {
+                    self.assembler.emit_strh(Size::S32, dst, src);
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_strh(
+                        Size::S32,
+                        Location::GPR(tmp),
+                        Location::Memory2(addr, tmp, Multiplier::One, 0),
+                    );
+                    self.release_gpr(tmp);
+                }
+            }
+            _ => unreachable!(),
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+    }
+    fn emit_relaxed_str8(&mut self, dst: Location, src: Location) {
+        let mut temps = vec![];
+        let dst = self.location_to_reg(Size::S64, dst, &mut temps, ImmType::NoneXzr, None);
+        match src {
+            Location::Memory(addr, offset) => {
+                if self.compatible_imm(offset as i64, ImmType::OffsetByte) {
+                    self.assembler
+                        .emit_strb(Size::S32, dst, Location::Memory(addr, offset));
+                } else {
+                    let tmp = self.acquire_temp_gpr().unwrap();
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                    self.assembler.emit_strb(
                         Size::S32,
                         Location::GPR(tmp),
                         Location::Memory2(addr, tmp, Multiplier::One, 0),
@@ -520,12 +671,25 @@ impl MachineARM64 {
 
         // Add offset to memory address.
         if memarg.offset != 0 {
-            self.assembler.emit_adds(
-                Size::S32,
-                Location::Imm32(memarg.offset),
-                Location::GPR(tmp_addr),
-                Location::GPR(tmp_addr),
-            );
+            if self.compatible_imm(memarg.offset as _, ImmType::Bits8) {
+                self.assembler.emit_adds(
+                    Size::S32,
+                    Location::Imm32(memarg.offset),
+                    Location::GPR(tmp_addr),
+                    Location::GPR(tmp_addr),
+                );
+            } else {
+                let tmp = self.acquire_temp_gpr().unwrap();
+                self.assembler
+                    .emit_mov_imm(Location::GPR(tmp), memarg.offset as _);
+                self.assembler.emit_adds(
+                    Size::S32,
+                    Location::GPR(tmp_addr),
+                    Location::GPR(tmp),
+                    Location::GPR(tmp_addr),
+                );
+                self.release_gpr(tmp);
+            }
 
             // Trap if offset calculation overflowed.
             self.assembler
@@ -1735,7 +1899,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldur(Size::S32, ret, addr, 0);
+                this.emit_relaxed_ldr32(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -1759,7 +1923,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrb(Size::S32, ret, addr, 0);
+                this.emit_relaxed_ldr8(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -1783,7 +1947,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrsb(Size::S32, ret, addr, 0);
+                this.emit_relaxed_ldr8s(Size::S32, ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -1807,7 +1971,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrh(Size::S32, ret, addr, 0);
+                this.emit_relaxed_ldr16(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -1831,7 +1995,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrsh(Size::S32, ret, addr, 0);
+                this.emit_relaxed_ldr16s(Size::S32, ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -1915,7 +2079,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_strb(Size::S32, target_value, addr, 0);
+                this.emit_relaxed_str8(target_value, Location::Memory(addr, 0));
             },
         );
     }
@@ -1939,7 +2103,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_strh(Size::S32, target_value, addr, 0);
+                this.emit_relaxed_str16(target_value, Location::Memory(addr, 0));
             },
         );
     }
@@ -2543,7 +2707,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldur(Size::S64, ret, addr, 0);
+                this.emit_relaxed_ldr64(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -2567,7 +2731,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrb(Size::S64, ret, addr, 0);
+                this.emit_relaxed_ldr8(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -2591,7 +2755,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrsb(Size::S64, ret, addr, 0);
+                this.emit_relaxed_ldr8s(Size::S64, ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -2615,7 +2779,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrh(Size::S64, ret, addr, 0);
+                this.emit_relaxed_ldr16(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -2639,7 +2803,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrsh(Size::S64, ret, addr, 0);
+                this.emit_relaxed_ldr16s(Size::S64, ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -2663,7 +2827,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldur(Size::S32, ret, addr, 0);
+                this.emit_relaxed_ldr32(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -2687,7 +2851,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_ldrsw(Size::S64, ret, addr, 0);
+                this.emit_relaxed_ldr32s(ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -2783,7 +2947,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_strb(Size::S64, target_value, addr, 0);
+                this.emit_relaxed_str8(target_value, Location::Memory(addr, 0));
             },
         );
     }
@@ -2807,7 +2971,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler.emit_strh(Size::S64, target_value, addr, 0);
+                this.emit_relaxed_str16(target_value, Location::Memory(addr, 0));
             },
         );
     }
@@ -3282,53 +3446,113 @@ impl Machine for MachineARM64 {
 
     fn f32_load(
         &mut self,
-        _addr: Location,
-        _memarg: &MemoryImmediate,
-        _ret: Location,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
     ) {
-        unimplemented!();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler
+                    .emit_ldr(Size::S32, ret, Location::Memory(addr, 0));
+            },
+        );
     }
     fn f32_save(
         &mut self,
-        _target_value: Location,
-        _memarg: &MemoryImmediate,
-        _target_addr: Location,
-        _canonicalize: bool,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        canonicalize: bool,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
     ) {
-        unimplemented!();
+        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                if !canonicalize {
+                    this.emit_relaxed_str32(target_value, Location::Memory(addr, 0));
+                } else {
+                    this.canonicalize_nan(Size::S32, target_value, Location::Memory(addr, 0));
+                }
+            },
+        );
     }
     fn f64_load(
         &mut self,
-        _addr: Location,
-        _memarg: &MemoryImmediate,
-        _ret: Location,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
+        addr: Location,
+        memarg: &MemoryImmediate,
+        ret: Location,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
     ) {
-        unimplemented!();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                this.assembler
+                    .emit_ldr(Size::S64, ret, Location::Memory(addr, 0));
+            },
+        );
     }
     fn f64_save(
         &mut self,
-        _target_value: Location,
-        _memarg: &MemoryImmediate,
-        _target_addr: Location,
-        _canonicalize: bool,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
+        target_value: Location,
+        memarg: &MemoryImmediate,
+        target_addr: Location,
+        canonicalize: bool,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
     ) {
-        unimplemented!();
+        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
+        self.memory_op(
+            target_addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            |this, addr| {
+                if !canonicalize {
+                    this.emit_relaxed_str64(target_value, Location::Memory(addr, 0));
+                } else {
+                    this.canonicalize_nan(Size::S64, target_value, Location::Memory(addr, 0));
+                }
+            },
+        );
     }
 
     fn convert_f64_i64(&mut self, _loc: Location, _signed: bool, _ret: Location) {
