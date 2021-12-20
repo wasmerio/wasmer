@@ -35,38 +35,39 @@ pub type Location = AbstractLocation<GPR, NEON>;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
+#[repr(u8)]
 pub enum Condition {
     // meaning for cmp or sub
     /// Equal
-    Eq,
+    Eq = 0,
     /// Not equal
-    Ne,
+    Ne = 1,
     /// Unsigned higher or same (or carry set)
-    Cs,
+    Cs = 2,
     /// Unsigned lower (or carry clear)
-    Cc,
+    Cc = 3,
     /// Negative. The mnemonic stands for "minus"
-    Mi,
+    Mi = 4,
     /// Positive or zero. The mnemonic stands for "plus"
-    Pl,
+    Pl = 5,
     /// Signed overflow. The mnemonic stands for "V set"
-    Vs,
+    Vs = 6,
     /// No signed overflow. The mnemonic stands for "V clear"
-    Vc,
+    Vc = 7,
     /// Unsigned higher
-    Hi,
+    Hi = 8,
     /// Unsigned lower or same
-    Ls,
+    Ls = 9,
     /// Signed greater than or equal
-    Ge,
+    Ge = 10,
     /// Signed less than
-    Lt,
+    Lt = 11,
     /// Signed greater than
-    Gt,
+    Gt = 12,
     /// Signed less than or equal
-    Le,
+    Le = 13,
     /// Always executed
-    Uncond,
+    Al = 14,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -136,6 +137,8 @@ pub trait EmitterARM64 {
     fn emit_or(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
     fn emit_and(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
     fn emit_eor(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+
+    fn emit_cset(&mut self, sz: Size, reg: GPR, cond: Condition);
 
     fn emit_label(&mut self, label: Label);
     fn emit_load_label(&mut self, reg: GPR, label: Label);
@@ -648,6 +651,13 @@ impl EmitterARM64 for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; add X(dst), X(src1), imm);
             }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                let imm = imm as u32;
+                dynasm!(self ; add X(dst), X(src1), imm);
+            }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -690,15 +700,20 @@ impl EmitterARM64 for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; sub W(dst), W(src1), imm as u32);
             }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sub W(dst), W(src1), imm);
+            }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; sub X(dst), X(src1), imm);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub W(dst), W(src1), imm);
+                dynasm!(self ; sub X(dst), X(src1), imm as u32);
             }
             _ => panic!(
                 "singlepass can't emit SUB {:?} {:?} {:?} {:?}",
@@ -809,7 +824,7 @@ impl EmitterARM64 for Assembler {
                 dynasm!(self ; add X(dst), X(src1), X(src2), LSL lsl);
             }
             _ => panic!(
-                "singlepass can't emit ADD {:?} {:?} {:?} {:?} LSL {:?}",
+                "singlepass can't emit LSL {:?} {:?} {:?} {:?} LSL {:?}",
                 sz, src1, src2, dst, lsl
             ),
         }
@@ -1201,6 +1216,47 @@ impl EmitterARM64 for Assembler {
         }
     }
 
+    fn emit_cset(&mut self, sz: Size, reg: GPR, cond: Condition) {
+        let reg = reg.into_index() as u32;
+        match sz {
+            Size::S32 => match cond {
+                Condition::Eq => dynasm!(self ; cset W(reg), eq),
+                Condition::Ne => dynasm!(self ; cset W(reg), ne),
+                Condition::Cs => dynasm!(self ; cset W(reg), cs),
+                Condition::Cc => dynasm!(self ; cset W(reg), cc),
+                Condition::Mi => dynasm!(self ; cset W(reg), mi),
+                Condition::Pl => dynasm!(self ; cset W(reg), pl),
+                Condition::Vs => dynasm!(self ; cset W(reg), vs),
+                Condition::Vc => dynasm!(self ; cset W(reg), vc),
+                Condition::Hi => dynasm!(self ; cset W(reg), hi),
+                Condition::Ls => dynasm!(self ; cset W(reg), ls),
+                Condition::Ge => dynasm!(self ; cset W(reg), ge),
+                Condition::Lt => dynasm!(self ; cset W(reg), lt),
+                Condition::Gt => dynasm!(self ; cset W(reg), gt),
+                Condition::Le => dynasm!(self ; cset W(reg), le),
+                Condition::Al => dynasm!(self ; cset W(reg), al),
+            },
+            Size::S64 => match cond {
+                Condition::Eq => dynasm!(self ; cset X(reg), eq),
+                Condition::Ne => dynasm!(self ; cset X(reg), ne),
+                Condition::Cs => dynasm!(self ; cset X(reg), cs),
+                Condition::Cc => dynasm!(self ; cset X(reg), cc),
+                Condition::Mi => dynasm!(self ; cset X(reg), mi),
+                Condition::Pl => dynasm!(self ; cset X(reg), pl),
+                Condition::Vs => dynasm!(self ; cset X(reg), vs),
+                Condition::Vc => dynasm!(self ; cset X(reg), vc),
+                Condition::Hi => dynasm!(self ; cset X(reg), hi),
+                Condition::Ls => dynasm!(self ; cset X(reg), ls),
+                Condition::Ge => dynasm!(self ; cset X(reg), ge),
+                Condition::Lt => dynasm!(self ; cset X(reg), lt),
+                Condition::Gt => dynasm!(self ; cset X(reg), gt),
+                Condition::Le => dynasm!(self ; cset X(reg), le),
+                Condition::Al => dynasm!(self ; cset X(reg), al),
+            },
+            _ => unreachable!(),
+        }
+    }
+
     fn emit_label(&mut self, label: Label) {
         dynasm!(self ; => label);
     }
@@ -1227,7 +1283,7 @@ impl EmitterARM64 for Assembler {
             Condition::Lt => dynasm!(self ; b.lt => label),
             Condition::Gt => dynasm!(self ; b.gt => label),
             Condition::Le => dynasm!(self ; b.le => label),
-            Condition::Uncond => dynasm!(self ; b => label),
+            Condition::Al => dynasm!(self ; b => label),
         }
     }
     fn emit_b_register(&mut self, reg: GPR) {
