@@ -8,6 +8,20 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+## 2.1.1 - 2021/12/20
+
+### Added
+- [#2726](https://github.com/wasmerio/wasmer/pull/2726) Added `externs_vec` method to `ImportObject`.
+- [#2724](https://github.com/wasmerio/wasmer/pull/2724) Added access to the raw `Instance` JS object in Wsasmer-js.
+
+### CHanged
+- [#2711](https://github.com/wasmerio/wasmer/pull/2711) Make C-API and Wasi dependencies more lean
+- [#2706](https://github.com/wasmerio/wasmer/pull/2706) Refactored the Singlepass compiler in preparation for AArch64 support (no user visible changes).
+### Fixed
+- [#2717](https://github.com/wasmerio/wasmer/pull/2717) Allow `Exports` to be modified after being cloned.
+- [#2719](https://github.com/wasmerio/wasmer/pull/2719) Fixed `wasm_importtype_new`'s Rust signature to not assume boxed vectors.
+- [#2723](https://github.com/wasmerio/wasmer/pull/2723) Fixed a bug in parameter passing in the Singlepass compiler.
+
 ## 2.1.0 - 2021/11/30
 
 ### Added
