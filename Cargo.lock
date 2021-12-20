@@ -212,9 +212,9 @@ checksum = "8f1e260c3a9040a7c19a12468758f4c16f31a81a1fe087482be9570ec864bb6c"
 
 [[package]]
 name = "bytecheck"
-version = "0.6.6"
+version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77f403a29df55aacacdef2114efafb10c7405e6b051d829f420c33918aeef0f8"
+checksum = "314889ea31cda264cb7c3d6e6e5c9415a987ecb0e72c17c00d36fbb881d34abe"
 dependencies = [
  "bytecheck_derive",
  "ptr_meta",
@@ -222,9 +222,9 @@ dependencies = [
 
 [[package]]
 name = "bytecheck_derive"
-version = "0.6.5"
+version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3b4dff26fdc9f847dab475c9fec16f2cba82d5aa1f09981b87c44520721e10a"
+checksum = "4a2b3b92c135dae665a6f760205b89187638e83bed17ef3e44e83c712cf30600"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -569,7 +569,7 @@ checksum = "22813a6dc45b335f9bade10bf7271dc477e81113e89eb251a0bc2a8a81c536e1"
 dependencies = [
  "bstr",
  "csv-core",
- "itoa",
+ "itoa 0.4.8",
  "ryu",
  "serde",
 ]
@@ -601,9 +601,9 @@ checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
 name = "darling"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "757c0ded2af11d8e739c4daea1ac623dd1624b06c844cf3f5a39f1bdbd99bb12"
+checksum = "d0d720b8683f8dd83c65155f0530560cba68cd2bf395f6513a483caee57ff7f4"
 dependencies = [
  "darling_core",
  "darling_macro",
@@ -611,9 +611,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c34d8efb62d0c2d7f60ece80f75e5c63c1588ba68032740494b0b9a996466e3"
+checksum = "7a340f241d2ceed1deb47ae36c4144b2707ec7dd0b649f894cb39bb595986324"
 dependencies = [
  "fnv",
  "ident_case",
@@ -625,9 +625,9 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ade7bff147130fe5e6d39f089c6bd49ec0250f35d70b2eebf72afdfc919f15cc"
+checksum = "72c41b3b7352feb3211a0d743dc5700a4e3b60f51bd2b368892d1e0f9a95f44b"
 dependencies = [
  "darling_core",
  "quote",
@@ -719,9 +719,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "dynasm"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab1096ebdaa974cd6a41a743e94dfa00cce9bfbf4690bcc73fdec6a903938ccc"
+checksum = "47b1801e630bd336d0bbbdbf814de6cc749c9a400c7e3d995e6adfd455d0c83c"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -734,9 +734,9 @@ dependencies = [
 
 [[package]]
 name = "dynasmrt"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c20c69d1e16ae47889b47c301c790f48615cd9bfbdf586e3f6d4fde64af3d259"
+checksum = "1d428afc93ad288f6dffc1fa5f4a78201ad2eec33c5a522e51c181009eb09061"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -751,9 +751,9 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "encoding_rs"
-version = "0.8.29"
+version = "0.8.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a74ea89a0a1b98f6332de42c95baff457ada66d1cb4030f9ff151b2041a1c746"
+checksum = "7896dc8abb250ffdda33912550faa54c88ec8b998dec0b2c55ab224921ce11df"
 dependencies = [
  "cfg-if 1.0.0",
 ]
@@ -1108,9 +1108,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.1"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69ddb889f9d0d08a67338271fa9b62996bc788c7796a5c18cf057420aaed5eaf"
+checksum = "a9a9d19fa1e79b6215ff29b9d6880b706147f16e9b1dbb1e4e5947b5b02bc5e3"
 dependencies = [
  "either",
 ]
@@ -1120,6 +1120,12 @@ name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b71991ff56294aa922b450139ee08b3bfc70982c6b2c7562771375cf73542dd4"
+
+[[package]]
+name = "itoa"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aab8fc367588b89dcee83ab0fd66b72b50b72fa1904d7095045ace2b0c81c35"
 
 [[package]]
 name = "js-sys"
@@ -1150,9 +1156,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.108"
+version = "0.2.112"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8521a1b57e76b1ec69af7599e75e38e7b7fad6610f037db8c79b127201b5d119"
+checksum = "1b03d17f364a3a042d5e5d46b053bbbf82c92c9430c592dd4c064dc6ee997125"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -1262,9 +1268,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.6.4"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
+checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
 ]
@@ -1391,9 +1397,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.8.0"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
+checksum = "da32515d9f6e6e489d7bc9d84c71b060db7247dc035bbe44eac88cf87486d8d5"
 
 [[package]]
 name = "oorandom"
@@ -1479,9 +1485,9 @@ checksum = "8d31d11c69a6b52a174b42bdc0c30e5e11670f90788b2c471c31c1d17d449443"
 
 [[package]]
 name = "pkg-config"
-version = "0.3.22"
+version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12295df4f294471248581bc09bef3c38a5e46f1e36d6a37353621a0c6c357e1f"
+checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
 
 [[package]]
 name = "plotters"
@@ -1601,9 +1607,9 @@ checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.32"
+version = "1.0.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba508cc11742c0dc5c1659771673afbab7a0efab23aa17e854cbab0837ed0b43"
+checksum = "2f84e92c0f7c9d58328b85a78557813e4bd845130db68d7184635344399423b1"
 dependencies = [
  "unicode-xid",
 ]
@@ -1806,18 +1812,18 @@ dependencies = [
 
 [[package]]
 name = "rend"
-version = "0.3.4"
+version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a97e3d54c72a2837a552c9ca99e7163ed7892f0f70cc5372a0aec9e9b7c152"
+checksum = "79af64b4b6362ffba04eef3a4e10829718a4896dac19daa741851c86781edf95"
 dependencies = [
  "bytecheck",
 ]
 
 [[package]]
 name = "rkyv"
-version = "0.7.24"
+version = "0.7.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1460b2dd43a8416140f3fdcd8dc76cb67f01f58d0db648ec9ae71ee375942174"
+checksum = "631f7d2a2854abb66724f492ce5256e79685a673dc210ac022194cedd5c914d3"
 dependencies = [
  "bytecheck",
  "hashbrown 0.11.2",
@@ -1829,9 +1835,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv_derive"
-version = "0.7.24"
+version = "0.7.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9d4f9c7215fac8b7ef54171e14cc18875821178fe8b99fb2f85e211d8bdda40"
+checksum = "c067e650861a749720952aed722fb344449bc95de33e6456d426f5c7d44f71c0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1891,15 +1897,15 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.5"
+version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61b3909d758bb75c79f23d4736fac9433868679d3ad2ea7a61e3c25cfda9a088"
+checksum = "f2cc38e8fa666e2de3c4aba7edeb5ffc5246c1c2ed0e3d17e560aeeba736b23f"
 
 [[package]]
 name = "ryu"
-version = "1.0.6"
+version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c9613b5a66ab9ba26415184cfc41156594925a9cf3a2057e57f31ff145f6568"
+checksum = "73b4b750c782965c211b42f022f59af1fbceabdd026623714f104152f1ec149f"
 
 [[package]]
 name = "same-file"
@@ -1997,9 +2003,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.130"
+version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
+checksum = "8b9875c23cf305cd1fd7eb77234cbb705f21ea6a72c637a5c6db5fe4b8e7f008"
 dependencies = [
  "serde_derive",
 ]
@@ -2025,9 +2031,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.130"
+version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7bc1a1ab1961464eae040d96713baa5a724a8152c1222492465b54322ec508b"
+checksum = "ecc0db5cb2556c0e558887d9bbdcf6ac4471e83ff66cf696e5419024d1606276"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2036,11 +2042,11 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.72"
+version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0ffa0837f2dfa6fb90868c2b5468cad482e175f7dad97e7421951e663f2b527"
+checksum = "bcbd0344bc6533bc7ec56df11d42fb70f1b912351c0825ccb7211b59d8af7cf5"
 dependencies = [
- "itoa",
+ "itoa 1.0.1",
  "ryu",
  "serde",
 ]
@@ -2213,9 +2219,9 @@ dependencies = [
 
 [[package]]
 name = "tar"
-version = "0.4.37"
+version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6f5515d3add52e0bbdcad7b83c388bb36ba7b754dda3b5f5bc2d38640cdba5c"
+checksum = "4b55807c0344e1e6c04d7c965f5289c39a8d94ae23ed5c0b57aabac549f871c6"
 dependencies = [
  "filetime",
  "libc",
@@ -2462,9 +2468,9 @@ dependencies = [
 
 [[package]]
 name = "trybuild"
-version = "1.0.52"
+version = "1.0.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "150e726dc059e6fbd4fce3288f5bb3cf70128cf63b0dde23b938a3cad810fb23"
+checksum = "9d664de8ea7e531ad4c0f5a834f20b8cb2b8e6dfe88d05796ee7887518ed67b9"
 dependencies = [
  "glob",
  "lazy_static",
@@ -2585,7 +2591,7 @@ checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
 name = "wasi-test-generator"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "glob",
  "gumdrop",
@@ -2708,7 +2714,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
@@ -2756,7 +2762,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -2785,7 +2791,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "blake3",
  "criterion",
@@ -2801,7 +2807,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "atty",
@@ -2834,7 +2840,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "enumset",
  "hashbrown 0.11.2",
@@ -2852,7 +2858,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -2873,7 +2879,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -2896,7 +2902,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2915,7 +2921,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -2927,7 +2933,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -2940,7 +2946,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "backtrace",
  "enumset",
@@ -2960,7 +2966,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dummy"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "bincode",
  "enumset",
@@ -2975,7 +2981,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dylib"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cfg-if 1.0.0",
  "enumset",
@@ -2996,7 +3002,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-staticlib"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
@@ -3016,7 +3022,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-universal"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "cfg-if 1.0.0",
  "enumset",
@@ -3033,7 +3039,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -3041,11 +3047,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "2.1.0"
+version = "2.1.1"
 
 [[package]]
 name = "wasmer-middlewares"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "loupe",
  "wasmer",
@@ -3055,7 +3061,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "object",
  "thiserror",
@@ -3065,7 +3071,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "indexmap",
  "loupe",
@@ -3076,7 +3082,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vfs"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "libc",
  "serde",
@@ -3088,7 +3094,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "backtrace",
  "cc",
@@ -3108,7 +3114,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
@@ -3130,7 +3136,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "minifb",
  "nix",
@@ -3143,7 +3149,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-types"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "byteorder",
  "serde",
@@ -3153,7 +3159,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "serde",
@@ -3167,7 +3173,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "build-deps",
