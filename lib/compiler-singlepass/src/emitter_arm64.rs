@@ -139,6 +139,8 @@ pub trait EmitterARM64 {
     fn emit_eor(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
 
     fn emit_cset(&mut self, sz: Size, reg: GPR, cond: Condition);
+    fn emit_clz(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_rbit(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_label(&mut self, label: Label);
     fn emit_load_label(&mut self, reg: GPR, label: Label);
@@ -151,6 +153,8 @@ pub trait EmitterARM64 {
 
     fn emit_udf(&mut self);
     fn emit_dmb(&mut self);
+
+    fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location);
 
     fn arch_supports_canonicalize_nan(&self) -> bool {
         true
@@ -1363,6 +1367,37 @@ impl EmitterARM64 for Assembler {
         }
     }
 
+    fn emit_clz(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; clz X(dst), X(src));
+            }
+            (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; clz W(dst), W(src));
+            }
+            _ => panic!("singlepass can't emit CLS {:?} {:?} {:?}", sz, src, dst),
+        }
+    }
+    fn emit_rbit(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; rbit X(dst), X(src));
+            }
+            (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; rbit W(dst), W(src));
+            }
+            _ => panic!("singlepass can't emit CLS {:?} {:?} {:?}", sz, src, dst),
+        }
+    }
+
     fn emit_label(&mut self, label: Label) {
         dynasm!(self ; => label);
     }
@@ -1410,6 +1445,22 @@ impl EmitterARM64 for Assembler {
     }
     fn emit_dmb(&mut self) {
         dynasm!(self ; dmb ish);
+    }
+
+    fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fneg S(dst), S(src));
+            }
+            (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fneg D(dst), D(src));
+            }
+            _ => panic!("singlepass can't emit FNEG {:?} {:?} {:?}", sz, src, dst),
+        }
     }
 }
 
