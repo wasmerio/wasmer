@@ -82,7 +82,7 @@ impl Compiler for SinglepassCompiler {
         let calling_convention = match target.triple().default_calling_convention() {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
-            //Ok(CallingConvention::AppleAarch64) => AppleAarch64,
+            Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
             _ => panic!("Unsupported Calling convention for Singlepass compiler"),
         };
 

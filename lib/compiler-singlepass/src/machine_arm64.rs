@@ -64,45 +64,6 @@ impl MachineARM64 {
             pushed: false,
         }
     }
-    fn emit_relaxed_binop(
-        &mut self,
-        op: fn(&mut Assembler, Size, Location, Location),
-        sz: Size,
-        src: Location,
-        dst: Location,
-        putback: bool,
-    ) {
-        let mut temps = vec![];
-        let src = self.location_to_reg(sz, src, &mut temps, ImmType::None, None);
-        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, None);
-        op(&mut self.assembler, sz, src, dest);
-        if dst != dest && putback {
-            self.move_location(sz, dest, dst);
-        }
-        for r in temps {
-            self.release_gpr(r);
-        }
-    }
-    fn emit_relaxed_binop_neon(
-        &mut self,
-        op: fn(&mut Assembler, Size, Location, Location),
-        sz: Size,
-        src: Location,
-        dst: Location,
-        putback: bool,
-    ) {
-        let mut temps = vec![];
-        let src = self.location_to_neon(sz, src, &mut temps, ImmType::None);
-        let dest = self.location_to_neon(sz, dst, &mut temps, ImmType::None);
-        op(&mut self.assembler, sz, src, dest);
-        if dst != dest && putback {
-            self.move_location(sz, dest, dst);
-        }
-        for r in temps {
-            self.release_simd(r);
-        }
-    }
-
     fn compatible_imm(&self, imm: i64, ty: ImmType) -> bool {
         match ty {
             ImmType::None => false,
@@ -308,6 +269,45 @@ impl MachineARM64 {
                 Location::SIMD(tmp)
             }
             _ => panic!("singlepass can't emit location_to_reg {:?} {:?}", sz, src),
+        }
+    }
+
+    fn emit_relaxed_binop(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location),
+        sz: Size,
+        src: Location,
+        dst: Location,
+        putback: bool,
+    ) {
+        let mut temps = vec![];
+        let src = self.location_to_reg(sz, src, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, None);
+        op(&mut self.assembler, sz, src, dest);
+        if dst != dest && putback {
+            self.move_location(sz, dest, dst);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+    }
+    fn emit_relaxed_binop_neon(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location),
+        sz: Size,
+        src: Location,
+        dst: Location,
+        putback: bool,
+    ) {
+        let mut temps = vec![];
+        let src = self.location_to_neon(sz, src, &mut temps, ImmType::None);
+        let dest = self.location_to_neon(sz, dst, &mut temps, ImmType::None);
+        op(&mut self.assembler, sz, src, dest);
+        if dst != dest && putback {
+            self.move_location(sz, dest, dst);
+        }
+        for r in temps {
+            self.release_simd(r);
         }
     }
     fn emit_relaxed_binop3(
@@ -661,9 +661,6 @@ impl MachineARM64 {
         loc_b: Location,
         ret: Location,
     ) {
-        // bug on dynasm
-        let tmp = self.acquire_temp_gpr().unwrap();
-        self.assembler.emit_mov_imm(Location::GPR(tmp), 0xff);
         match ret {
             Location::GPR(x) => {
                 self.emit_relaxed_cmp(Size::S32, loc_b, loc_a);
@@ -671,7 +668,7 @@ impl MachineARM64 {
                 self.assembler.emit_and(
                     Size::S32,
                     Location::GPR(x),
-                    Location::GPR(tmp), /*Location::Imm32(0xff)*/
+                    Location::Imm32(0xff),
                     Location::GPR(x),
                 );
             }
@@ -682,7 +679,7 @@ impl MachineARM64 {
                 self.assembler.emit_and(
                     Size::S32,
                     Location::GPR(tmp),
-                    Location::GPR(tmp), /*Location::Imm32(0xff)*/
+                    Location::Imm32(0xff),
                     Location::GPR(tmp),
                 );
                 self.move_location(Size::S32, Location::GPR(tmp), ret);
@@ -692,7 +689,6 @@ impl MachineARM64 {
                 unreachable!();
             }
         }
-        self.release_gpr(tmp);
     }
 
     fn memory_op<F: FnOnce(&mut Self, GPR)>(
@@ -1808,30 +1804,84 @@ impl Machine for MachineARM64 {
     }
     fn emit_binop_udiv32(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+
+        self.assembler
+            .emit_cbz_label(Size::S32, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_udiv(Size::S32, src1, src2, dest);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_sdiv32(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+
+        self.assembler
+            .emit_cbz_label(Size::S32, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_sdiv(Size::S32, src1, src2, dest);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_urem32(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        let dest = if dest == src1 || dest == src2 {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            self.assembler.emit_mov(Size::S32, dest, Location::GPR(tmp));
+            Location::GPR(tmp)
+        } else {
+            dest
+        };
+        self.assembler
+            .emit_cbz_label(Size::S32, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_udiv(Size::S32, src1, src2, dest);
+        // unsigned remainder : src1 - (src1/src2)*src2
+        self.assembler.emit_msub(Size::S32, dest, src2, src1, dest);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_srem32(
         &mut self,
@@ -2625,30 +2675,84 @@ impl Machine for MachineARM64 {
     }
     fn emit_binop_udiv64(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+
+        self.assembler
+            .emit_cbz_label(Size::S64, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_udiv(Size::S64, src1, src2, dest);
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_sdiv64(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+
+        self.assembler
+            .emit_cbz_label(Size::S64, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_sdiv(Size::S64, src1, src2, dest);
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_urem64(
         &mut self,
-        _loc_a: Location,
-        _loc_b: Location,
-        _ret: Location,
-        _integer_division_by_zero: Label,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        integer_division_by_zero: Label,
     ) -> usize {
-        unimplemented!();
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, None);
+        let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, None);
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        let dest = if dest == src1 || dest == src2 {
+            let tmp = self.acquire_temp_gpr().unwrap();
+            temps.push(tmp.clone());
+            self.assembler.emit_mov(Size::S32, dest, Location::GPR(tmp));
+            Location::GPR(tmp)
+        } else {
+            dest
+        };
+        self.assembler
+            .emit_cbz_label(Size::S64, src2, integer_division_by_zero);
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_udiv(Size::S64, src1, src2, dest);
+        // unsigned remainder : src1 - (src1/src2)*src2
+        self.assembler.emit_msub(Size::S64, dest, src2, src1, dest);
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        offset
     }
     fn emit_binop_srem64(
         &mut self,

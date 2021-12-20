@@ -138,6 +138,11 @@ pub trait EmitterARM64 {
     fn emit_and(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
     fn emit_eor(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
 
+    fn emit_udiv(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_sdiv(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    /// msub : c - a*b -> dst
+    fn emit_msub(&mut self, sz: Size, a: Location, b: Location, c: Location, dst: Location);
+
     fn emit_cset(&mut self, sz: Size, reg: GPR, cond: Condition);
     fn emit_clz(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_rbit(&mut self, sz: Size, src: Location, dst: Location);
@@ -145,6 +150,8 @@ pub trait EmitterARM64 {
     fn emit_label(&mut self, label: Label);
     fn emit_load_label(&mut self, reg: GPR, label: Label);
     fn emit_b_label(&mut self, label: Label);
+    fn emit_cbz_label(&mut self, sz: Size, reg: Location, label: Label);
+    fn emit_cbnz_label(&mut self, sz: Size, reg: Location, label: Label);
     fn emit_bcond_label(&mut self, condition: Condition, label: Label);
     fn emit_b_register(&mut self, reg: GPR);
     fn emit_call_label(&mut self, label: Label);
@@ -1326,6 +1333,83 @@ impl EmitterARM64 for Assembler {
         }
     }
 
+    fn emit_udiv(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; udiv W(dst), W(src1), W(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; udiv X(dst), X(src1), X(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit UDIV {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_sdiv(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sdiv W(dst), W(src1), W(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sdiv X(dst), X(src1), X(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit UDIV {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+
+    /// msub : c - a*b -> dst
+    fn emit_msub(&mut self, sz: Size, a: Location, b: Location, c: Location, dst: Location) {
+        match (sz, a, b, c, dst) {
+            (
+                Size::S32,
+                Location::GPR(a),
+                Location::GPR(b),
+                Location::GPR(c),
+                Location::GPR(dst),
+            ) => {
+                let a = a.into_index() as u32;
+                let b = b.into_index() as u32;
+                let c = c.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; msub W(dst), W(a), W(b), W(c));
+            }
+            (
+                Size::S64,
+                Location::GPR(a),
+                Location::GPR(b),
+                Location::GPR(c),
+                Location::GPR(dst),
+            ) => {
+                let a = a.into_index() as u32;
+                let b = b.into_index() as u32;
+                let c = c.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; msub X(dst), X(a), X(b), X(c));
+            }
+            _ => panic!(
+                "singlepass can't emit msub {:?} {:?} {:?} {:?} {:?}",
+                sz, a, b, c, dst
+            ),
+        }
+    }
+
     fn emit_cset(&mut self, sz: Size, reg: GPR, cond: Condition) {
         let reg = reg.into_index() as u32;
         match sz {
@@ -1407,6 +1491,32 @@ impl EmitterARM64 for Assembler {
     }
     fn emit_b_label(&mut self, label: Label) {
         dynasm!(self ; b =>label);
+    }
+    fn emit_cbz_label(&mut self, sz: Size, reg: Location, label: Label) {
+        match (sz, reg) {
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; cbz W(reg), =>label);
+            }
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; cbz X(reg), =>label);
+            }
+            _ => panic!("singlepass can't emit CBZ {:?} {:?} {:?}", sz, reg, label),
+        }
+    }
+    fn emit_cbnz_label(&mut self, sz: Size, reg: Location, label: Label) {
+        match (sz, reg) {
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; cbnz W(reg), =>label);
+            }
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; cbnz X(reg), =>label);
+            }
+            _ => panic!("singlepass can't emit CBNZ {:?} {:?} {:?}", sz, reg, label),
+        }
     }
     fn emit_bcond_label(&mut self, condition: Condition, label: Label) {
         match condition {
@@ -1499,7 +1609,11 @@ pub fn gen_std_trampoline_arm64(
         let sz = match *param {
             Type::I32 | Type::F32 => Size::S32,
             Type::I64 | Type::F64 => Size::S64,
-            _ => unimplemented!(),
+            Type::ExternRef => Size::S64,
+            _ => panic!(
+                "singlepass unsupported param type for trampoline {:?}",
+                *param
+            ),
         };
         match i {
             0..=6 => {
