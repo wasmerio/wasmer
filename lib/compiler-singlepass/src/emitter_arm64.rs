@@ -150,7 +150,8 @@ pub trait EmitterARM64 {
     fn emit_uxtb(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_uxth(&mut self, sz: Size, src: Location, dst: Location);
 
-    fn emit_cset(&mut self, sz: Size, reg: GPR, cond: Condition);
+    fn emit_cset(&mut self, sz: Size, dst: Location, cond: Condition);
+    fn emit_csetm(&mut self, sz: Size, dst: Location, cond: Condition);
     fn emit_cinc(&mut self, sz: Size, src: Location, dst: Location, cond: Condition);
     fn emit_clz(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_rbit(&mut self, sz: Size, src: Location, dst: Location);
@@ -169,7 +170,17 @@ pub trait EmitterARM64 {
     fn emit_udf(&mut self);
     fn emit_dmb(&mut self);
 
+    fn emit_fcmp(&mut self, sz: Size, src1: Location, src2: Location);
     fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_fsqrt(&mut self, sz: Size, src: Location, dst: Location);
+
+    fn emit_fadd(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_fsub(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_fmul(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_fdiv(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+
+    fn emit_fmin(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+    fn emit_fmax(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
 
     fn arch_supports_canonicalize_nan(&self) -> bool {
         true
@@ -1170,8 +1181,23 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; asr X(dst), X(src1), imm as u32);
             }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                if imm == 0 {
+                    unreachable!();
+                }
+                dynasm!(self ; asr X(dst), X(src1), imm as u32);
+            }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; asr W(dst), W(src1), imm as u32);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; asr W(dst), W(src1), imm as u32);
@@ -1545,44 +1571,94 @@ impl EmitterARM64 for Assembler {
         }
     }
 
-    fn emit_cset(&mut self, sz: Size, reg: GPR, cond: Condition) {
-        let reg = reg.into_index() as u32;
-        match sz {
-            Size::S32 => match cond {
-                Condition::Eq => dynasm!(self ; cset W(reg), eq),
-                Condition::Ne => dynasm!(self ; cset W(reg), ne),
-                Condition::Cs => dynasm!(self ; cset W(reg), cs),
-                Condition::Cc => dynasm!(self ; cset W(reg), cc),
-                Condition::Mi => dynasm!(self ; cset W(reg), mi),
-                Condition::Pl => dynasm!(self ; cset W(reg), pl),
-                Condition::Vs => dynasm!(self ; cset W(reg), vs),
-                Condition::Vc => dynasm!(self ; cset W(reg), vc),
-                Condition::Hi => dynasm!(self ; cset W(reg), hi),
-                Condition::Ls => dynasm!(self ; cset W(reg), ls),
-                Condition::Ge => dynasm!(self ; cset W(reg), ge),
-                Condition::Lt => dynasm!(self ; cset W(reg), lt),
-                Condition::Gt => dynasm!(self ; cset W(reg), gt),
-                Condition::Le => dynasm!(self ; cset W(reg), le),
-                Condition::Al => dynasm!(self ; cset W(reg), al),
-            },
-            Size::S64 => match cond {
-                Condition::Eq => dynasm!(self ; cset X(reg), eq),
-                Condition::Ne => dynasm!(self ; cset X(reg), ne),
-                Condition::Cs => dynasm!(self ; cset X(reg), cs),
-                Condition::Cc => dynasm!(self ; cset X(reg), cc),
-                Condition::Mi => dynasm!(self ; cset X(reg), mi),
-                Condition::Pl => dynasm!(self ; cset X(reg), pl),
-                Condition::Vs => dynasm!(self ; cset X(reg), vs),
-                Condition::Vc => dynasm!(self ; cset X(reg), vc),
-                Condition::Hi => dynasm!(self ; cset X(reg), hi),
-                Condition::Ls => dynasm!(self ; cset X(reg), ls),
-                Condition::Ge => dynasm!(self ; cset X(reg), ge),
-                Condition::Lt => dynasm!(self ; cset X(reg), lt),
-                Condition::Gt => dynasm!(self ; cset X(reg), gt),
-                Condition::Le => dynasm!(self ; cset X(reg), le),
-                Condition::Al => dynasm!(self ; cset X(reg), al),
-            },
-            _ => unreachable!(),
+    fn emit_cset(&mut self, sz: Size, dst: Location, cond: Condition) {
+        match (sz, dst) {
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg as u32;
+                match cond {
+                    Condition::Eq => dynasm!(self ; cset W(reg), eq),
+                    Condition::Ne => dynasm!(self ; cset W(reg), ne),
+                    Condition::Cs => dynasm!(self ; cset W(reg), cs),
+                    Condition::Cc => dynasm!(self ; cset W(reg), cc),
+                    Condition::Mi => dynasm!(self ; cset W(reg), mi),
+                    Condition::Pl => dynasm!(self ; cset W(reg), pl),
+                    Condition::Vs => dynasm!(self ; cset W(reg), vs),
+                    Condition::Vc => dynasm!(self ; cset W(reg), vc),
+                    Condition::Hi => dynasm!(self ; cset W(reg), hi),
+                    Condition::Ls => dynasm!(self ; cset W(reg), ls),
+                    Condition::Ge => dynasm!(self ; cset W(reg), ge),
+                    Condition::Lt => dynasm!(self ; cset W(reg), lt),
+                    Condition::Gt => dynasm!(self ; cset W(reg), gt),
+                    Condition::Le => dynasm!(self ; cset W(reg), le),
+                    Condition::Al => dynasm!(self ; cset W(reg), al),
+                }
+            }
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg as u32;
+                match cond {
+                    Condition::Eq => dynasm!(self ; cset X(reg), eq),
+                    Condition::Ne => dynasm!(self ; cset X(reg), ne),
+                    Condition::Cs => dynasm!(self ; cset X(reg), cs),
+                    Condition::Cc => dynasm!(self ; cset X(reg), cc),
+                    Condition::Mi => dynasm!(self ; cset X(reg), mi),
+                    Condition::Pl => dynasm!(self ; cset X(reg), pl),
+                    Condition::Vs => dynasm!(self ; cset X(reg), vs),
+                    Condition::Vc => dynasm!(self ; cset X(reg), vc),
+                    Condition::Hi => dynasm!(self ; cset X(reg), hi),
+                    Condition::Ls => dynasm!(self ; cset X(reg), ls),
+                    Condition::Ge => dynasm!(self ; cset X(reg), ge),
+                    Condition::Lt => dynasm!(self ; cset X(reg), lt),
+                    Condition::Gt => dynasm!(self ; cset X(reg), gt),
+                    Condition::Le => dynasm!(self ; cset X(reg), le),
+                    Condition::Al => dynasm!(self ; cset X(reg), al),
+                }
+            }
+            _ => panic!("singlepass can't emit CSET {:?} {:?} {:?}", sz, dst, cond),
+        }
+    }
+    fn emit_csetm(&mut self, sz: Size, dst: Location, cond: Condition) {
+        match (sz, dst) {
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg as u32;
+                match cond {
+                    Condition::Eq => dynasm!(self ; csetm W(reg), eq),
+                    Condition::Ne => dynasm!(self ; csetm W(reg), ne),
+                    Condition::Cs => dynasm!(self ; csetm W(reg), cs),
+                    Condition::Cc => dynasm!(self ; csetm W(reg), cc),
+                    Condition::Mi => dynasm!(self ; csetm W(reg), mi),
+                    Condition::Pl => dynasm!(self ; csetm W(reg), pl),
+                    Condition::Vs => dynasm!(self ; csetm W(reg), vs),
+                    Condition::Vc => dynasm!(self ; csetm W(reg), vc),
+                    Condition::Hi => dynasm!(self ; csetm W(reg), hi),
+                    Condition::Ls => dynasm!(self ; csetm W(reg), ls),
+                    Condition::Ge => dynasm!(self ; csetm W(reg), ge),
+                    Condition::Lt => dynasm!(self ; csetm W(reg), lt),
+                    Condition::Gt => dynasm!(self ; csetm W(reg), gt),
+                    Condition::Le => dynasm!(self ; csetm W(reg), le),
+                    Condition::Al => dynasm!(self ; csetm W(reg), al),
+                }
+            }
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg as u32;
+                match cond {
+                    Condition::Eq => dynasm!(self ; csetm X(reg), eq),
+                    Condition::Ne => dynasm!(self ; csetm X(reg), ne),
+                    Condition::Cs => dynasm!(self ; csetm X(reg), cs),
+                    Condition::Cc => dynasm!(self ; csetm X(reg), cc),
+                    Condition::Mi => dynasm!(self ; csetm X(reg), mi),
+                    Condition::Pl => dynasm!(self ; csetm X(reg), pl),
+                    Condition::Vs => dynasm!(self ; csetm X(reg), vs),
+                    Condition::Vc => dynasm!(self ; csetm X(reg), vc),
+                    Condition::Hi => dynasm!(self ; csetm X(reg), hi),
+                    Condition::Ls => dynasm!(self ; csetm X(reg), ls),
+                    Condition::Ge => dynasm!(self ; csetm X(reg), ge),
+                    Condition::Lt => dynasm!(self ; csetm X(reg), lt),
+                    Condition::Gt => dynasm!(self ; csetm X(reg), gt),
+                    Condition::Le => dynasm!(self ; csetm X(reg), le),
+                    Condition::Al => dynasm!(self ; csetm X(reg), al),
+                }
+            }
+            _ => panic!("singlepass can't emit CSETM {:?} {:?} {:?}", sz, dst, cond),
         }
     }
     fn emit_cinc(&mut self, sz: Size, src: Location, dst: Location, cond: Condition) {
@@ -1739,6 +1815,22 @@ impl EmitterARM64 for Assembler {
         dynasm!(self ; dmb ish);
     }
 
+    fn emit_fcmp(&mut self, sz: Size, src1: Location, src2: Location) {
+        match (sz, src1, src2) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                dynasm!(self ; fcmp S(src1), S(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                dynasm!(self ; fcmp D(src1), D(src2));
+            }
+            _ => panic!("singlepass can't emit FCMP {:?} {:?} {:?}", sz, src1, src2),
+        }
+    }
+
     fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
@@ -1752,6 +1844,143 @@ impl EmitterARM64 for Assembler {
                 dynasm!(self ; fneg D(dst), D(src));
             }
             _ => panic!("singlepass can't emit FNEG {:?} {:?} {:?}", sz, src, dst),
+        }
+    }
+    fn emit_fsqrt(&mut self, sz: Size, src: Location, dst: Location) {
+        match (sz, src, dst) {
+            (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fsqrt S(dst), S(src));
+            }
+            (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fsqrt D(dst), D(src));
+            }
+            _ => panic!("singlepass can't emit FSQRT {:?} {:?} {:?}", sz, src, dst),
+        }
+    }
+
+    fn emit_fadd(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fadd S(dst), S(src1), S(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fadd D(dst), D(src1), D(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit FADD {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_fsub(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fsub S(dst), S(src1), S(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fsub D(dst), D(src1), D(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit FSUB {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_fmul(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmul S(dst), S(src1), S(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmul D(dst), D(src1), D(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit FMUL {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_fdiv(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fdiv S(dst), S(src1), S(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fdiv D(dst), D(src1), D(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit FDIV {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+
+    fn emit_fmin(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmin S(dst), S(src1), S(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmin D(dst), D(src1), D(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit FMIN {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
+        }
+    }
+    fn emit_fmax(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmax S(dst), S(src1), S(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmax D(dst), D(src1), D(src2));
+            }
+            _ => panic!(
+                "singlepass can't emit FMAX {:?} {:?} {:?} {:?}",
+                sz, src1, src2, dst
+            ),
         }
     }
 }
@@ -1792,6 +2021,7 @@ pub fn gen_std_trampoline_arm64(
             Type::I32 | Type::F32 => Size::S32,
             Type::I64 | Type::F64 => Size::S64,
             Type::ExternRef => Size::S64,
+            Type::FuncRef => Size::S64,
             _ => panic!(
                 "singlepass unsupported param type for trampoline {:?}",
                 *param

@@ -331,6 +331,27 @@ impl MachineARM64 {
             self.release_gpr(r);
         }
     }
+    fn emit_relaxed_binop3_neon(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location, Location),
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+        allow_imm: ImmType,
+    ) {
+        let mut temps = vec![];
+        let src1 = self.location_to_neon(sz, src1, &mut temps, ImmType::None);
+        let src2 = self.location_to_neon(sz, src2, &mut temps, allow_imm);
+        let dest = self.location_to_neon(sz, dst, &mut temps, ImmType::None);
+        op(&mut self.assembler, sz, src1, src2, dest);
+        if dst != dest {
+            self.move_location(sz, dest, dst);
+        }
+        for r in temps {
+            self.release_simd(r);
+        }
+    }
     fn emit_relaxed_ldr64(&mut self, dst: Location, src: Location) {
         match src {
             Location::Memory(addr, offset) => {
@@ -589,26 +610,14 @@ impl MachineARM64 {
         ret: Location,
     ) {
         match ret {
-            Location::GPR(x) => {
+            Location::GPR(_) => {
                 self.emit_relaxed_cmp(Size::S64, loc_b, loc_a);
-                self.assembler.emit_cset(Size::S32, x, c);
-                self.assembler.emit_and(
-                    Size::S32,
-                    Location::GPR(x),
-                    Location::Imm32(0xff),
-                    Location::GPR(x),
-                );
+                self.assembler.emit_cset(Size::S32, ret, c);
             }
             Location::Memory(_, _) => {
                 let tmp = self.acquire_temp_gpr().unwrap();
                 self.emit_relaxed_cmp(Size::S64, loc_b, loc_a);
-                self.assembler.emit_cset(Size::S32, tmp, c);
-                self.assembler.emit_and(
-                    Size::S32,
-                    Location::GPR(tmp),
-                    Location::Imm32(0xff),
-                    Location::GPR(tmp),
-                );
+                self.assembler.emit_cset(Size::S32, Location::GPR(tmp), c);
                 self.move_location(Size::S32, Location::GPR(tmp), ret);
                 self.release_gpr(tmp);
             }
@@ -626,26 +635,14 @@ impl MachineARM64 {
         ret: Location,
     ) {
         match ret {
-            Location::GPR(x) => {
+            Location::GPR(_) => {
                 self.emit_relaxed_cmp(Size::S32, loc_b, loc_a);
-                self.assembler.emit_cset(Size::S32, x, c);
-                self.assembler.emit_and(
-                    Size::S32,
-                    Location::GPR(x),
-                    Location::Imm32(0xff),
-                    Location::GPR(x),
-                );
+                self.assembler.emit_cset(Size::S32, ret, c);
             }
             Location::Memory(_, _) => {
                 let tmp = self.acquire_temp_gpr().unwrap();
                 self.emit_relaxed_cmp(Size::S32, loc_b, loc_a);
-                self.assembler.emit_cset(Size::S32, tmp, c);
-                self.assembler.emit_and(
-                    Size::S32,
-                    Location::GPR(tmp),
-                    Location::Imm32(0xff),
-                    Location::GPR(tmp),
-                );
+                self.assembler.emit_cset(Size::S32, Location::GPR(tmp), c);
                 self.move_location(Size::S32, Location::GPR(tmp), ret);
                 self.release_gpr(tmp);
             }
@@ -851,6 +848,26 @@ impl MachineARM64 {
                 };
                 self.assembler.emit_stur(Size::S64, src, GPR::XzrSp, offset);
                 self.pushed = !self.pushed;
+            }
+            (Size::S64, _) => {
+                let mut temps = vec![];
+                let src = self.location_to_reg(sz, src, &mut temps, ImmType::None, None);
+                let offset = if self.pushed {
+                    0
+                } else {
+                    self.assembler.emit_sub(
+                        Size::S64,
+                        Location::GPR(GPR::XzrSp),
+                        Location::Imm8(16),
+                        Location::GPR(GPR::XzrSp),
+                    );
+                    8
+                };
+                self.assembler.emit_stur(Size::S64, src, GPR::XzrSp, offset);
+                self.pushed = !self.pushed;
+                for r in temps {
+                    self.release_gpr(r);
+                }
             }
             _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, src),
         }
@@ -3963,14 +3980,44 @@ impl Machine for MachineARM64 {
     fn f64_neg(&mut self, loc: Location, ret: Location) {
         self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S64, loc, ret, true);
     }
-    fn f64_abs(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_abs(&mut self, loc: Location, ret: Location) {
+        let tmp = self.acquire_temp_gpr().unwrap();
+
+        self.move_location(Size::S64, loc, Location::GPR(tmp));
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(tmp),
+            Location::Imm64(0x7fffffffffffffffu64),
+            Location::GPR(tmp),
+        );
+        self.move_location(Size::S64, Location::GPR(tmp), ret);
+
+        self.release_gpr(tmp);
     }
-    fn emit_i64_copysign(&mut self, _tmp1: GPR, _tmp2: GPR) {
-        unimplemented!();
+    fn emit_i64_copysign(&mut self, tmp1: GPR, tmp2: GPR) {
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(tmp1),
+            Location::Imm64(0x7fffffffffffffffu64),
+            Location::GPR(tmp1),
+        );
+
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(tmp2),
+            Location::Imm64(0x8000000000000000u64),
+            Location::GPR(tmp2),
+        );
+
+        self.assembler.emit_or(
+            Size::S64,
+            Location::GPR(tmp1),
+            Location::GPR(tmp2),
+            Location::GPR(tmp1),
+        );
     }
-    fn f64_sqrt(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_sqrt(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_fsqrt, Size::S64, loc, ret, true);
     }
     fn f64_trunc(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
@@ -3984,53 +4031,175 @@ impl Machine for MachineARM64 {
     fn f64_nearest(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f64_cmp_ge(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_b, loc_a, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Ls);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f64_cmp_gt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_b, loc_a, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Cc);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f64_cmp_le(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Ls);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f64_cmp_lt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Cc);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f64_cmp_ne(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Ne);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f64_cmp_eq(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Eq);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f64_min(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fmin,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f64_max(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fmax,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f64_add(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fadd,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f64_sub(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_sub(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fsub,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f64_mul(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_mul(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fmul,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f64_div(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_div(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fdiv,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
     fn f32_neg(&mut self, loc: Location, ret: Location) {
         self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S32, loc, ret, true);
     }
-    fn f32_abs(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_abs(&mut self, loc: Location, ret: Location) {
+        let tmp = self.acquire_temp_gpr().unwrap();
+        self.move_location(Size::S32, loc, Location::GPR(tmp));
+        self.assembler.emit_and(
+            Size::S32,
+            Location::GPR(tmp),
+            Location::Imm32(0x7fffffffu32),
+            Location::GPR(tmp),
+        );
+        self.move_location(Size::S32, Location::GPR(tmp), ret);
+        self.release_gpr(tmp);
     }
-    fn emit_i32_copysign(&mut self, _tmp1: GPR, _tmp2: GPR) {
-        unimplemented!();
+    fn emit_i32_copysign(&mut self, tmp1: GPR, tmp2: GPR) {
+        self.assembler.emit_and(
+            Size::S32,
+            Location::GPR(tmp1),
+            Location::Imm32(0x7fffffffu32),
+            Location::GPR(tmp1),
+        );
+        self.assembler.emit_and(
+            Size::S32,
+            Location::GPR(tmp2),
+            Location::Imm32(0x80000000u32),
+            Location::GPR(tmp2),
+        );
+        self.assembler.emit_or(
+            Size::S32,
+            Location::GPR(tmp1),
+            Location::GPR(tmp2),
+            Location::GPR(tmp1),
+        );
     }
-    fn f32_sqrt(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_sqrt(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_fsqrt, Size::S32, loc, ret, true);
     }
     fn f32_trunc(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
@@ -4044,41 +4213,137 @@ impl Machine for MachineARM64 {
     fn f32_nearest(&mut self, _loc: Location, _ret: Location) {
         unimplemented!();
     }
-    fn f32_cmp_ge(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_b, loc_a, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Ls);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f32_cmp_gt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_b, loc_a, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Cc);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f32_cmp_le(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Ls);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f32_cmp_lt(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Cc);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f32_cmp_ne(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Ne);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f32_cmp_eq(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, None);
+        self.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, false);
+        self.assembler.emit_cset(Size::S32, dest, Condition::Eq);
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
-    fn f32_min(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fmin,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f32_max(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fmax,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f32_add(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fadd,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f32_sub(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_sub(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fsub,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f32_mul(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_mul(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fmul,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
-    fn f32_div(&mut self, _loc_a: Location, _loc_b: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_div(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        self.emit_relaxed_binop3_neon(
+            Assembler::emit_fdiv,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        );
     }
 
     fn gen_std_trampoline(
