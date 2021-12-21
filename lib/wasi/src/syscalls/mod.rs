@@ -2521,9 +2521,9 @@ pub fn poll_oneoff(
     unimplemented!();
 }
 
-pub fn proc_exit(env: &WasiEnv, code: __wasi_exitcode_t) -> Result<(), RuntimeError> {
+pub fn proc_exit(env: &WasiEnv, code: __wasi_exitcode_t) -> Result<(), WasiError> {
     debug!("wasi::proc_exit, {}", code);
-    Err(RuntimeError::custom(Box::new(WasiError::Exit(code))))
+    Err(WasiError::Exit(code))
 }
 
 pub fn proc_raise(env: &WasiEnv, sig: __wasi_signal_t) -> __wasi_errno_t {
