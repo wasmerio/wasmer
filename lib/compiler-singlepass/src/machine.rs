@@ -82,8 +82,8 @@ pub trait Machine {
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR;
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
-    /// Push used gpr to the stack
-    fn push_used_gpr(&mut self);
+    /// Push used gpr to the stack. Return the bytes taken on the stack
+    fn push_used_gpr(&mut self) -> usize;
     /// Pop used gpr to the stack
     fn pop_used_gpr(&mut self);
     /// Picks an unused SIMD register.
@@ -100,8 +100,8 @@ pub trait Machine {
     fn reserve_simd(&mut self, simd: Self::SIMD);
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: Self::SIMD);
-    /// Push used simd regs to the stack
-    fn push_used_simd(&mut self);
+    /// Push used simd regs to the stack. Return bytes taken on the stack
+    fn push_used_simd(&mut self) -> usize;
     /// Pop used simd regs to the stack
     fn pop_used_simd(&mut self);
     /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)

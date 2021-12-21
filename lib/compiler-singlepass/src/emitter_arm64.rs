@@ -96,6 +96,7 @@ pub trait EmitterARM64 {
     fn emit_stur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32);
     fn emit_ldur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32);
     fn emit_strdb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
+    fn emit_stria(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
     fn emit_ldria(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32);
     fn emit_stpdb(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
     fn emit_ldpia(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32);
@@ -181,6 +182,10 @@ pub trait EmitterARM64 {
 
     fn emit_fmin(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
     fn emit_fmax(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
+
+    fn emit_scvtf(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location);
+    fn emit_ucvtf(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location);
+    fn emit_fcvt(&mut self, sz_in: Size, src: Location, dst: Location);
 
     fn arch_supports_canonicalize_nan(&self) -> bool {
         true
@@ -322,10 +327,11 @@ impl EmitterARM64 for Assembler {
                     unreachable!();
                 }
                 let mult = mult as u32;
-                if mult == 0 {
-                    unreachable!();
+                match mult {
+                    0 => dynasm!(self ; ldr X(reg), [X(addr)]),
+                    1 => dynasm!(self ; ldr X(reg), [X(addr), X(r2)]),
+                    _ => dynasm!(self ; ldr X(reg), [X(addr), X(r2), LSL mult]),
                 }
-                dynasm!(self ; ldr X(reg), [X(addr), X(r2), LSL mult]);
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
@@ -406,6 +412,21 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 dynasm!(self ; str D(reg), [X(addr), -(offset as i32)]!);
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn emit_stria(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
+        match (sz, reg) {
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; str X(reg), [X(addr)], (offset as i32));
+            }
+            (Size::S64, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; str D(reg), [X(addr)], (offset as i32));
             }
             _ => unreachable!(),
         }
@@ -1056,6 +1077,10 @@ impl EmitterARM64 for Assembler {
                 dynasm!(self ; cmp X(dst), imm as u32);
             }
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) => {
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; cmp X(dst), imm as u32);
+            }
+            (Size::S64, Location::Imm64(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; cmp X(dst), imm as u32);
             }
@@ -1809,7 +1834,7 @@ impl EmitterARM64 for Assembler {
     }
 
     fn emit_udf(&mut self) {
-        dynasm!(self ; udf 0);
+        dynasm!(self ; udf 0x1234);
     }
     fn emit_dmb(&mut self) {
         dynasm!(self ; dmb ish);
@@ -1983,6 +2008,81 @@ impl EmitterARM64 for Assembler {
             ),
         }
     }
+
+    fn emit_scvtf(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location) {
+        match (sz_in, src, sz_out, dst) {
+            (Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; scvtf S(dst), W(src));
+            }
+            (Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; scvtf S(dst), X(src));
+            }
+            (Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; scvtf D(dst), W(src));
+            }
+            (Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; scvtf D(dst), X(src));
+            }
+            _ => panic!(
+                "singlepass can't emit SCVTF {:?} {:?} {:?} {:?}",
+                sz_in, src, sz_out, dst
+            ),
+        }
+    }
+    fn emit_ucvtf(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location) {
+        match (sz_in, src, sz_out, dst) {
+            (Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ucvtf S(dst), W(src));
+            }
+            (Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ucvtf S(dst), X(src));
+            }
+            (Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ucvtf D(dst), W(src));
+            }
+            (Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; ucvtf D(dst), X(src));
+            }
+            _ => panic!(
+                "singlepass can't emit UCVTF {:?} {:?} {:?} {:?}",
+                sz_in, src, sz_out, dst
+            ),
+        }
+    }
+    fn emit_fcvt(&mut self, sz_in: Size, src: Location, dst: Location) {
+        match (sz_in, src, dst) {
+            (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt D(dst), S(src));
+            }
+            (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt S(dst), D(src));
+            }
+            _ => panic!(
+                "singlepass can't emit UCVTF {:?} {:?} {:?}",
+                sz_in, src, dst
+            ),
+        }
+    }
 }
 
 pub fn gen_std_trampoline_arm64(
@@ -1992,7 +2092,7 @@ pub fn gen_std_trampoline_arm64(
     let mut a = Assembler::new(0);
 
     let fptr = GPR::X26;
-    let args = GPR::X8;
+    let args = GPR::X25;
 
     dynasm!(a
         ; .arch aarch64
@@ -2004,7 +2104,7 @@ pub fn gen_std_trampoline_arm64(
         ; mov X(args as u32), x2
     );
 
-    let stack_args = sig.params().len().saturating_sub(8);
+    let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
     let mut stack_offset = stack_args as u32 * 8;
     if stack_args > 0 {
         if stack_offset % 16 != 0 {
@@ -2016,7 +2116,7 @@ pub fn gen_std_trampoline_arm64(
 
     // Move arguments to their locations.
     // `callee_vmctx` is already in the first argument register, so no need to move.
-    for (i, param) in sig.params().iter().enumerate() {
+    for (i, param) in sig.params().iter().enumerate().rev() {
         let sz = match *param {
             Type::I32 | Type::F32 => Size::S32,
             Type::I64 | Type::F64 => Size::S64,
@@ -2036,14 +2136,15 @@ pub fn gen_std_trampoline_arm64(
                 );
             }
             _ => {
+                // using X1 as scratch reg, because the for args is going backward
                 a.emit_ldr(
                     sz,
-                    Location::GPR(GPR::X18),
+                    Location::GPR(GPR::X1),
                     Location::Memory(args, (i * 16) as i32),
                 );
                 a.emit_str(
                     sz,
-                    Location::GPR(GPR::X18),
+                    Location::GPR(GPR::X1),
                     Location::Memory(GPR::XzrSp, (i as i32 - 7) * 8),
                 )
             }
@@ -2089,11 +2190,11 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
         16,
     );
 
-    if stack_offset < 256 + 16 {
+    if stack_offset < 0x1000 + 16 {
         a.emit_sub(
             Size::S64,
             Location::GPR(GPR::XzrSp),
-            Location::Imm8((stack_offset - 16) as _),
+            Location::Imm32((stack_offset - 16) as _),
             Location::GPR(GPR::XzrSp),
         );
     } else {
@@ -2177,7 +2278,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     }
 
     // Release values array.
-    if stack_offset < 256 + 16 {
+    if stack_offset < 0x1000 + 16 {
         a.emit_add(
             Size::S64,
             Location::GPR(GPR::XzrSp),
@@ -2232,8 +2333,8 @@ pub fn gen_import_call_trampoline_arm64(
                 let mut param_locations: Vec<Location> = vec![];
 
                 // Allocate stack space for arguments.
-                let stack_offset: i32 = if sig.params().len() > 5 {
-                    5 * 8
+                let stack_offset: i32 = if sig.params().len() > 7 {
+                    7 * 8
                 } else {
                     (sig.params().len() as i32) * 8
                 };
@@ -2243,11 +2344,11 @@ pub fn gen_import_call_trampoline_arm64(
                     stack_offset
                 };
                 if stack_offset > 0 {
-                    if stack_offset < 256 {
+                    if stack_offset < 0x1000 {
                         a.emit_sub(
                             Size::S64,
                             Location::GPR(GPR::XzrSp),
-                            Location::Imm8(stack_offset as u8),
+                            Location::Imm32(stack_offset as u32),
                             Location::GPR(GPR::XzrSp),
                         );
                     } else {
@@ -2278,15 +2379,15 @@ pub fn gen_import_call_trampoline_arm64(
                             a.emit_str(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
                             loc
                         }
-                        _ => Location::Memory(GPR::XzrSp, stack_offset + ((i - 5) * 8) as i32),
+                        _ => Location::Memory(GPR::XzrSp, stack_offset + ((i - 7) * 8) as i32),
                     };
                     param_locations.push(loc);
                 }
 
                 // Copy arguments.
+                let mut caller_stack_offset: i32 = 0;
                 let mut argalloc = ArgumentRegisterAllocator::default();
                 argalloc.next(Type::I64, calling_convention).unwrap(); // skip VMContext
-                let mut caller_stack_offset: i32 = 0;
                 for (i, ty) in sig.params().iter().enumerate() {
                     let prev_loc = param_locations[i];
                     let targ = match argalloc.next(*ty, calling_convention) {
@@ -2294,14 +2395,11 @@ pub fn gen_import_call_trampoline_arm64(
                         Some(ARM64Register::NEON(neon)) => Location::SIMD(neon),
                         None => {
                             // No register can be allocated. Put this argument on the stack.
-                            a.emit_ldr(Size::S64, Location::GPR(GPR::X20), prev_loc);
+                            a.emit_ldr(Size::S64, Location::GPR(GPR::X16), prev_loc);
                             a.emit_str(
                                 Size::S64,
-                                Location::GPR(GPR::X20),
-                                Location::Memory(
-                                    GPR::XzrSp,
-                                    stack_offset + 8 + caller_stack_offset,
-                                ),
+                                Location::GPR(GPR::X16),
+                                Location::Memory(GPR::XzrSp, stack_offset + caller_stack_offset),
                             );
                             caller_stack_offset += 8;
                             continue;
@@ -2312,11 +2410,11 @@ pub fn gen_import_call_trampoline_arm64(
 
                 // Restore stack pointer.
                 if stack_offset > 0 {
-                    if stack_offset < 256 {
+                    if stack_offset < 0x1000 {
                         a.emit_add(
                             Size::S64,
                             Location::GPR(GPR::XzrSp),
-                            Location::Imm8(stack_offset as u8),
+                            Location::Imm32(stack_offset as u32),
                             Location::GPR(GPR::XzrSp),
                         );
                     } else {
@@ -2339,7 +2437,9 @@ pub fn gen_import_call_trampoline_arm64(
     let offset = vmoffsets.vmctx_vmfunction_import(index);
     // for ldr, offset needs to be a multiple of 8, wich often is not
     // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
-    let offset = if offset > 255 {
+    let offset = if offset > 0 && offset < 0x1000 {
+        offset
+    } else {
         a.emit_mov_imm(Location::GPR(GPR::X16), offset as u64);
         a.emit_add(
             Size::S64,
@@ -2348,8 +2448,6 @@ pub fn gen_import_call_trampoline_arm64(
             Location::GPR(GPR::X0),
         );
         0
-    } else {
-        offset
     };
     match calling_convention {
         _ => {

@@ -1626,11 +1626,12 @@ impl Machine for MachineX86_64 {
         self.used_gprs.insert(gpr);
     }
 
-    fn push_used_gpr(&mut self) {
+    fn push_used_gpr(&mut self) -> usize {
         let used_gprs = self.get_used_gprs();
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r));
         }
+        used_gprs.len() * 8
     }
     fn pop_used_gpr(&mut self) {
         let used_gprs = self.get_used_gprs();
@@ -1681,7 +1682,7 @@ impl Machine for MachineX86_64 {
         assert_eq!(self.used_simd.remove(&simd), true);
     }
 
-    fn push_used_simd(&mut self) {
+    fn push_used_simd(&mut self) -> usize {
         let used_xmms = self.get_used_simd();
         self.adjust_stack((used_xmms.len() * 8) as u32);
 
@@ -1692,6 +1693,8 @@ impl Machine for MachineX86_64 {
                 Location::Memory(GPR::RSP, (i * 8) as i32),
             );
         }
+
+        used_xmms.len() * 8
     }
     fn pop_used_simd(&mut self) {
         let used_xmms = self.get_used_simd();

@@ -709,8 +709,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let params: Vec<_> = params.collect();
 
-        // Save used GPRs.
-        self.machine.push_used_gpr();
+        // Save used GPRs. Preserve correct stack alignment
+        let mut used_stack = self.machine.push_used_gpr();
         let used_gprs = self.machine.get_used_gprs();
         for r in used_gprs.iter() {
             let content = self.state.register_values[self.machine.index_from_gpr(*r).0].clone();
@@ -725,7 +725,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Save used XMM registers.
         let used_simds = self.machine.get_used_simd();
         if used_simds.len() > 0 {
-            self.machine.push_used_simd();
+            used_stack += self.machine.push_used_simd();
 
             for r in used_simds.iter().rev() {
                 let content =
@@ -757,15 +757,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         // Align stack to 16 bytes.
-        if self.machine.round_stack_adjust(8) == 8 {
-            if (self.get_stack_offset() + used_gprs.len() * 8 + used_simds.len() * 8 + stack_offset)
-                % 16
-                != 0
-            {
+        if (self.machine.round_stack_adjust(self.get_stack_offset()) + used_stack + stack_offset)
+            % 16
+            != 0
+        {
+            if self.machine.round_stack_adjust(8) == 8 {
                 self.machine.adjust_stack(8);
-                stack_offset += 8;
-                self.state.stack_values.push(MachineValue::Undefined);
+            } else {
+                self.machine.emit_push(Size::S64, Location::Imm32(0));
             }
+            stack_offset += 8;
+            self.state.stack_values.push(MachineValue::Undefined);
         }
 
         let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
