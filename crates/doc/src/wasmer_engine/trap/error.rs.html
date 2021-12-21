@@ -386,7 +386,7 @@
     }
 
     <span class="doccomment">/// Raises a custom user Error</span>
-    <span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.1&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;prefer using RuntimeError::custom instead&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.1&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;return a Result from host functions instead&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raise</span>(<span class="ident">error</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="op">!</span> {
         <span class="kw">unsafe</span> { <span class="ident">raise_user_trap</span>(<span class="ident">error</span>) }
     }
@@ -395,7 +395,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This error object can be passed through Wasm frames and later retrieved</span>
     <span class="doccomment">/// using the `downcast` method.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom</span>(<span class="ident">error</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">user</span>(<span class="ident">error</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">error</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() {
             <span class="comment">// The error is already a RuntimeError, we return it directly</span>
             <span class="prelude-val">Ok</span>(<span class="ident">runtime_error</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">runtime_error</span>,
