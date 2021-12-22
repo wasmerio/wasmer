@@ -281,7 +281,7 @@ pub trait EmitterX64 {
     }
 
     fn arch_supports_canonicalize_nan(&self) -> bool {
-        false // no need to canonicalize, the default form is the canonicalized one already
+        true
     }
 
     fn arch_requires_indirect_call_trampoline(&self) -> bool {
