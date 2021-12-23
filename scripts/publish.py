@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "2.1.0"
+target_version = "2.1.1"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -52,6 +52,12 @@ dep_graph = {
                          "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-universal",
                          "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-wasi", "wasmer-types"]),
     "wasmer-middlewares": set(["wasmer", "wasmer-types", "wasmer-vm"]),
+    "wasmer-wast": set(["wasmer", "wasmer-wasi", "wasmer-vfs"]),
+    "wasmer-cli": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
+                       "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-universal",
+                       "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-vm", "wasmer-wasi",
+                       "wasmer-wasi-experimental-io-devices", "wasmer-wast", "wasmer-cache", "wasmer-types",
+                       "wasmer-vfs"]),
 }
 
 # where each crate is located in the `lib` directory
@@ -79,6 +85,8 @@ location = {
     "wasmer-c-api": "c-api",
     "wasmer-middlewares": "middlewares",
     "wasmer-vfs": "vfs",
+    "wasmer-cli": "cli",
+    "wasmer-wast": "../tests/lib/wast",
 }
 
 no_dry_run = False

@@ -62,9 +62,9 @@ fn main() -> anyhow::Result<()> {
     let module = Module::new(&store, wasm_bytes)?;
 
     // We declare the host function that we'll use to terminate execution.
-    fn early_exit() {
+    fn early_exit() -> Result<(), ExitCode> {
         // This is where it happens.
-        RuntimeError::raise(Box::new(ExitCode(1)));
+        Err(ExitCode(1))
     }
 
     // Create an import object.

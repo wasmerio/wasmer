@@ -2521,10 +2521,9 @@ pub fn poll_oneoff(
     __WASI_ESUCCESS
 }
 
-pub fn proc_exit(thread: &WasiThread, code: __wasi_exitcode_t) {
+pub fn proc_exit(thread: &WasiThread, code: __wasi_exitcode_t) -> Result<(), WasiError> {
     debug!("wasi::proc_exit, {}", code);
-    RuntimeError::raise(Box::new(WasiError::Exit(code)));
-    unreachable!();
+    Err(WasiError::Exit(code))
 }
 
 pub fn proc_raise(thread: &WasiThread, sig: __wasi_signal_t) -> __wasi_errno_t {
