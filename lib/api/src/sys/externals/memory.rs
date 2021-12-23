@@ -234,13 +234,13 @@ impl Memory {
         self.view()
     }
 
-    /// A theoretical alais to `Self::view::<u8>` but it returns a `js::Uint8Array` in this case.
+    /// A shortcut to [`Self::view::<u8>`][self::view] with a specific offset and length.
     ///
     /// This code is going to be refactored. Use it as your own risks.
     #[doc(hidden)]
     pub fn uint8view_with_byte_offset_and_length(&self, byte_offset: u32, length: u32) -> MemoryView<u8> {
         self.view()
-            .subarray(byte_offset, length)
+            .subarray(byte_offset, byte_offset + length)
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {

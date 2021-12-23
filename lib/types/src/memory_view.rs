@@ -97,15 +97,22 @@ where
     /// there are no data races when copying memory into the view.
     pub fn copy_from(&self, src: &[T]) {
         unsafe {
+            let dst = align_pointer(
+                self.deref().as_ptr() as usize,
+                std::mem::align_of::<T>(),
+            ) as *mut T;
+
             let len = self.length.min(src.len());
+            let count = len / std::mem::align_of::<T>();
             if len > 16 &&
-                is_aligned_and_not_null(src.as_ptr()) == true &&
-                is_aligned_and_not_null(self.ptr) == true {
-                std::ptr::copy_nonoverlapping(src.as_ptr(), self.ptr, len);
+                is_aligned_and_not_null(dst) == true &&
+                is_aligned_and_not_null(src.as_ptr()) == true {
+                std::ptr::copy_nonoverlapping(src.as_ptr(), dst,  count);
             } else {
-                let sliced_src = &src[..self.length];
-                for (i, byte) in sliced_src.iter().enumerate() {
-                    *self.ptr.offset(i as isize) = *byte;
+                let sliced_src = &src[..count];
+                let dst = std::slice::from_raw_parts_mut(dst, count);
+                for (i, src) in sliced_src.iter().enumerate() {
+                    dst[i] = *src;
                 }
             }
         }
@@ -120,22 +127,31 @@ where
     ///
     /// This method is unsafe because the caller will need to make sure
     /// there are no data races when copying memory from the view.
-    pub unsafe fn copy_to(&self, dst: &mut [T]) {
+    pub unsafe fn copy_to(&self, dst: &mut [T])
+    {
+        let src = align_pointer(
+            self.deref().as_ptr() as usize,
+            std::mem::align_of::<T>(),
+        ) as *const T;
+        
         let len = self.length.min(dst.len());
+        let count = len / std::mem::align_of::<T>();
         if len > 16 &&
             is_aligned_and_not_null(dst.as_ptr()) == true &&
-            is_aligned_and_not_null(self.ptr) == true {
-            std::ptr::copy_nonoverlapping(self.ptr, dst.as_mut_ptr(),  len);
+            is_aligned_and_not_null(src) == true {
+            std::ptr::copy_nonoverlapping(src, dst.as_mut_ptr(),  count);
         } else {
-            let sliced_dst = &mut dst[..self.length];
-            for (i, byte) in sliced_dst.iter_mut().enumerate() {
-                *byte = *self.ptr.offset(i as isize);
+            let src = std::slice::from_raw_parts(src, count);
+            let sliced_dst = &mut dst[..count];
+            for (i, dst) in sliced_dst.iter_mut().enumerate() {
+                *dst = src[i];
             }
         }
     }
 
     /// Efficiently copies the contents of this typed array into a new Vec.
-    pub fn to_vec(&self) -> Vec<T> {
+    pub fn to_vec(&self) -> Vec<T>
+    {
         let mut dst = Vec::with_capacity(self.length);
         unsafe {
             dst.set_len(self.length);
@@ -143,6 +159,13 @@ where
         }
         dst
     }
+}
+
+#[inline(always)]
+fn align_pointer(ptr: usize, align: usize) -> usize {
+    // clears bits below aligment amount (assumes power of 2) to align pointer
+    debug_assert!(align.count_ones() == 1);
+    ptr & !(align - 1)
 }
 
 pub(crate) fn is_aligned_and_not_null<T>(ptr: *const T) -> bool {
