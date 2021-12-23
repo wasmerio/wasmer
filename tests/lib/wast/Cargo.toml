@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wast"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
@@ -12,10 +12,10 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
-wasmer = { path = "../../../lib/api", version = "2.0.0", default-features = false, features = ["experimental-reference-types-extern-ref"] }
-wasmer-wasi = { path = "../../../lib/wasi", version = "2.0.0" }
-wasmer-vfs = { path = "../../../lib/vfs", version = "2.0.0" }
-wast = "37.0"
+wasmer = { path = "../../../lib/api", version = "2.1.0", default-features = false, features = ["experimental-reference-types-extern-ref"] }
+wasmer-wasi = { path = "../../../lib/wasi", version = "2.1.0" }
+wasmer-vfs = { path = "../../../lib/vfs", version = "2.1.0" }
+wast = "38.0"
 serde = "1"
 tempfile = "3"
 thiserror = "1.0"

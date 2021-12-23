@@ -220,13 +220,12 @@ jobs:
       - name: Install Nightly Rust for Headless
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 'nightly-2021-04-25'
+          toolchain: 'nightly-2021-11-01'
           target: ${{ matrix.target }}
           override: true
           components: "rust-src"
-        if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Build Minimal Wasmer Headless
-        if: needs.setup.outputs.DOING_RELEASE == '1' && matrix.build != 'linux-musl-x64'
+        if: matrix.build != 'linux-musl-x64'
         run: |
           cargo install xargo
           echo "" >> Cargo.toml

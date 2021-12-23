@@ -21,14 +21,19 @@ This ownership property translates well in Rust. We have decided to
 use the `Box<T>` type to represent an owned pointer. `Box<T>` drops
 its content when it's dropped.
 
+However, vectors (such as `wasm_name_t`) are a special case: for those, `own`
+means that the ownership of contents of the vector are transfered, not the
+allocation of the vector type itself. Hence these are represented using
+`&mut T` instead.
+
 Consequently, apart from other patterns, the code above can be written
 as follows in Rust:
 
 ```rust
 #[no_mangle]
 pub extern "C" fn wasm_importtype_new(
-    module: Box<wasm_name_t>,
-    name: Box<wasm_name_t>,
+    module: &mut wasm_name_t,
+    name: &mut wasm_name_t,
     extern_type: Box<wasm_externtype_t>,
 ) -> Box<wasm_importtype_t> {
     …
@@ -81,13 +86,13 @@ translates into Rust as:
 ```rust
 #[no_mangle]
 pub extern "C" fn wasm_importtype_new(
-    module: Option<Box<wasm_name_t>>,
-    name: Option<Box<wasm_name_t>>,
+    module: Option<&mut wasm_name_t>,
+    name: Option<&mut wasm_name_t>,
     extern_type: Option<Box<wasm_externtype_t>>,
 ) -> Option<Box<wasm_importtype_t>> {
     Some(Box::new(wasm_importtype_t {
-        name: name?,
-        module: module?,
+        name: name?.take().into(),
+        module: module?.take().into(),
         extern_type: extern_type?,
     }))
 }

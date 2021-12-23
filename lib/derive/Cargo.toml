@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-derive"
-version = "2.0.0"
+version = "2.1.0"
 description = "Wasmer derive macros"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"

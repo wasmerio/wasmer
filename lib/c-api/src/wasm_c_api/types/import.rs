@@ -14,13 +14,13 @@ wasm_declare_boxed_vec!(importtype);
 
 #[no_mangle]
 pub extern "C" fn wasm_importtype_new(
-    module: Option<Box<wasm_name_t>>,
-    name: Option<Box<wasm_name_t>>,
+    module: Option<&mut wasm_name_t>,
+    name: Option<&mut wasm_name_t>,
     extern_type: Option<Box<wasm_externtype_t>>,
 ) -> Option<Box<wasm_importtype_t>> {
     Some(Box::new(wasm_importtype_t {
-        name: *name?,
-        module: *module?,
+        name: name?.take().into(),
+        module: module?.take().into(),
         extern_type: *extern_type?,
     }))
 }
