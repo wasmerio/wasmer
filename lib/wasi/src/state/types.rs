@@ -2,7 +2,7 @@
 use crate::syscalls::types::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
 use std::{
     collections::VecDeque,
