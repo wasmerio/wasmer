@@ -48,13 +48,13 @@ pub use crate::state::{
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
+use derivative::*;
+use std::ops::Deref;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
-use derivative::*;
-use std::ops::Deref;
 
 use thiserror::Error;
 use wasmer::{
@@ -78,8 +78,7 @@ pub enum WasiError {
 #[derive(Derivative)]
 #[derivative(Debug)]
 #[derive(Clone, WasmerEnv)]
-pub struct WasiThread
-{
+pub struct WasiThread {
     /// ID of this thread
     id: u32,
     /// Provides access to the WASI environment
@@ -89,9 +88,7 @@ pub struct WasiThread
 }
 
 /// The wasi thread dereferences into the wasi environment
-impl Deref
-for WasiThread
-{
+impl Deref for WasiThread {
     type Target = WasiEnv;
 
     fn deref(&self) -> &WasiEnv {
@@ -99,8 +96,7 @@ for WasiThread
     }
 }
 
-impl WasiThread
-{
+impl WasiThread {
     // Returns the unique ID of this thread
     pub fn thread_id(&self) -> u32 {
         self.id
@@ -120,10 +116,14 @@ impl WasiThread
         loop {
             self.yield_now();
             let delta = std::time::Instant::now() - start;
-            if delta > duration { break; }
+            if delta > duration {
+                break;
+            }
             let remaining = duration - delta;
             std::thread::sleep(remaining.min(std::time::Duration::from_millis(10)));
-            if std::time::Instant::now() - start >= duration { break; }
+            if std::time::Instant::now() - start >= duration {
+                break;
+            }
         }
     }
 
@@ -194,7 +194,7 @@ pub struct WasiEnv {
     /// Optional callback thats invoked whenever a syscall is made
     /// which is used to make callbacks to the process without breaking
     /// the single threaded WASM modules
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     pub(crate) on_yield: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
     /// The thread ID seed is used to generate unique thread identifiers
     /// for each WasiThread. These are needed for multithreading code that needs
@@ -208,7 +208,7 @@ impl WasiEnv {
             memory: LazyInit::new(),
             state: Arc::new(Mutex::new(state)),
             on_yield: None,
-            thread_id_seed: Arc::new(AtomicU32::new(1u32))
+            thread_id_seed: Arc::new(AtomicU32::new(1u32)),
         }
     }
 

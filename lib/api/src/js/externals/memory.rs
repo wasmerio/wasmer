@@ -300,8 +300,16 @@ impl Memory {
     ///
     /// This code is going to be refactored. Use it as your own risks.
     #[doc(hidden)]
-    pub fn uint8view_with_byte_offset_and_length(&self, byte_offset: u32, length: u32) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new_with_byte_offset_and_length(&self.vm_memory.memory.buffer(), byte_offset, length)
+    pub fn uint8view_with_byte_offset_and_length(
+        &self,
+        byte_offset: u32,
+        length: u32,
+    ) -> js_sys::Uint8Array {
+        js_sys::Uint8Array::new_with_byte_offset_and_length(
+            &self.vm_memory.memory.buffer(),
+            byte_offset,
+            length,
+        )
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {

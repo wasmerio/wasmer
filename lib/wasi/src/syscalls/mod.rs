@@ -27,7 +27,7 @@ use crate::{
         virtual_file_type_to_wasi_file_type, Fd, Inode, InodeVal, Kind, PollEvent,
         PollEventBuilder, WasiState, MAX_SYMLINKS,
     },
-    WasiEnv, WasiThread, WasiError,
+    WasiEnv, WasiError, WasiThread,
 };
 use std::borrow::Borrow;
 use std::convert::{Infallible, TryInto};
@@ -2588,7 +2588,11 @@ pub fn sock_send(
     debug!("wasi::sock_send");
     unimplemented!("wasi::sock_send")
 }
-pub fn sock_shutdown(thread: &WasiThread, sock: __wasi_fd_t, how: __wasi_sdflags_t) -> __wasi_errno_t {
+pub fn sock_shutdown(
+    thread: &WasiThread,
+    sock: __wasi_fd_t,
+    how: __wasi_sdflags_t,
+) -> __wasi_errno_t {
     debug!("wasi::sock_shutdown");
     unimplemented!("wasi::sock_shutdown")
 }

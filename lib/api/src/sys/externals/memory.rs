@@ -238,9 +238,12 @@ impl Memory {
     ///
     /// This code is going to be refactored. Use it as your own risks.
     #[doc(hidden)]
-    pub fn uint8view_with_byte_offset_and_length(&self, byte_offset: u32, length: u32) -> MemoryView<u8> {
-        self.view()
-            .subarray(byte_offset, byte_offset + length)
+    pub fn uint8view_with_byte_offset_and_length(
+        &self,
+        byte_offset: u32,
+        length: u32,
+    ) -> MemoryView<u8> {
+        self.view().subarray(byte_offset, byte_offset + length)
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {

@@ -313,12 +313,13 @@ impl WasiStateBuilder {
     }
 
     /// Sets a callback that will be invoked whenever the process yields execution.
-    /// 
+    ///
     /// This is useful if the background tasks and/or callbacks are to be
     /// executed whenever the WASM process goes idle
     pub fn on_yield<F>(&mut self, callback: F) -> &mut Self
-    where F: Fn(&WasiThread),
-          F: Send + Sync + 'static
+    where
+        F: Fn(&WasiThread),
+        F: Send + Sync + 'static,
     {
         self.on_yield = Some(Arc::new(callback));
 
@@ -480,7 +481,7 @@ impl WasiStateBuilder {
     /// [Self::build]'s documentation to learn more.
     pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
         let state = self.build()?;
-    
+
         let mut env = WasiEnv::new(state);
         env.on_yield = self.on_yield.clone();
         Ok(env)
