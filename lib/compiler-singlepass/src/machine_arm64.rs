@@ -1039,7 +1039,7 @@ impl Machine for MachineARM64 {
     // Picks an unused general purpose register for internal temporary use.
     fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[X1, X2, X3, X4, X5, X5, X7, X8];
+        static REGS: &[GPR] = &[X8, X7, X6, X5, X4, X3, X2, X1];
         for r in REGS {
             if !self.used_gprs.contains(r) {
                 return Some(*r);
@@ -1288,15 +1288,13 @@ impl Machine for MachineARM64 {
             Location::GPR(GPR::XzrSp),
         );
     }
-    fn push_callee_saved(&mut self) {}
-    fn pop_callee_saved(&mut self) {}
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) {
         let real_delta = if delta_stack_offset & 15 != 0 {
             delta_stack_offset + 8
         } else {
             delta_stack_offset
         };
-        let delta = if real_delta < 256 {
+        let delta = if self.compatible_imm(real_delta as i64, ImmType::Bits12) {
             Location::Imm8(real_delta as u8)
         } else {
             let tmp = self.pick_temp_gpr().unwrap();
@@ -1312,9 +1310,7 @@ impl Machine for MachineARM64 {
         );
     }
     // push a value on the stack for a native call
-    fn push_location_for_native(&mut self, _loc: Location) {
-        unimplemented!();
-        /*
+    fn push_location_for_native(&mut self, loc: Location) {
         match loc {
             Location::Imm64(_) => {
                 self.reserve_unused_temp_gpr(GPR::X8);
@@ -1324,7 +1320,6 @@ impl Machine for MachineARM64 {
             }
             _ => self.emit_push(Size::S64, loc),
         }
-        */
     }
 
     // Zero a location that is 32bits
@@ -1349,14 +1344,14 @@ impl Machine for MachineARM64 {
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
         // Use callee-saved registers for the first locals.
         match idx {
-            0 => Location::GPR(GPR::X18),
-            1 => Location::GPR(GPR::X19),
-            2 => Location::GPR(GPR::X20),
-            3 => Location::GPR(GPR::X21),
-            4 => Location::GPR(GPR::X22),
-            5 => Location::GPR(GPR::X23),
-            6 => Location::GPR(GPR::X24),
-            7 => Location::GPR(GPR::X25),
+            0 => Location::GPR(GPR::X19),
+            1 => Location::GPR(GPR::X20),
+            2 => Location::GPR(GPR::X21),
+            3 => Location::GPR(GPR::X22),
+            4 => Location::GPR(GPR::X23),
+            5 => Location::GPR(GPR::X24),
+            6 => Location::GPR(GPR::X25),
+            7 => Location::GPR(GPR::X26),
             _ => Location::Memory(GPR::X29, -(((idx - 3) * 8 + callee_saved_regs_size) as i32)),
         }
     }
@@ -1649,7 +1644,7 @@ impl Machine for MachineARM64 {
 
     fn emit_function_prolog(&mut self) {
         self.emit_double_push(Size::S64, Location::GPR(GPR::X29), Location::GPR(GPR::X30)); // save LR too
-        self.emit_double_push(Size::S64, Location::GPR(GPR::X26), Location::GPR(GPR::X8));
+        self.emit_double_push(Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X28));
         // cannot use mov, because XSP is XZR there. Need to use ADD with #0
         self.assembler.emit_add(
             Size::S64,
@@ -1668,7 +1663,7 @@ impl Machine for MachineARM64 {
             Location::GPR(GPR::XzrSp),
         );
         self.pushed = false; // SP is restored, concider it aligned
-        self.emit_double_pop(Size::S64, Location::GPR(GPR::X26), Location::GPR(GPR::X8));
+        self.emit_double_pop(Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X28));
         self.emit_double_pop(Size::S64, Location::GPR(GPR::X29), Location::GPR(GPR::X30));
     }
 
@@ -1709,7 +1704,7 @@ impl Machine for MachineARM64 {
         self.assembler.emit_label(label);
     }
     fn get_grp_for_call(&self) -> GPR {
-        GPR::X26
+        GPR::X27
     }
     fn emit_call_register(&mut self, reg: GPR) {
         self.assembler.emit_call_register(reg);
@@ -1733,6 +1728,10 @@ impl Machine for MachineARM64 {
             .arch_emit_indirect_call_with_trampoline(location);
     }
 
+    fn emit_debug_breakpoint(&mut self) {
+        self.assembler.emit_brk();
+    }
+
     fn emit_call_location(&mut self, location: Location) {
         let mut temps = vec![];
         let loc = self.location_to_reg(
@@ -1741,7 +1740,7 @@ impl Machine for MachineARM64 {
             &mut temps,
             ImmType::None,
             true,
-            Some(GPR::X26),
+            Some(GPR::X27),
         );
         match loc {
             Location::GPR(reg) => self.assembler.emit_call_register(reg),
@@ -2870,7 +2869,7 @@ impl Machine for MachineARM64 {
             offset: reloc_at as u32,
             addend: 0,
         });
-        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 0);
+        self.assembler.emit_movk(Location::GPR(GPR::X27), 0, 0);
         let reloc_at = self.assembler.get_offset().0;
         relocations.push(Relocation {
             kind: RelocationKind::Arm64Movw1,
@@ -2878,7 +2877,7 @@ impl Machine for MachineARM64 {
             offset: reloc_at as u32,
             addend: 0,
         });
-        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 16);
+        self.assembler.emit_movk(Location::GPR(GPR::X27), 0, 16);
         let reloc_at = self.assembler.get_offset().0;
         relocations.push(Relocation {
             kind: RelocationKind::Arm64Movw2,
@@ -2886,7 +2885,7 @@ impl Machine for MachineARM64 {
             offset: reloc_at as u32,
             addend: 0,
         });
-        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 32);
+        self.assembler.emit_movk(Location::GPR(GPR::X27), 0, 32);
         let reloc_at = self.assembler.get_offset().0;
         relocations.push(Relocation {
             kind: RelocationKind::Arm64Movw3,
@@ -2894,7 +2893,7 @@ impl Machine for MachineARM64 {
             offset: reloc_at as u32,
             addend: 0,
         });
-        self.assembler.emit_movk(Location::GPR(GPR::X26), 0, 48);
+        self.assembler.emit_movk(Location::GPR(GPR::X27), 0, 48);
     }
 
     fn emit_binop_add64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {

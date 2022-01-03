@@ -132,10 +132,6 @@ pub trait Machine {
     /// restore stack
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn restore_stack(&mut self, delta_stack_offset: u32);
-    /// push callee saved register to the stack
-    fn push_callee_saved(&mut self);
-    /// pop callee saved register from the stack
-    fn pop_callee_saved(&mut self);
     /// Pop stack of locals
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn pop_stack_locals(&mut self, delta_stack_offset: u32);
@@ -262,6 +258,10 @@ pub trait Machine {
     fn get_gpr_for_ret(&self) -> Self::GPR;
     /// get the simd for the return of float/double values
     fn get_simd_for_ret(&self) -> Self::SIMD;
+
+    /// Emit a debug breakpoint
+    fn emit_debug_breakpoint(&mut self);
+
     /// load the address of a memory location (will panic if src is not a memory)
     /// like LEA opcode on x86_64
     fn location_address(

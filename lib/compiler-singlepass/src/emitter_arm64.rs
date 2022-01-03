@@ -170,6 +170,7 @@ pub trait EmitterARM64 {
 
     fn emit_udf(&mut self);
     fn emit_dmb(&mut self);
+    fn emit_brk(&mut self);
 
     fn emit_fcmp(&mut self, sz: Size, src1: Location, src2: Location);
     fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location);
@@ -1839,6 +1840,9 @@ impl EmitterARM64 for Assembler {
     fn emit_dmb(&mut self) {
         dynasm!(self ; dmb ish);
     }
+    fn emit_brk(&mut self) {
+        dynasm!(self ; brk 0);
+    }
 
     fn emit_fcmp(&mut self, sz: Size, src1: Location, src2: Location) {
         match (sz, src1, src2) {
@@ -2091,11 +2095,10 @@ pub fn gen_std_trampoline_arm64(
 ) -> FunctionBody {
     let mut a = Assembler::new(0);
 
-    let fptr = GPR::X26;
-    let args = GPR::X25;
+    let fptr = GPR::X27;
+    let args = GPR::X28;
 
     dynasm!(a
-        ; .arch aarch64
         ; sub sp, sp, 32
         ; stp x29, x30, [sp]
         ; stp X(fptr as u32), X(args as u32), [sp, 16]
@@ -2111,7 +2114,7 @@ pub fn gen_std_trampoline_arm64(
             stack_offset += 8;
             assert!(stack_offset % 16 == 0);
         }
-        dynasm!(a ; .arch aarch64 ; sub sp, sp, stack_offset);
+        dynasm!(a ; sub sp, sp, stack_offset);
     }
 
     // Move arguments to their locations.
@@ -2151,7 +2154,7 @@ pub fn gen_std_trampoline_arm64(
         }
     }
 
-    dynasm!(a ; .arch aarch64 ; blr X(fptr as u32));
+    dynasm!(a  ; blr X(fptr as u32));
 
     // Write return value.
     if !sig.results().is_empty() {
@@ -2160,7 +2163,6 @@ pub fn gen_std_trampoline_arm64(
 
     // Restore stack.
     dynasm!(a
-        ; .arch aarch64
         ; ldp X(fptr as u32), X(args as u32), [x29, 16]
         ; ldp x29, x30, [x29]
         ; add sp, sp, 32 + stack_offset as u32
@@ -2180,7 +2182,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
 ) -> FunctionBody {
     let mut a = Assembler::new(0);
     // Allocate argument array.
-    let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 16;
+    let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
     // Save LR and X20, as scratch register
     a.emit_stpdb(
         Size::S64,
@@ -2190,21 +2192,23 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
         16,
     );
 
-    if stack_offset < 0x1000 + 16 {
-        a.emit_sub(
-            Size::S64,
-            Location::GPR(GPR::XzrSp),
-            Location::Imm32((stack_offset - 16) as _),
-            Location::GPR(GPR::XzrSp),
-        );
-    } else {
-        a.emit_mov_imm(Location::GPR(GPR::X20), (stack_offset - 16) as u64);
-        a.emit_sub(
-            Size::S64,
-            Location::GPR(GPR::XzrSp),
-            Location::GPR(GPR::X20),
-            Location::GPR(GPR::XzrSp),
-        );
+    if stack_offset != 0 {
+        if stack_offset < 0x1000 {
+            a.emit_sub(
+                Size::S64,
+                Location::GPR(GPR::XzrSp),
+                Location::Imm32(stack_offset as _),
+                Location::GPR(GPR::XzrSp),
+            );
+        } else {
+            a.emit_mov_imm(Location::GPR(GPR::X20), stack_offset as u64);
+            a.emit_sub(
+                Size::S64,
+                Location::GPR(GPR::XzrSp),
+                Location::GPR(GPR::X20),
+                Location::GPR(GPR::XzrSp),
+            );
+        }
     }
 
     // Copy arguments.
@@ -2222,7 +2226,10 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
                     a.emit_ldr(
                         Size::S64,
                         Location::GPR(GPR::X20),
-                        Location::Memory(GPR::XzrSp, (stack_offset + stack_param_count * 8) as _),
+                        Location::Memory(
+                            GPR::XzrSp,
+                            (stack_offset + 16 + stack_param_count * 8) as _,
+                        ),
                     );
                     stack_param_count += 1;
                     Location::GPR(GPR::X20)
@@ -2246,14 +2253,8 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     match calling_convention {
         _ => {
             // Load target address.
-            a.emit_ldr(
-                Size::S64,
-                Location::GPR(GPR::X20),
-                Location::Memory(
-                    GPR::X0,
-                    vmoffsets.vmdynamicfunction_import_context_address() as i32,
-                ),
-            );
+            let offset = vmoffsets.vmdynamicfunction_import_context_address();
+            a.emit_ldur(Size::S64, Location::GPR(GPR::X20), GPR::X0, offset as i32);
             // Load values array.
             a.emit_add(
                 Size::S64,
@@ -2278,21 +2279,23 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     }
 
     // Release values array.
-    if stack_offset < 0x1000 + 16 {
-        a.emit_add(
-            Size::S64,
-            Location::GPR(GPR::XzrSp),
-            Location::Imm32((stack_offset - 16) as _),
-            Location::GPR(GPR::XzrSp),
-        );
-    } else {
-        a.emit_mov_imm(Location::GPR(GPR::X20), (stack_offset - 16) as u64);
-        a.emit_add(
-            Size::S64,
-            Location::GPR(GPR::XzrSp),
-            Location::GPR(GPR::X20),
-            Location::GPR(GPR::XzrSp),
-        );
+    if stack_offset != 0 {
+        if stack_offset < 0x1000 {
+            a.emit_add(
+                Size::S64,
+                Location::GPR(GPR::XzrSp),
+                Location::Imm32(stack_offset as _),
+                Location::GPR(GPR::XzrSp),
+            );
+        } else {
+            a.emit_mov_imm(Location::GPR(GPR::X20), stack_offset as u64);
+            a.emit_add(
+                Size::S64,
+                Location::GPR(GPR::XzrSp),
+                Location::GPR(GPR::X20),
+                Location::GPR(GPR::XzrSp),
+            );
+        }
     }
     a.emit_ldpia(
         Size::S64,
@@ -2437,32 +2440,46 @@ pub fn gen_import_call_trampoline_arm64(
     let offset = vmoffsets.vmctx_vmfunction_import(index);
     // for ldr, offset needs to be a multiple of 8, wich often is not
     // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
-    let offset = if offset > 0 && offset < 0x1000 {
-        offset
-    } else {
-        a.emit_mov_imm(Location::GPR(GPR::X16), offset as u64);
-        a.emit_add(
-            Size::S64,
-            Location::GPR(GPR::X0),
-            Location::GPR(GPR::X16),
-            Location::GPR(GPR::X0),
-        );
-        0
-    };
-    match calling_convention {
-        _ => {
-            a.emit_ldur(
-                Size::S64,
-                Location::GPR(GPR::X16),
-                GPR::X0,
-                offset as i32, // function pointer
-            );
-            a.emit_ldur(
+    let offset =
+        if (offset > 0 && offset < 0xF8) || (offset > 0 && offset < 0x7FF8 && (offset & 7) == 0) {
+            offset
+        } else {
+            a.emit_mov_imm(Location::GPR(GPR::X16), offset as u64);
+            a.emit_add(
                 Size::S64,
                 Location::GPR(GPR::X0),
-                GPR::X0,
-                offset as i32 + 8, // target vmctx
+                Location::GPR(GPR::X16),
+                Location::GPR(GPR::X0),
             );
+            0
+        };
+    match calling_convention {
+        _ => {
+            if (offset & 7) == 0 {
+                a.emit_ldr(
+                    Size::S64,
+                    Location::GPR(GPR::X16),
+                    Location::Memory(GPR::X0, offset as i32), // function pointer
+                );
+                a.emit_ldr(
+                    Size::S64,
+                    Location::GPR(GPR::X0),
+                    Location::Memory(GPR::X0, offset as i32 + 8), // target vmctx
+                );
+            } else {
+                a.emit_ldur(
+                    Size::S64,
+                    Location::GPR(GPR::X16),
+                    GPR::X0,
+                    offset as i32, // function pointer
+                );
+                a.emit_ldur(
+                    Size::S64,
+                    Location::GPR(GPR::X0),
+                    GPR::X0,
+                    offset as i32 + 8, // target vmctx
+                );
+            }
         }
     }
     a.emit_b_register(GPR::X16);

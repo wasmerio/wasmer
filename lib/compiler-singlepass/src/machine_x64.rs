@@ -1798,11 +1798,6 @@ impl Machine for MachineX86_64 {
             Location::GPR(GPR::RSP),
         );
     }
-    fn push_callee_saved(&mut self) {}
-    fn pop_callee_saved(&mut self) {
-        self.assembler.emit_pop(Size::S64, Location::GPR(GPR::R14));
-        self.assembler.emit_pop(Size::S64, Location::GPR(GPR::R15));
-    }
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) {
         self.assembler.emit_add(
             Size::S64,
@@ -2146,6 +2141,10 @@ impl Machine for MachineX86_64 {
     fn arch_emit_indirect_call_with_trampoline(&mut self, location: Location) {
         self.assembler
             .arch_emit_indirect_call_with_trampoline(location);
+    }
+
+    fn emit_debug_breakpoint(&mut self) {
+        self.assembler.emit_bkpt();
     }
 
     fn emit_call_location(&mut self, location: Location) {
