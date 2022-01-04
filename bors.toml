@@ -9,6 +9,6 @@ status = [
     "Test cross-compile on linux",
     "Test cross-compile on macos",
 ]
-required_approvals = 1
+required_approvals = 0
 timeout_sec = 7200
-delete_merged_branches = true 
+delete_merged_branches = true
