@@ -172,6 +172,7 @@ impl LLVMCompiler {
         metadata_gv.set_initializer(&metadata_init);
         metadata_gv.set_linkage(Linkage::DLLExport);
         metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
+        metadata_gv.set_alignment(16);
 
         if self.config().enable_verifier {
             merged_module.verify().unwrap();
