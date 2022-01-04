@@ -445,7 +445,7 @@ jobs:
   audit:
     name: Audit
     env:
-      CARGO_AUDIT_VERSION: 0.12.0
+      CARGO_AUDIT_VERSION: 0.16.0
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
