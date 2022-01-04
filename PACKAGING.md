@@ -13,12 +13,13 @@
   ```
 
 * `make install` respects `DESTDIR`, but `prefix` must be configured
-  with `WASMER_INSTALL_PREFIX`, e.g.:
+  with `WASMER_INSTALL_PREFIX`. Note that `DESTDIR` must include
+  `WASMER_INSTALL_PREFIX`, e.g.:
 
   ```sh
   export WASMER_INSTALL_PREFIX=/usr
   make
-  DESTDIR=.../usr make install
+  DESTDIR=/tmp/staging/usr make install
   ```
 
 * In case you must build/install directly with `cargo`, make sure to
