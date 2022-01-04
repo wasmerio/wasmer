@@ -403,6 +403,7 @@
 <span id="403">403</span>
 <span id="404">404</span>
 <span id="405">405</span>
+<span id="406">406</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config::LLVM</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trampoline::FuncTrampoline</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::FuncTranslator</span>;
@@ -577,6 +578,7 @@
         <span class="ident">metadata_gv</span>.<span class="ident">set_initializer</span>(<span class="kw-2">&amp;</span><span class="ident">metadata_init</span>);
         <span class="ident">metadata_gv</span>.<span class="ident">set_linkage</span>(<span class="ident">Linkage::DLLExport</span>);
         <span class="ident">metadata_gv</span>.<span class="ident">set_dll_storage_class</span>(<span class="ident">DLLStorageClass::Export</span>);
+        <span class="ident">metadata_gv</span>.<span class="ident">set_alignment</span>(<span class="number">16</span>);
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">config</span>().<span class="ident">enable_verifier</span> {
             <span class="ident">merged_module</span>.<span class="ident">verify</span>().<span class="ident">unwrap</span>();
