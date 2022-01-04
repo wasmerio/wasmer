@@ -713,7 +713,7 @@ install-misc:
 install-pkgconfig:
 	# Make sure WASMER_INSTALL_PREFIX is set during build
 	unset WASMER_DIR; \
-	if pc="$$(target/release/wasmer config --pkg-config 1>/dev/null 2>/dev/null)"; then \
+	if pc="$$(target/release/wasmer config --pkg-config 2>/dev/null)"; then \
 		echo "$$pc" | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc; \
 	else \
 		echo 1>&2 "WASMER_INSTALL_PREFIX was not set during build, not installing wasmer.pc"; \
