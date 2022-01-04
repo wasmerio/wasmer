@@ -107,3 +107,8 @@ fn main() -> anyhow::Result<()> {
         },
     }
 }
+
+#[test]
+fn test_early_exit() -> anyhow::Result<()> {
+    main()
+}

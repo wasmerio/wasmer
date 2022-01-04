@@ -137,3 +137,8 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_memory() -> anyhow::Result<()> {
+    main()
+}

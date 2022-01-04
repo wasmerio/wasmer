@@ -152,3 +152,8 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_table() -> anyhow::Result<()> {
+    main()
+}

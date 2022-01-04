@@ -575,6 +575,7 @@ test-wasi:
 	cargo test --release --tests $(compiler_features) -- wasi::wasitests
 
 test-examples:
+	cargo test $(compiler_features) --features wasi --examples
 	cargo test --release $(compiler_features) --features wasi --examples
 
 test-integration:

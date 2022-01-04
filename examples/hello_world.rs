@@ -85,3 +85,8 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_hello_world() -> anyhow::Result<()> {
+    main()
+}
