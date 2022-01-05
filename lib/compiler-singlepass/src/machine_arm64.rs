@@ -999,6 +999,34 @@ impl MachineARM64 {
             self.emit_pop(sz, dst1);
         }
     }
+
+    fn set_default_nan(&mut self, temps: &mut Vec<GPR>) -> GPR {
+        // temporarly set FPCR to DefaultNan
+        let old_fpcr = self.acquire_temp_gpr().unwrap();
+        temps.push(old_fpcr.clone());
+        self.assembler.emit_read_fpcr(old_fpcr);
+        let new_fpcr = self.acquire_temp_gpr().unwrap();
+        temps.push(new_fpcr.clone());
+        let tmp = self.acquire_temp_gpr().unwrap();
+        temps.push(tmp.clone());
+        self.assembler
+            .emit_mov(Size::S32, Location::Imm32(1), Location::GPR(tmp));
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(old_fpcr), Location::GPR(new_fpcr));
+        // DN is bit 25 of FPCR
+        self.assembler.emit_bfi(
+            Size::S64,
+            Location::GPR(tmp),
+            25,
+            1,
+            Location::GPR(new_fpcr),
+        );
+        self.assembler.emit_write_fpcr(new_fpcr);
+        old_fpcr
+    }
+    fn restore_fpcr(&mut self, old_fpcr: GPR) {
+        self.assembler.emit_write_fpcr(old_fpcr);
+    }
 }
 
 impl Machine for MachineARM64 {
@@ -1679,8 +1707,36 @@ impl Machine for MachineARM64 {
     fn arch_supports_canonicalize_nan(&self) -> bool {
         self.assembler.arch_supports_canonicalize_nan()
     }
-    fn canonicalize_nan(&mut self, _sz: Size, _input: Location, _output: Location) {
-        unimplemented!();
+    fn canonicalize_nan(&mut self, sz: Size, input: Location, output: Location) {
+        let mut tempn = vec![];
+        let mut temps = vec![];
+        let old_fpcr = self.set_default_nan(&mut temps);
+        // use FMAX (input, intput) => output to automaticaly normalize the NaN
+        match (sz, input, output) {
+            (Size::S32, Location::SIMD(_), Location::SIMD(_)) => {
+                self.assembler.emit_fmax(sz, input, input, output);
+            }
+            (Size::S64, Location::SIMD(_), Location::SIMD(_)) => {
+                self.assembler.emit_fmax(sz, input, input, output);
+            }
+            (Size::S32, Location::SIMD(_), _) | (Size::S64, Location::SIMD(_), _) => {
+                let tmp = self.location_to_neon(sz, output, &mut tempn, ImmType::None, false);
+                self.assembler.emit_fmax(sz, input, input, tmp);
+                self.move_location(sz, tmp, output);
+            }
+            _ => panic!(
+                "singlepass can't emit canonicalize_nan {:?} {:?} {:?}",
+                sz, input, output
+            ),
+        }
+
+        self.restore_fpcr(old_fpcr);
+        for r in temps {
+            self.release_gpr(r);
+        }
+        for r in tempn {
+            self.release_simd(r);
+        }
     }
 
     fn emit_illegal_op(&mut self) {
@@ -4244,17 +4300,17 @@ impl Machine for MachineARM64 {
     fn f64_sqrt(&mut self, loc: Location, ret: Location) {
         self.emit_relaxed_binop_neon(Assembler::emit_fsqrt, Size::S64, loc, ret, true);
     }
-    fn f64_trunc(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_trunc(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintz, Size::S64, loc, ret, true);
     }
-    fn f64_ceil(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_ceil(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintp, Size::S64, loc, ret, true);
     }
-    fn f64_floor(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_floor(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintm, Size::S64, loc, ret, true);
     }
-    fn f64_nearest(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f64_nearest(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintn, Size::S64, loc, ret, true);
     }
     fn f64_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         let mut temps = vec![];
@@ -4329,6 +4385,8 @@ impl Machine for MachineARM64 {
         }
     }
     fn f64_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let old_fpcr = self.set_default_nan(&mut temps);
         self.emit_relaxed_binop3_neon(
             Assembler::emit_fmin,
             Size::S64,
@@ -4337,8 +4395,14 @@ impl Machine for MachineARM64 {
             ret,
             ImmType::None,
         );
+        self.restore_fpcr(old_fpcr);
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn f64_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let old_fpcr = self.set_default_nan(&mut temps);
         self.emit_relaxed_binop3_neon(
             Assembler::emit_fmax,
             Size::S64,
@@ -4347,6 +4411,10 @@ impl Machine for MachineARM64 {
             ret,
             ImmType::None,
         );
+        self.restore_fpcr(old_fpcr);
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn f64_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_relaxed_binop3_neon(
@@ -4426,17 +4494,17 @@ impl Machine for MachineARM64 {
     fn f32_sqrt(&mut self, loc: Location, ret: Location) {
         self.emit_relaxed_binop_neon(Assembler::emit_fsqrt, Size::S32, loc, ret, true);
     }
-    fn f32_trunc(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_trunc(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintz, Size::S32, loc, ret, true);
     }
-    fn f32_ceil(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_ceil(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintp, Size::S32, loc, ret, true);
     }
-    fn f32_floor(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_floor(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintm, Size::S32, loc, ret, true);
     }
-    fn f32_nearest(&mut self, _loc: Location, _ret: Location) {
-        unimplemented!();
+    fn f32_nearest(&mut self, loc: Location, ret: Location) {
+        self.emit_relaxed_binop_neon(Assembler::emit_frintn, Size::S32, loc, ret, true);
     }
     fn f32_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         let mut temps = vec![];
@@ -4511,6 +4579,8 @@ impl Machine for MachineARM64 {
         }
     }
     fn f32_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let old_fpcr = self.set_default_nan(&mut temps);
         self.emit_relaxed_binop3_neon(
             Assembler::emit_fmin,
             Size::S32,
@@ -4519,8 +4589,14 @@ impl Machine for MachineARM64 {
             ret,
             ImmType::None,
         );
+        self.restore_fpcr(old_fpcr);
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn f32_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
+        let mut temps = vec![];
+        let old_fpcr = self.set_default_nan(&mut temps);
         self.emit_relaxed_binop3_neon(
             Assembler::emit_fmax,
             Size::S32,
@@ -4529,6 +4605,10 @@ impl Machine for MachineARM64 {
             ret,
             ImmType::None,
         );
+        self.restore_fpcr(old_fpcr);
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn f32_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_relaxed_binop3_neon(
