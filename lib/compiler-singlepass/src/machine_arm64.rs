@@ -1024,8 +1024,80 @@ impl MachineARM64 {
         self.assembler.emit_write_fpcr(new_fpcr);
         old_fpcr
     }
+    fn set_trap_enabled(&mut self, temps: &mut Vec<GPR>) -> GPR {
+        // temporarly set FPCR to DefaultNan
+        let old_fpcr = self.acquire_temp_gpr().unwrap();
+        temps.push(old_fpcr.clone());
+        self.assembler.emit_read_fpcr(old_fpcr);
+        let new_fpcr = self.acquire_temp_gpr().unwrap();
+        temps.push(new_fpcr.clone());
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(old_fpcr), Location::GPR(new_fpcr));
+        // IOE is bit 8 of FPCR
+        self.assembler
+            .emit_bfc(Size::S64, 8, 1, Location::GPR(new_fpcr));
+        self.assembler.emit_write_fpcr(new_fpcr);
+        old_fpcr
+    }
     fn restore_fpcr(&mut self, old_fpcr: GPR) {
         self.assembler.emit_write_fpcr(old_fpcr);
+    }
+
+    fn reset_exception_fpsr(&mut self) {
+        // reset exception count in FPSR
+        let fpsr = self.acquire_temp_gpr().unwrap();
+        self.assembler.emit_read_fpsr(fpsr);
+        // IOC is 0
+        self.assembler
+            .emit_bfc(Size::S64, 0, 1, Location::GPR(fpsr));
+        self.assembler.emit_write_fpsr(fpsr);
+        self.release_gpr(fpsr);
+    }
+    fn read_fpsr(&mut self) -> GPR {
+        let fpsr = self.acquire_temp_gpr().unwrap();
+        self.assembler.emit_read_fpsr(fpsr);
+        fpsr
+    }
+
+    fn trap_float_convertion_errors(
+        &mut self,
+        old_fpcr: GPR,
+        sz: Size,
+        f: Location,
+        temps: &mut Vec<GPR>,
+    ) {
+        let trap_badconv = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        let fpsr = self.read_fpsr();
+        temps.push(fpsr.clone());
+        // no trap, than all good
+        self.assembler
+            .emit_tbz_label(Size::S32, Location::GPR(fpsr), 0, end);
+        // now need to check if it's overflow or NaN
+        self.assembler
+            .emit_bfc(Size::S64, 0, 4, Location::GPR(fpsr));
+        self.restore_fpcr(old_fpcr);
+        self.assembler.emit_fcmp(sz, f, f);
+        self.assembler.emit_bcond_label(Condition::Vs, trap_badconv);
+        // fallthru: trap_overflow
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::IntegerOverflow);
+        self.emit_illegal_op();
+        self.mark_instruction_address_end(offset);
+
+        self.emit_label(trap_badconv);
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::BadConversionToInteger);
+        self.emit_illegal_op();
+        self.mark_instruction_address_end(offset);
+
+        self.emit_label(end);
+        self.restore_fpcr(old_fpcr);
     }
 }
 
@@ -4240,17 +4312,121 @@ impl Machine for MachineARM64 {
             self.release_simd(r);
         }
     }
-    fn convert_i64_f64(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
-        unimplemented!();
+    fn convert_i64_f64(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        let mut gprs = vec![];
+        let mut neons = vec![];
+        let src = self.location_to_neon(Size::S64, loc, &mut neons, ImmType::None, true);
+        let dest = self.location_to_reg(Size::S64, ret, &mut gprs, ImmType::None, false, None);
+        let old_fpcr = if !sat {
+            self.reset_exception_fpsr();
+            self.set_trap_enabled(&mut gprs)
+        } else {
+            GPR::XzrSp
+        };
+        if signed {
+            self.assembler.emit_fcvtzs(Size::S64, src, Size::S64, dest);
+        } else {
+            self.assembler.emit_fcvtzu(Size::S64, src, Size::S64, dest);
+        }
+        if !sat {
+            self.trap_float_convertion_errors(old_fpcr, Size::S64, src, &mut gprs);
+        }
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret);
+        }
+        for r in gprs {
+            self.release_gpr(r);
+        }
+        for r in neons {
+            self.release_simd(r);
+        }
     }
-    fn convert_i32_f64(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
-        unimplemented!();
+    fn convert_i32_f64(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        let mut gprs = vec![];
+        let mut neons = vec![];
+        let src = self.location_to_neon(Size::S64, loc, &mut neons, ImmType::None, true);
+        let dest = self.location_to_reg(Size::S32, ret, &mut gprs, ImmType::None, false, None);
+        let old_fpcr = if !sat {
+            self.reset_exception_fpsr();
+            self.set_trap_enabled(&mut gprs)
+        } else {
+            GPR::XzrSp
+        };
+        if signed {
+            self.assembler.emit_fcvtzs(Size::S64, src, Size::S32, dest);
+        } else {
+            self.assembler.emit_fcvtzu(Size::S64, src, Size::S32, dest);
+        }
+        if !sat {
+            self.trap_float_convertion_errors(old_fpcr, Size::S64, src, &mut gprs);
+        }
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in gprs {
+            self.release_gpr(r);
+        }
+        for r in neons {
+            self.release_simd(r);
+        }
     }
-    fn convert_i64_f32(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
-        unimplemented!();
+    fn convert_i64_f32(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        let mut gprs = vec![];
+        let mut neons = vec![];
+        let src = self.location_to_neon(Size::S32, loc, &mut neons, ImmType::None, true);
+        let dest = self.location_to_reg(Size::S64, ret, &mut gprs, ImmType::None, false, None);
+        let old_fpcr = if !sat {
+            self.reset_exception_fpsr();
+            self.set_trap_enabled(&mut gprs)
+        } else {
+            GPR::XzrSp
+        };
+        if signed {
+            self.assembler.emit_fcvtzs(Size::S32, src, Size::S64, dest);
+        } else {
+            self.assembler.emit_fcvtzu(Size::S32, src, Size::S64, dest);
+        }
+        if !sat {
+            self.trap_float_convertion_errors(old_fpcr, Size::S32, src, &mut gprs);
+        }
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret);
+        }
+        for r in gprs {
+            self.release_gpr(r);
+        }
+        for r in neons {
+            self.release_simd(r);
+        }
     }
-    fn convert_i32_f32(&mut self, _loc: Location, _ret: Location, _signed: bool, _sat: bool) {
-        unimplemented!();
+    fn convert_i32_f32(&mut self, loc: Location, ret: Location, signed: bool, sat: bool) {
+        let mut gprs = vec![];
+        let mut neons = vec![];
+        let src = self.location_to_neon(Size::S32, loc, &mut neons, ImmType::None, true);
+        let dest = self.location_to_reg(Size::S32, ret, &mut gprs, ImmType::None, false, None);
+        let old_fpcr = if !sat {
+            self.reset_exception_fpsr();
+            self.set_trap_enabled(&mut gprs)
+        } else {
+            GPR::XzrSp
+        };
+        if signed {
+            self.assembler.emit_fcvtzs(Size::S32, src, Size::S32, dest);
+        } else {
+            self.assembler.emit_fcvtzu(Size::S32, src, Size::S32, dest);
+        }
+        if !sat {
+            self.trap_float_convertion_errors(old_fpcr, Size::S32, src, &mut gprs);
+        }
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret);
+        }
+        for r in gprs {
+            self.release_gpr(r);
+        }
+        for r in neons {
+            self.release_simd(r);
+        }
     }
     fn convert_f64_f32(&mut self, loc: Location, ret: Location) {
         self.emit_relaxed_binop_neon(Assembler::emit_fcvt, Size::S32, loc, ret, true);

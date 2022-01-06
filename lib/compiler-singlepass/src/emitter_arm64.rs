@@ -165,6 +165,8 @@ pub trait EmitterARM64 {
     fn emit_b_label(&mut self, label: Label);
     fn emit_cbz_label(&mut self, sz: Size, reg: Location, label: Label);
     fn emit_cbnz_label(&mut self, sz: Size, reg: Location, label: Label);
+    fn emit_tbz_label(&mut self, sz: Size, reg: Location, n: u32, label: Label);
+    fn emit_tbnz_label(&mut self, sz: Size, reg: Location, n: u32, label: Label);
     fn emit_bcond_label(&mut self, condition: Condition, label: Label);
     fn emit_b_register(&mut self, reg: GPR);
     fn emit_call_label(&mut self, label: Label);
@@ -195,9 +197,13 @@ pub trait EmitterARM64 {
     fn emit_scvtf(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location);
     fn emit_ucvtf(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location);
     fn emit_fcvt(&mut self, sz_in: Size, src: Location, dst: Location);
+    fn emit_fcvtzs(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location);
+    fn emit_fcvtzu(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location);
 
     fn emit_read_fpcr(&mut self, reg: GPR);
     fn emit_write_fpcr(&mut self, reg: GPR);
+    fn emit_read_fpsr(&mut self, reg: GPR);
+    fn emit_write_fpsr(&mut self, reg: GPR);
 
     fn arch_supports_canonicalize_nan(&self) -> bool {
         true
@@ -1986,6 +1992,38 @@ impl EmitterARM64 for Assembler {
             _ => panic!("singlepass can't emit CBNZ {:?} {:?} {:?}", sz, reg, label),
         }
     }
+    fn emit_tbz_label(&mut self, sz: Size, reg: Location, n: u32, label: Label) {
+        match (sz, reg) {
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; tbz W(reg), n, =>label);
+            }
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; tbz X(reg), n, =>label);
+            }
+            _ => panic!(
+                "singlepass can't emit TBZ {:?} {:?} {:?} {:?}",
+                sz, reg, n, label
+            ),
+        }
+    }
+    fn emit_tbnz_label(&mut self, sz: Size, reg: Location, n: u32, label: Label) {
+        match (sz, reg) {
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; tbnz W(reg), n, =>label);
+            }
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; tbnz X(reg), n, =>label);
+            }
+            _ => panic!(
+                "singlepass can't emit TBNZ {:?} {:?} {:?} {:?}",
+                sz, reg, n, label
+            ),
+        }
+    }
     fn emit_bcond_label(&mut self, condition: Condition, label: Label) {
         match condition {
             Condition::Eq => dynasm!(self ; b.eq => label),
@@ -2332,13 +2370,76 @@ impl EmitterARM64 for Assembler {
             ),
         }
     }
-    // mrs    x0, fpcr : 1101010100 1 1 1 011 0100 0100 000 00000    o0=1(op0=3), op1=0b011(3) CRn=0b0100(4) CRm=0b0100(4) op2=0
+    fn emit_fcvtzs(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location) {
+        match (sz_in, src, sz_out, dst) {
+            (Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzs W(dst), S(src));
+            }
+            (Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzs W(dst), D(src));
+            }
+            (Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzs X(dst), S(src));
+            }
+            (Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzs X(dst), D(src));
+            }
+            _ => panic!(
+                "singlepass can't emit FCVTZS {:?} {:?} {:?} {:?}",
+                sz_in, src, sz_out, dst
+            ),
+        }
+    }
+    fn emit_fcvtzu(&mut self, sz_in: Size, src: Location, sz_out: Size, dst: Location) {
+        match (sz_in, src, sz_out, dst) {
+            (Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzu W(dst), S(src));
+            }
+            (Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzu W(dst), D(src));
+            }
+            (Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzu X(dst), S(src));
+            }
+            (Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvtzu X(dst), D(src));
+            }
+            _ => panic!(
+                "singlepass can't emit FCVTZU {:?} {:?} {:?} {:?}",
+                sz_in, src, sz_out, dst
+            ),
+        }
+    }
+
     // 1 011 0100 0100 000 => fpcr
     fn emit_read_fpcr(&mut self, reg: GPR) {
         dynasm!(self ; mrs X(reg as u32), 0b1_011_0100_0100_000);
     }
     fn emit_write_fpcr(&mut self, reg: GPR) {
         dynasm!(self ; msr 0b1_011_0100_0100_000, X(reg as u32));
+    }
+    // 1 011 0100 0100 001 => fpsr
+    fn emit_read_fpsr(&mut self, reg: GPR) {
+        dynasm!(self ; mrs X(reg as u32), 0b1_011_0100_0100_001);
+    }
+    fn emit_write_fpsr(&mut self, reg: GPR) {
+        dynasm!(self ; msr 0b1_011_0100_0100_001, X(reg as u32));
     }
 }
 
