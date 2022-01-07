@@ -150,7 +150,6 @@
 <span id="150">150</span>
 <span id="151">151</span>
 <span id="152">152</span>
-<span id="153">153</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">std::env</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>;
@@ -196,8 +195,9 @@
     }
     <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">std::fs::metadata</span>(<span class="ident">path</span>)
         .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Can&#39;t check permissions of {}&quot;</span>, <span class="ident">path</span>.<span class="ident">to_string_lossy</span>()))<span class="question-mark">?</span>;
+    <span class="kw">use</span> <span class="ident">unix_mode</span>::<span class="kw-2">*</span>;
     <span class="macro">anyhow::ensure!</span>(
-        <span class="ident">m</span>.<span class="ident">mode</span>() <span class="op">&amp;</span> <span class="number">0o2</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">mode</span>() <span class="op">&amp;</span> <span class="number">0o1000</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>,
+        <span class="op">!</span><span class="ident">is_allowed</span>(<span class="ident">Accessor::Other</span>, <span class="ident">Access::Write</span>, <span class="ident">m</span>.<span class="ident">mode</span>()) <span class="op">|</span><span class="op">|</span> <span class="ident">is_sticky</span>(<span class="ident">m</span>.<span class="ident">mode</span>()),
         <span class="string">&quot;{} is world writeable and not sticky&quot;</span>,
         <span class="ident">path</span>.<span class="ident">to_string_lossy</span>()
     );
@@ -215,10 +215,8 @@
             <span class="ident">Register</span> <span class="op">|</span> <span class="ident">Reregister</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempfile::tempdir</span>().<span class="ident">context</span>(<span class="string">&quot;Make temporary directory&quot;</span>)<span class="question-mark">?</span>;
                 <span class="ident">seccheck</span>(<span class="ident">temp_dir</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">bin_path_orig</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">env::args_os</span>()
-                    .<span class="ident">nth</span>(<span class="number">0</span>)
-                    .<span class="ident">map</span>(<span class="ident">Into::into</span>)
-                    .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">p</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">exists</span>())
+                <span class="kw">let</span> <span class="ident">bin_path_orig</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">env::current_exe</span>()
+                    .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">canonicalize</span>())
                     .<span class="ident">context</span>(<span class="string">&quot;Cannot get path to wasmer executable&quot;</span>)<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">bin_path</span> <span class="op">=</span> <span class="ident">temp_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;wasmer-binfmt-interpreter&quot;</span>);
                 <span class="ident">fs::copy</span>(<span class="kw-2">&amp;</span><span class="ident">bin_path_orig</span>, <span class="kw-2">&amp;</span><span class="ident">bin_path</span>).<span class="ident">context</span>(<span class="string">&quot;Copy wasmer binary to temp folder&quot;</span>)<span class="question-mark">?</span>;
