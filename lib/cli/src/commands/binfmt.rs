@@ -43,8 +43,9 @@ fn seccheck(path: &Path) -> Result<()> {
     }
     let m = std::fs::metadata(path)
         .with_context(|| format!("Can't check permissions of {}", path.to_string_lossy()))?;
+    use unix_mode::*;
     anyhow::ensure!(
-        m.mode() & 0o2 == 0 || m.mode() & 0o1000 != 0,
+        !is_allowed(Accessor::Other, Access::Write, m.mode()) || is_sticky(m.mode()),
         "{} is world writeable and not sticky",
         path.to_string_lossy()
     );
