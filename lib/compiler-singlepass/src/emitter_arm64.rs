@@ -2797,7 +2797,7 @@ pub fn gen_import_call_trampoline_arm64(
         if (offset > 0 && offset < 0xF8) || (offset > 0 && offset < 0x7FF8 && (offset & 7) == 0) {
             offset
         } else {
-            a.emit_mov_imm(Location::GPR(GPR::X16), offset as u64);
+            a.emit_mov_imm(Location::GPR(GPR::X16), (offset as i64) as u64);
             a.emit_add(
                 Size::S64,
                 Location::GPR(GPR::X0),

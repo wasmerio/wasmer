@@ -129,7 +129,8 @@ impl MachineARM64 {
                             temps.push(tmp.clone());
                             tmp
                         };
-                        self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                        self.assembler
+                            .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
                         Location::GPR(tmp)
                     }
                 }
@@ -179,7 +180,8 @@ impl MachineARM64 {
                         if reg == tmp {
                             unreachable!();
                         }
-                        self.assembler.emit_mov_imm(Location::GPR(tmp), val as u64);
+                        self.assembler
+                            .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
                         self.assembler.emit_ldr(
                             sz,
                             Location::GPR(tmp),
@@ -231,7 +233,8 @@ impl MachineARM64 {
                     let gpr = self.acquire_temp_gpr().unwrap();
                     let tmp = self.acquire_temp_simd().unwrap();
                     temps.push(tmp.clone());
-                    self.assembler.emit_mov_imm(Location::GPR(gpr), val as u64);
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(gpr), (val as i64) as u64);
                     self.assembler
                         .emit_mov(sz, Location::GPR(gpr), Location::SIMD(tmp));
                     self.release_gpr(gpr);
@@ -271,7 +274,8 @@ impl MachineARM64 {
                         self.assembler.emit_ldur(sz, Location::SIMD(tmp), reg, val);
                     } else {
                         let gpr = self.acquire_temp_gpr().unwrap();
-                        self.assembler.emit_mov_imm(Location::GPR(gpr), val as u64);
+                        self.assembler
+                            .emit_mov_imm(Location::GPR(gpr), (val as i64) as u64);
                         self.assembler.emit_ldr(
                             sz,
                             Location::SIMD(tmp),
@@ -383,7 +387,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_ldr(
                         Size::S64,
                         dest,
@@ -413,7 +417,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_ldr(
                         Size::S32,
                         dest,
@@ -441,7 +445,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_ldrsw(
                         Size::S64,
                         dest,
@@ -469,7 +473,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_ldrh(
                         Size::S32,
                         dest,
@@ -497,7 +501,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_ldrsh(
                         sz,
                         dest,
@@ -525,7 +529,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_ldrb(
                         Size::S32,
                         dest,
@@ -553,7 +557,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_ldrsb(
                         sz,
                         dest,
@@ -583,7 +587,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_str(
                         Size::S64,
                         dst,
@@ -610,7 +614,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_str(
                         Size::S32,
                         dst,
@@ -635,7 +639,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_strh(
                         Size::S32,
                         dst,
@@ -661,7 +665,7 @@ impl MachineARM64 {
                 } else {
                     let tmp = self.acquire_temp_gpr().unwrap();
                     self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                        .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                     self.assembler.emit_strb(
                         Size::S32,
                         dst,
@@ -1440,7 +1444,7 @@ impl Machine for MachineARM64 {
             5 => Location::GPR(GPR::X24),
             6 => Location::GPR(GPR::X25),
             7 => Location::GPR(GPR::X26),
-            _ => Location::Memory(GPR::X29, -(((idx - 3) * 8 + callee_saved_regs_size) as i32)),
+            _ => Location::Memory(GPR::X29, -(((idx - 7) * 8 + callee_saved_regs_size) as i32)),
         }
     }
     // Move a local to the stack
@@ -1451,7 +1455,7 @@ impl Machine for MachineARM64 {
         } else {
             let tmp = GPR::X17;
             self.assembler
-                .emit_mov_imm(Location::GPR(tmp), stack_offset as u64);
+                .emit_mov_imm(Location::GPR(tmp), (stack_offset as i64) as u64);
             self.assembler.emit_sub(
                 Size::S64,
                 Location::GPR(GPR::X29),
@@ -1634,7 +1638,7 @@ impl Machine for MachineARM64 {
                     } else {
                         let tmp = self.acquire_temp_gpr().unwrap();
                         self.assembler
-                            .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                            .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                         self.assembler.emit_sub(
                             Size::S64,
                             Location::GPR(reg),
@@ -1656,7 +1660,7 @@ impl Machine for MachineARM64 {
                     } else {
                         let tmp = self.acquire_temp_gpr().unwrap();
                         self.assembler
-                            .emit_mov_imm(Location::GPR(tmp), offset as u64);
+                            .emit_mov_imm(Location::GPR(tmp), (offset as i64) as u64);
                         self.assembler.emit_add(
                             Size::S64,
                             Location::GPR(reg),
@@ -1773,7 +1777,8 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_function_return_float(&mut self) {
-        self.move_location(Size::S64, Location::GPR(GPR::X0), Location::SIMD(NEON::V0));
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::X0), Location::SIMD(NEON::V0));
     }
 
     fn arch_supports_canonicalize_nan(&self) -> bool {
@@ -2037,7 +2042,7 @@ impl Machine for MachineARM64 {
             },
             _ => {
                 let mut temps = vec![];
-                let src = self.location_to_reg(sz_dst, src, &mut temps, ImmType::None, true, None);
+                let src = self.location_to_reg(sz_src, src, &mut temps, ImmType::None, true, None);
                 let dest =
                     self.location_to_reg(sz_dst, dst, &mut temps, ImmType::None, false, None);
                 match sz_src {
