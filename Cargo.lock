@@ -2546,6 +2546,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unix_mode"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35abed4630bb800f02451a7428205d1f37b8e125001471bfab259beee6a587ed"
+
+[[package]]
 name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2819,6 +2825,7 @@ dependencies = [
  "log",
  "structopt",
  "tempfile",
+ "unix_mode",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
