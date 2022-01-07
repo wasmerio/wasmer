@@ -62,10 +62,8 @@ impl Binfmt {
             Register | Reregister => {
                 temp_dir = tempfile::tempdir().context("Make temporary directory")?;
                 seccheck(temp_dir.path())?;
-                let bin_path_orig: PathBuf = env::args_os()
-                    .nth(0)
-                    .map(Into::into)
-                    .filter(|p: &PathBuf| p.exists())
+                let bin_path_orig: PathBuf = env::current_exe()
+                    .and_then(|p| p.canonicalize())
                     .context("Cannot get path to wasmer executable")?;
                 let bin_path = temp_dir.path().join("wasmer-binfmt-interpreter");
                 fs::copy(&bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;
