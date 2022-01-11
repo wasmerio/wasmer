@@ -30,6 +30,7 @@ mod code_memory;
 mod engine;
 mod link;
 mod serialize;
+mod trampoline;
 mod unwind;
 
 pub use crate::artifact::UniversalArtifact;

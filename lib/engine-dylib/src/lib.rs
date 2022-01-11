@@ -27,6 +27,7 @@ mod artifact;
 mod builder;
 mod engine;
 mod serialize;
+mod trampoline;
 
 pub use crate::artifact::DylibArtifact;
 pub use crate::builder::Dylib;

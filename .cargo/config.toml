@@ -1,5 +1,0 @@
-[target.'cfg(all(target_os = "linux", target_env = "gnu"))']
-rustflags = [
-    # Put the VM functions in the dynamic symbol table.
-    "-C", "link-arg=-Wl,-E",
-]

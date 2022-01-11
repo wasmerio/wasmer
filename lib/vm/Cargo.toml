@@ -23,6 +23,7 @@ backtrace = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
 rkyv = { version = "0.7.20", optional = true }
 loupe = { version = "0.1", features = ["enable-indexmap"] }
+enum-iterator = "0.7.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winbase", "memoryapi", "errhandlingapi"] }
