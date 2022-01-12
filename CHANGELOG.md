@@ -41,7 +41,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ### Changed
 - [#2460](https://github.com/wasmerio/wasmer/pull/2460) **breaking change** `wasmer` API usage with `no-default-features` requires now the `sys` feature to preserve old behavior.
 - [#2476](https://github.com/wasmerio/wasmer/pull/2476) Removed unncessary abstraction `ModuleInfoTranslate` from `wasmer-compiler`.
-- [#2442](https://github.com/wasmerio/wasmer/pull/2442) Improved `WasmPtr`, added `WasmCell` for host/guest interaction.
+- [#2442](https://github.com/wasmerio/wasmer/pull/2442) **breaking change** Improved `WasmPtr`, added `WasmCell` for host/guest interaction. `WasmPtr::deref` will now return `WasmCell<'a, T>` instead of `&'a Cell<T>`, `WasmPtr::deref_mut` is now deleted from the API.
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
 - [#2685](https://github.com/wasmerio/wasmer/pull/2685) The minimum LLVM version for the LLVM compiler is now 12. LLVM 13 is used by default.
 - [#2569](https://github.com/wasmerio/wasmer/pull/2569) Add `Send` and `Sync` to uses of the `LikeNamespace` trait object.
