@@ -1877,14 +1877,80 @@ impl Machine for MachineX86_64 {
     }
 
     // Get param location
-    fn get_param_location(&self, idx: usize, calling_convention: CallingConvention) -> Location {
+    fn get_param_location(
+        &self,
+        idx: usize,
+        _sz: Size,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
         match calling_convention {
             CallingConvention::WindowsFastcall => match idx {
                 0 => Location::GPR(GPR::RCX),
                 1 => Location::GPR(GPR::RDX),
                 2 => Location::GPR(GPR::R8),
                 3 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (16 + 32 + (idx - 4) * 8) as i32),
+                _ => {
+                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                    *stack_location += 8;
+                    loc
+                }
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::RDI),
+                1 => Location::GPR(GPR::RSI),
+                2 => Location::GPR(GPR::RDX),
+                3 => Location::GPR(GPR::RCX),
+                4 => Location::GPR(GPR::R8),
+                5 => Location::GPR(GPR::R9),
+                _ => {
+                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                    *stack_location += 8;
+                    loc
+                }
+            },
+        }
+    }
+    // Get call param location
+    fn get_call_param_location(
+        &self,
+        idx: usize,
+        _sz: Size,
+        _stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => match idx {
+                0 => Location::GPR(GPR::RCX),
+                1 => Location::GPR(GPR::RDX),
+                2 => Location::GPR(GPR::R8),
+                3 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::RDI),
+                1 => Location::GPR(GPR::RSI),
+                2 => Location::GPR(GPR::RDX),
+                3 => Location::GPR(GPR::RCX),
+                4 => Location::GPR(GPR::R8),
+                5 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
+            },
+        }
+    }
+    // Get simple param location
+    fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => match idx {
+                0 => Location::GPR(GPR::RCX),
+                1 => Location::GPR(GPR::RDX),
+                2 => Location::GPR(GPR::R8),
+                3 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
             },
             _ => match idx {
                 0 => Location::GPR(GPR::RDI),
@@ -6542,7 +6608,9 @@ impl Machine for MachineX86_64 {
         // Calculate stack offset.
         let mut stack_offset: u32 = 0;
         for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) = self.get_param_location(1 + i, calling_convention) {
+            if let Location::Memory(_, _) =
+                self.get_simple_param_location(1 + i, calling_convention)
+            {
                 stack_offset += 8;
             }
         }
@@ -6570,12 +6638,12 @@ impl Machine for MachineX86_64 {
         // Arguments
         a.emit_mov(
             Size::S64,
-            self.get_param_location(1, calling_convention),
+            self.get_simple_param_location(1, calling_convention),
             Location::GPR(GPR::R15),
         ); // func_ptr
         a.emit_mov(
             Size::S64,
-            self.get_param_location(2, calling_convention),
+            self.get_simple_param_location(2, calling_convention),
             Location::GPR(GPR::R14),
         ); // args_rets
 
@@ -6585,7 +6653,7 @@ impl Machine for MachineX86_64 {
             let mut n_stack_args: usize = 0;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = self.get_param_location(1 + i, calling_convention);
+                let dst_loc = self.get_simple_param_location(1 + i, calling_convention);
 
                 match dst_loc {
                     Location::GPR(_) => {

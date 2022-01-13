@@ -1472,8 +1472,118 @@ impl Machine for MachineARM64 {
         vec![]
     }
 
-    // Get param location
-    fn get_param_location(&self, idx: usize, calling_convention: CallingConvention) -> Location {
+    // Get param location, MUST be called in order!
+    fn get_param_location(
+        &self,
+        idx: usize,
+        sz: Size,
+        stack_args: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::AppleAarch64 => match idx {
+                0 => Location::GPR(GPR::X0),
+                1 => Location::GPR(GPR::X1),
+                2 => Location::GPR(GPR::X2),
+                3 => Location::GPR(GPR::X3),
+                4 => Location::GPR(GPR::X4),
+                5 => Location::GPR(GPR::X5),
+                6 => Location::GPR(GPR::X6),
+                7 => Location::GPR(GPR::X7),
+                _ => {
+                    let sz = match sz {
+                        Size::S8 => 0,
+                        Size::S16 => 1,
+                        Size::S32 => 2,
+                        Size::S64 => 3,
+                    };
+                    // align first
+                    if sz > 1 {
+                        if *stack_args & !((1 << sz) - 1) != 0 {
+                            *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
+                        }
+                    }
+                    let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
+                    *stack_args += 1 << sz;
+                    loc
+                }
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::X0),
+                1 => Location::GPR(GPR::X1),
+                2 => Location::GPR(GPR::X2),
+                3 => Location::GPR(GPR::X3),
+                4 => Location::GPR(GPR::X4),
+                5 => Location::GPR(GPR::X5),
+                6 => Location::GPR(GPR::X6),
+                7 => Location::GPR(GPR::X7),
+                _ => {
+                    let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
+                    *stack_args += 8;
+                    loc
+                }
+            },
+        }
+    }
+    // Get call param location, MUST be called in order!
+    fn get_call_param_location(
+        &self,
+        idx: usize,
+        sz: Size,
+        stack_args: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::AppleAarch64 => match idx {
+                0 => Location::GPR(GPR::X0),
+                1 => Location::GPR(GPR::X1),
+                2 => Location::GPR(GPR::X2),
+                3 => Location::GPR(GPR::X3),
+                4 => Location::GPR(GPR::X4),
+                5 => Location::GPR(GPR::X5),
+                6 => Location::GPR(GPR::X6),
+                7 => Location::GPR(GPR::X7),
+                _ => {
+                    let sz = match sz {
+                        Size::S8 => 0,
+                        Size::S16 => 1,
+                        Size::S32 => 2,
+                        Size::S64 => 3,
+                    };
+                    // align first
+                    if sz > 1 {
+                        if *stack_args & !((1 << sz) - 1) != 0 {
+                            *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
+                        }
+                    }
+                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                    *stack_args += 1 << sz;
+                    loc
+                }
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::X0),
+                1 => Location::GPR(GPR::X1),
+                2 => Location::GPR(GPR::X2),
+                3 => Location::GPR(GPR::X3),
+                4 => Location::GPR(GPR::X4),
+                5 => Location::GPR(GPR::X5),
+                6 => Location::GPR(GPR::X6),
+                7 => Location::GPR(GPR::X7),
+                _ => {
+                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                    *stack_args += 8;
+                    loc
+                }
+            },
+        }
+    }
+    // Get simple param location, Will not be accurate for Apple calling convention on "stack" arguments
+    fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
         match calling_convention {
             _ => match idx {
                 0 => Location::GPR(GPR::X0),
@@ -1529,6 +1639,12 @@ impl Machine for MachineARM64 {
             },
             Location::Imm8(_) => match dest {
                 Location::GPR(_) => self.assembler.emit_mov(size, source, dest),
+                Location::Memory(_, _) => match size {
+                    Size::S64 => self.emit_relaxed_str64(source, dest),
+                    Size::S32 => self.emit_relaxed_str32(source, dest),
+                    Size::S16 => self.emit_relaxed_str16(source, dest),
+                    Size::S8 => self.emit_relaxed_str8(source, dest),
+                },
                 _ => panic!(
                     "singlepass can't emit move_location {:?} {:?} => {:?}",
                     size, source, dest
@@ -1536,6 +1652,12 @@ impl Machine for MachineARM64 {
             },
             Location::Imm32(val) => match dest {
                 Location::GPR(_) => self.assembler.emit_mov_imm(dest, val as u64),
+                Location::Memory(_, _) => match size {
+                    Size::S64 => self.emit_relaxed_str64(source, dest),
+                    Size::S32 => self.emit_relaxed_str32(source, dest),
+                    Size::S16 => self.emit_relaxed_str16(source, dest),
+                    Size::S8 => self.emit_relaxed_str8(source, dest),
+                },
                 _ => panic!(
                     "singlepass can't emit move_location {:?} {:?} => {:?}",
                     size, source, dest
@@ -1543,6 +1665,12 @@ impl Machine for MachineARM64 {
             },
             Location::Imm64(val) => match dest {
                 Location::GPR(_) => self.assembler.emit_mov_imm(dest, val),
+                Location::Memory(_, _) => match size {
+                    Size::S64 => self.emit_relaxed_str64(source, dest),
+                    Size::S32 => self.emit_relaxed_str32(source, dest),
+                    Size::S16 => self.emit_relaxed_str16(source, dest),
+                    Size::S8 => self.emit_relaxed_str8(source, dest),
+                },
                 _ => panic!(
                     "singlepass can't emit move_location {:?} {:?} => {:?}",
                     size, source, dest
@@ -1597,13 +1725,49 @@ impl Machine for MachineARM64 {
     // move a location to another
     fn move_location_extend(
         &mut self,
-        _size_val: Size,
-        _signed: bool,
-        _source: Location,
-        _size_op: Size,
-        _dest: Location,
+        size_val: Size,
+        signed: bool,
+        source: Location,
+        size_op: Size,
+        dest: Location,
     ) {
-        unimplemented!();
+        if size_op != Size::S64 {
+            unreachable!();
+        }
+        let mut temps = vec![];
+        let dst = self.location_to_reg(size_op, dest, &mut temps, ImmType::None, false, None);
+        let src = match (size_val, signed, source) {
+            (Size::S64, _, _) => source,
+            (Size::S32, false, Location::GPR(_)) => {
+                self.assembler.emit_mov(size_val, source, dst);
+                dst
+            }
+            (Size::S32, true, Location::GPR(_)) => {
+                self.assembler.emit_sxtw(size_val, source, dst);
+                dst
+            }
+            (Size::S32, false, Location::Memory(_, _)) => {
+                self.emit_relaxed_ldr32(size_op, dst, source);
+                dst
+            }
+            (Size::S32, true, Location::Memory(_, _)) => {
+                self.emit_relaxed_ldr32s(size_op, dst, source);
+                dst
+            }
+            _ => panic!(
+                "singlepass can't emit move_location_extend {:?} {:?} {:?} => {:?} {:?}",
+                size_val, signed, source, size_op, dest
+            ),
+        };
+        if src != dst {
+            self.move_location(size_op, src, dst);
+        }
+        if dst != dest {
+            self.move_location(size_op, dst, dest);
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
     }
     fn load_address(&mut self, _size: Size, _reg: Location, _mem: Location) {
         unimplemented!();

@@ -157,8 +157,24 @@ pub trait Machine {
         &self,
         calling_convention: CallingConvention,
     ) -> Vec<Location<Self::GPR, Self::SIMD>>;
-    /// Get param location
+    /// Get param location (to build a call, using SP for stack args)
     fn get_param_location(
+        &self,
+        idx: usize,
+        sz: Size,
+        stack_offset: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get call param location (from a call, using FP for stack args)
+    fn get_call_param_location(
+        &self,
+        idx: usize,
+        sz: Size,
+        stack_offset: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get simple param location
+    fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,

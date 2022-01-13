@@ -2445,7 +2445,7 @@ impl EmitterARM64 for Assembler {
 
 pub fn gen_std_trampoline_arm64(
     sig: &FunctionType,
-    _calling_convention: CallingConvention,
+    calling_convention: CallingConvention,
 ) -> FunctionBody {
     let mut a = Assembler::new(0);
 
@@ -2494,6 +2494,29 @@ pub fn gen_std_trampoline_arm64(
                 );
             }
             _ => {
+                match calling_convention {
+                    CallingConvention::AppleAarch64 => {
+                        match sz {
+                            Size::S8 => (),
+                            Size::S16 => {
+                                if caller_stack_offset & 1 != 0 {
+                                    caller_stack_offset = (caller_stack_offset + 1) & !1;
+                                }
+                            }
+                            Size::S32 => {
+                                if caller_stack_offset & 3 != 0 {
+                                    caller_stack_offset = (caller_stack_offset + 3) & !3;
+                                }
+                            }
+                            Size::S64 => {
+                                if caller_stack_offset & 7 != 0 {
+                                    caller_stack_offset = (caller_stack_offset + 7) & !7;
+                                }
+                            }
+                        };
+                    }
+                    _ => (),
+                };
                 // using X16 as scratch reg
                 a.emit_ldr(
                     sz,
@@ -2505,7 +2528,19 @@ pub fn gen_std_trampoline_arm64(
                     Location::GPR(GPR::X16),
                     Location::Memory(GPR::XzrSp, caller_stack_offset),
                 );
-                caller_stack_offset += 8;
+                match calling_convention {
+                    CallingConvention::AppleAarch64 => {
+                        caller_stack_offset += match sz {
+                            Size::S8 => 1,
+                            Size::S16 => 2,
+                            Size::S32 => 4,
+                            Size::S64 => 8,
+                        };
+                    }
+                    _ => {
+                        caller_stack_offset += 8;
+                    }
+                }
             }
         }
     }
@@ -2579,12 +2614,28 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
                 Some(ARM64Register::GPR(gpr)) => Location::GPR(gpr),
                 Some(ARM64Register::NEON(neon)) => Location::SIMD(neon),
                 None => {
+                    let sz = match calling_convention {
+                        CallingConvention::AppleAarch64 => match *ty {
+                            Type::I32 | Type::F32 => Size::S32,
+                            _ => {
+                                if stack_param_count & 7 != 0 {
+                                    stack_param_count = (stack_param_count + 7) & !7;
+                                };
+                                Size::S64
+                            }
+                        },
+                        _ => Size::S64,
+                    };
                     a.emit_ldr(
-                        Size::S64,
+                        sz,
                         Location::GPR(GPR::X26),
                         Location::Memory(GPR::XzrSp, (stack_offset + 16 + stack_param_count) as _),
                     );
-                    stack_param_count += 8;
+                    stack_param_count += match sz {
+                        Size::S32 => 4,
+                        Size::S64 => 8,
+                        _ => unreachable!(),
+                    };
                     Location::GPR(GPR::X26)
                 }
             };
