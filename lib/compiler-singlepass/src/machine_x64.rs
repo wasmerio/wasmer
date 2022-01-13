@@ -1974,9 +1974,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1985,9 +1985,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1996,9 +1996,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -2017,20 +2017,34 @@ impl Machine for MachineX86_64 {
         size_op: Size,
         dest: Location,
     ) {
+        let dst = match dest {
+            Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                Location::GPR(self.acquire_temp_gpr().unwrap())
+            }
+            Location::GPR(_) | Location::SIMD(_) => dest,
+            _ => unreachable!(),
+        };
         match source {
             Location::GPR(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
                 match size_val {
-                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dest),
+                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dst),
                     Size::S16 | Size::S8 => {
                         if signed {
-                            self.assembler.emit_movsx(size_val, source, size_op, dest)
+                            self.assembler.emit_movsx(size_val, source, size_op, dst)
                         } else {
-                            self.assembler.emit_movzx(size_val, source, size_op, dest)
+                            self.assembler.emit_movzx(size_val, source, size_op, dst)
                         }
                     }
                 }
             }
             _ => unreachable!(),
+        }
+        if dst != dest {
+            self.assembler.emit_mov(size_op, dst, dest);
+            match dst {
+                Location::GPR(x) => self.release_gpr(x),
+                _ => unreachable!(),
+            };
         }
     }
     fn load_address(&mut self, size: Size, reg: Location, mem: Location) {

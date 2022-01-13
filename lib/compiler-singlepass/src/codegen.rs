@@ -767,6 +767,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.state.stack_values.push(content);
             }
         }
+        // mark the GPR used for Call as used
+        self.machine
+            .reserve_unused_temp_gpr(self.machine.get_grp_for_call());
+
         let calling_convention = self.calling_convention;
 
         let stack_padding: usize = match calling_convention {
@@ -872,7 +876,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if stack_padding > 0 {
             self.machine.adjust_stack(stack_padding as u32);
         }
-
+        // release the GPR used for call
+        self.machine.release_gpr(self.machine.get_grp_for_call());
         cb(self);
 
         // Offset needs to be after the 'call' instruction.
