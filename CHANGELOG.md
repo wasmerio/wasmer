@@ -7,6 +7,7 @@
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
 ## **[Unreleased]**
+- [#2750](https://github.com/wasmerio/wasmer/pull/2750) Added Aarch64 support to Singlepass (both Linux and macOS).
 
 ## 2.1.1 - 2021/12/20
 
