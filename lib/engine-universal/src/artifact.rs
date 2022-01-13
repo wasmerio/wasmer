@@ -44,9 +44,11 @@ pub struct UniversalArtifact {
 }
 
 impl UniversalArtifact {
+    const MAGIC_HEADER: &'static [u8; 16] = b"wasmer-universal";
+
     /// Check if the provided bytes look like a serialized `UniversalArtifact`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
-        MetadataHeader::parse(bytes).is_ok()
+        bytes.starts_with(Self::MAGIC_HEADER)
     }
 
     /// Compile a data buffer into a `UniversalArtifact`, which may then be instantiated.
@@ -147,6 +149,12 @@ impl UniversalArtifact {
         universal: &UniversalEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
+        if !Self::is_deserializable(bytes) {
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not wasmer-universal".to_string(),
+            ));
+        }
+        let bytes = &bytes[Self::MAGIC_HEADER.len()..];
         let metadata_len = MetadataHeader::parse(bytes)?;
         let metadata_slice: &[u8] = &bytes[MetadataHeader::LEN..][..metadata_len];
         let serializable = SerializableModule::deserialize(metadata_slice)?;
@@ -331,6 +339,7 @@ impl Artifact for UniversalArtifact {
         assert!(mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
 
         let mut metadata_binary = vec![];
+        metadata_binary.extend(Self::MAGIC_HEADER);
         metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
         metadata_binary.extend(serialized_data);
         Ok(metadata_binary)
