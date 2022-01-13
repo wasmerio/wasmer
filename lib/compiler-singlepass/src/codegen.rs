@@ -491,7 +491,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Callee-saved R15 for vmctx.
+        // Callee-saved vmctx.
         static_area_size += 8;
 
         // Some ABI (like Windows) needs extrat reg save
@@ -578,7 +578,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .move_location_extend(sz, false, loc, Size::S64, locations[i]);
         }
 
-        // Load vmctx into R15.
+        // Load vmctx into it's GPR.
         self.machine.move_location(
             Size::S64,
             self.machine
@@ -710,9 +710,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         );
     }
 
-    /// Emits a System V / Windows call sequence.
-    ///
-    /// This function will not use RAX before `cb` is called.
+    /// Emits a Native ABI call sequence.
     ///
     /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
     /// this function.
@@ -751,7 +749,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.state.stack_values.push(content);
         }
 
-        // Save used XMM registers.
+        // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
         if used_simds.len() > 0 {
             used_stack += self.machine.push_used_simd();
@@ -914,7 +912,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Restore XMMs.
+        // Restore SIMDs.
         if !used_simds.is_empty() {
             self.machine.pop_used_simd();
             for _ in 0..used_simds.len() {
@@ -936,7 +934,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    /// Emits a System V call sequence, specialized for labels as the call target.
+    /// Emits a Native ABI call sequence, specialized for labels as the call target.
     fn _emit_call_native_label<
         I: Iterator<Item = Location<M::GPR, M::SIMD>>,
         J: Iterator<Item = WpType>,
@@ -1503,7 +1501,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_binop_mul64(loc_a, loc_b, ret);
             }
             Operator::I64DivU => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_udiv64(
                     loc_a,
@@ -1515,7 +1512,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.mark_offset_trappable(offset);
             }
             Operator::I64DivS => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_sdiv64(
                     loc_a,
@@ -1527,7 +1523,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.mark_offset_trappable(offset);
             }
             Operator::I64RemU => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_urem64(
                     loc_a,
@@ -1539,7 +1534,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.mark_offset_trappable(offset);
             }
             Operator::I64RemS => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_srem64(
                     loc_a,
