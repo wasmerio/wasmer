@@ -1,1 +1,1 @@
-initSidebarItems({"trait":[["Artifact","An `Artifact` is the product that the `Engine` implementation produce and use."],["Upcastable","Trait needed to get downcasting of `Engine`s to work."]]});
+initSidebarItems({"struct":[["MetadataHeader","Metadata header which holds an ABI version and the length of the remaining metadata."]],"trait":[["Artifact","An `Artifact` is the product that the `Engine` implementation produce and use."],["Upcastable","Trait needed to get downcasting of `Engine`s to work."]]});

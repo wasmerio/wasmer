@@ -73,7 +73,7 @@
 <span class="kw">mod</span> <span class="ident">trap</span>;
 <span class="kw">mod</span> <span class="ident">tunables</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::artifact::Artifact</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::artifact</span>::{<span class="ident">Artifact</span>, <span class="ident">MetadataHeader</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine</span>::{<span class="ident">Engine</span>, <span class="ident">EngineId</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{
     <span class="ident">DeserializeError</span>, <span class="ident">ImportError</span>, <span class="ident">InstantiationError</span>, <span class="ident">LinkError</span>, <span class="ident">SerializeError</span>,

@@ -345,54 +345,6 @@
 <span id="345">345</span>
 <span id="346">346</span>
 <span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
-<span id="391">391</span>
-<span id="392">392</span>
-<span id="393">393</span>
-<span id="394">394</span>
-<span id="395">395</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `UniversalArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
@@ -403,13 +355,14 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::serialize::SerializableModule</span>;
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
+<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">Features</span>, <span class="ident">Triple</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileModuleInfo</span>, <span class="ident">ModuleEnvironment</span>, <span class="ident">ModuleMiddlewareChain</span>};
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{
     <span class="ident">register_frame_info</span>, <span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">FunctionExtent</span>, <span class="ident">GlobalFrameInfoRegistration</span>,
-    <span class="ident">SerializeError</span>,
+    <span class="ident">MetadataHeader</span>, <span class="ident">SerializeError</span>,
 };
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Engine</span>, <span class="ident">Tunables</span>};
@@ -422,9 +375,6 @@
     <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>,
     <span class="ident">VMTrampoline</span>,
 };
-
-<span class="kw">const</span> <span class="ident">SERIALIZED_METADATA_LENGTH_OFFSET</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">22</span>;
-<span class="kw">const</span> <span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">32</span>;
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
@@ -441,7 +391,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">UniversalArtifact</span> {
-    <span class="kw">const</span> <span class="ident">MAGIC_HEADER</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>; <span class="number">22</span>] <span class="op">=</span> <span class="string">b&quot;\0wasmer-universal\0\0\0\0\0&quot;</span>;
+    <span class="kw">const</span> <span class="ident">MAGIC_HEADER</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>; <span class="number">16</span>] <span class="op">=</span> <span class="string">b&quot;wasmer-universal&quot;</span>;
 
     <span class="doccomment">/// Check if the provided bytes look like a serialized `UniversalArtifact`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_deserializable</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -551,17 +501,9 @@
                 <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.<span class="ident">to_string</span>(),
             ));
         }
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner_bytes</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">SERIALIZED_METADATA_LENGTH_OFFSET</span>..];
-
-        <span class="kw">let</span> <span class="ident">metadata_len</span> <span class="op">=</span> <span class="ident">leb128::read::unsigned</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inner_bytes</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> {
-            <span class="ident">DeserializeError::CorruptedBinary</span>(<span class="string">&quot;Can&#39;t read metadata size&quot;</span>.<span class="ident">to_string</span>())
-        })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">std::slice::from_raw_parts</span>(
-            <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>,
-            <span class="ident">metadata_len</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        );
-
+        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>.<span class="ident">len</span>()..];
+        <span class="kw">let</span> <span class="ident">metadata_len</span> <span class="op">=</span> <span class="ident">MetadataHeader::parse</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">MetadataHeader::LEN</span>..][..<span class="ident">metadata_len</span>];
         <span class="kw">let</span> <span class="ident">serializable</span> <span class="op">=</span> <span class="ident">SerializableModule::deserialize</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
         <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">universal</span>.<span class="ident">inner_mut</span>(), <span class="ident">serializable</span>)
             .<span class="ident">map_err</span>(<span class="ident">DeserializeError::Compiler</span>)
@@ -740,52 +682,14 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">func_data_registry</span>
     }
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="comment">// Prepend the header.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>.<span class="ident">to_vec</span>();
-
-        <span class="ident">serialized</span>.<span class="ident">resize</span>(<span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>, <span class="number">0</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writable_leb</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serialized</span>[<span class="ident">SERIALIZED_METADATA_LENGTH_OFFSET</span>..];
         <span class="kw">let</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">serialized_data</span>.<span class="ident">len</span>();
-        <span class="ident">leb128::write::unsigned</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">writable_leb</span>, <span class="ident">length</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">expect</span>(<span class="string">&quot;Should write number&quot;</span>);
+        <span class="macro">assert!</span>(<span class="ident">mem::align_of</span>::<span class="op">&lt;</span><span class="ident">SerializableModule</span><span class="op">&gt;</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">MetadataHeader::ALIGN</span>);
 
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">SerializableModule</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serialized</span>, <span class="kw-2">&amp;</span><span class="ident">serialized_data</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">offset</span>, <span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>);
-
-        <span class="prelude-val">Ok</span>(<span class="ident">serialized</span>)
-    }
-}
-
-<span class="doccomment">/// It pads the data with the desired alignment</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pad_and_extend</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">prev_data</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-    <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="ident">std::mem::align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
-
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">prev_data</span>.<span class="ident">len</span>();
-    <span class="kw">if</span> <span class="ident">offset</span> <span class="op">&amp;</span> (<span class="ident">align</span> <span class="op">-</span> <span class="number">1</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-        <span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">align</span> <span class="op">-</span> (<span class="ident">offset</span> <span class="op">&amp;</span> (<span class="ident">align</span> <span class="op">-</span> <span class="number">1</span>));
-        <span class="ident">prev_data</span>.<span class="ident">resize</span>(<span class="ident">offset</span>, <span class="number">0</span>);
-    }
-    <span class="ident">prev_data</span>.<span class="ident">extend</span>(<span class="ident">data</span>);
-    <span class="ident">offset</span>
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::pad_and_extend</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_pad_and_extend</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">data</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
-        <span class="macro">assert_eq!</span>(<span class="ident">offset</span>, <span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">data</span>, <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
-        <span class="macro">assert_eq!</span>(<span class="ident">offset</span>, <span class="number">8</span>);
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">data</span>, <span class="kw-2">&amp;</span>[<span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
-        <span class="macro">assert_eq!</span>(<span class="ident">offset</span>, <span class="number">16</span>);
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">data</span>,
-            <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]
-        );
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata_binary</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>);
+        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">MetadataHeader::new</span>(<span class="ident">serialized_data</span>.<span class="ident">len</span>()));
+        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">serialized_data</span>);
+        <span class="prelude-val">Ok</span>(<span class="ident">metadata_binary</span>)
     }
 }
 </code></pre></div>
