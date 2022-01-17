@@ -3153,7 +3153,7 @@ impl Machine for MachineARM64 {
             offset: reloc_at as u32,
             addend: 0,
         });
-        self.assembler.emit_movk(Location::GPR(GPR::X27), 0, 0);
+        self.assembler.emit_movz(Location::GPR(GPR::X27), 0);
         let reloc_at = self.assembler.get_offset().0;
         relocations.push(Relocation {
             kind: RelocationKind::Arm64Movw1,

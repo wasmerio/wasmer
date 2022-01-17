@@ -17,7 +17,7 @@ use wasmer_vm::VMOffsets;
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 
-/// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
+/// Force `dynasm!` to use the correct arch (aarch64) when cross-compiling.
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
@@ -124,9 +124,6 @@ pub trait EmitterARM64 {
     fn emit_subs(&mut self, sz: Size, src1: Location, src2: Location, dst: Location);
 
     fn emit_add_lsl(&mut self, sz: Size, src1: Location, src2: Location, lsl: u32, dst: Location);
-
-    fn emit_add2(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_sub2(&mut self, sz: Size, src: Location, dst: Location);
 
     fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_tst(&mut self, sz: Size, src: Location, dst: Location);
@@ -249,54 +246,42 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if (disp & 0x7) != 0 || (disp >= 0x8000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 dynasm!(self ; str X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if (disp & 0x3) != 0 || (disp >= 0x4000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; str W(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if (disp & 0x1) != 0 || (disp >= 0x2000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x1) == 0 && (disp < 0x2000));
                 dynasm!(self ; strh W(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if disp >= 0x1000 {
-                    unreachable!();
-                }
+                assert!(disp < 0x1000);
                 dynasm!(self ; strb W(reg), [X(addr), disp]);
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if (disp & 0x7) != 0 || (disp >= 0x8000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 dynasm!(self ; str D(reg), [X(addr), disp]);
             }
             (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if (disp & 0x3) != 0 || (disp >= 0x4000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; str S(reg), [X(addr), disp]);
             }
             _ => panic!("singlepass can't emit STR {:?}, {:?}, {:?}", sz, reg, addr),
@@ -307,36 +292,28 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                if (disp & 0x7) != 0 || (disp >= 0x8000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 let disp = disp as u32;
                 dynasm!(self ; ldr X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                if (disp & 0x3) != 0 || (disp >= 0x4000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 let disp = disp as u32;
                 dynasm!(self ; ldr W(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                if (disp & 0x1 != 0) || (disp >= 0x2000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x1 == 0) && (disp < 0x2000));
                 let disp = disp as u32;
                 dynasm!(self ; ldrh W(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                if disp >= 0x1000 {
-                    unreachable!();
-                }
+                assert!(disp < 0x1000);
                 let disp = disp as u32;
                 dynasm!(self ; ldrb W(reg), [X(addr), disp]);
             }
@@ -344,9 +321,7 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldr X(reg), [X(addr)]),
@@ -358,27 +333,21 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if (disp & 0x7) != 0 || (disp >= 0x8000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 dynasm!(self ; ldr D(reg), [X(addr), disp]);
             }
             (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let disp = disp as u32;
-                if (disp & 0x3) != 0 || (disp >= 0x4000) {
-                    unreachable!();
-                }
+                assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; ldr S(reg), [X(addr), disp]);
             }
             _ => panic!("singlepass can't emit LDR {:?}, {:?}, {:?}", sz, reg, addr),
         }
     }
     fn emit_stur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32) {
-        if (offset < -255) || (offset > 255) {
-            unreachable!();
-        }
+        assert!((offset >= -255) && (offset <= 255));
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -402,9 +371,7 @@ impl EmitterARM64 for Assembler {
         }
     }
     fn emit_ldur(&mut self, sz: Size, reg: Location, addr: GPR, offset: i32) {
-        if (offset < -255) || (offset > 255) {
-            unreachable!();
-        }
+        assert!((offset >= -255) && (offset <= 255));
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -429,9 +396,7 @@ impl EmitterARM64 for Assembler {
     }
 
     fn emit_strdb(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        if offset > 255 {
-            unreachable!();
-        }
+        assert!(offset <= 255);
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -447,9 +412,7 @@ impl EmitterARM64 for Assembler {
         }
     }
     fn emit_stria(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        if offset > 255 {
-            unreachable!();
-        }
+        assert!(offset <= 255);
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -465,9 +428,7 @@ impl EmitterARM64 for Assembler {
         }
     }
     fn emit_ldria(&mut self, sz: Size, reg: Location, addr: GPR, offset: u32) {
-        if offset > 255 {
-            unreachable!();
-        }
+        assert!(offset <= 255);
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
@@ -484,9 +445,7 @@ impl EmitterARM64 for Assembler {
     }
 
     fn emit_stpdb(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
-        if offset > 255 {
-            unreachable!();
-        }
+        assert!(offset <= 255);
         match (sz, reg1, reg2) {
             (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
                 let reg1 = reg1.into_index() as u32;
@@ -498,9 +457,7 @@ impl EmitterARM64 for Assembler {
         }
     }
     fn emit_ldpia(&mut self, sz: Size, reg1: Location, reg2: Location, addr: GPR, offset: u32) {
-        if offset > 255 {
-            unreachable!();
-        }
+        assert!(offset <= 255);
         match (sz, reg1, reg2) {
             (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
                 let reg1 = reg1.into_index() as u32;
@@ -518,18 +475,14 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if offset >= 0x1000 {
-                    unreachable!();
-                }
+                assert!(offset < 0x1000);
                 dynasm!(self ; ldrb W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldrb W(reg), [X(addr)]),
@@ -546,18 +499,14 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if (offset & 1 != 0) || (offset >= 0x2000) {
-                    unreachable!();
-                }
+                assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; ldrh W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldrh W(reg), [X(addr)]),
@@ -574,27 +523,21 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if offset >= 0x1000 {
-                    unreachable!();
-                }
+                assert!(offset < 0x1000);
                 dynasm!(self ; ldrsb X(reg), [X(addr), offset]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if offset >= 0x1000 {
-                    unreachable!();
-                }
+                assert!(offset < 0x1000);
                 dynasm!(self ; ldrsb W(reg), [X(addr), offset]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldrsb X(reg), [X(addr)]),
@@ -606,9 +549,7 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldrsb W(reg), [X(addr)]),
@@ -625,27 +566,21 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if (offset & 1 != 0) || (offset >= 0x2000) {
-                    unreachable!();
-                }
+                assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; ldrsh X(reg), [X(addr), offset]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, offset)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if (offset & 1 != 0) || (offset >= 0x2000) {
-                    unreachable!();
-                }
+                assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; ldrsh W(reg), [X(addr), offset]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldrsh X(reg), [X(addr)]),
@@ -657,9 +592,7 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldrsh W(reg), [X(addr)]),
@@ -676,18 +609,14 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if (offset & 3 != 0) || (offset >= 0x4000) {
-                    unreachable!();
-                }
+                assert!((offset & 3 == 0) && (offset < 0x4000));
                 dynasm!(self ; ldrsw X(reg), [X(addr), offset]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; ldrsw X(reg), [X(addr)]),
@@ -704,18 +633,14 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if offset >= 0x1000 {
-                    unreachable!();
-                }
+                assert!(offset < 0x1000);
                 dynasm!(self ; strb W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; strb W(reg), [X(addr)]),
@@ -732,18 +657,14 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let offset = offset as u32;
-                if (offset & 1 != 0) || (offset >= 0x2000) {
-                    unreachable!();
-                }
+                assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; strh W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 let r2 = r2.into_index() as u32;
-                if offs != 0 {
-                    unreachable!();
-                }
+                assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
                     0 => dynasm!(self ; strh W(reg), [X(addr)]),
@@ -1117,72 +1038,6 @@ impl EmitterARM64 for Assembler {
                 "singlepass can't emit LSL {:?} {:?} {:?} {:?} LSL {:?}",
                 sz, src1, src2, dst, lsl
             ),
-        }
-    }
-    fn emit_add2(&mut self, sz: Size, src: Location, dst: Location) {
-        match (sz, src, dst) {
-            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(dst), X(src));
-            }
-            (Size::S64, Location::Imm32(src), Location::GPR(dst)) => {
-                let src = src as u32;
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(dst), src);
-            }
-            (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; add W(dst), W(dst), W(src));
-            }
-            (Size::S64, Location::Imm8(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(dst), imm as u32);
-            }
-            (Size::S32, Location::Imm8(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; add W(dst), W(dst), imm as u32);
-            }
-            (Size::S32, Location::Imm32(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
-                if imm >= 0x1000 {
-                    unreachable!();
-                }
-                dynasm!(self ; add W(dst), W(dst), imm);
-            }
-            _ => panic!("singlepass can't emit ADD {:?} {:?} {:?}", sz, src, dst),
-        }
-    }
-    fn emit_sub2(&mut self, sz: Size, src: Location, dst: Location) {
-        match (sz, src, dst) {
-            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; sub X(dst), X(dst), X(src));
-            }
-            (Size::S64, Location::Imm32(imm), Location::GPR(dst)) => {
-                let imm = imm as u32;
-                let dst = dst.into_index() as u32;
-                if imm >= 0x1000 {
-                    unreachable!();
-                }
-                dynasm!(self ; sub X(dst), X(dst), imm);
-            }
-            (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; sub W(dst), W(dst), W(src));
-            }
-            (Size::S64, Location::Imm8(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; sub X(dst), X(dst), imm as u32);
-            }
-            (Size::S32, Location::Imm8(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
-                dynasm!(self ; sub W(dst), W(dst), imm as u32);
-            }
-            _ => panic!("singlepass can't emit SUB {:?} {:?} {:?}", sz, src, dst),
         }
     }
 

@@ -132,10 +132,7 @@ impl AbstractReg for GPR {
             GPR::X30,
             GPR::XzrSp,
         ];
-        match n {
-            0..=31 => Ok(REGS[n]),
-            _ => Err(()),
-        }
+        REGS.get(n).cloned().ok_or(())
     }
 }
 
@@ -185,7 +182,7 @@ impl AbstractReg for NEON {
             NEON::V31,
         ];
         match n {
-            0..=15 => Ok(REGS[n]),
+            0..=31 => Ok(REGS[n]),
             _ => Err(()),
         }
     }
