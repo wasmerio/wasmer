@@ -284,6 +284,30 @@ impl EmitterARM64 for Assembler {
                 assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; str S(reg), [X(addr), disp]);
             }
+            (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                assert!(offs == 0);
+                let mult = mult as u32;
+                match mult {
+                    0 => dynasm!(self ; str X(reg), [X(addr)]),
+                    1 => dynasm!(self ; str X(reg), [X(addr), X(r2)]),
+                    _ => dynasm!(self ; str X(reg), [X(addr), X(r2), LSL mult]),
+                };
+            }
+            (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                assert!(offs == 0);
+                let mult = mult as u32;
+                match mult {
+                    0 => dynasm!(self ; str W(reg), [X(addr)]),
+                    1 => dynasm!(self ; str W(reg), [X(addr), X(r2)]),
+                    _ => dynasm!(self ; str W(reg), [X(addr), X(r2), LSL mult]),
+                };
+            }
             _ => panic!("singlepass can't emit STR {:?}, {:?}, {:?}", sz, reg, addr),
         }
     }
@@ -327,6 +351,18 @@ impl EmitterARM64 for Assembler {
                     0 => dynasm!(self ; ldr X(reg), [X(addr)]),
                     1 => dynasm!(self ; ldr X(reg), [X(addr), X(r2)]),
                     _ => dynasm!(self ; ldr X(reg), [X(addr), X(r2), LSL mult]),
+                };
+            }
+            (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                assert!(offs == 0);
+                let mult = mult as u32;
+                match mult {
+                    0 => dynasm!(self ; ldr W(reg), [X(addr)]),
+                    1 => dynasm!(self ; ldr W(reg), [X(addr), X(r2)]),
+                    _ => dynasm!(self ; ldr W(reg), [X(addr), X(r2), LSL mult]),
                 };
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
