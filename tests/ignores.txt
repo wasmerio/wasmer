@@ -50,6 +50,7 @@ singlepass+windows spec::skip_stack_guard_page # Needs investigation.
 cranelift+windows spec::skip_stack_guard_page # Needs investigation. Issue: `STATUS_ACCESS_VIOLATION` trap happened
 cranelift+macos   spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
 llvm+macos        spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
+dylib             spec::skip_stack_guard_page # Missing trap information in dylibs
 
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in dylib engine
