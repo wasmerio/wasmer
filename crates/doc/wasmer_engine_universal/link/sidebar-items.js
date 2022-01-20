@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["apply_relocation",""],["fill_trampolin_map",""],["link_module","Links a module, patching the allocated functions with the required relocations and jump tables."],["trampolines_add","Add a new trampoline address, given the base adress of the Section. Return the address of the jump The trampoline itself still have to be writen"],["use_trampoline",""]]});
+initSidebarItems({"fn":[["apply_relocation",""],["link_module","Links a module, patching the allocated functions with the required relocations and jump tables."]]});

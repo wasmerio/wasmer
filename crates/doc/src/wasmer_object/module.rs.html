@@ -379,12 +379,21 @@
 <span id="379">379</span>
 <span id="380">380</span>
 <span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ObjectError</span>;
 <span class="kw">use</span> <span class="ident">object::write</span>::{
     <span class="ident">Object</span>, <span class="ident">Relocation</span>, <span class="ident">StandardSection</span>, <span class="ident">StandardSegment</span>, <span class="ident">Symbol</span> <span class="kw">as</span> <span class="ident">ObjSymbol</span>, <span class="ident">SymbolSection</span>,
 };
 <span class="kw">use</span> <span class="ident">object</span>::{
-    <span class="ident">elf</span>, <span class="ident">RelocationEncoding</span>, <span class="ident">RelocationKind</span>, <span class="ident">SectionKind</span>, <span class="ident">SymbolFlags</span>, <span class="ident">SymbolKind</span>, <span class="ident">SymbolScope</span>,
+    <span class="ident">elf</span>, <span class="ident">macho</span>, <span class="ident">RelocationEncoding</span>, <span class="ident">RelocationKind</span>, <span class="ident">SectionKind</span>, <span class="ident">SymbolFlags</span>, <span class="ident">SymbolKind</span>,
+    <span class="ident">SymbolScope</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">Compilation</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Endianness</span>,
@@ -673,7 +682,14 @@
                 <span class="comment">// Reloc::X86PCRelRodata4 =&gt; {</span>
                 <span class="comment">// }</span>
                 <span class="ident">Reloc::Arm64Call</span> <span class="op">=</span><span class="op">&gt;</span> (
-                    <span class="ident">RelocationKind::Elf</span>(<span class="ident">elf::R_AARCH64_CALL26</span>),
+                    <span class="kw">match</span> <span class="ident">obj</span>.<span class="ident">format</span>() {
+                        <span class="ident">object::BinaryFormat::Elf</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Elf</span>(<span class="ident">elf::R_AARCH64_CALL26</span>),
+                        <span class="ident">object::BinaryFormat::MachO</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::MachO</span> {
+                            <span class="ident">value</span>: <span class="ident">macho::ARM64_RELOC_BRANCH26</span>,
+                            <span class="ident">relative</span>: <span class="bool-val">true</span>,
+                        },
+                        <span class="ident">fmt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;unsupported binary format {:?}&quot;</span>, <span class="ident">fmt</span>),
+                    },
                     <span class="ident">RelocationEncoding::Generic</span>,
                     <span class="number">32</span>,
                 ),

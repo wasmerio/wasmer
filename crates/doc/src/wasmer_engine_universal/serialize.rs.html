@@ -102,6 +102,8 @@
 <span id="102">102</span>
 <span id="103">103</span>
 <span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
     <span class="ident">archived_value</span>, <span class="ident">de::deserializers::SharedDeserializeMap</span>, <span class="ident">ser::serializers::AllocSerializer</span>,
@@ -110,7 +112,7 @@
 };
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>,
-    <span class="ident">JumpTableOffsets</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>, <span class="ident">TrampolinesSection</span>,
+    <span class="ident">JumpTableOffsets</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">DeserializeError</span>, <span class="ident">SerializeError</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
@@ -129,8 +131,10 @@
     <span class="kw">pub</span> <span class="ident">custom_section_relocations</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="comment">// The section indices corresponding to the Dwarf debug info</span>
     <span class="kw">pub</span> <span class="ident">debug</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Dwarf</span><span class="op">&gt;</span>,
-    <span class="comment">// the Trampoline for Arm arch</span>
-    <span class="kw">pub</span> <span class="ident">trampolines</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrampolinesSection</span><span class="op">&gt;</span>,
+    <span class="comment">// Custom section containing libcall trampolines.</span>
+    <span class="kw">pub</span> <span class="ident">libcall_trampolines</span>: <span class="ident">SectionIndex</span>,
+    <span class="comment">// Length of each libcall trampoline.</span>
+    <span class="kw">pub</span> <span class="ident">libcall_trampoline_len</span>: <span class="ident">u32</span>,
 }
 
 <span class="doccomment">/// Serializable struct that is able to serialize from and to</span>

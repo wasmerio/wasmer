@@ -40,6 +40,7 @@
 <span id="40">40</span>
 <span id="41">41</span>
 <span id="42">42</span>
+<span id="43">43</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Universal backend for Wasmer compilers.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)</span>
@@ -72,6 +73,7 @@
 <span class="kw">mod</span> <span class="ident">engine</span>;
 <span class="kw">mod</span> <span class="ident">link</span>;
 <span class="kw">mod</span> <span class="ident">serialize</span>;
+<span class="kw">mod</span> <span class="ident">trampoline</span>;
 <span class="kw">mod</span> <span class="ident">unwind</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::artifact::UniversalArtifact</span>;

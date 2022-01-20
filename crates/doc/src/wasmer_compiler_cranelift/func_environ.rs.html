@@ -1543,8 +1543,6 @@
 <span id="1543">1543</span>
 <span id="1544">1544</span>
 <span id="1545">1545</span>
-<span id="1546">1546</span>
-<span id="1547">1547</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -2679,9 +2677,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">func</span>.<span class="ident">import_function</span>(<span class="ident">ir::ExtFuncData</span> {
             <span class="ident">name</span>,
             <span class="ident">signature</span>,
-            <span class="comment">// We currently allocate all code segments independently, so nothing</span>
-            <span class="comment">// is colocated.</span>
-            <span class="ident">colocated</span>: <span class="bool-val">false</span>,
+            <span class="ident">colocated</span>: <span class="bool-val">true</span>,
         }))
     }
 

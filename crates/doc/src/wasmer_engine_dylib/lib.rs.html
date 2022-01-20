@@ -34,6 +34,7 @@
 <span id="34">34</span>
 <span id="35">35</span>
 <span id="36">36</span>
+<span id="37">37</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Dylib Engine for Wasmer compilers.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Given a compiler (such as `CraneliftCompiler` or `LLVMCompiler`)</span>
@@ -63,6 +64,7 @@
 <span class="kw">mod</span> <span class="ident">builder</span>;
 <span class="kw">mod</span> <span class="ident">engine</span>;
 <span class="kw">mod</span> <span class="ident">serialize</span>;
+<span class="kw">mod</span> <span class="ident">trampoline</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::artifact::DylibArtifact</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::builder::Dylib</span>;

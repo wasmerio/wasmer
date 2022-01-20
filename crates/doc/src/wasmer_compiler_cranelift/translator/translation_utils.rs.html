@@ -160,6 +160,7 @@
 <span id="160">160</span>
 <span id="161">161</span>
 <span id="162">162</span>
+<span id="163">163</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::func_environ::TargetEnvironment</span>;
@@ -252,6 +253,7 @@
         <span class="ident">Reloc::X86CallPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::X86CallPCRel4</span>,
         <span class="ident">Reloc::X86CallPLTRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::X86CallPLTRel4</span>,
         <span class="ident">Reloc::X86GOTPCRel4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::X86GOTPCRel4</span>,
+        <span class="ident">Reloc::Arm64Call</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Arm64Call</span>,
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;The relocation {} is not yet supported.&quot;</span>, <span class="ident">reloc</span>),
     }
 }

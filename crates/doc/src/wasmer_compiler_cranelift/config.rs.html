@@ -209,6 +209,12 @@
 <span id="209">209</span>
 <span id="210">210</span>
 <span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::CraneliftCompiler</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen::settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>};
@@ -345,6 +351,12 @@
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_pic</span> {
             <span class="ident">flags</span>.<span class="ident">enable</span>(<span class="string">&quot;is_pic&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be a valid flag&quot;</span>);
         }
+
+        <span class="comment">// We set up libcall trampolines in engine-dylib and engine-universal.</span>
+        <span class="comment">// These trampolines are always reachable through short jumps.</span>
+        <span class="ident">flags</span>
+            .<span class="ident">enable</span>(<span class="string">&quot;use_colocated_libcalls&quot;</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;should be a valid flag&quot;</span>);
 
         <span class="comment">// Invert cranelift&#39;s default-on verification to instead default off.</span>
         <span class="kw">let</span> <span class="ident">enable_verifier</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_verifier</span> {
