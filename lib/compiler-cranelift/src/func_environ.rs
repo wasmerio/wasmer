@@ -1132,9 +1132,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         Ok(func.import_function(ir::ExtFuncData {
             name,
             signature,
-            // We currently allocate all code segments independently, so nothing
-            // is colocated.
-            colocated: false,
+            colocated: true,
         }))
     }
 

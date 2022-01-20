@@ -211,14 +211,13 @@ compilers_engines :=
 ifeq ($(ENABLE_CRANELIFT), 1)
 	compilers_engines += cranelift-universal
 
-	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			ifneq ($(LIBC), musl)
 				compilers_engines += cranelift-dylib
 			endif
 		else ifeq ($(IS_AARCH64), 1)
-			# The object crate doesn't support yet Darwin + Aarch64 relocations
-			ifneq ($(IS_DARWIN), 1)
+			ifneq ($(LIBC), musl)
 				compilers_engines += cranelift-dylib
 			endif
 		endif
@@ -230,7 +229,7 @@ endif
 ##
 
 ifeq ($(ENABLE_LLVM), 1)
-	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
@@ -246,7 +245,7 @@ endif
 ##
 
 ifeq ($(ENABLE_SINGLEPASS), 1)
-	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-universal
 		endif

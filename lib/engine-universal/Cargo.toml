@@ -27,6 +27,7 @@ leb128 = "0.2"
 rkyv = "0.7.20"
 loupe = "0.1"
 enumset = "1.0"
+enum-iterator = "0.7.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winnt", "impl-default"] }
