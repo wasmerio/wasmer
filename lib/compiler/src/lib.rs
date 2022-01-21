@@ -74,7 +74,7 @@ pub use crate::error::{
 };
 pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
-    Functions, TrampolinesSection,
+    Functions,
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::module::CompileModuleInfo;

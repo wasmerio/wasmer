@@ -3,7 +3,8 @@ use object::write::{
     Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
 };
 use object::{
-    elf, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
+    elf, macho, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
+    SymbolScope,
 };
 use wasmer_compiler::{
     Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
@@ -292,7 +293,14 @@ pub fn emit_compilation(
                 // Reloc::X86PCRelRodata4 => {
                 // }
                 Reloc::Arm64Call => (
-                    RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                    match obj.format() {
+                        object::BinaryFormat::Elf => RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                        object::BinaryFormat::MachO => RelocationKind::MachO {
+                            value: macho::ARM64_RELOC_BRANCH26,
+                            relative: true,
+                        },
+                        fmt => panic!("unsupported binary format {:?}", fmt),
+                    },
                     RelocationEncoding::Generic,
                     32,
                 ),

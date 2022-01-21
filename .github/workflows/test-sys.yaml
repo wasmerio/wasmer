@@ -166,6 +166,7 @@ jobs:
         shell: bash
       - name: Setup Rust target
         run: |
+          mkdir -p .cargo
           cat << EOF > .cargo/config.toml
           [build]
           target = "${{ matrix.target }}"

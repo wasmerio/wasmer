@@ -135,6 +135,12 @@ impl Cranelift {
             flags.enable("is_pic").expect("should be a valid flag");
         }
 
+        // We set up libcall trampolines in engine-dylib and engine-universal.
+        // These trampolines are always reachable through short jumps.
+        flags
+            .enable("use_colocated_libcalls")
+            .expect("should be a valid flag");
+
         // Invert cranelift's default-on verification to instead default off.
         let enable_verifier = if self.enable_verifier {
             "true"

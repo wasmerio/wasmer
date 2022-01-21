@@ -6,6 +6,7 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
+use crate::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use enumset::EnumSet;
 use loupe::MemoryUsage;
 use std::mem;
@@ -111,6 +112,14 @@ impl UniversalArtifact {
 
         let frame_infos = compilation.get_frame_info();
 
+        // Synthesize a custom section to hold the libcall trampolines.
+        let mut custom_sections = compilation.get_custom_sections();
+        let mut custom_section_relocations = compilation.get_custom_section_relocations();
+        let libcall_trampolines_section = make_libcall_trampolines(engine.target());
+        custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
+        let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
+        let libcall_trampoline_len = libcall_trampoline_len(engine.target()) as u32;
+
         let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),
             function_relocations: compilation.get_relocations(),
@@ -118,10 +127,11 @@ impl UniversalArtifact {
             function_frame_info: frame_infos,
             function_call_trampolines,
             dynamic_function_trampolines,
-            custom_sections: compilation.get_custom_sections(),
-            custom_section_relocations: compilation.get_custom_section_relocations(),
+            custom_sections,
+            custom_section_relocations,
             debug: compilation.get_debug(),
-            trampolines: compilation.get_trampolines(),
+            libcall_trampolines,
+            libcall_trampoline_len,
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -187,7 +197,8 @@ impl UniversalArtifact {
             serializable.compilation.function_relocations.clone(),
             &custom_sections,
             &serializable.compilation.custom_section_relocations,
-            &serializable.compilation.trampolines,
+            serializable.compilation.libcall_trampolines,
+            serializable.compilation.libcall_trampoline_len as usize,
         );
 
         // Compute indices into the shared signature table.

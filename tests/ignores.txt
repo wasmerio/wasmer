@@ -33,13 +33,8 @@ llvm       traps::start_trap_pretty
 dylib     traps::start_trap_pretty
 aarch64    traps::start_trap_pretty
 
-cranelift  multi_value_imports::dylib # Needs investigation
 singlepass multi_value_imports::dylib # Singlepass doesn't support multivalue
 singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
-
-# LLVM doesn't fully work in macOS M1
-llvm+universal+macos+aarch64 * # We are using the object crate, it was not fully supporting aarch64 relocations emitted by LLVM. Needs reassesment
-llvm+dylib+macos+aarch64 * # Tests seem to be randomly failing
 
 # TODO: We need to fix this in ARM. The issue is caused by libunwind overflowing
 # the stack while creating the stacktrace.

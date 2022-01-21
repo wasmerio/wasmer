@@ -90,6 +90,7 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
         Reloc::X86CallPCRel4 => RelocationKind::X86CallPCRel4,
         Reloc::X86CallPLTRel4 => RelocationKind::X86CallPLTRel4,
         Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
+        Reloc::Arm64Call => RelocationKind::Arm64Call,
         _ => panic!("The relocation {} is not yet supported.", reloc),
     }
 }
