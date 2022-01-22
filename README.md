@@ -149,7 +149,7 @@ languages**, so you can use WebAssembly _anywhere_.
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
 [`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/wasmer.h
-[c docs]: https://docs.rs/wasmer-c-api/*/wasmer_c_api/wasm_c_api/index.html
+[c docs]: https://docs.rs/wasmer-c-api/*/wasmer/wasm_c_api/index.html
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
@@ -164,7 +164,7 @@ languages**, so you can use WebAssembly _anywhere_.
 [python logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/python.svg
 [python integration]: https://github.com/wasmerio/wasmer-python
 [`wasmer` pypi package]: https://pypi.org/project/wasmer/
-[python docs]: https://wasmerio.github.io/wasmer-python/api/wasmer/
+[python docs]: https://wasmerio.github.io/wasmer-python/api/wasmer
 
 [go logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/go.svg
 [go integration]: https://github.com/wasmerio/wasmer-go
