@@ -6955,6 +6955,12 @@
 <span id="6955">6955</span>
 <span id="6956">6956</span>
 <span id="6957">6957</span>
+<span id="6958">6958</span>
+<span id="6959">6959</span>
+<span id="6960">6960</span>
+<span id="6961">6961</span>
+<span id="6962">6962</span>
+<span id="6963">6963</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -8764,16 +8770,22 @@
     <span class="kw">fn</span> <span class="ident">push_location_for_native</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>) {
         <span class="kw">match</span> <span class="ident">loc</span> {
             <span class="ident">Location::Imm64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="comment">// Push R9 value slot to be exchange with `mov`.</span>
+                <span class="comment">// x86_64 does not support `mov imm64, mem`. We must first place the immdiate value</span>
+                <span class="comment">// into a register and then write the register to the memory. Now the problem is</span>
+                <span class="comment">// that there might not be any registers available to clobber. In order to make</span>
+                <span class="comment">// this work out we spill a register thus retaining both the original value of the</span>
+                <span class="comment">// register and producing the required data at the top of the stack.</span>
+                <span class="comment">//</span>
+                <span class="comment">// FIXME(#2723): figure out how to not require spilling a register here. It should</span>
+                <span class="comment">// definitely be possible to `pick_gpr`/`pick_temp_gpr` to grab an otherwise unused</span>
+                <span class="comment">// register and just clobber its value here.</span>
                 <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_push</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>));
-                <span class="self">self</span>.<span class="ident">reserve_unused_temp_gpr</span>(<span class="ident">GPR::R9</span>);
                 <span class="self">self</span>.<span class="ident">move_location</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>));
                 <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_xchg</span>(
                     <span class="ident">Size::S64</span>,
                     <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>),
                     <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">0</span>),
                 );
-                <span class="self">self</span>.<span class="ident">release_gpr</span>(<span class="ident">GPR::R9</span>);
             }
             <span class="ident">Location::SIMD</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// Dummy value slot to be filled with `mov`.</span>
