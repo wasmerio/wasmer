@@ -140,8 +140,8 @@ pub fn _getnameinfo(
 macro_rules! invoke {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
         let sp = get_emscripten_data($ctx).stack_save_ref().expect("stack_save is None").call().expect("stack_save call failed");
-        let result = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).call($($arg),*);
-        match result {
+        let call = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
+        match call.call($($arg),*) {
             Ok(v) => v,
             Err(_e) => {
                 get_emscripten_data($ctx).stack_restore_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
@@ -156,8 +156,8 @@ macro_rules! invoke {
 macro_rules! invoke_no_return {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
         let sp = get_emscripten_data($ctx).stack_save_ref().expect("stack_save is None").call().expect("stack_save call failed");
-        let result = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).call($($arg),*);
-        match result {
+        let call = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
+        match call.call($($arg),*) {
             Ok(v) => v,
             Err(_e) => {
                 get_emscripten_data($ctx).stack_restore_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
@@ -171,11 +171,9 @@ macro_rules! invoke_no_return {
 // The invoke_j functions do not save the stack
 macro_rules! invoke_no_stack_save {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
-        if let Some(call) = get_emscripten_data($ctx).$name_ref() {
-            call.call($($arg),*).unwrap()
-        } else {
-            panic!("{} is set to None", stringify!($name));
-        }
+        let call = get_emscripten_data($ctx).$name_ref().expect(concat!(stringify!($name), " is set to None")).clone();
+
+        call.call($($arg),*).unwrap()
     }}
 }
 
