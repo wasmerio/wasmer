@@ -9,6 +9,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **[Unreleased]**
 - [#2750](https://github.com/wasmerio/wasmer/pull/2750) Added Aarch64 support to Singlepass (both Linux and macOS).
 
+### Fixed
+- [#2769](https://github.com/wasmerio/wasmer/pull/2769) Deadlock in emscripten dynamic calls
+
 ## 2.1.1 - 2021/12/20
 
 ### Added
