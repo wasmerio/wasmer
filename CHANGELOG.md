@@ -8,6 +8,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **[Unreleased]**
 
+### Fixed
+- [#2769](https://github.com/wasmerio/wasmer/pull/2769) Deadlock in emscripten dynamic calls
+
 ## 2.1.1 - 2021/12/20
 
 ### Added
