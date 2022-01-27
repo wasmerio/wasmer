@@ -6,7 +6,10 @@ use rkyv::{
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use wasmer_compiler::{CompileError, CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
+use wasmer_compiler::{
+    CompileError, CompileModuleInfo, CompiledFunctionFrameInfo, SectionIndex, Symbol,
+    SymbolRegistry,
+};
 use wasmer_engine::DeserializeError;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
@@ -29,6 +32,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 )]
 pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
+    pub function_frame_info: Option<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>>,
     pub prefix: String,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // The function body lengths (used to find function by address)
