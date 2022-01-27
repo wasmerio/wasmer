@@ -179,6 +179,11 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
+		ifeq ($(IS_AARCH64), 1)
+			ifneq ($(IS_WINDOWS), 1)
+				compilers += singlepass
+			endif
+		endif
 	endif
 endif
 
@@ -247,6 +252,9 @@ endif
 ifeq ($(ENABLE_SINGLEPASS), 1)
 	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
+			compilers_engines += singlepass-universal
+		endif
+		ifeq ($(IS_AARCH64), 1)
 			compilers_engines += singlepass-universal
 		endif
 	endif
