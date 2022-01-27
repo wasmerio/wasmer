@@ -72,11 +72,6 @@
 <span id="72">72</span>
 <span id="73">73</span>
 <span id="74">74</span>
-<span id="75">75</span>
-<span id="76">76</span>
-<span id="77">77</span>
-<span id="78">78</span>
-<span id="79">79</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::RegisterIndex</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
@@ -150,11 +145,6 @@
     <span class="kw">fn</span> <span class="ident">from_gpr</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
     <span class="doccomment">/// Convert from an SIMD register</span>
     <span class="kw">fn</span> <span class="ident">from_simd</span>(<span class="ident">x</span>: <span class="ident">u16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>;
-    <span class="doccomment">/// Returns the instruction prefix for move to stack</span>
-    <span class="doccomment">/// for example `movq %this_reg, ?(%rsp)` on x86_64</span>
-    <span class="doccomment">/// To build an instruction, append the memory location as a 32-bit</span>
-    <span class="doccomment">/// offset to the stack pointer to this prefix.</span>
-    <span class="kw">fn</span> <span class="ident">_prefix_mov_to_stack</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>]<span class="op">&gt;</span>;
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>

@@ -2199,8 +2199,93 @@
 <span id="2199">2199</span>
 <span id="2200">2200</span>
 <span id="2201">2201</span>
+<span id="2202">2202</span>
+<span id="2203">2203</span>
+<span id="2204">2204</span>
+<span id="2205">2205</span>
+<span id="2206">2206</span>
+<span id="2207">2207</span>
+<span id="2208">2208</span>
+<span id="2209">2209</span>
+<span id="2210">2210</span>
+<span id="2211">2211</span>
+<span id="2212">2212</span>
+<span id="2213">2213</span>
+<span id="2214">2214</span>
+<span id="2215">2215</span>
+<span id="2216">2216</span>
+<span id="2217">2217</span>
+<span id="2218">2218</span>
+<span id="2219">2219</span>
+<span id="2220">2220</span>
+<span id="2221">2221</span>
+<span id="2222">2222</span>
+<span id="2223">2223</span>
+<span id="2224">2224</span>
+<span id="2225">2225</span>
+<span id="2226">2226</span>
+<span id="2227">2227</span>
+<span id="2228">2228</span>
+<span id="2229">2229</span>
+<span id="2230">2230</span>
+<span id="2231">2231</span>
+<span id="2232">2232</span>
+<span id="2233">2233</span>
+<span id="2234">2234</span>
+<span id="2235">2235</span>
+<span id="2236">2236</span>
+<span id="2237">2237</span>
+<span id="2238">2238</span>
+<span id="2239">2239</span>
+<span id="2240">2240</span>
+<span id="2241">2241</span>
+<span id="2242">2242</span>
+<span id="2243">2243</span>
+<span id="2244">2244</span>
+<span id="2245">2245</span>
+<span id="2246">2246</span>
+<span id="2247">2247</span>
+<span id="2248">2248</span>
+<span id="2249">2249</span>
+<span id="2250">2250</span>
+<span id="2251">2251</span>
+<span id="2252">2252</span>
+<span id="2253">2253</span>
+<span id="2254">2254</span>
+<span id="2255">2255</span>
+<span id="2256">2256</span>
+<span id="2257">2257</span>
+<span id="2258">2258</span>
+<span id="2259">2259</span>
+<span id="2260">2260</span>
+<span id="2261">2261</span>
+<span id="2262">2262</span>
+<span id="2263">2263</span>
+<span id="2264">2264</span>
+<span id="2265">2265</span>
+<span id="2266">2266</span>
+<span id="2267">2267</span>
+<span id="2268">2268</span>
+<span id="2269">2269</span>
+<span id="2270">2270</span>
+<span id="2271">2271</span>
+<span id="2272">2272</span>
+<span id="2273">2273</span>
+<span id="2274">2274</span>
+<span id="2275">2275</span>
+<span id="2276">2276</span>
+<span id="2277">2277</span>
+<span id="2278">2278</span>
+<span id="2279">2279</span>
+<span id="2280">2280</span>
+<span id="2281">2281</span>
+<span id="2282">2282</span>
+<span id="2283">2283</span>
+<span id="2284">2284</span>
+<span id="2285">2285</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_arm64::MachineARM64</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_x64::MachineX86_64</span>;
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>};
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
@@ -2282,8 +2367,8 @@
     <span class="kw">fn</span> <span class="ident">reserve_unused_temp_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident"><span class="self">Self</span>::GPR</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::GPR</span>;
     <span class="doccomment">/// reserve a GPR</span>
     <span class="kw">fn</span> <span class="ident">reserve_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident"><span class="self">Self</span>::GPR</span>);
-    <span class="doccomment">/// Push used gpr to the stack</span>
-    <span class="kw">fn</span> <span class="ident">push_used_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
+    <span class="doccomment">/// Push used gpr to the stack. Return the bytes taken on the stack</span>
+    <span class="kw">fn</span> <span class="ident">push_used_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Pop used gpr to the stack</span>
     <span class="kw">fn</span> <span class="ident">pop_used_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
     <span class="doccomment">/// Picks an unused SIMD register.</span>
@@ -2300,10 +2385,12 @@
     <span class="kw">fn</span> <span class="ident">reserve_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">simd</span>: <span class="ident"><span class="self">Self</span>::SIMD</span>);
     <span class="doccomment">/// Releases a temporary XMM register.</span>
     <span class="kw">fn</span> <span class="ident">release_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">simd</span>: <span class="ident"><span class="self">Self</span>::SIMD</span>);
-    <span class="doccomment">/// Push used simd regs to the stack</span>
-    <span class="kw">fn</span> <span class="ident">push_used_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
+    <span class="doccomment">/// Push used simd regs to the stack. Return bytes taken on the stack</span>
+    <span class="kw">fn</span> <span class="ident">push_used_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Pop used simd regs to the stack</span>
     <span class="kw">fn</span> <span class="ident">pop_used_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
+    <span class="doccomment">/// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)</span>
+    <span class="kw">fn</span> <span class="ident">round_stack_adjust</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">value</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Set the source location of the Wasm to the given offset.</span>
     <span class="kw">fn</span> <span class="ident">set_srcloc</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">u32</span>);
     <span class="doccomment">/// Marks each address in the code range emitted by `f` with the trap code `code`.</span>
@@ -2330,10 +2417,6 @@
     <span class="doccomment">/// restore stack</span>
     <span class="doccomment">/// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))</span>
     <span class="kw">fn</span> <span class="ident">restore_stack</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">delta_stack_offset</span>: <span class="ident">u32</span>);
-    <span class="doccomment">/// push callee saved register to the stack</span>
-    <span class="kw">fn</span> <span class="ident">push_callee_saved</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
-    <span class="doccomment">/// pop callee saved register from the stack</span>
-    <span class="kw">fn</span> <span class="ident">pop_callee_saved</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
     <span class="doccomment">/// Pop stack of locals</span>
     <span class="doccomment">/// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))</span>
     <span class="kw">fn</span> <span class="ident">pop_stack_locals</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">delta_stack_offset</span>: <span class="ident">u32</span>);
@@ -2359,8 +2442,24 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span><span class="op">&gt;</span>;
-    <span class="doccomment">/// Get param location</span>
+    <span class="doccomment">/// Get param location (to build a call, using SP for stack args)</span>
     <span class="kw">fn</span> <span class="ident">get_param_location</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">idx</span>: <span class="ident">usize</span>,
+        <span class="ident">sz</span>: <span class="ident">Size</span>,
+        <span class="ident">stack_offset</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">usize</span>,
+        <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Get call param location (from a call, using FP for stack args)</span>
+    <span class="kw">fn</span> <span class="ident">get_call_param_location</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">idx</span>: <span class="ident">usize</span>,
+        <span class="ident">sz</span>: <span class="ident">Size</span>,
+        <span class="ident">stack_offset</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">usize</span>,
+        <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Get simple param location</span>
+    <span class="kw">fn</span> <span class="ident">get_simple_param_location</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">idx</span>: <span class="ident">usize</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
@@ -2460,6 +2559,10 @@
     <span class="kw">fn</span> <span class="ident">get_gpr_for_ret</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::GPR</span>;
     <span class="doccomment">/// get the simd for the return of float/double values</span>
     <span class="kw">fn</span> <span class="ident">get_simd_for_ret</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::SIMD</span>;
+
+    <span class="doccomment">/// Emit a debug breakpoint</span>
+    <span class="kw">fn</span> <span class="ident">emit_debug_breakpoint</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
+
     <span class="doccomment">/// load the address of a memory location (will panic if src is not a memory)</span>
     <span class="doccomment">/// like LEA opcode on x86_64</span>
     <span class="kw">fn</span> <span class="ident">location_address</span>(
@@ -2631,6 +2734,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_sdiv32</span>(
@@ -2639,6 +2743,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_urem32</span>(
@@ -2647,6 +2752,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_srem32</span>(
@@ -2655,6 +2761,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// And with location directly from the stack</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_and32</span>(
@@ -3244,6 +3351,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_sdiv64</span>(
@@ -3252,6 +3360,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_urem64</span>(
@@ -3260,6 +3369,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_srem64</span>(
@@ -3268,6 +3378,7 @@
         <span class="ident">loc_b</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
+        <span class="ident">integer_overflow</span>: <span class="ident">Label</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span>;
     <span class="doccomment">/// And with location directly from the stack</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_and64</span>(
@@ -4367,11 +4478,17 @@
     <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
     <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionBody</span> {
-    <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-        <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MachineX86_64::new</span>(),
+    <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
+        <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineX86_64::new</span>();
+            <span class="ident">machine</span>.<span class="ident">gen_std_trampoline</span>(<span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+        }
+        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineARM64::new</span>();
+            <span class="ident">machine</span>.<span class="ident">gen_std_trampoline</span>(<span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+        }
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented!</span>(),
-    };
-    <span class="ident">machine</span>.<span class="ident">gen_std_trampoline</span>(<span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+    }
 }
 <span class="doccomment">/// Generates dynamic import function call trampoline for a function type.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_std_dynamic_import_trampoline</span>(
@@ -4380,11 +4497,17 @@
     <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
     <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionBody</span> {
-    <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-        <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MachineX86_64::new</span>(),
+    <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
+        <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineX86_64::new</span>();
+            <span class="ident">machine</span>.<span class="ident">gen_std_dynamic_import_trampoline</span>(<span class="ident">vmoffsets</span>, <span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+        }
+        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineARM64::new</span>();
+            <span class="ident">machine</span>.<span class="ident">gen_std_dynamic_import_trampoline</span>(<span class="ident">vmoffsets</span>, <span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+        }
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented!</span>(),
-    };
-    <span class="ident">machine</span>.<span class="ident">gen_std_dynamic_import_trampoline</span>(<span class="ident">vmoffsets</span>, <span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+    }
 }
 <span class="doccomment">/// Singlepass calls import functions through a trampoline.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_import_call_trampoline</span>(
@@ -4394,12 +4517,57 @@
     <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
     <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CustomSection</span> {
-    <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-        <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">MachineX86_64::new</span>(),
+    <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
+        <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineX86_64::new</span>();
+            <span class="ident">machine</span>.<span class="ident">gen_import_call_trampoline</span>(<span class="ident">vmoffsets</span>, <span class="ident">index</span>, <span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+        }
+        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineARM64::new</span>();
+            <span class="ident">machine</span>.<span class="ident">gen_import_call_trampoline</span>(<span class="ident">vmoffsets</span>, <span class="ident">index</span>, <span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+        }
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented!</span>(),
-    };
-    <span class="ident">machine</span>.<span class="ident">gen_import_call_trampoline</span>(<span class="ident">vmoffsets</span>, <span class="ident">index</span>, <span class="ident">sig</span>, <span class="ident">calling_convention</span>)
+    }
 }
+
+<span class="comment">// Constants for the bounds of truncation operations. These are the least or</span>
+<span class="comment">// greatest exact floats in either f32 or f64 representation less-than (for</span>
+<span class="comment">// least) or greater-than (for greatest) the i32 or i64 or u32 or u64</span>
+<span class="comment">// min (for least) or max (for greatest), when rounding towards zero.</span>
+
+<span class="doccomment">/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF32_LT_I32_MIN</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="op">-</span><span class="number">2147483904.0</span>;
+<span class="doccomment">/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF32_GT_I32_MAX</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="number">2147483648.0</span>;
+<span class="doccomment">/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF32_LT_I64_MIN</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="op">-</span><span class="number">9223373136366403584.0</span>;
+<span class="doccomment">/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF32_GT_I64_MAX</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="number">9223372036854775808.0</span>;
+<span class="doccomment">/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF32_LT_U32_MIN</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="op">-</span><span class="number">1.0</span>;
+<span class="doccomment">/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF32_GT_U32_MAX</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="number">4294967296.0</span>;
+<span class="doccomment">/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF32_LT_U64_MIN</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="op">-</span><span class="number">1.0</span>;
+<span class="doccomment">/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF32_GT_U64_MAX</span>: <span class="ident">f32</span> <span class="op">=</span> <span class="number">18446744073709551616.0</span>;
+
+<span class="doccomment">/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF64_LT_I32_MIN</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="op">-</span><span class="number">2147483649.0</span>;
+<span class="doccomment">/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF64_GT_I32_MAX</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="number">2147483648.0</span>;
+<span class="doccomment">/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF64_LT_I64_MIN</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="op">-</span><span class="number">9223372036854777856.0</span>;
+<span class="doccomment">/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF64_GT_I64_MAX</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="number">9223372036854775808.0</span>;
+<span class="doccomment">/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF64_LT_U32_MIN</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="op">-</span><span class="number">1.0</span>;
+<span class="doccomment">/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF64_GT_U32_MAX</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="number">4294967296.0</span>;
+<span class="doccomment">/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GEF64_LT_U64_MIN</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="op">-</span><span class="number">1.0</span>;
+<span class="doccomment">/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEF64_GT_U64_MAX</span>: <span class="ident">f64</span> <span class="op">=</span> <span class="number">18446744073709551616.0</span>;
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
     <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
