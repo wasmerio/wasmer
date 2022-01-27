@@ -21,6 +21,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2717](https://github.com/wasmerio/wasmer/pull/2717) Allow `Exports` to be modified after being cloned.
 - [#2719](https://github.com/wasmerio/wasmer/pull/2719) Fixed `wasm_importtype_new`'s Rust signature to not assume boxed vectors.
 - [#2723](https://github.com/wasmerio/wasmer/pull/2723) Fixed a bug in parameter passing in the Singlepass compiler.
+- [#2768](https://github.com/wasmerio/wasmer/pull/2768) Fixed issue with Frame Info on dylib engine.
 
 ## 2.1.0 - 2021/11/30
 
