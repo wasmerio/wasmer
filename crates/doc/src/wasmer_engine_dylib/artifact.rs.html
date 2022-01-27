@@ -915,8 +915,6 @@
 <span id="915">915</span>
 <span id="916">916</span>
 <span id="917">917</span>
-<span id="918">918</span>
-<span id="919">919</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
 
@@ -1128,8 +1126,11 @@
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">_function_body</span><span class="op">|</span> <span class="number">0u64</span>)
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
+        <span class="kw">let</span> <span class="ident">function_frame_info</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata</span> <span class="op">=</span> <span class="ident">ModuleMetadata</span> {
             <span class="ident">compile_info</span>,
+            <span class="ident">function_frame_info</span>,
             <span class="ident">prefix</span>: <span class="ident">engine_inner</span>.<span class="ident">get_prefix</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>),
             <span class="ident">data_initializers</span>,
             <span class="ident">function_body_lengths</span>,
@@ -1206,6 +1207,9 @@
                     <span class="ident">MetadataHeader::ALIGN</span> <span class="kw">as</span> <span class="ident">u64</span>,
                 )
                 .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+
+                <span class="kw">let</span> <span class="ident">frame_info</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_frame_info</span>().<span class="ident">clone</span>();
+
                 <span class="ident">emit_compilation</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">obj</span>, <span class="ident">compilation</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>, <span class="kw-2">&amp;</span><span class="ident">target_triple</span>)
                     .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                 <span class="kw">if</span> <span class="ident">obj</span>.<span class="ident">format</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">BinaryFormat::Coff</span> {
@@ -1216,6 +1220,8 @@
                     .<span class="ident">suffix</span>(<span class="string">&quot;.o&quot;</span>)
                     .<span class="ident">tempfile</span>()
                     .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+
+                <span class="ident">metadata</span>.<span class="ident">function_frame_info</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">frame_info</span>);
 
                 <span class="comment">// Re-open it.</span>
                 <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">file</span>, <span class="ident">filepath</span>) <span class="op">=</span> <span class="ident">file</span>.<span class="ident">keep</span>().<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
@@ -1471,20 +1477,6 @@
             }
         }
 
-        <span class="comment">// Leaving frame infos from now, as they are not yet used</span>
-        <span class="comment">// however they might be useful for the future.</span>
-        <span class="comment">// let frame_infos = compilation</span>
-        <span class="comment">//     .get_frame_info()</span>
-        <span class="comment">//     .values()</span>
-        <span class="comment">//     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))</span>
-        <span class="comment">//     .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, _&gt;&gt;();</span>
-        <span class="comment">// Self::from_parts(&amp;mut engine_inner, lib, metadata, )</span>
-        <span class="comment">// let frame_info_registration = register_frame_info(</span>
-        <span class="comment">//     serializable.module.clone(),</span>
-        <span class="comment">//     &amp;finished_functions,</span>
-        <span class="comment">//     serializable.compilation.function_frame_info.clone(),</span>
-        <span class="comment">// );</span>
-
         <span class="comment">// Compute indices into the shared signature table.</span>
         <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> {
             <span class="ident">metadata</span>
@@ -1725,16 +1717,20 @@
         <span class="comment">// We sort them again, by key this time</span>
         <span class="ident">function_pointers</span>.<span class="ident">sort_by</span>(<span class="op">|</span>(<span class="ident">k1</span>, <span class="ident">_v1</span>), (<span class="ident">k2</span>, <span class="ident">_v2</span>)<span class="op">|</span> <span class="ident">k1</span>.<span class="ident">cmp</span>(<span class="ident">k2</span>));
 
-        <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="ident">function_pointers</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">extent</span>)<span class="op">|</span> <span class="ident">CompiledFunctionFrameInfo</span> {
-                <span class="ident">traps</span>: <span class="macro">vec!</span>[],
-                <span class="ident">address_map</span>: <span class="ident">FunctionAddressMap</span> {
-                    <span class="ident">body_len</span>: <span class="ident">extent</span>.<span class="ident">length</span>,
-                    ..<span class="ident">Default::default</span>()
-                },
-            })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">metadata</span>().<span class="ident">function_frame_info</span>.<span class="ident">is_some</span>() {
+            <span class="self">self</span>.<span class="ident">metadata</span>().<span class="ident">function_frame_info</span>.<span class="ident">clone</span>().<span class="ident">unwrap</span>()
+        } <span class="kw">else</span> {
+            <span class="ident">function_pointers</span>
+                .<span class="ident">iter</span>()
+                .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">extent</span>)<span class="op">|</span> <span class="ident">CompiledFunctionFrameInfo</span> {
+                    <span class="ident">traps</span>: <span class="macro">vec!</span>[],
+                    <span class="ident">address_map</span>: <span class="ident">FunctionAddressMap</span> {
+                        <span class="ident">body_len</span>: <span class="ident">extent</span>.<span class="ident">length</span>,
+                        ..<span class="ident">Default::default</span>()
+                    },
+                })
+                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+        };
 
         <span class="kw">let</span> <span class="ident">finished_function_extents</span> <span class="op">=</span> <span class="ident">function_pointers</span>
             .<span class="ident">into_iter</span>()
