@@ -6,11 +6,25 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
-## **[Unreleased]**
+## **Unreleased**
+
+## 2.2.0-rc1 - 2022/01/28
+
+### Added
 - [#2750](https://github.com/wasmerio/wasmer/pull/2750) Added Aarch64 support to Singlepass (both Linux and macOS).
+- [#2753](https://github.com/wasmerio/wasmer/pull/2753) Re-add "dylib" to the list of default features.
+
+### Changed
+- [#2747](https://github.com/wasmerio/wasmer/pull/2747) Use a standard header for metadata in all serialized modules.
+- [#2759](https://github.com/wasmerio/wasmer/pull/2759) Use exact version for Wasmer crate dependencies.
 
 ### Fixed
-- [#2769](https://github.com/wasmerio/wasmer/pull/2769) Deadlock in emscripten dynamic calls
+- [#2769](https://github.com/wasmerio/wasmer/pull/2769) Fixed deadlock in emscripten dynamic calls.
+- [#2742](https://github.com/wasmerio/wasmer/pull/2742) Fixed WASMER_METADATA alignment in the dylib engine.
+- [#2746](https://github.com/wasmerio/wasmer/pull/2746) Fixed invoking `wasmer binfmt register` from `$PATH`.
+- [#2748](https://github.com/wasmerio/wasmer/pull/2748) Use trampolines for all libcalls in engine-universal and engine-dylib.
+- [#2766](https://github.com/wasmerio/wasmer/pull/2766) Remove an attempt to reserve a GPR when no GPR clobbering is occurring.
+- [#2768](https://github.com/wasmerio/wasmer/pull/2768) Fixed serialization of FrameInfo on Dylib engine.
 
 ## 2.1.1 - 2021/12/20
 
