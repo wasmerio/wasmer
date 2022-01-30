@@ -5784,7 +5784,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .mark_address_with_trap_code(TrapCode::BadSignature);
         self.machine.emit_illegal_op();
 
-        // Notify the assembler backend to generate necessary code at end of function.
+        // Notify the inner backend to generate necessary code at end of function.
         self.machine.finalize_function();
 
         let body_len = self.machine.assembler_get_offset().0;
