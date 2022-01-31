@@ -7,7 +7,10 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
-use wasmer_compiler::{Architecture, CallingConvention, CustomSection, FunctionBody, InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation, CpuFeature};
+use wasmer_compiler::{
+    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody,
+    InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation,
+};
 use wasmer_types::{FunctionIndex, FunctionType};
 use wasmer_vm::{TrapCode, VMOffsets};
 
@@ -2256,7 +2259,6 @@ pub fn gen_import_call_trampoline(
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new();
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
-
         }
         _ => unimplemented!(),
     }

@@ -4,14 +4,14 @@ use crate::location::Location as AbstractLocation;
 use crate::machine::*;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
-use dynasmrt::{x64::X64Relocation, VecAssembler, DynasmError};
+use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    CallingConvention, CustomSection, CustomSectionProtection,
-    FunctionBody, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SourceLoc, TrapInformation, CpuFeature
+    CallingConvention, CpuFeature, CustomSection, CustomSectionProtection, FunctionBody,
+    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SectionBody, SourceLoc,
+    TrapInformation,
 };
 use wasmer_types::{FunctionIndex, FunctionType, Type};
 use wasmer_vm::{TrapCode, VMOffsets};

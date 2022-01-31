@@ -5,9 +5,7 @@ pub use crate::machine::{Label, Offset};
 use crate::machine_x64::AssemblerX64;
 pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
-use dynasmrt::{
-    AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
-};
+use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use wasmer_compiler::CpuFeature;
 
 /// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
@@ -128,7 +126,6 @@ pub trait EmitterX64 {
     fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory);
     fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
-
 
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM);
@@ -506,7 +503,7 @@ fn move_src_to_dst(emitter: &mut AssemblerX64, precision: Precision, src: XMM, d
             XMM::XMM13 => dynasm!(emitter ; movss Rx((dst as u8)), xmm13),
             XMM::XMM14 => dynasm!(emitter ; movss Rx((dst as u8)), xmm14),
             XMM::XMM15 => dynasm!(emitter ; movss Rx((dst as u8)), xmm15),
-        }
+        },
         Precision::Double => match src {
             XMM::XMM0 => dynasm!(emitter ; movsd Rx((dst as u8)), xmm0),
             XMM::XMM1 => dynasm!(emitter ; movsd Rx((dst as u8)), xmm1),
@@ -524,7 +521,7 @@ fn move_src_to_dst(emitter: &mut AssemblerX64, precision: Precision, src: XMM, d
             XMM::XMM13 => dynasm!(emitter ; movsd Rx((dst as u8)), xmm13),
             XMM::XMM14 => dynasm!(emitter ; movsd Rx((dst as u8)), xmm14),
             XMM::XMM15 => dynasm!(emitter ; movsd Rx((dst as u8)), xmm15),
-        }
+        },
     }
 }
 
@@ -1397,7 +1394,7 @@ impl EmitterX64 for AssemblerX64 {
             _ => panic!("singlepass can't emit VMOVAPD {:?} {:?}", src, dst),
         };
     }
-    fn emit_vxorps(&mut self,  src1: XMM, src2: XMMOrMemory, dst: XMM) {
+    fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_fn!(vxorps)(self, src1, src2, dst),
             Some(CpuFeature::SSE42) => sse_fn!(xorps)(self, Precision::Single, src1, src2, dst),
@@ -1638,84 +1635,108 @@ impl EmitterX64 for AssemblerX64 {
     fn emit_vroundss_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 0)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundss, 0)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundss, 0)(self, Precision::Single, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vroundsd_nearest(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 0)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundsd, 0)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundsd, 0)(self, Precision::Double, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vroundss_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 1)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundss, 1)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundss, 1)(self, Precision::Single, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vroundsd_floor(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 1)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundsd, 1)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundsd, 1)(self, Precision::Double, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vroundss_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 2)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundss, 2)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundss, 2)(self, Precision::Single, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vroundsd_ceil(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 2)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundsd, 2)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundsd, 2)(self, Precision::Double, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vroundss_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 3)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundss, 3)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundss, 3)(self, Precision::Single, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vroundsd_trunc(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 3)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_round_fn!(roundsd, 3)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_round_fn!(roundsd, 3)(self, Precision::Double, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vcvtsi2ss_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2ss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_i2f_32_fn!(cvtsi2ss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_i2f_32_fn!(cvtsi2ss)(self, Precision::Single, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vcvtsi2sd_32(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2sd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_i2f_32_fn!(cvtsi2sd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_i2f_32_fn!(cvtsi2sd)(self, Precision::Double, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vcvtsi2ss_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2ss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_i2f_64_fn!(cvtsi2ss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_i2f_64_fn!(cvtsi2ss)(self, Precision::Single, src1, src2, dst)
+            }
             _ => {}
         }
     }
     fn emit_vcvtsi2sd_64(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
         match self.get_simd_arch() {
             Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2sd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_i2f_64_fn!(cvtsi2sd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::SSE42) => {
+                sse_i2f_64_fn!(cvtsi2sd)(self, Precision::Double, src1, src2, dst)
+            }
             _ => {}
         }
     }
@@ -1731,7 +1752,7 @@ impl EmitterX64 for AssemblerX64 {
                 XMMOrMemory::Memory(base, disp) => {
                     dynasm!( self; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
                 }
-            }
+            },
             Some(CpuFeature::SSE42) => match src2 {
                 XMMOrMemory::XMM(src2) => {
                     move_src_to_dst(self, Precision::Single, src1, dst);
@@ -1741,7 +1762,7 @@ impl EmitterX64 for AssemblerX64 {
                     move_src_to_dst(self, Precision::Single, src1, dst);
                     dynasm!( self; blendvps Rx(dst as u8), [Rq(base as u8) + disp])
                 }
-            }
+            },
             _ => {}
         }
     }
@@ -1757,7 +1778,7 @@ impl EmitterX64 for AssemblerX64 {
                 XMMOrMemory::Memory(base, disp) => {
                     dynasm!( self; vblendvpd Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
                 }
-            }
+            },
             Some(CpuFeature::SSE42) => match src2 {
                 XMMOrMemory::XMM(src2) => {
                     move_src_to_dst(self, Precision::Double, src1, dst);
@@ -1767,7 +1788,7 @@ impl EmitterX64 for AssemblerX64 {
                     move_src_to_dst(self, Precision::Double, src1, dst);
                     dynasm!( self; blendvpd Rx(dst as u8), [Rq(base as u8) + disp])
                 }
-            }
+            },
             _ => {}
         }
     }
