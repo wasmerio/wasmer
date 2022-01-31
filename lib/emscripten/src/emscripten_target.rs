@@ -140,8 +140,8 @@ pub fn _getnameinfo(
 macro_rules! invoke {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
         let sp = get_emscripten_data($ctx).stack_save_ref().expect("stack_save is None").call().expect("stack_save call failed");
-        let result = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).call($($arg),*);
-        match result {
+        let call = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
+        match call.call($($arg),*) {
             Ok(v) => v,
             Err(_e) => {
                 get_emscripten_data($ctx).stack_restore_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
@@ -156,8 +156,8 @@ macro_rules! invoke {
 macro_rules! invoke_no_return {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
         let sp = get_emscripten_data($ctx).stack_save_ref().expect("stack_save is None").call().expect("stack_save call failed");
-        let result = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).call($($arg),*);
-        match result {
+        let call = get_emscripten_data($ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
+        match call.call($($arg),*) {
             Ok(v) => v,
             Err(_e) => {
                 get_emscripten_data($ctx).stack_restore_ref().expect("stack_restore is None").call(sp).expect("stack_restore call failed");
@@ -167,6 +167,14 @@ macro_rules! invoke_no_return {
             }
         }
     }};
+}
+// The invoke_j functions do not save the stack
+macro_rules! invoke_no_stack_save {
+    ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
+        let call = get_emscripten_data($ctx).$name_ref().expect(concat!(stringify!($name), " is set to None")).clone();
+
+        call.call($($arg),*).unwrap()
+    }}
 }
 
 // Invoke functions
@@ -604,52 +612,38 @@ pub fn invoke_iiijj(
 }
 pub fn invoke_j(ctx: &EmEnv, index: i32) -> i32 {
     debug!("emscripten::invoke_j");
-    if let Some(dyn_call_j) = get_emscripten_data(ctx).dyn_call_j_ref() {
-        dyn_call_j.call(index).unwrap()
-    } else {
-        panic!("dyn_call_j is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_j, dyn_call_j_ref, index)
 }
 pub fn invoke_ji(ctx: &EmEnv, index: i32, a1: i32) -> i32 {
     debug!("emscripten::invoke_ji");
-    if let Some(dyn_call_ji) = get_emscripten_data(ctx).dyn_call_ji_ref() {
-        dyn_call_ji.call(index, a1).unwrap()
-    } else {
-        panic!("dyn_call_ji is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_ji, dyn_call_ji_ref, index, a1)
 }
 pub fn invoke_jii(ctx: &EmEnv, index: i32, a1: i32, a2: i32) -> i32 {
     debug!("emscripten::invoke_jii");
-    if let Some(dyn_call_jii) = get_emscripten_data(ctx).dyn_call_jii_ref() {
-        dyn_call_jii.call(index, a1, a2).unwrap()
-    } else {
-        panic!("dyn_call_jii is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_jii, dyn_call_jii_ref, index, a1, a2)
 }
 
 pub fn invoke_jij(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32) -> i32 {
     debug!("emscripten::invoke_jij");
-    if let Some(dyn_call_jij) = get_emscripten_data(ctx).dyn_call_jij_ref() {
-        dyn_call_jij.call(index, a1, a2, a3).unwrap()
-    } else {
-        panic!("dyn_call_jij is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_jij, dyn_call_jij_ref, index, a1, a2, a3)
 }
 pub fn invoke_jjj(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
     debug!("emscripten::invoke_jjj");
-    if let Some(dyn_call_jjj) = get_emscripten_data(ctx).dyn_call_jjj_ref() {
-        dyn_call_jjj.call(index, a1, a2, a3, a4).unwrap()
-    } else {
-        panic!("dyn_call_jjj is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_jjj, dyn_call_jjj_ref, index, a1, a2, a3, a4)
 }
 pub fn invoke_viiij(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
     debug!("emscripten::invoke_viiij");
-    if let Some(dyn_call_viiij) = get_emscripten_data(ctx).dyn_call_viiij_ref() {
-        dyn_call_viiij.call(index, a1, a2, a3, a4, a5).unwrap();
-    } else {
-        panic!("dyn_call_viiij is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_viiij,
+        dyn_call_viiij_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
+    )
 }
 pub fn invoke_viiijiiii(
     ctx: &EmEnv,
@@ -665,13 +659,21 @@ pub fn invoke_viiijiiii(
     a9: i32,
 ) {
     debug!("emscripten::invoke_viiijiiii");
-    if let Some(dyn_call_viiijiiii) = get_emscripten_data(ctx).dyn_call_viiijiiii_ref() {
-        dyn_call_viiijiiii
-            .call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9)
-            .unwrap();
-    } else {
-        panic!("dyn_call_viiijiiii is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_viiijiiii,
+        dyn_call_viiijiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9
+    )
 }
 pub fn invoke_viiijiiiiii(
     ctx: &EmEnv,
@@ -689,29 +691,41 @@ pub fn invoke_viiijiiiiii(
     a11: i32,
 ) {
     debug!("emscripten::invoke_viiijiiiiii");
-    if let Some(dyn_call_viiijiiiiii) = get_emscripten_data(ctx).dyn_call_viiijiiiiii_ref() {
-        dyn_call_viiijiiiiii
-            .call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
-            .unwrap();
-    } else {
-        panic!("dyn_call_viiijiiiiii is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_viiijiiiiii,
+        dyn_call_viiijiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9,
+        a10,
+        a11
+    )
 }
 pub fn invoke_viij(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
     debug!("emscripten::invoke_viij");
-    if let Some(dyn_call_viij) = get_emscripten_data(ctx).dyn_call_viij_ref() {
-        dyn_call_viij.call(index, a1, a2, a3, a4).unwrap();
-    } else {
-        panic!("dyn_call_viij is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_viij, dyn_call_viij_ref, index, a1, a2, a3, a4)
 }
 pub fn invoke_viiji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
     debug!("emscripten::invoke_viiji");
-    if let Some(dyn_call_viiji) = get_emscripten_data(ctx).dyn_call_viiji_ref() {
-        dyn_call_viiji.call(index, a1, a2, a3, a4, a5).unwrap();
-    } else {
-        panic!("dyn_call_viiji is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_viiji,
+        dyn_call_viiji_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
+    )
 }
 pub fn invoke_viijiii(
     ctx: &EmEnv,
@@ -725,29 +739,38 @@ pub fn invoke_viijiii(
     a7: i32,
 ) {
     debug!("emscripten::invoke_viijiii");
-    if let Some(dyn_call_viijiii) = get_emscripten_data(ctx).dyn_call_viijiii_ref() {
-        dyn_call_viijiii
-            .call(index, a1, a2, a3, a4, a5, a6, a7)
-            .unwrap();
-    } else {
-        panic!("dyn_call_viijiii is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_viijiii,
+        dyn_call_viijiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7
+    )
 }
 pub fn invoke_viijj(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32, a6: i32) {
     debug!("emscripten::invoke_viijj");
-    if let Some(dyn_call_viijj) = get_emscripten_data(ctx).dyn_call_viijj_ref() {
-        dyn_call_viijj.call(index, a1, a2, a3, a4, a5, a6).unwrap();
-    } else {
-        panic!("dyn_call_viijj is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_viijj,
+        dyn_call_viijj_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
+    )
 }
 pub fn invoke_vj(ctx: &EmEnv, index: i32, a1: i32, a2: i32) {
     debug!("emscripten::invoke_vj");
-    if let Some(dyn_call_vj) = get_emscripten_data(ctx).dyn_call_vj_ref() {
-        dyn_call_vj.call(index, a1, a2).unwrap();
-    } else {
-        panic!("dyn_call_vj is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_vj, dyn_call_vj_ref, index, a1, a2)
 }
 pub fn invoke_vjji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
     debug!("emscripten::invoke_vjji");
@@ -765,19 +788,11 @@ pub fn invoke_vjji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, 
 }
 pub fn invoke_vij(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_vij");
-    if let Some(dyn_call_vij) = get_emscripten_data(ctx).dyn_call_vij_ref() {
-        dyn_call_vij.call(index, a1, a2, a3).unwrap();
-    } else {
-        panic!("dyn_call_vij is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_vij, dyn_call_vij_ref, index, a1, a2, a3)
 }
 pub fn invoke_viji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
     debug!("emscripten::invoke_viji");
-    if let Some(dyn_call_viji) = get_emscripten_data(ctx).dyn_call_viji_ref() {
-        dyn_call_viji.call(index, a1, a2, a3, a4).unwrap()
-    } else {
-        panic!("dyn_call_viji is set to None");
-    }
+    invoke_no_stack_save!(ctx, dyn_call_viji, dyn_call_viji_ref, index, a1, a2, a3, a4)
 }
 pub fn invoke_vijiii(
     ctx: &EmEnv,
@@ -790,19 +805,32 @@ pub fn invoke_vijiii(
     a6: i32,
 ) {
     debug!("emscripten::invoke_vijiii");
-    if let Some(dyn_call_vijiii) = get_emscripten_data(ctx).dyn_call_vijiii_ref() {
-        dyn_call_vijiii.call(index, a1, a2, a3, a4, a5, a6).unwrap()
-    } else {
-        panic!("dyn_call_vijiii is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_vijiii,
+        dyn_call_vijiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
+    )
 }
 pub fn invoke_vijj(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
     debug!("emscripten::invoke_vijj");
-    if let Some(dyn_call_vijj) = get_emscripten_data(ctx).dyn_call_vijj_ref() {
-        dyn_call_vijj.call(index, a1, a2, a3, a4, a5).unwrap()
-    } else {
-        panic!("dyn_call_vijj is set to None");
-    }
+    invoke_no_stack_save!(
+        ctx,
+        dyn_call_vijj,
+        dyn_call_vijj_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
+    )
 }
 pub fn invoke_vidd(ctx: &EmEnv, index: i32, a1: i32, a2: f64, a3: f64) {
     debug!("emscripten::invoke_viid");

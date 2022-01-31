@@ -209,8 +209,11 @@ impl DylibArtifact {
             .map(|_function_body| 0u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
+        let function_frame_info = None;
+
         let mut metadata = ModuleMetadata {
             compile_info,
+            function_frame_info,
             prefix: engine_inner.get_prefix(&data),
             data_initializers,
             function_body_lengths,
@@ -287,6 +290,9 @@ impl DylibArtifact {
                     MetadataHeader::ALIGN as u64,
                 )
                 .map_err(to_compile_error)?;
+
+                let frame_info = compilation.get_frame_info().clone();
+
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 if obj.format() == BinaryFormat::Coff {
@@ -297,6 +303,8 @@ impl DylibArtifact {
                     .suffix(".o")
                     .tempfile()
                     .map_err(to_compile_error)?;
+
+                metadata.function_frame_info = Some(frame_info);
 
                 // Re-open it.
                 let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
@@ -552,20 +560,6 @@ impl DylibArtifact {
             }
         }
 
-        // Leaving frame infos from now, as they are not yet used
-        // however they might be useful for the future.
-        // let frame_infos = compilation
-        //     .get_frame_info()
-        //     .values()
-        //     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-        //     .collect::<PrimaryMap<LocalFunctionIndex, _>>();
-        // Self::from_parts(&mut engine_inner, lib, metadata, )
-        // let frame_info_registration = register_frame_info(
-        //     serializable.module.clone(),
-        //     &finished_functions,
-        //     serializable.compilation.function_frame_info.clone(),
-        // );
-
         // Compute indices into the shared signature table.
         let signatures = {
             metadata
@@ -806,16 +800,20 @@ impl Artifact for DylibArtifact {
         // We sort them again, by key this time
         function_pointers.sort_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
 
-        let frame_infos = function_pointers
-            .iter()
-            .map(|(_, extent)| CompiledFunctionFrameInfo {
-                traps: vec![],
-                address_map: FunctionAddressMap {
-                    body_len: extent.length,
-                    ..Default::default()
-                },
-            })
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+        let frame_infos = if self.metadata().function_frame_info.is_some() {
+            self.metadata().function_frame_info.clone().unwrap()
+        } else {
+            function_pointers
+                .iter()
+                .map(|(_, extent)| CompiledFunctionFrameInfo {
+                    traps: vec![],
+                    address_map: FunctionAddressMap {
+                        body_len: extent.length,
+                        ..Default::default()
+                    },
+                })
+                .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+        };
 
         let finished_function_extents = function_pointers
             .into_iter()

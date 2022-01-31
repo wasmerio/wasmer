@@ -71,9 +71,4 @@ pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
     fn from_gpr(x: u16) -> Self;
     /// Convert from an SIMD register
     fn from_simd(x: u16) -> Self;
-    /// Returns the instruction prefix for move to stack
-    /// for example `movq %this_reg, ?(%rsp)` on x86_64
-    /// To build an instruction, append the memory location as a 32-bit
-    /// offset to the stack pointer to this prefix.
-    fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]>;
 }

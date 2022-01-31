@@ -47,11 +47,6 @@ cranelift+macos   spec::skip_stack_guard_page # Needs investigation. process did
 llvm+macos        spec::skip_stack_guard_page # Needs investigation. process didn't exit successfully: (signal: 6, SIGABRT: process abort signal)
 dylib             spec::skip_stack_guard_page # Missing trap information in dylibs
 
-
-# TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in dylib engine
-cranelift+dylib spec::linking # Needs investigation
-cranelift+dylib spec::bulk # Needs investigation
-
 # Some SIMD opperations are not yet supported by Cranelift
 # Cranelift just added support for most of those recently, it might be easy to update
 cranelift spec::simd::simd_conversions
@@ -67,6 +62,10 @@ cranelift spec::simd::simd_int_to_int_extend
 
 # Windows doesn't overcommit and fails to allocate 4GB of memory
 windows wasmer::max_size_of_memory
+
+# Some AARCH64 CPU have issue with segfault writin 64bits on border page, where the 1 32bits might be written.
+aarch64+linux spec::align
+aarch64+linux spec::memory_trap
 
 # Frontends
 

@@ -1,8 +1,7 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
 use crate::location::Location as AbstractLocation;
-use crate::machine::Machine;
-use crate::machine::{MemoryImmediate, TrapTable};
+use crate::machine::*;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 use dynasmrt::{x64::X64Relocation, VecAssembler, DynasmError};
@@ -1665,11 +1664,12 @@ impl Machine for MachineX86_64 {
         self.used_gprs.insert(gpr);
     }
 
-    fn push_used_gpr(&mut self) {
+    fn push_used_gpr(&mut self) -> usize {
         let used_gprs = self.get_used_gprs();
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r));
         }
+        used_gprs.len() * 8
     }
     fn pop_used_gpr(&mut self) {
         let used_gprs = self.get_used_gprs();
@@ -1720,7 +1720,7 @@ impl Machine for MachineX86_64 {
         assert_eq!(self.used_simd.remove(&simd), true);
     }
 
-    fn push_used_simd(&mut self) {
+    fn push_used_simd(&mut self) -> usize {
         let used_xmms = self.get_used_simd();
         self.adjust_stack((used_xmms.len() * 8) as u32);
 
@@ -1731,6 +1731,8 @@ impl Machine for MachineX86_64 {
                 Location::Memory(GPR::RSP, (i * 8) as i32),
             );
         }
+
+        used_xmms.len() * 8
     }
     fn pop_used_simd(&mut self) {
         let used_xmms = self.get_used_simd();
@@ -1813,6 +1815,11 @@ impl Machine for MachineX86_64 {
         Location::Memory(GPR::RBP, -stack_offset)
     }
 
+    // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
+    fn round_stack_adjust(&self, value: usize) -> usize {
+        value
+    }
+
     // Adjust stack for locals
     fn adjust_stack(&mut self, delta_stack_offset: u32) {
         self.assembler.emit_sub(
@@ -1828,11 +1835,6 @@ impl Machine for MachineX86_64 {
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         );
-    }
-    fn push_callee_saved(&mut self) {}
-    fn pop_callee_saved(&mut self) {
-        self.assembler.emit_pop(Size::S64, Location::GPR(GPR::R14));
-        self.assembler.emit_pop(Size::S64, Location::GPR(GPR::R15));
     }
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) {
         self.assembler.emit_add(
@@ -1919,14 +1921,80 @@ impl Machine for MachineX86_64 {
     }
 
     // Get param location
-    fn get_param_location(&self, idx: usize, calling_convention: CallingConvention) -> Location {
+    fn get_param_location(
+        &self,
+        idx: usize,
+        _sz: Size,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
         match calling_convention {
             CallingConvention::WindowsFastcall => match idx {
                 0 => Location::GPR(GPR::RCX),
                 1 => Location::GPR(GPR::RDX),
                 2 => Location::GPR(GPR::R8),
                 3 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (16 + 32 + (idx - 4) * 8) as i32),
+                _ => {
+                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                    *stack_location += 8;
+                    loc
+                }
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::RDI),
+                1 => Location::GPR(GPR::RSI),
+                2 => Location::GPR(GPR::RDX),
+                3 => Location::GPR(GPR::RCX),
+                4 => Location::GPR(GPR::R8),
+                5 => Location::GPR(GPR::R9),
+                _ => {
+                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                    *stack_location += 8;
+                    loc
+                }
+            },
+        }
+    }
+    // Get call param location
+    fn get_call_param_location(
+        &self,
+        idx: usize,
+        _sz: Size,
+        _stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => match idx {
+                0 => Location::GPR(GPR::RCX),
+                1 => Location::GPR(GPR::RDX),
+                2 => Location::GPR(GPR::R8),
+                3 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::RDI),
+                1 => Location::GPR(GPR::RSI),
+                2 => Location::GPR(GPR::RDX),
+                3 => Location::GPR(GPR::RCX),
+                4 => Location::GPR(GPR::R8),
+                5 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
+            },
+        }
+    }
+    // Get simple param location
+    fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => match idx {
+                0 => Location::GPR(GPR::RCX),
+                1 => Location::GPR(GPR::RDX),
+                2 => Location::GPR(GPR::R8),
+                3 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
             },
             _ => match idx {
                 0 => Location::GPR(GPR::RDI),
@@ -1950,9 +2018,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1961,9 +2029,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1972,9 +2040,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1993,20 +2061,34 @@ impl Machine for MachineX86_64 {
         size_op: Size,
         dest: Location,
     ) {
+        let dst = match dest {
+            Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                Location::GPR(self.acquire_temp_gpr().unwrap())
+            }
+            Location::GPR(_) | Location::SIMD(_) => dest,
+            _ => unreachable!(),
+        };
         match source {
             Location::GPR(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
                 match size_val {
-                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dest),
+                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dst),
                     Size::S16 | Size::S8 => {
                         if signed {
-                            self.assembler.emit_movsx(size_val, source, size_op, dest)
+                            self.assembler.emit_movsx(size_val, source, size_op, dst)
                         } else {
-                            self.assembler.emit_movzx(size_val, source, size_op, dest)
+                            self.assembler.emit_movzx(size_val, source, size_op, dst)
                         }
                     }
                 }
             }
             _ => unreachable!(),
+        }
+        if dst != dest {
+            self.assembler.emit_mov(size_op, dst, dest);
+            match dst {
+                Location::GPR(x) => self.release_gpr(x),
+                _ => unreachable!(),
+            };
         }
     }
     fn load_address(&mut self, size: Size, reg: Location, mem: Location) {
@@ -2185,6 +2267,10 @@ impl Machine for MachineX86_64 {
             .arch_emit_indirect_call_with_trampoline(location);
     }
 
+    fn emit_debug_breakpoint(&mut self) {
+        self.assembler.emit_bkpt();
+    }
+
     fn emit_call_location(&mut self, location: Location) {
         self.assembler.emit_call_location(location);
     }
@@ -2354,6 +2440,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2376,6 +2463,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2397,6 +2485,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2419,6 +2508,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
@@ -3791,6 +3881,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3813,6 +3904,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3834,6 +3926,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3856,6 +3949,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
@@ -6573,7 +6667,9 @@ impl Machine for MachineX86_64 {
         // Calculate stack offset.
         let mut stack_offset: u32 = 0;
         for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) = self.get_param_location(1 + i, calling_convention) {
+            if let Location::Memory(_, _) =
+                self.get_simple_param_location(1 + i, calling_convention)
+            {
                 stack_offset += 8;
             }
         }
@@ -6601,12 +6697,12 @@ impl Machine for MachineX86_64 {
         // Arguments
         a.emit_mov(
             Size::S64,
-            self.get_param_location(1, calling_convention),
+            self.get_simple_param_location(1, calling_convention),
             Location::GPR(GPR::R15),
         ); // func_ptr
         a.emit_mov(
             Size::S64,
-            self.get_param_location(2, calling_convention),
+            self.get_simple_param_location(2, calling_convention),
             Location::GPR(GPR::R14),
         ); // args_rets
 
@@ -6616,7 +6712,7 @@ impl Machine for MachineX86_64 {
             let mut n_stack_args: usize = 0;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = self.get_param_location(1 + i, calling_convention);
+                let dst_loc = self.get_simple_param_location(1 + i, calling_convention);
 
                 match dst_loc {
                     Location::GPR(_) => {
@@ -6963,42 +7059,3 @@ impl Machine for MachineX86_64 {
         }
     }
 }
-
-// Constants for the bounds of truncation operations. These are the least or
-// greatest exact floats in either f32 or f64 representation less-than (for
-// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
-// min (for least) or max (for greatest), when rounding towards zero.
-
-/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
-const GEF32_LT_I32_MIN: f32 = -2147483904.0;
-/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
-const LEF32_GT_I32_MAX: f32 = 2147483648.0;
-/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
-const GEF32_LT_I64_MIN: f32 = -9223373136366403584.0;
-/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
-const LEF32_GT_I64_MAX: f32 = 9223372036854775808.0;
-/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
-const GEF32_LT_U32_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
-const LEF32_GT_U32_MAX: f32 = 4294967296.0;
-/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
-const GEF32_LT_U64_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
-const LEF32_GT_U64_MAX: f32 = 18446744073709551616.0;
-
-/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
-const GEF64_LT_I32_MIN: f64 = -2147483649.0;
-/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
-const LEF64_GT_I32_MAX: f64 = 2147483648.0;
-/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
-const GEF64_LT_I64_MIN: f64 = -9223372036854777856.0;
-/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
-const LEF64_GT_I64_MAX: f64 = 9223372036854775808.0;
-/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
-const GEF64_LT_U32_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
-const LEF64_GT_U32_MAX: f64 = 4294967296.0;
-/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
-const GEF64_LT_U64_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
-const LEF64_GT_U64_MAX: f64 = 18446744073709551616.0;
