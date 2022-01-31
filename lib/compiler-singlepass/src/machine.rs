@@ -51,7 +51,7 @@ pub struct MachineStackOffset(pub usize);
 pub trait Machine {
     type GPR: Copy + Eq + Debug + Reg;
     type SIMD: Copy + Eq + Debug + Reg;
-    /// Get current inner offset
+    /// Get current assembler offset
     fn assembler_get_offset(&self) -> Offset;
     /// Convert from a GPR register to index register
     fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex;
@@ -124,13 +124,13 @@ pub trait Machine {
     /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
     fn local_on_stack(&mut self, stack_offset: i32) -> Location<Self::GPR, Self::SIMD>;
     /// Adjust stack for locals
-    /// Like inner.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
+    /// Like assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn adjust_stack(&mut self, delta_stack_offset: u32);
     /// restore stack
-    /// Like inner.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
+    /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn restore_stack(&mut self, delta_stack_offset: u32);
     /// Pop stack of locals
-    /// Like inner.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
+    /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn pop_stack_locals(&mut self, delta_stack_offset: u32);
     /// Zero a location taht is 32bits
     fn zero_location(&mut self, size: Size, location: Location<Self::GPR, Self::SIMD>);
@@ -213,7 +213,7 @@ pub trait Machine {
     /// Create a new `MachineState` with default values.
     fn new_machine_state(&self) -> MachineState;
 
-    /// Finalize the inner
+    /// Finalize the assembler
     fn assembler_finalize(self) -> Vec<u8>;
 
     /// get_offset of Assembler
@@ -2190,7 +2190,7 @@ pub fn gen_std_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let machine = match target.triple().architecture {
+    match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = if target.cpu_features().contains(CpuFeature::AVX) {
                 MachineX86_64::new(Some(CpuFeature::AVX))
@@ -2216,10 +2216,10 @@ pub fn gen_std_dynamic_import_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let machine = match target.triple().architecture {
+    match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = if target.cpu_features().contains(CpuFeature::AVX) {
-                MachineX86_64::new(Some(CpuFeature::AVX));
+                MachineX86_64::new(Some(CpuFeature::AVX))
             } else if target.cpu_features().contains(CpuFeature::SSE42) {
                 MachineX86_64::new(Some(CpuFeature::SSE42))
             } else {
@@ -2242,7 +2242,7 @@ pub fn gen_import_call_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> CustomSection {
-    let machine = match target.triple().architecture {
+    match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = if target.cpu_features().contains(CpuFeature::AVX) {
                 MachineX86_64::new(Some(CpuFeature::AVX))
