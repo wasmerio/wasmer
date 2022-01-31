@@ -2139,7 +2139,7 @@ impl Machine for MachineX86_64 {
         new_machine_state()
     }
 
-    // inner finalize
+    // assembler finalize
     fn assembler_finalize(self) -> Vec<u8> {
         self.assembler.finalize().unwrap()
     }
