@@ -165,6 +165,7 @@ pub trait EmitterARM64 {
     fn emit_tbz_label(&mut self, sz: Size, reg: Location, n: u32, label: Label);
     fn emit_tbnz_label(&mut self, sz: Size, reg: Location, n: u32, label: Label);
     fn emit_bcond_label(&mut self, condition: Condition, label: Label);
+    fn emit_bcond_label_far(&mut self, condition: Condition, label: Label);
     fn emit_b_register(&mut self, reg: GPR);
     fn emit_call_label(&mut self, label: Label);
     fn emit_call_register(&mut self, reg: GPR);
@@ -1933,6 +1934,29 @@ impl EmitterARM64 for Assembler {
             Condition::Le => dynasm!(self ; b.le => label),
             Condition::Al => dynasm!(self ; b => label),
         }
+    }
+    fn emit_bcond_label_far(&mut self, condition: Condition, label: Label) {
+        let cont: Label = self.get_label();
+        match condition {
+            // if not condition than continue
+            Condition::Eq => dynasm!(self ; b.ne => cont),
+            Condition::Ne => dynasm!(self ; b.eq => cont),
+            Condition::Cs => dynasm!(self ; b.cc => cont),
+            Condition::Cc => dynasm!(self ; b.cs => cont),
+            Condition::Mi => dynasm!(self ; b.pl => cont),
+            Condition::Pl => dynasm!(self ; b.mi => cont),
+            Condition::Vs => dynasm!(self ; b.vc => cont),
+            Condition::Vc => dynasm!(self ; b.vs => cont),
+            Condition::Hi => dynasm!(self ; b.ls => cont),
+            Condition::Ls => dynasm!(self ; b.hi => cont),
+            Condition::Ge => dynasm!(self ; b.lt => cont),
+            Condition::Lt => dynasm!(self ; b.ge => cont),
+            Condition::Gt => dynasm!(self ; b.le => cont),
+            Condition::Le => dynasm!(self ; b.gt => cont),
+            Condition::Al => { /*nothing*/ }
+        }
+        dynasm!(self ; b => label);
+        self.emit_label(cont);
     }
     fn emit_b_register(&mut self, reg: GPR) {
         dynasm!(self ; br X(reg.into_index() as u32));
