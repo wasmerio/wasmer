@@ -576,7 +576,7 @@ macro_rules! sse_fn {
         |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
             match src2 {
                 XMMOrMemory::XMM(x) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
+                    move_src_to_dst(emitter, precision, src1, dst)
                     dynasm!(emitter ; $ins Rx((dst as u8)), Rx((x as u8)))
                 }
                 XMMOrMemory::Memory(base, disp) => {
@@ -595,7 +595,7 @@ macro_rules! sse_fn {
                 }
                 XMMOrMemory::Memory(base, disp) => {
                     move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((src1 as u8)), [Rq((base as u8)) + disp], $mode)
+                    dynasm!(emitter ; $ins Rx((dst as u8)), [Rq((base as u8)) + disp], $mode)
                 }
             }
         }
@@ -657,7 +657,7 @@ macro_rules! sse_i2f_64_fn {
                 },
                 GPROrMemory::Memory(base, disp) => {
                     move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((src1 as u8)), QWORD [Rq((base as u8)) + disp])
+                    dynasm!(emitter ; $ins Rx((dst as u8)), QWORD [Rq((base as u8)) + disp])
                 }
             }
         }
@@ -719,7 +719,7 @@ macro_rules! sse_i2f_32_fn {
                 },
                 GPROrMemory::Memory(base, disp) => {
                     move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ;  $ins Rx((src1 as u8)), DWORD [Rq((base as u8)) + disp])
+                    dynasm!(emitter ;  $ins Rx((dst as u8)), DWORD [Rq((base as u8)) + disp])
                 }
             }
         }
@@ -742,13 +742,11 @@ macro_rules! sse_round_fn {
         |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
             match src2 {
                 XMMOrMemory::XMM(x) => {
+                    assert_eq!(src1, x);
                     move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((src1 as u8)), Rx((x as u8)), $mode)
+                    dynasm!(emitter ; $ins Rx((dst as u8)), Rx((dst as u8)), $mode)
                 }
-                XMMOrMemory::Memory(base, disp) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((src1 as u8)), [Rq((base as u8)) + disp], $mode)
-                }
+                XMMOrMemory::Memory(base, disp) => unreachable!(),
             }
         }
     }
