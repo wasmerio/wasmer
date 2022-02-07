@@ -2787,6 +2787,30 @@
 <span id="2787">2787</span>
 <span id="2788">2788</span>
 <span id="2789">2789</span>
+<span id="2790">2790</span>
+<span id="2791">2791</span>
+<span id="2792">2792</span>
+<span id="2793">2793</span>
+<span id="2794">2794</span>
+<span id="2795">2795</span>
+<span id="2796">2796</span>
+<span id="2797">2797</span>
+<span id="2798">2798</span>
+<span id="2799">2799</span>
+<span id="2800">2800</span>
+<span id="2801">2801</span>
+<span id="2802">2802</span>
+<span id="2803">2803</span>
+<span id="2804">2804</span>
+<span id="2805">2805</span>
+<span id="2806">2806</span>
+<span id="2807">2807</span>
+<span id="2808">2808</span>
+<span id="2809">2809</span>
+<span id="2810">2810</span>
+<span id="2811">2811</span>
+<span id="2812">2812</span>
+<span id="2813">2813</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -2954,6 +2978,7 @@
     <span class="kw">fn</span> <span class="ident">emit_tbz_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">n</span>: <span class="ident">u32</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_tbnz_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">n</span>: <span class="ident">u32</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_bcond_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
+    <span class="kw">fn</span> <span class="ident">emit_bcond_label_far</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_b_register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>);
     <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>);
@@ -4722,6 +4747,29 @@
             <span class="ident">Condition::Le</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">le</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">label</span>),
             <span class="ident">Condition::Al</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">label</span>),
         }
+    }
+    <span class="kw">fn</span> <span class="ident">emit_bcond_label_far</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
+        <span class="kw">let</span> <span class="ident">cont</span>: <span class="ident">Label</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_label</span>();
+        <span class="kw">match</span> <span class="ident">condition</span> {
+            <span class="comment">// if not condition than continue</span>
+            <span class="ident">Condition::Eq</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">ne</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Ne</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">eq</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Cs</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">cc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Cc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">cs</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Mi</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">pl</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Pl</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">mi</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Vs</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">vc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Vc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">vs</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Hi</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">ls</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Ls</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">hi</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Ge</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">lt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Lt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">ge</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Gt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">le</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Le</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">gt</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">cont</span>),
+            <span class="ident">Condition::Al</span> <span class="op">=</span><span class="op">&gt;</span> { <span class="comment">/*nothing*/</span> }
+        }
+        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">label</span>);
+        <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">cont</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_b_register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">br</span> <span class="ident">X</span>(<span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>));

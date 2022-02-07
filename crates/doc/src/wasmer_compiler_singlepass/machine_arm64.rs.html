@@ -5021,8 +5021,6 @@
 <span id="5021">5021</span>
 <span id="5022">5022</span>
 <span id="5023">5023</span>
-<span id="5024">5024</span>
-<span id="5025">5025</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl::new_machine_state</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
@@ -5857,7 +5855,7 @@
 
             <span class="comment">// Trap if offset calculation overflowed.</span>
             <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Cs</span>, <span class="ident">heap_access_oob</span>);
+                .<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Cs</span>, <span class="ident">heap_access_oob</span>);
         }
 
         <span class="comment">// Wasm linear memory -&gt; real memory</span>
@@ -5875,7 +5873,7 @@
 
             <span class="comment">// `tmp_bound` is inclusive. So trap only if `tmp_addr &gt; tmp_bound`.</span>
             <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Hi</span>, <span class="ident">heap_access_oob</span>);
+                .<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Hi</span>, <span class="ident">heap_access_oob</span>);
         }
 
         <span class="self">self</span>.<span class="ident">release_gpr</span>(<span class="ident">tmp_bound</span>);
@@ -5889,7 +5887,7 @@
                 <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>),
             );
             <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Ne</span>, <span class="ident">heap_access_oob</span>);
+                .<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Ne</span>, <span class="ident">heap_access_oob</span>);
         }
         <span class="kw">let</span> <span class="ident">begin</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
         <span class="ident">cb</span>(<span class="self">self</span>, <span class="ident">tmp_addr</span>);
@@ -7118,22 +7116,22 @@
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_b_label</span>(<span class="ident">label</span>);
     }
     <span class="kw">fn</span> <span class="ident">jmp_on_equal</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Eq</span>, <span class="ident">label</span>);
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Eq</span>, <span class="ident">label</span>);
     }
     <span class="kw">fn</span> <span class="ident">jmp_on_different</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Ne</span>, <span class="ident">label</span>);
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Ne</span>, <span class="ident">label</span>);
     }
     <span class="kw">fn</span> <span class="ident">jmp_on_above</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Hi</span>, <span class="ident">label</span>);
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Hi</span>, <span class="ident">label</span>);
     }
     <span class="kw">fn</span> <span class="ident">jmp_on_aboveequal</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Cs</span>, <span class="ident">label</span>);
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Cs</span>, <span class="ident">label</span>);
     }
     <span class="kw">fn</span> <span class="ident">jmp_on_belowequal</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Ls</span>, <span class="ident">label</span>);
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Ls</span>, <span class="ident">label</span>);
     }
     <span class="kw">fn</span> <span class="ident">jmp_on_overflow</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Cs</span>, <span class="ident">label</span>);
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Cs</span>, <span class="ident">label</span>);
     }
 
     <span class="comment">// jmp table</span>
@@ -7335,7 +7333,7 @@
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_movn</span>(<span class="ident">Size::S32</span>, <span class="ident">tmp</span>, <span class="number">0</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_cmp</span>(<span class="ident">Size::S32</span>, <span class="ident">tmp</span>, <span class="ident">src2</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>
-            .<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Eq</span>, <span class="ident">integer_overflow</span>);
+            .<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Eq</span>, <span class="ident">integer_overflow</span>);
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mark_instruction_with_trap_code</span>(<span class="ident">TrapCode::IntegerOverflow</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_label</span>(<span class="ident">label_nooverflow</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_sdiv</span>(<span class="ident">Size::S32</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dest</span>);
@@ -8290,7 +8288,7 @@
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_movn</span>(<span class="ident">Size::S64</span>, <span class="ident">tmp</span>, <span class="number">0</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_cmp</span>(<span class="ident">Size::S64</span>, <span class="ident">tmp</span>, <span class="ident">src2</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>
-            .<span class="ident">emit_bcond_label</span>(<span class="ident">Condition::Eq</span>, <span class="ident">integer_overflow</span>);
+            .<span class="ident">emit_bcond_label_far</span>(<span class="ident">Condition::Eq</span>, <span class="ident">integer_overflow</span>);
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mark_instruction_with_trap_code</span>(<span class="ident">TrapCode::IntegerOverflow</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_label</span>(<span class="ident">label_nooverflow</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_sdiv</span>(<span class="ident">Size::S64</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dest</span>);
@@ -9335,8 +9333,7 @@
             <span class="ident">offset</span>,
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
-                <span class="ident">this</span>.<span class="ident">assembler</span>
-                    .<span class="ident">emit_ldr</span>(<span class="ident">Size::S32</span>, <span class="ident">ret</span>, <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>));
+                <span class="ident">this</span>.<span class="ident">emit_relaxed_ldr32</span>(<span class="ident">Size::S32</span>, <span class="ident">ret</span>, <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>));
             },
         );
     }
@@ -9390,8 +9387,7 @@
             <span class="ident">offset</span>,
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
-                <span class="ident">this</span>.<span class="ident">assembler</span>
-                    .<span class="ident">emit_ldr</span>(<span class="ident">Size::S64</span>, <span class="ident">ret</span>, <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>));
+                <span class="ident">this</span>.<span class="ident">emit_relaxed_ldr64</span>(<span class="ident">Size::S64</span>, <span class="ident">ret</span>, <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>));
             },
         );
     }
