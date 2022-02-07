@@ -1965,6 +1965,14 @@ impl Machine for MachineARM64 {
                 self.assembler.emit_fmax(sz, input, input, tmp);
                 self.move_location(sz, tmp, output);
             }
+            (Size::S32, Location::Memory(_, _), _) | (Size::S64, Location::Memory(_, _), _) => {
+                let src = self.location_to_neon(sz, input, &mut tempn, ImmType::None, true);
+                let tmp = self.location_to_neon(sz, output, &mut tempn, ImmType::None, false);
+                self.assembler.emit_fmax(sz, src, src, tmp);
+                if tmp != output {
+                    self.move_location(sz, tmp, output);
+                }
+            }
             _ => panic!(
                 "singlepass can't emit canonicalize_nan {:?} {:?} {:?}",
                 sz, input, output

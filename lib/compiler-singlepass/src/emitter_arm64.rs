@@ -401,6 +401,11 @@ impl EmitterARM64 for Assembler {
                 let addr = addr.into_index() as u32;
                 dynasm!(self ; stur D(reg), [X(addr), offset]);
             }
+            (Size::S32, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; stur S(reg), [X(addr), offset]);
+            }
             _ => panic!(
                 "singlepass can't emit STUR {:?}, {:?}, {:?}, {:?}",
                 sz, reg, addr, offset
@@ -424,6 +429,11 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 dynasm!(self ; ldur D(reg), [X(addr), offset]);
+            }
+            (Size::S32, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldur S(reg), [X(addr), offset]);
             }
             _ => panic!(
                 "singlepass can't emit LDUR {:?}, {:?}, {:?}, {:?}",
