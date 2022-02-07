@@ -832,7 +832,7 @@ impl MachineARM64 {
 
             // Trap if offset calculation overflowed.
             self.assembler
-                .emit_bcond_label(Condition::Cs, heap_access_oob);
+                .emit_bcond_label_far(Condition::Cs, heap_access_oob);
         }
 
         // Wasm linear memory -> real memory
@@ -850,7 +850,7 @@ impl MachineARM64 {
 
             // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
             self.assembler
-                .emit_bcond_label(Condition::Hi, heap_access_oob);
+                .emit_bcond_label_far(Condition::Hi, heap_access_oob);
         }
 
         self.release_gpr(tmp_bound);
@@ -864,7 +864,7 @@ impl MachineARM64 {
                 Location::GPR(tmp_addr),
             );
             self.assembler
-                .emit_bcond_label(Condition::Ne, heap_access_oob);
+                .emit_bcond_label_far(Condition::Ne, heap_access_oob);
         }
         let begin = self.assembler.get_offset().0;
         cb(self, tmp_addr);
@@ -2093,22 +2093,22 @@ impl Machine for MachineARM64 {
         self.assembler.emit_b_label(label);
     }
     fn jmp_on_equal(&mut self, label: Label) {
-        self.assembler.emit_bcond_label(Condition::Eq, label);
+        self.assembler.emit_bcond_label_far(Condition::Eq, label);
     }
     fn jmp_on_different(&mut self, label: Label) {
-        self.assembler.emit_bcond_label(Condition::Ne, label);
+        self.assembler.emit_bcond_label_far(Condition::Ne, label);
     }
     fn jmp_on_above(&mut self, label: Label) {
-        self.assembler.emit_bcond_label(Condition::Hi, label);
+        self.assembler.emit_bcond_label_far(Condition::Hi, label);
     }
     fn jmp_on_aboveequal(&mut self, label: Label) {
-        self.assembler.emit_bcond_label(Condition::Cs, label);
+        self.assembler.emit_bcond_label_far(Condition::Cs, label);
     }
     fn jmp_on_belowequal(&mut self, label: Label) {
-        self.assembler.emit_bcond_label(Condition::Ls, label);
+        self.assembler.emit_bcond_label_far(Condition::Ls, label);
     }
     fn jmp_on_overflow(&mut self, label: Label) {
-        self.assembler.emit_bcond_label(Condition::Cs, label);
+        self.assembler.emit_bcond_label_far(Condition::Cs, label);
     }
 
     // jmp table
@@ -2310,7 +2310,7 @@ impl Machine for MachineARM64 {
         self.assembler.emit_movn(Size::S32, tmp, 0);
         self.assembler.emit_cmp(Size::S32, tmp, src2);
         self.assembler
-            .emit_bcond_label(Condition::Eq, integer_overflow);
+            .emit_bcond_label_far(Condition::Eq, integer_overflow);
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow);
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest);
@@ -3265,7 +3265,7 @@ impl Machine for MachineARM64 {
         self.assembler.emit_movn(Size::S64, tmp, 0);
         self.assembler.emit_cmp(Size::S64, tmp, src2);
         self.assembler
-            .emit_bcond_label(Condition::Eq, integer_overflow);
+            .emit_bcond_label_far(Condition::Eq, integer_overflow);
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow);
         self.assembler.emit_sdiv(Size::S64, src1, src2, dest);
@@ -4310,8 +4310,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler
-                    .emit_ldr(Size::S32, ret, Location::Memory(addr, 0));
+                this.emit_relaxed_ldr32(Size::S32, ret, Location::Memory(addr, 0));
             },
         );
     }
@@ -4365,8 +4364,7 @@ impl Machine for MachineARM64 {
             offset,
             heap_access_oob,
             |this, addr| {
-                this.assembler
-                    .emit_ldr(Size::S64, ret, Location::Memory(addr, 0));
+                this.emit_relaxed_ldr64(Size::S64, ret, Location::Memory(addr, 0));
             },
         );
     }
