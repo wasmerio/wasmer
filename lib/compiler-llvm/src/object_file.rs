@@ -163,24 +163,24 @@ where
             .map_err(map_object_err)?
             .relocations()
         {
-            let kind = match (reloc.kind(), reloc.size()) {
-                (object::RelocationKind::Absolute, 64) => RelocationKind::Abs8,
-                (object::RelocationKind::Elf(object::elf::R_X86_64_PC64), 0) => {
+            let kind = match (elf.architecture(), reloc.kind(), reloc.size()) {
+                (_, object::RelocationKind::Absolute, 64) => RelocationKind::Abs8,
+                (object::Architecture::X86_64, object::RelocationKind::Elf(object::elf::R_X86_64_PC64), 0) => {
                     RelocationKind::X86PCRel8
                 }
-                (object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G0_NC), 0) => {
+                (object::Architecture::Aarch64, object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G0_NC), 0) => {
                     RelocationKind::Arm64Movw0
                 }
-                (object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G1_NC), 0) => {
+                (object::Architecture::Aarch64, object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G1_NC), 0) => {
                     RelocationKind::Arm64Movw1
                 }
-                (object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G2_NC), 0) => {
+                (object::Architecture::Aarch64, object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G2_NC), 0) => {
                     RelocationKind::Arm64Movw2
                 }
-                (object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G3), 0) => {
+                (object::Architecture::Aarch64, object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G3), 0) => {
                     RelocationKind::Arm64Movw3
                 }
-                (object::RelocationKind::PltRelative, 26) => RelocationKind::Arm64Call,
+                (object::Architecture::Aarch64, object::RelocationKind::PltRelative, 26) => RelocationKind::Arm64Call,
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",
