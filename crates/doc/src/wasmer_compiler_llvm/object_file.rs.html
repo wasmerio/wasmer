@@ -353,6 +353,18 @@
 <span id="353">353</span>
 <span id="354">354</span>
 <span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">Object</span>, <span class="ident">ObjectSection</span>, <span class="ident">ObjectSymbol</span>};
 
 <span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
@@ -518,24 +530,36 @@
             .<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>
             .<span class="ident">relocations</span>()
         {
-            <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">reloc</span>.<span class="ident">kind</span>(), <span class="ident">reloc</span>.<span class="ident">size</span>()) {
-                (<span class="ident">object::RelocationKind::Absolute</span>, <span class="number">64</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Abs8</span>,
-                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_X86_64_PC64</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">RelocationKind::X86PCRel8</span>
+            <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">elf</span>.<span class="ident">architecture</span>(), <span class="ident">reloc</span>.<span class="ident">kind</span>(), <span class="ident">reloc</span>.<span class="ident">size</span>()) {
+                (<span class="kw">_</span>, <span class="ident">object::RelocationKind::Absolute</span>, <span class="number">64</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Abs8</span>,
+                (
+                    <span class="ident">object::Architecture::X86_64</span>,
+                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_X86_64_PC64</span>),
+                    <span class="number">0</span>,
+                ) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::X86PCRel8</span>,
+                (
+                    <span class="ident">object::Architecture::Aarch64</span>,
+                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G0_NC</span>),
+                    <span class="number">0</span>,
+                ) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Arm64Movw0</span>,
+                (
+                    <span class="ident">object::Architecture::Aarch64</span>,
+                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G1_NC</span>),
+                    <span class="number">0</span>,
+                ) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Arm64Movw1</span>,
+                (
+                    <span class="ident">object::Architecture::Aarch64</span>,
+                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G2_NC</span>),
+                    <span class="number">0</span>,
+                ) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Arm64Movw2</span>,
+                (
+                    <span class="ident">object::Architecture::Aarch64</span>,
+                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G3</span>),
+                    <span class="number">0</span>,
+                ) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Arm64Movw3</span>,
+                (<span class="ident">object::Architecture::Aarch64</span>, <span class="ident">object::RelocationKind::PltRelative</span>, <span class="number">26</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">RelocationKind::Arm64Call</span>
                 }
-                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G0_NC</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">RelocationKind::Arm64Movw0</span>
-                }
-                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G1_NC</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">RelocationKind::Arm64Movw1</span>
-                }
-                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G2_NC</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">RelocationKind::Arm64Movw2</span>
-                }
-                (<span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G3</span>), <span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="ident">RelocationKind::Arm64Movw3</span>
-                }
-                (<span class="ident">object::RelocationKind::PltRelative</span>, <span class="number">26</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelocationKind::Arm64Call</span>,
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
                         <span class="string">&quot;unknown relocation {:?}&quot;</span>,
