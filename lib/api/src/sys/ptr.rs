@@ -105,11 +105,11 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     /// This invariant will be enforced in the future.
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<'a, T>> {
-        if (self.offset as usize) + mem::size_of::<T>() > memory.size().bytes().0
-            || mem::size_of::<T>() == 0
-        {
+        let end = (self.offset as usize).checked_add(mem::size_of::<T>())?;
+        if end > memory.size().bytes().0 || mem::size_of::<T>() == 0 {
             return None;
         }
+
         unsafe {
             let cell_ptr = align_pointer(
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
@@ -140,15 +140,13 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>();
-        let slice_full_len = index as usize + length as usize;
+        let slice_full_len = (index as usize).checked_add(length as usize)?;
         let memory_size = memory.size().bytes().0;
-
-        if (self.offset as usize) + (item_size * slice_full_len) > memory_size
-            || (self.offset as usize) >= memory_size
-            || item_size == 0
-        {
+        let end = (self.offset as usize).checked_add(item_size.checked_mul(slice_full_len)?)?;
+        if end > memory_size || item_size == 0 {
             return None;
         }
+
         let cell_ptrs = unsafe {
             let cell_ptr = align_pointer(
                 memory.view::<u8>().as_ptr().add(self.offset as usize) as usize,
@@ -182,13 +180,11 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// Additionally, if `memory` is dynamic, the caller must also ensure that `memory`
     /// is not grown while the reference is held.
     pub unsafe fn get_utf8_str<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
-        let memory_size = memory.size().bytes().0;
-
-        if self.offset as usize + str_len as usize > memory.size().bytes().0
-            || self.offset as usize >= memory_size
-        {
+        let end = self.offset.checked_add(str_len)?;
+        if end as usize > memory.size().bytes().0 {
             return None;
         }
+
         let ptr = memory.view::<u8>().as_ptr().add(self.offset as usize) as *const u8;
         let slice: &[u8] = std::slice::from_raw_parts(ptr, str_len as usize);
         std::str::from_utf8(slice).ok()
@@ -198,10 +194,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     ///
     /// an aliasing `WasmPtr` is used to mutate memory.
     pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
-        let memory_size = memory.size().bytes().0;
-        if self.offset as usize + str_len as usize > memory.size().bytes().0
-            || self.offset as usize >= memory_size
-        {
+        let end = self.offset.checked_add(str_len)?;
+        if end as usize > memory.size().bytes().0 {
             return None;
         }
 
