@@ -842,7 +842,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             self.state.stack_values.push(MachineValue::Undefined);
                         }
                     }
-                    self.machine.move_location(params_size[i], *param, loc);
+                    self.machine
+                        .move_location_for_native(params_size[i], *param, loc);
                 }
                 _ => {
                     return Err(CodegenError {

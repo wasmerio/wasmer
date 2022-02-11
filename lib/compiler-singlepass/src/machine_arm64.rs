@@ -1176,7 +1176,8 @@ impl Machine for MachineARM64 {
     }
 
     fn push_used_gpr(&mut self) -> usize {
-        let used_gprs = self.get_used_gprs();
+        let mut used_gprs = self.get_used_gprs();
+        used_gprs.sort();
         if used_gprs.len() % 2 == 1 {
             self.emit_push(Size::S64, Location::GPR(GPR::XzrSp));
         }
@@ -1186,7 +1187,8 @@ impl Machine for MachineARM64 {
         ((used_gprs.len() + 1) / 2) * 16
     }
     fn pop_used_gpr(&mut self) {
-        let used_gprs = self.get_used_gprs();
+        let mut used_gprs = self.get_used_gprs();
+        used_gprs.sort();
         for r in used_gprs.iter().rev() {
             self.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1238,7 +1240,8 @@ impl Machine for MachineARM64 {
     }
 
     fn push_used_simd(&mut self) -> usize {
-        let used_neons = self.get_used_simd();
+        let mut used_neons = self.get_used_simd();
+        used_neons.sort();
         let stack_adjust = if used_neons.len() & 1 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
@@ -1256,7 +1259,8 @@ impl Machine for MachineARM64 {
         stack_adjust as usize
     }
     fn pop_used_simd(&mut self) {
-        let used_neons = self.get_used_simd();
+        let mut used_neons = self.get_used_simd();
+        used_neons.sort();
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_ldr(
                 Size::S64,
@@ -1407,13 +1411,17 @@ impl Machine for MachineARM64 {
         );
     }
     // push a value on the stack for a native call
-    fn push_location_for_native(&mut self, loc: Location) {
+    fn move_location_for_native(&mut self, size: Size, loc: Location, dest: Location) {
         match loc {
-            Location::Imm64(_) => {
-                self.move_location(Size::S64, loc, Location::GPR(GPR::X17));
-                self.emit_push(Size::S64, Location::GPR(GPR::X17));
+            Location::Imm64(_)
+            | Location::Imm32(_)
+            | Location::Imm8(_)
+            | Location::Memory(_, _)
+            | Location::Memory2(_, _, _, _) => {
+                self.move_location(size, loc, Location::GPR(GPR::X17));
+                self.move_location(size, Location::GPR(GPR::X17), dest);
             }
-            _ => self.emit_push(Size::S64, loc),
+            _ => self.move_location(size, loc, dest),
         }
     }
 

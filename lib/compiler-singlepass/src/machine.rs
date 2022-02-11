@@ -140,7 +140,12 @@ pub trait Machine {
     /// GPR Reg used for local pointer on the stack
     fn local_pointer(&self) -> Self::GPR;
     /// push a value on the stack for a native call
-    fn push_location_for_native(&mut self, loc: Location<Self::GPR, Self::SIMD>);
+    fn move_location_for_native(
+        &mut self,
+        size: Size,
+        loc: Location<Self::GPR, Self::SIMD>,
+        dest: Location<Self::GPR, Self::SIMD>,
+    );
     /// Determine whether a local should be allocated on the stack.
     fn is_local_on_stack(&self, idx: usize) -> bool;
     /// Determine a local's location.
