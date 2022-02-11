@@ -4,6 +4,7 @@ use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
 use std::collections::BTreeMap;
+use std::slice::Iter;
 use wasmer_compiler::CallingConvention;
 use wasmer_types::Type;
 
@@ -67,7 +68,13 @@ impl AbstractReg for GPR {
         self as usize
     }
     fn from_index(n: usize) -> Result<GPR, ()> {
-        const REGS: [GPR; 16] = [
+        match n {
+            0..=15 => Ok(GPR::iterator().nth(n).unwrap().clone()),
+            _ => Err(()),
+        }
+    }
+    fn iterator() -> Iter<'static, GPR> {
+        static GPRS: [GPR; 16] = [
             GPR::RAX,
             GPR::RCX,
             GPR::RDX,
@@ -85,10 +92,7 @@ impl AbstractReg for GPR {
             GPR::R14,
             GPR::R15,
         ];
-        match n {
-            0..=15 => Ok(REGS[n]),
-            _ => Err(()),
-        }
+        GPRS.iter()
     }
 }
 
@@ -107,7 +111,13 @@ impl AbstractReg for XMM {
         self as usize
     }
     fn from_index(n: usize) -> Result<XMM, ()> {
-        const REGS: [XMM; 16] = [
+        match n {
+            0..=15 => Ok(XMM::iterator().nth(n).unwrap().clone()),
+            _ => Err(()),
+        }
+    }
+    fn iterator() -> Iter<'static, XMM> {
+        static XMMS: [XMM; 16] = [
             XMM::XMM0,
             XMM::XMM1,
             XMM::XMM2,
@@ -125,10 +135,7 @@ impl AbstractReg for XMM {
             XMM::XMM14,
             XMM::XMM15,
         ];
-        match n {
-            0..=15 => Ok(REGS[n]),
-            _ => Err(()),
-        }
+        XMMS.iter()
     }
 }
 

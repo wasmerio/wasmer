@@ -3,9 +3,9 @@ use crate::arm64_decl::{GPR, NEON};
 use crate::common_decl::*;
 use crate::emitter_arm64::*;
 use crate::location::Location as AbstractLocation;
+use crate::location::Reg;
 use crate::machine::*;
 use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
-use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
     CallingConvention, CustomSection, FunctionBody, InstructionAddressMap, Relocation,
@@ -19,8 +19,8 @@ type Location = AbstractLocation<GPR, NEON>;
 
 pub struct MachineARM64 {
     assembler: Assembler,
-    used_gprs: HashSet<GPR>,
-    used_simd: HashSet<NEON>,
+    used_gprs: u32,
+    used_simd: u32,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     ///
@@ -57,8 +57,8 @@ impl MachineARM64 {
     pub fn new() -> Self {
         MachineARM64 {
             assembler: Assembler::new(0),
-            used_gprs: HashSet::new(),
-            used_simd: HashSet::new(),
+            used_gprs: 0,
+            used_simd: 0,
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
@@ -1103,6 +1103,29 @@ impl MachineARM64 {
         self.emit_label(end);
         self.restore_fpcr(old_fpcr);
     }
+
+    fn used_gprs_contains(&self, r: &GPR) -> bool {
+        self.used_gprs & (1 << r.into_index()) != 0
+    }
+    fn used_simd_contains(&self, r: &NEON) -> bool {
+        self.used_simd & (1 << r.into_index()) != 0
+    }
+    fn used_gprs_insert(&mut self, r: GPR) {
+        self.used_gprs |= 1 << r.into_index();
+    }
+    fn used_simd_insert(&mut self, r: NEON) {
+        self.used_simd |= 1 << r.into_index();
+    }
+    fn used_gprs_remove(&mut self, r: &GPR) -> bool {
+        let ret = self.used_gprs_contains(r);
+        self.used_gprs &= !(1 << r.into_index());
+        ret
+    }
+    fn used_simd_remove(&mut self, r: &NEON) -> bool {
+        let ret = self.used_simd_contains(r);
+        self.used_simd &= !(1 << r.into_index());
+        ret
+    }
 }
 
 impl Machine for MachineARM64 {
@@ -1123,18 +1146,36 @@ impl Machine for MachineARM64 {
     }
 
     fn get_used_gprs(&self) -> Vec<GPR> {
-        self.used_gprs.iter().cloned().collect()
+        GPR::iterator()
+            .filter_map(|x| {
+                if self.used_gprs & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn get_used_simd(&self) -> Vec<NEON> {
-        self.used_simd.iter().cloned().collect()
+        NEON::iterator()
+            .filter_map(|x| {
+                if self.used_simd & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[X9, X10, X11, X12, X13, X14, X15];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1146,7 +1187,7 @@ impl Machine for MachineARM64 {
         use GPR::*;
         static REGS: &[GPR] = &[X8, X7, X6, X5, X4, X3, X2, X1];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1156,23 +1197,23 @@ impl Machine for MachineARM64 {
     fn acquire_temp_gpr(&mut self) -> Option<GPR> {
         let gpr = self.pick_temp_gpr();
         if let Some(x) = gpr {
-            self.used_gprs.insert(x);
+            self.used_gprs_insert(x);
         }
         gpr
     }
 
     fn release_gpr(&mut self, gpr: GPR) {
-        assert!(self.used_gprs.remove(&gpr));
+        assert!(self.used_gprs_remove(&gpr));
     }
 
     fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
-        assert!(!self.used_gprs.contains(&gpr));
-        self.used_gprs.insert(gpr);
+        assert!(!self.used_gprs_contains(&gpr));
+        self.used_gprs_insert(gpr);
         gpr
     }
 
     fn reserve_gpr(&mut self, gpr: GPR) {
-        self.used_gprs.insert(gpr);
+        self.used_gprs_insert(gpr);
     }
 
     fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
@@ -1198,7 +1239,7 @@ impl Machine for MachineARM64 {
         use NEON::*;
         static REGS: &[NEON] = &[V8, V9, V10, V11, V12];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1210,7 +1251,7 @@ impl Machine for MachineARM64 {
         use NEON::*;
         static REGS: &[NEON] = &[V0, V1, V2, V3, V4, V5, V6, V7];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1221,18 +1262,18 @@ impl Machine for MachineARM64 {
     fn acquire_temp_simd(&mut self) -> Option<NEON> {
         let simd = self.pick_temp_simd();
         if let Some(x) = simd {
-            self.used_simd.insert(x);
+            self.used_simd_insert(x);
         }
         simd
     }
 
     fn reserve_simd(&mut self, simd: NEON) {
-        self.used_simd.insert(simd);
+        self.used_simd_insert(simd);
     }
 
     // Releases a temporary NEON register.
     fn release_simd(&mut self, simd: NEON) {
-        assert_eq!(self.used_simd.remove(&simd), true);
+        assert_eq!(self.used_simd_remove(&simd), true);
     }
 
     fn push_used_simd(&mut self, used_neons: &Vec<NEON>) -> usize {
