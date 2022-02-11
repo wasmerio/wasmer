@@ -363,12 +363,6 @@
 <span id="363">363</span>
 <span id="364">364</span>
 <span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Types for a reusable pointer abstraction for accessing Wasm linear memory.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This abstraction is safe: it ensures the memory is in bounds and that the pointer</span>
@@ -476,11 +470,11 @@
     <span class="doccomment">/// This invariant will be enforced in the future.</span>
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> (<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">+</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>
-            <span class="op">|</span><span class="op">|</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span>
-        {
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> (<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">checked_add</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>())<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
+
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">cell_ptr</span> <span class="op">=</span> <span class="ident">align_pointer</span>(
                 <span class="ident">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>().<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="ident">usize</span>,
@@ -511,15 +505,13 @@
         <span class="comment">// gets the size of the item in the array with padding added such that</span>
         <span class="comment">// for any index, we will always result an aligned memory access</span>
         <span class="kw">let</span> <span class="ident">item_size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> <span class="ident">slice_full_len</span> <span class="op">=</span> <span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">length</span> <span class="kw">as</span> <span class="ident">usize</span>;
+        <span class="kw">let</span> <span class="ident">slice_full_len</span> <span class="op">=</span> (<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">checked_add</span>(<span class="ident">length</span> <span class="kw">as</span> <span class="ident">usize</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">memory_size</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>;
-
-        <span class="kw">if</span> (<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">+</span> (<span class="ident">item_size</span> <span class="op">*</span> <span class="ident">slice_full_len</span>) <span class="op">&gt;</span> <span class="ident">memory_size</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">&gt;</span><span class="op">=</span> <span class="ident">memory_size</span>
-            <span class="op">|</span><span class="op">|</span> <span class="ident">item_size</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>
-        {
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> (<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">checked_add</span>(<span class="ident">item_size</span>.<span class="ident">checked_mul</span>(<span class="ident">slice_full_len</span>)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">memory_size</span> <span class="op">|</span><span class="op">|</span> <span class="ident">item_size</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
+
         <span class="kw">let</span> <span class="ident">cell_ptrs</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">cell_ptr</span> <span class="op">=</span> <span class="ident">align_pointer</span>(
                 <span class="ident">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>().<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="ident">usize</span>,
@@ -553,13 +545,11 @@
     <span class="doccomment">/// Additionally, if `memory` is dynamic, the caller must also ensure that `memory`</span>
     <span class="doccomment">/// is not grown while the reference is held.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_utf8_str</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>, <span class="ident">str_len</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">memory_size</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>;
-
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>
-            <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">memory_size</span>
-        {
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offset</span>.<span class="ident">checked_add</span>(<span class="ident">str_len</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
+
         <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>().<span class="ident">add</span>(<span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
         <span class="kw">let</span> <span class="ident">slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">std::slice::from_raw_parts</span>(<span class="ident">ptr</span>, <span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span>);
         <span class="ident">std::str::from_utf8</span>(<span class="ident">slice</span>).<span class="ident">ok</span>()
@@ -569,10 +559,8 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// an aliasing `WasmPtr` is used to mutate memory.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_utf8_string</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>, <span class="ident">str_len</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">memory_size</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>;
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="ident">str_len</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span>
-            <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">memory_size</span>
-        {
+        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offset</span>.<span class="ident">checked_add</span>(<span class="ident">str_len</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">end</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">memory</span>.<span class="ident">size</span>().<span class="ident">bytes</span>().<span class="number">0</span> {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
 
