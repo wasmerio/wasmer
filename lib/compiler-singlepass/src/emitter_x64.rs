@@ -576,6 +576,7 @@ macro_rules! sse_fn {
         |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
             match src2 {
                 XMMOrMemory::XMM(x) => {
+                    assert_ne!(x, dst);
                     move_src_to_dst(emitter, precision, src1, dst);
                     dynasm!(emitter ; $ins Rx((dst as u8)), Rx((x as u8)))
                 }
