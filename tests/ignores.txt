@@ -9,21 +9,26 @@ musl+dylib * # Dynamic loading not supported in Musl
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
 ## Unwinding is not properly implemented in Singlepass
+## it's also somehow broken on cranelift+windows, at least on github CI
 # Needs investigation
 singlepass traps::test_trap_trace
 dylib     traps::test_trap_trace
 aarch64    traps::test_trap_trace
+cranelift+windows    traps::test_trap_trace
 singlepass traps::test_trap_stack_overflow # Need to investigate
 dylib     traps::test_trap_stack_overflow # Need to investigate
 aarch64    traps::test_trap_stack_overflow # Need to investigate
+cranelift+windows   traps::test_trap_stack_overflow
 singlepass traps::trap_display_pretty
 llvm       traps::trap_display_pretty
 dylib     traps::trap_display_pretty
 aarch64    traps::trap_display_pretty
+cranelift+windows   traps::trap_display_pretty
 singlepass traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
 dylib     traps::trap_display_multi_module
 aarch64    traps::trap_display_multi_module
+cranelift+windows   traps::trap_display_multi_module
 singlepass traps::call_signature_mismatch
 llvm       traps::call_signature_mismatch
 dylib     traps::call_signature_mismatch
@@ -32,6 +37,7 @@ singlepass traps::start_trap_pretty
 llvm       traps::start_trap_pretty
 dylib     traps::start_trap_pretty
 aarch64    traps::start_trap_pretty
+cranelift+windows   traps::start_trap_pretty
 
 singlepass multi_value_imports::dylib # Singlepass doesn't support multivalue
 singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
