@@ -83,9 +83,9 @@ pub trait Machine {
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
     /// Push used gpr to the stack. Return the bytes taken on the stack
-    fn push_used_gpr(&mut self) -> usize;
+    fn push_used_gpr(&mut self, grps: &Vec<Self::GPR>) -> usize;
     /// Pop used gpr to the stack
-    fn pop_used_gpr(&mut self);
+    fn pop_used_gpr(&mut self, grps: &Vec<Self::GPR>);
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used
@@ -101,9 +101,9 @@ pub trait Machine {
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: Self::SIMD);
     /// Push used simd regs to the stack. Return bytes taken on the stack
-    fn push_used_simd(&mut self) -> usize;
+    fn push_used_simd(&mut self, simds: &Vec<Self::SIMD>) -> usize;
     /// Pop used simd regs to the stack
-    fn pop_used_simd(&mut self);
+    fn pop_used_simd(&mut self, simds: &Vec<Self::SIMD>);
     /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.

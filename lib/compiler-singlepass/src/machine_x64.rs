@@ -1626,17 +1626,13 @@ impl Machine for MachineX86_64 {
         self.used_gprs.insert(gpr);
     }
 
-    fn push_used_gpr(&mut self) -> usize {
-        let mut used_gprs = self.get_used_gprs();
-        used_gprs.sort();
+    fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r));
         }
         used_gprs.len() * 8
     }
-    fn pop_used_gpr(&mut self) {
-        let mut used_gprs = self.get_used_gprs();
-        used_gprs.sort();
+    fn pop_used_gpr(&mut self, used_gprs: &Vec<GPR>) {
         for r in used_gprs.iter().rev() {
             self.assembler.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1684,9 +1680,7 @@ impl Machine for MachineX86_64 {
         assert_eq!(self.used_simd.remove(&simd), true);
     }
 
-    fn push_used_simd(&mut self) -> usize {
-        let mut used_xmms = self.get_used_simd();
-        used_xmms.sort();
+    fn push_used_simd(&mut self, used_xmms: &Vec<XMM>) -> usize {
         self.adjust_stack((used_xmms.len() * 8) as u32);
 
         for (i, r) in used_xmms.iter().enumerate() {
@@ -1699,9 +1693,7 @@ impl Machine for MachineX86_64 {
 
         used_xmms.len() * 8
     }
-    fn pop_used_simd(&mut self) {
-        let mut used_xmms = self.get_used_simd();
-        used_xmms.sort();
+    fn pop_used_simd(&mut self, used_xmms: &Vec<XMM>) {
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
                 Size::S64,

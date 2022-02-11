@@ -1175,9 +1175,7 @@ impl Machine for MachineARM64 {
         self.used_gprs.insert(gpr);
     }
 
-    fn push_used_gpr(&mut self) -> usize {
-        let mut used_gprs = self.get_used_gprs();
-        used_gprs.sort();
+    fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
         if used_gprs.len() % 2 == 1 {
             self.emit_push(Size::S64, Location::GPR(GPR::XzrSp));
         }
@@ -1186,9 +1184,7 @@ impl Machine for MachineARM64 {
         }
         ((used_gprs.len() + 1) / 2) * 16
     }
-    fn pop_used_gpr(&mut self) {
-        let mut used_gprs = self.get_used_gprs();
-        used_gprs.sort();
+    fn pop_used_gpr(&mut self, used_gprs: &Vec<GPR>) {
         for r in used_gprs.iter().rev() {
             self.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1239,9 +1235,7 @@ impl Machine for MachineARM64 {
         assert_eq!(self.used_simd.remove(&simd), true);
     }
 
-    fn push_used_simd(&mut self) -> usize {
-        let mut used_neons = self.get_used_simd();
-        used_neons.sort();
+    fn push_used_simd(&mut self, used_neons: &Vec<NEON>) -> usize {
         let stack_adjust = if used_neons.len() & 1 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
@@ -1258,9 +1252,7 @@ impl Machine for MachineARM64 {
         }
         stack_adjust as usize
     }
-    fn pop_used_simd(&mut self) {
-        let mut used_neons = self.get_used_simd();
-        used_neons.sort();
+    fn pop_used_simd(&mut self, used_neons: &Vec<NEON>) {
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_ldr(
                 Size::S64,
