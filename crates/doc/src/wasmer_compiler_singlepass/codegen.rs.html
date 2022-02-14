@@ -5956,6 +5956,7 @@
 <span id="5956">5956</span>
 <span id="5957">5957</span>
 <span id="5958">5958</span>
+<span id="5959">5959</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{<span class="ident">CodegenError</span>, <span class="ident">Label</span>, <span class="ident">Machine</span>, <span class="ident">MachineStackOffset</span>, <span class="ident">NATIVE_PAGE_SIZE</span>};
@@ -6695,8 +6696,8 @@
             .<span class="ident">collect</span>();
 
         <span class="comment">// Save used GPRs. Preserve correct stack alignment</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">used_stack</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">push_used_gpr</span>();
         <span class="kw">let</span> <span class="ident">used_gprs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_used_gprs</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">used_stack</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">push_used_gpr</span>(<span class="kw-2">&amp;</span><span class="ident">used_gprs</span>);
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">used_gprs</span>.<span class="ident">iter</span>() {
             <span class="kw">let</span> <span class="ident">content</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">index_from_gpr</span>(<span class="kw-2">*</span><span class="ident">r</span>).<span class="number">0</span>].<span class="ident">clone</span>();
             <span class="kw">if</span> <span class="ident">content</span> <span class="op">=</span><span class="op">=</span> <span class="ident">MachineValue::Undefined</span> {
@@ -6710,7 +6711,7 @@
         <span class="comment">// Save used SIMD registers.</span>
         <span class="kw">let</span> <span class="ident">used_simds</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_used_simd</span>();
         <span class="kw">if</span> <span class="ident">used_simds</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0</span> {
-            <span class="ident">used_stack</span> <span class="op">+</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">push_used_simd</span>();
+            <span class="ident">used_stack</span> <span class="op">+</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">push_used_simd</span>(<span class="kw-2">&amp;</span><span class="ident">used_simds</span>);
 
             <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">used_simds</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
                 <span class="kw">let</span> <span class="ident">content</span> <span class="op">=</span>
@@ -6800,7 +6801,8 @@
                             <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue::Undefined</span>);
                         }
                     }
-                    <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">move_location</span>(<span class="ident">params_size</span>[<span class="ident">i</span>], <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">loc</span>);
+                    <span class="self">self</span>.<span class="ident">machine</span>
+                        .<span class="ident">move_location_for_native</span>(<span class="ident">params_size</span>[<span class="ident">i</span>], <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">loc</span>);
                 }
                 <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
@@ -6872,14 +6874,14 @@
 
         <span class="comment">// Restore SIMDs.</span>
         <span class="kw">if</span> <span class="op">!</span><span class="ident">used_simds</span>.<span class="ident">is_empty</span>() {
-            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">pop_used_simd</span>();
+            <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">pop_used_simd</span>(<span class="kw-2">&amp;</span><span class="ident">used_simds</span>);
             <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">used_simds</span>.<span class="ident">len</span>() {
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
             }
         }
 
         <span class="comment">// Restore GPRs.</span>
-        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">pop_used_gpr</span>();
+        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">pop_used_gpr</span>(<span class="kw-2">&amp;</span><span class="ident">used_gprs</span>);
         <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="ident">used_gprs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
             <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
         }

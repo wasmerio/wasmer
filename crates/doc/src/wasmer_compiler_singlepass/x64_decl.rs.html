@@ -260,12 +260,20 @@
 <span id="260">260</span>
 <span id="261">261</span>
 <span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
 </pre><pre class="rust"><code><span class="doccomment">//! X64 structures.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::{<span class="ident">MachineState</span>, <span class="ident">MachineValue</span>, <span class="ident">RegisterIndex</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::CombinedRegister</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span> <span class="kw">as</span> <span class="ident">AbstractReg</span>;
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
+<span class="kw">use</span> <span class="ident">std::slice::Iter</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::CallingConvention</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
 
@@ -329,7 +337,13 @@
         <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>
     }
     <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">GPR</span>, ()<span class="op">&gt;</span> {
-        <span class="kw">const</span> <span class="ident">REGS</span>: [<span class="ident">GPR</span>; <span class="number">16</span>] <span class="op">=</span> [
+        <span class="kw">match</span> <span class="ident">n</span> {
+            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">GPR::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>().<span class="ident">clone</span>()),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(()),
+        }
+    }
+    <span class="kw">fn</span> <span class="ident">iterator</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">GPR</span><span class="op">&gt;</span> {
+        <span class="kw">static</span> <span class="ident">GPRS</span>: [<span class="ident">GPR</span>; <span class="number">16</span>] <span class="op">=</span> [
             <span class="ident">GPR::RAX</span>,
             <span class="ident">GPR::RCX</span>,
             <span class="ident">GPR::RDX</span>,
@@ -347,10 +361,7 @@
             <span class="ident">GPR::R14</span>,
             <span class="ident">GPR::R15</span>,
         ];
-        <span class="kw">match</span> <span class="ident">n</span> {
-            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">REGS</span>[<span class="ident">n</span>]),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(()),
-        }
+        <span class="ident">GPRS</span>.<span class="ident">iter</span>()
     }
 }
 
@@ -369,7 +380,13 @@
         <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>
     }
     <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">XMM</span>, ()<span class="op">&gt;</span> {
-        <span class="kw">const</span> <span class="ident">REGS</span>: [<span class="ident">XMM</span>; <span class="number">16</span>] <span class="op">=</span> [
+        <span class="kw">match</span> <span class="ident">n</span> {
+            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">XMM::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>().<span class="ident">clone</span>()),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(()),
+        }
+    }
+    <span class="kw">fn</span> <span class="ident">iterator</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">XMM</span><span class="op">&gt;</span> {
+        <span class="kw">static</span> <span class="ident">XMMS</span>: [<span class="ident">XMM</span>; <span class="number">16</span>] <span class="op">=</span> [
             <span class="ident">XMM::XMM0</span>,
             <span class="ident">XMM::XMM1</span>,
             <span class="ident">XMM::XMM2</span>,
@@ -387,10 +404,7 @@
             <span class="ident">XMM::XMM14</span>,
             <span class="ident">XMM::XMM15</span>,
         ];
-        <span class="kw">match</span> <span class="ident">n</span> {
-            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">REGS</span>[<span class="ident">n</span>]),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(()),
-        }
+        <span class="ident">XMMS</span>.<span class="ident">iter</span>()
     }
 }
 

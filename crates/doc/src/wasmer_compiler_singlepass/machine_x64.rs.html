@@ -7018,14 +7018,40 @@
 <span id="7018">7018</span>
 <span id="7019">7019</span>
 <span id="7020">7020</span>
+<span id="7021">7021</span>
+<span id="7022">7022</span>
+<span id="7023">7023</span>
+<span id="7024">7024</span>
+<span id="7025">7025</span>
+<span id="7026">7026</span>
+<span id="7027">7027</span>
+<span id="7028">7028</span>
+<span id="7029">7029</span>
+<span id="7030">7030</span>
+<span id="7031">7031</span>
+<span id="7032">7032</span>
+<span id="7033">7033</span>
+<span id="7034">7034</span>
+<span id="7035">7035</span>
+<span id="7036">7036</span>
+<span id="7037">7037</span>
+<span id="7038">7038</span>
+<span id="7039">7039</span>
+<span id="7040">7040</span>
+<span id="7041">7041</span>
+<span id="7042">7042</span>
+<span id="7043">7043</span>
+<span id="7044">7044</span>
+<span id="7045">7045</span>
+<span id="7046">7046</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl::new_machine_state</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl</span>::{<span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">X64Register</span>, <span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">x64::X64Relocation</span>, <span class="ident">VecAssembler</span>};
-<span class="kw">use</span> <span class="ident">std::collections::HashSet</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">CallingConvention</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>,
@@ -7039,8 +7065,8 @@
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MachineX86_64</span> {
     <span class="ident">assembler</span>: <span class="ident">Assembler</span>,
-    <span class="ident">used_gprs</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">GPR</span><span class="op">&gt;</span>,
-    <span class="ident">used_simd</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">XMM</span><span class="op">&gt;</span>,
+    <span class="ident">used_gprs</span>: <span class="ident">u32</span>,
+    <span class="ident">used_simd</span>: <span class="ident">u32</span>,
     <span class="ident">trap_table</span>: <span class="ident">TrapTable</span>,
     <span class="doccomment">/// Map from byte offset into wasm function to range of native instructions.</span>
     <span class="doccomment">///</span>
@@ -7054,8 +7080,8 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">MachineX86_64</span> {
             <span class="ident">assembler</span>: <span class="ident">Assembler::new</span>(<span class="number">0</span>),
-            <span class="ident">used_gprs</span>: <span class="ident">HashSet::new</span>(),
-            <span class="ident">used_simd</span>: <span class="ident">HashSet::new</span>(),
+            <span class="ident">used_gprs</span>: <span class="number">0</span>,
+            <span class="ident">used_simd</span>: <span class="number">0</span>,
             <span class="ident">trap_table</span>: <span class="ident">TrapTable::default</span>(),
             <span class="ident">instructions_address_map</span>: <span class="macro">vec!</span>[],
             <span class="ident">src_loc</span>: <span class="number">0</span>,
@@ -8574,6 +8600,29 @@
     <span class="kw">fn</span> <span class="ident">emit_relaxed_atomic_xchg</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
         <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">Assembler::emit_xchg</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
     }
+
+    <span class="kw">fn</span> <span class="ident">used_gprs_contains</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">GPR</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">used_gprs</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">r</span>.<span class="ident">into_index</span>()) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
+    }
+    <span class="kw">fn</span> <span class="ident">used_simd_contains</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">XMM</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">used_simd</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">r</span>.<span class="ident">into_index</span>()) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
+    }
+    <span class="kw">fn</span> <span class="ident">used_gprs_insert</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">r</span>: <span class="ident">GPR</span>) {
+        <span class="self">self</span>.<span class="ident">used_gprs</span> <span class="op">|</span><span class="op">=</span> <span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">r</span>.<span class="ident">into_index</span>();
+    }
+    <span class="kw">fn</span> <span class="ident">used_simd_insert</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">r</span>: <span class="ident">XMM</span>) {
+        <span class="self">self</span>.<span class="ident">used_simd</span> <span class="op">|</span><span class="op">=</span> <span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">r</span>.<span class="ident">into_index</span>();
+    }
+    <span class="kw">fn</span> <span class="ident">used_gprs_remove</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">GPR</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">used_gprs_contains</span>(<span class="ident">r</span>);
+        <span class="self">self</span>.<span class="ident">used_gprs</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">r</span>.<span class="ident">into_index</span>());
+        <span class="ident">ret</span>
+    }
+    <span class="kw">fn</span> <span class="ident">used_simd_remove</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">XMM</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">used_simd_contains</span>(<span class="ident">r</span>);
+        <span class="self">self</span>.<span class="ident">used_simd</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">r</span>.<span class="ident">into_index</span>());
+        <span class="ident">ret</span>
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">Machine</span> <span class="kw">for</span> <span class="ident">MachineX86_64</span> {
@@ -8594,18 +8643,36 @@
     }
 
     <span class="kw">fn</span> <span class="ident">get_used_gprs</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">GPR</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>()
+        <span class="ident">GPR::iterator</span>()
+            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">used_gprs</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">x</span>.<span class="ident">into_index</span>()) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">x</span>)
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">None</span>
+                }
+            })
+            .<span class="ident">cloned</span>()
+            .<span class="ident">collect</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">get_used_simd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">XMM</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">used_simd</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>()
+        <span class="ident">XMM::iterator</span>()
+            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">used_simd</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">x</span>.<span class="ident">into_index</span>()) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">x</span>)
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">None</span>
+                }
+            })
+            .<span class="ident">cloned</span>()
+            .<span class="ident">collect</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">pick_gpr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GPR</span><span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">GPR</span>::<span class="kw-2">*</span>;
         <span class="kw">static</span> <span class="ident">REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">RSI</span>, <span class="ident">RDI</span>, <span class="ident">R8</span>, <span class="ident">R9</span>, <span class="ident">R10</span>, <span class="ident">R11</span>];
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">REGS</span> {
-            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">contains</span>(<span class="ident">r</span>) {
+            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs_contains</span>(<span class="ident">r</span>) {
                 <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">r</span>);
             }
         }
@@ -8617,7 +8684,7 @@
         <span class="kw">use</span> <span class="ident">GPR</span>::<span class="kw-2">*</span>;
         <span class="kw">static</span> <span class="ident">REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">RAX</span>, <span class="ident">RCX</span>, <span class="ident">RDX</span>];
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">REGS</span> {
-            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">contains</span>(<span class="ident">r</span>) {
+            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs_contains</span>(<span class="ident">r</span>) {
                 <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">r</span>);
             }
         }
@@ -8627,34 +8694,32 @@
     <span class="kw">fn</span> <span class="ident">acquire_temp_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GPR</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">gpr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pick_temp_gpr</span>();
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">gpr</span> {
-            <span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">insert</span>(<span class="ident">x</span>);
+            <span class="self">self</span>.<span class="ident">used_gprs_insert</span>(<span class="ident">x</span>);
         }
         <span class="ident">gpr</span>
     }
 
     <span class="kw">fn</span> <span class="ident">release_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident">GPR</span>) {
-        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
+        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">used_gprs_remove</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
     }
 
     <span class="kw">fn</span> <span class="ident">reserve_unused_temp_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident">GPR</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">GPR</span> {
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
-        <span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">insert</span>(<span class="ident">gpr</span>);
+        <span class="macro">assert!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">used_gprs_contains</span>(<span class="kw-2">&amp;</span><span class="ident">gpr</span>));
+        <span class="self">self</span>.<span class="ident">used_gprs_insert</span>(<span class="ident">gpr</span>);
         <span class="ident">gpr</span>
     }
 
     <span class="kw">fn</span> <span class="ident">reserve_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">gpr</span>: <span class="ident">GPR</span>) {
-        <span class="self">self</span>.<span class="ident">used_gprs</span>.<span class="ident">insert</span>(<span class="ident">gpr</span>);
+        <span class="self">self</span>.<span class="ident">used_gprs_insert</span>(<span class="ident">gpr</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">push_used_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-        <span class="kw">let</span> <span class="ident">used_gprs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_used_gprs</span>();
+    <span class="kw">fn</span> <span class="ident">push_used_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">used_gprs</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">GPR</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">used_gprs</span>.<span class="ident">iter</span>() {
             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_push</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="kw-2">*</span><span class="ident">r</span>));
         }
         <span class="ident">used_gprs</span>.<span class="ident">len</span>() <span class="op">*</span> <span class="number">8</span>
     }
-    <span class="kw">fn</span> <span class="ident">pop_used_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">used_gprs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_used_gprs</span>();
+    <span class="kw">fn</span> <span class="ident">pop_used_gpr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">used_gprs</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">GPR</span><span class="op">&gt;</span>) {
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">used_gprs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_pop</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="kw-2">*</span><span class="ident">r</span>));
         }
@@ -8665,7 +8730,7 @@
         <span class="kw">use</span> <span class="ident">XMM</span>::<span class="kw-2">*</span>;
         <span class="kw">static</span> <span class="ident">REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">XMM</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">XMM3</span>, <span class="ident">XMM4</span>, <span class="ident">XMM5</span>, <span class="ident">XMM6</span>, <span class="ident">XMM7</span>];
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">REGS</span> {
-            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_simd</span>.<span class="ident">contains</span>(<span class="ident">r</span>) {
+            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_simd_contains</span>(<span class="ident">r</span>) {
                 <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">r</span>);
             }
         }
@@ -8677,7 +8742,7 @@
         <span class="kw">use</span> <span class="ident">XMM</span>::<span class="kw-2">*</span>;
         <span class="kw">static</span> <span class="ident">REGS</span>: <span class="kw-2">&amp;</span>[<span class="ident">XMM</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="ident">XMM0</span>, <span class="ident">XMM1</span>, <span class="ident">XMM2</span>];
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">REGS</span> {
-            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_simd</span>.<span class="ident">contains</span>(<span class="ident">r</span>) {
+            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">used_simd_contains</span>(<span class="ident">r</span>) {
                 <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">r</span>);
             }
         }
@@ -8688,22 +8753,21 @@
     <span class="kw">fn</span> <span class="ident">acquire_temp_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">XMM</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">simd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pick_temp_simd</span>();
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">simd</span> {
-            <span class="self">self</span>.<span class="ident">used_simd</span>.<span class="ident">insert</span>(<span class="ident">x</span>);
+            <span class="self">self</span>.<span class="ident">used_simd_insert</span>(<span class="ident">x</span>);
         }
         <span class="ident">simd</span>
     }
 
     <span class="kw">fn</span> <span class="ident">reserve_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">simd</span>: <span class="ident">XMM</span>) {
-        <span class="self">self</span>.<span class="ident">used_simd</span>.<span class="ident">insert</span>(<span class="ident">simd</span>);
+        <span class="self">self</span>.<span class="ident">used_simd_insert</span>(<span class="ident">simd</span>);
     }
 
     <span class="comment">// Releases a temporary XMM register.</span>
     <span class="kw">fn</span> <span class="ident">release_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">simd</span>: <span class="ident">XMM</span>) {
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">used_simd</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">simd</span>), <span class="bool-val">true</span>);
+        <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">used_simd_remove</span>(<span class="kw-2">&amp;</span><span class="ident">simd</span>), <span class="bool-val">true</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">push_used_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
-        <span class="kw">let</span> <span class="ident">used_xmms</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_used_simd</span>();
+    <span class="kw">fn</span> <span class="ident">push_used_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">used_xmms</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">XMM</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">adjust_stack</span>((<span class="ident">used_xmms</span>.<span class="ident">len</span>() <span class="op">*</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">u32</span>);
 
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">r</span>) <span class="kw">in</span> <span class="ident">used_xmms</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
@@ -8716,8 +8780,7 @@
 
         <span class="ident">used_xmms</span>.<span class="ident">len</span>() <span class="op">*</span> <span class="number">8</span>
     }
-    <span class="kw">fn</span> <span class="ident">pop_used_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">used_xmms</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_used_simd</span>();
+    <span class="kw">fn</span> <span class="ident">pop_used_simd</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">used_xmms</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">XMM</span><span class="op">&gt;</span>) {
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">r</span>) <span class="kw">in</span> <span class="ident">used_xmms</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="self">self</span>.<span class="ident">move_location</span>(
                 <span class="ident">Size::S64</span>,
@@ -8826,34 +8889,23 @@
         );
     }
     <span class="comment">// push a value on the stack for a native call</span>
-    <span class="kw">fn</span> <span class="ident">push_location_for_native</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>) {
+    <span class="kw">fn</span> <span class="ident">move_location_for_native</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_size</span>: <span class="ident">Size</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">dest</span>: <span class="ident">Location</span>) {
         <span class="kw">match</span> <span class="ident">loc</span> {
-            <span class="ident">Location::Imm64</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="comment">// x86_64 does not support `mov imm64, mem`. We must first place the immdiate value</span>
-                <span class="comment">// into a register and then write the register to the memory. Now the problem is</span>
-                <span class="comment">// that there might not be any registers available to clobber. In order to make</span>
-                <span class="comment">// this work out we spill a register thus retaining both the original value of the</span>
-                <span class="comment">// register and producing the required data at the top of the stack.</span>
-                <span class="comment">//</span>
-                <span class="comment">// FIXME(#2723): figure out how to not require spilling a register here. It should</span>
-                <span class="comment">// definitely be possible to `pick_gpr`/`pick_temp_gpr` to grab an otherwise unused</span>
-                <span class="comment">// register and just clobber its value here.</span>
-                <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_push</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>));
-                <span class="self">self</span>.<span class="ident">move_location</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>));
-                <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_xchg</span>(
-                    <span class="ident">Size::S64</span>,
-                    <span class="ident">Location::GPR</span>(<span class="ident">GPR::R9</span>),
-                    <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">0</span>),
-                );
+            <span class="ident">Location::Imm64</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>) <span class="op">|</span> <span class="ident">Location::Memory2</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">tmp</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pick_temp_gpr</span>();
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">tmp</span> {
+                    <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">x</span>));
+                    <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">x</span>), <span class="ident">dest</span>);
+                } <span class="kw">else</span> {
+                    <span class="self">self</span>.<span class="ident">assembler</span>
+                        .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>), <span class="ident">dest</span>);
+                    <span class="self">self</span>.<span class="ident">assembler</span>
+                        .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
+                    <span class="self">self</span>.<span class="ident">assembler</span>
+                        .<span class="ident">emit_xchg</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>), <span class="ident">dest</span>);
+                }
             }
-            <span class="ident">Location::SIMD</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="comment">// Dummy value slot to be filled with `mov`.</span>
-                <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_push</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
-
-                <span class="comment">// XMM registers can be directly stored to memory.</span>
-                <span class="self">self</span>.<span class="ident">move_location</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">Location::Memory</span>(<span class="ident">GPR::RSP</span>, <span class="number">0</span>));
-            }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_push</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc</span>, <span class="ident">dest</span>),
         }
     }
 

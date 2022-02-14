@@ -2811,6 +2811,50 @@
 <span id="2811">2811</span>
 <span id="2812">2812</span>
 <span id="2813">2813</span>
+<span id="2814">2814</span>
+<span id="2815">2815</span>
+<span id="2816">2816</span>
+<span id="2817">2817</span>
+<span id="2818">2818</span>
+<span id="2819">2819</span>
+<span id="2820">2820</span>
+<span id="2821">2821</span>
+<span id="2822">2822</span>
+<span id="2823">2823</span>
+<span id="2824">2824</span>
+<span id="2825">2825</span>
+<span id="2826">2826</span>
+<span id="2827">2827</span>
+<span id="2828">2828</span>
+<span id="2829">2829</span>
+<span id="2830">2830</span>
+<span id="2831">2831</span>
+<span id="2832">2832</span>
+<span id="2833">2833</span>
+<span id="2834">2834</span>
+<span id="2835">2835</span>
+<span id="2836">2836</span>
+<span id="2837">2837</span>
+<span id="2838">2838</span>
+<span id="2839">2839</span>
+<span id="2840">2840</span>
+<span id="2841">2841</span>
+<span id="2842">2842</span>
+<span id="2843">2843</span>
+<span id="2844">2844</span>
+<span id="2845">2845</span>
+<span id="2846">2846</span>
+<span id="2847">2847</span>
+<span id="2848">2848</span>
+<span id="2849">2849</span>
+<span id="2850">2850</span>
+<span id="2851">2851</span>
+<span id="2852">2852</span>
+<span id="2853">2853</span>
+<span id="2854">2854</span>
+<span id="2855">2855</span>
+<span id="2856">2856</span>
+<span id="2857">2857</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -3193,6 +3237,30 @@
                 <span class="macro">assert!</span>((<span class="ident">disp</span> <span class="op">&amp;</span> <span class="number">0x3</span>) <span class="op">=</span><span class="op">=</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> (<span class="ident">disp</span> <span class="op">&lt;</span> <span class="number">0x4000</span>));
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldr</span> <span class="ident">S</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">disp</span>]);
             }
+            (<span class="ident">Size::S64</span>, <span class="ident">Location::SIMD</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory2</span>(<span class="ident">addr</span>, <span class="ident">r2</span>, <span class="ident">mult</span>, <span class="ident">offs</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">r2</span> <span class="op">=</span> <span class="ident">r2</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="macro">assert!</span>(<span class="ident">offs</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
+                <span class="kw">let</span> <span class="ident">mult</span> <span class="op">=</span> <span class="ident">mult</span> <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">match</span> <span class="ident">mult</span> {
+                    <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldr</span> <span class="ident">D</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>)]),
+                    <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldr</span> <span class="ident">D</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">X</span>(<span class="ident">r2</span>)]),
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldr</span> <span class="ident">D</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">X</span>(<span class="ident">r2</span>), <span class="ident">LSL</span> <span class="ident">mult</span>]),
+                };
+            }
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory2</span>(<span class="ident">addr</span>, <span class="ident">r2</span>, <span class="ident">mult</span>, <span class="ident">offs</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">r2</span> <span class="op">=</span> <span class="ident">r2</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="macro">assert!</span>(<span class="ident">offs</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span>);
+                <span class="kw">let</span> <span class="ident">mult</span> <span class="op">=</span> <span class="ident">mult</span> <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">match</span> <span class="ident">mult</span> {
+                    <span class="number">0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldr</span> <span class="ident">S</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>)]),
+                    <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldr</span> <span class="ident">S</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">X</span>(<span class="ident">r2</span>)]),
+                    <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldr</span> <span class="ident">S</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">X</span>(<span class="ident">r2</span>), <span class="ident">LSL</span> <span class="ident">mult</span>]),
+                };
+            }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;singlepass can&#39;t emit LDR {:?}, {:?}, {:?}&quot;</span>, <span class="ident">sz</span>, <span class="ident">reg</span>, <span class="ident">addr</span>),
         }
     }
@@ -3213,6 +3281,11 @@
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">stur</span> <span class="ident">D</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">offset</span>]);
+            }
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">reg</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">stur</span> <span class="ident">S</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">offset</span>]);
             }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(
                 <span class="string">&quot;singlepass can&#39;t emit STUR {:?}, {:?}, {:?}, {:?}&quot;</span>,
@@ -3237,6 +3310,11 @@
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldur</span> <span class="ident">D</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">offset</span>]);
+            }
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">reg</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ldur</span> <span class="ident">S</span>(<span class="ident">reg</span>), [<span class="ident">X</span>(<span class="ident">addr</span>), <span class="ident">offset</span>]);
             }
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(
                 <span class="string">&quot;singlepass can&#39;t emit LDUR {:?}, {:?}, {:?}, {:?}&quot;</span>,
@@ -4176,7 +4254,8 @@
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ror</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">X</span>(<span class="ident">src2</span>));
             }
-            (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+            (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>))
+            <span class="op">|</span> (<span class="ident">Size::S64</span>, <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">imm</span> <span class="op">=</span> <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4184,6 +4263,15 @@
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ror</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">imm</span>);
+            }
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>))
+            <span class="op">|</span> (<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">if</span> <span class="ident">imm</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="ident">imm</span> <span class="op">&gt;</span> <span class="number">31</span> {
+                    <span class="macro">unreachable!</span>();
+                }
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ror</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u32</span>);
             }
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
