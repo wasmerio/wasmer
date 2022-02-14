@@ -163,12 +163,51 @@ impl MachineARM64 {
                     tmp
                 };
                 if read_val {
-                    let offsize = if sz == Size::S32 {
-                        ImmType::OffsetWord
-                    } else {
-                        ImmType::OffsetDWord
+                    let offsize = match sz {
+                        Size::S8 => ImmType::OffsetByte,
+                        Size::S16 => ImmType::OffsetHWord,
+                        Size::S32 => ImmType::OffsetWord,
+                        Size::S64 => ImmType::OffsetDWord,
                     };
-                    if self.compatible_imm(val as i64, offsize) {
+                    if sz == Size::S8 {
+                        if self.compatible_imm(val as i64, offsize) {
+                            self.assembler.emit_ldrb(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory(reg, val as _),
+                            );
+                        } else {
+                            if reg == tmp {
+                                unreachable!();
+                            }
+                            self.assembler
+                                .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
+                            self.assembler.emit_ldrb(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory2(reg, tmp, Multiplier::One, 0),
+                            );
+                        }
+                    } else if sz == Size::S16 {
+                        if self.compatible_imm(val as i64, offsize) {
+                            self.assembler.emit_ldrh(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory(reg, val as _),
+                            );
+                        } else {
+                            if reg == tmp {
+                                unreachable!();
+                            }
+                            self.assembler
+                                .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
+                            self.assembler.emit_ldrh(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory2(reg, tmp, Multiplier::One, 0),
+                            );
+                        }
+                    } else if self.compatible_imm(val as i64, offsize) {
                         self.assembler.emit_ldr(
                             sz,
                             Location::GPR(tmp),
