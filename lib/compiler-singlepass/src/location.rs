@@ -2,6 +2,7 @@ use crate::common_decl::RegisterIndex;
 use crate::machine::*;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::slice::Iter;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -42,6 +43,7 @@ pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
     fn is_reserved(self) -> bool;
     fn into_index(self) -> usize;
     fn from_index(i: usize) -> Result<Self, ()>;
+    fn iterator() -> Iter<'static, Self>;
 }
 
 pub trait Descriptor<R: Reg, S: Reg> {

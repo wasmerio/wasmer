@@ -1,11 +1,11 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
 use crate::location::Location as AbstractLocation;
+use crate::location::Reg;
 use crate::machine::*;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 use dynasmrt::{x64::X64Relocation, VecAssembler};
-use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
     CallingConvention, CustomSection, CustomSectionProtection, FunctionBody, InstructionAddressMap,
@@ -19,8 +19,8 @@ type Location = AbstractLocation<GPR, XMM>;
 
 pub struct MachineX86_64 {
     assembler: Assembler,
-    used_gprs: HashSet<GPR>,
-    used_simd: HashSet<XMM>,
+    used_gprs: u32,
+    used_simd: u32,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     ///
@@ -34,8 +34,8 @@ impl MachineX86_64 {
     pub fn new() -> Self {
         MachineX86_64 {
             assembler: Assembler::new(0),
-            used_gprs: HashSet::new(),
-            used_simd: HashSet::new(),
+            used_gprs: 0,
+            used_simd: 0,
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
@@ -1554,6 +1554,29 @@ impl MachineX86_64 {
     fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location, dst: Location) {
         self.emit_relaxed_binop(Assembler::emit_xchg, sz, src, dst);
     }
+
+    fn used_gprs_contains(&self, r: &GPR) -> bool {
+        self.used_gprs & (1 << r.into_index()) != 0
+    }
+    fn used_simd_contains(&self, r: &XMM) -> bool {
+        self.used_simd & (1 << r.into_index()) != 0
+    }
+    fn used_gprs_insert(&mut self, r: GPR) {
+        self.used_gprs |= 1 << r.into_index();
+    }
+    fn used_simd_insert(&mut self, r: XMM) {
+        self.used_simd |= 1 << r.into_index();
+    }
+    fn used_gprs_remove(&mut self, r: &GPR) -> bool {
+        let ret = self.used_gprs_contains(r);
+        self.used_gprs &= !(1 << r.into_index());
+        ret
+    }
+    fn used_simd_remove(&mut self, r: &XMM) -> bool {
+        let ret = self.used_simd_contains(r);
+        self.used_simd &= !(1 << r.into_index());
+        ret
+    }
 }
 
 impl Machine for MachineX86_64 {
@@ -1574,18 +1597,36 @@ impl Machine for MachineX86_64 {
     }
 
     fn get_used_gprs(&self) -> Vec<GPR> {
-        self.used_gprs.iter().cloned().collect()
+        GPR::iterator()
+            .filter_map(|x| {
+                if self.used_gprs & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn get_used_simd(&self) -> Vec<XMM> {
-        self.used_simd.iter().cloned().collect()
+        XMM::iterator()
+            .filter_map(|x| {
+                if self.used_simd & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[RSI, RDI, R8, R9, R10, R11];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1597,7 +1638,7 @@ impl Machine for MachineX86_64 {
         use GPR::*;
         static REGS: &[GPR] = &[RAX, RCX, RDX];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1607,34 +1648,32 @@ impl Machine for MachineX86_64 {
     fn acquire_temp_gpr(&mut self) -> Option<GPR> {
         let gpr = self.pick_temp_gpr();
         if let Some(x) = gpr {
-            self.used_gprs.insert(x);
+            self.used_gprs_insert(x);
         }
         gpr
     }
 
     fn release_gpr(&mut self, gpr: GPR) {
-        assert!(self.used_gprs.remove(&gpr));
+        assert!(self.used_gprs_remove(&gpr));
     }
 
     fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
-        assert!(!self.used_gprs.contains(&gpr));
-        self.used_gprs.insert(gpr);
+        assert!(!self.used_gprs_contains(&gpr));
+        self.used_gprs_insert(gpr);
         gpr
     }
 
     fn reserve_gpr(&mut self, gpr: GPR) {
-        self.used_gprs.insert(gpr);
+        self.used_gprs_insert(gpr);
     }
 
-    fn push_used_gpr(&mut self) -> usize {
-        let used_gprs = self.get_used_gprs();
+    fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r));
         }
         used_gprs.len() * 8
     }
-    fn pop_used_gpr(&mut self) {
-        let used_gprs = self.get_used_gprs();
+    fn pop_used_gpr(&mut self, used_gprs: &Vec<GPR>) {
         for r in used_gprs.iter().rev() {
             self.assembler.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1645,7 +1684,7 @@ impl Machine for MachineX86_64 {
         use XMM::*;
         static REGS: &[XMM] = &[XMM3, XMM4, XMM5, XMM6, XMM7];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1657,7 +1696,7 @@ impl Machine for MachineX86_64 {
         use XMM::*;
         static REGS: &[XMM] = &[XMM0, XMM1, XMM2];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1668,22 +1707,21 @@ impl Machine for MachineX86_64 {
     fn acquire_temp_simd(&mut self) -> Option<XMM> {
         let simd = self.pick_temp_simd();
         if let Some(x) = simd {
-            self.used_simd.insert(x);
+            self.used_simd_insert(x);
         }
         simd
     }
 
     fn reserve_simd(&mut self, simd: XMM) {
-        self.used_simd.insert(simd);
+        self.used_simd_insert(simd);
     }
 
     // Releases a temporary XMM register.
     fn release_simd(&mut self, simd: XMM) {
-        assert_eq!(self.used_simd.remove(&simd), true);
+        assert_eq!(self.used_simd_remove(&simd), true);
     }
 
-    fn push_used_simd(&mut self) -> usize {
-        let used_xmms = self.get_used_simd();
+    fn push_used_simd(&mut self, used_xmms: &Vec<XMM>) -> usize {
         self.adjust_stack((used_xmms.len() * 8) as u32);
 
         for (i, r) in used_xmms.iter().enumerate() {
@@ -1696,8 +1734,7 @@ impl Machine for MachineX86_64 {
 
         used_xmms.len() * 8
     }
-    fn pop_used_simd(&mut self) {
-        let used_xmms = self.get_used_simd();
+    fn pop_used_simd(&mut self, used_xmms: &Vec<XMM>) {
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
                 Size::S64,
@@ -1806,34 +1843,23 @@ impl Machine for MachineX86_64 {
         );
     }
     // push a value on the stack for a native call
-    fn push_location_for_native(&mut self, loc: Location) {
+    fn move_location_for_native(&mut self, _size: Size, loc: Location, dest: Location) {
         match loc {
-            Location::Imm64(_) => {
-                // x86_64 does not support `mov imm64, mem`. We must first place the immdiate value
-                // into a register and then write the register to the memory. Now the problem is
-                // that there might not be any registers available to clobber. In order to make
-                // this work out we spill a register thus retaining both the original value of the
-                // register and producing the required data at the top of the stack.
-                //
-                // FIXME(#2723): figure out how to not require spilling a register here. It should
-                // definitely be possible to `pick_gpr`/`pick_temp_gpr` to grab an otherwise unused
-                // register and just clobber its value here.
-                self.assembler.emit_push(Size::S64, Location::GPR(GPR::R9));
-                self.move_location(Size::S64, loc, Location::GPR(GPR::R9));
-                self.assembler.emit_xchg(
-                    Size::S64,
-                    Location::GPR(GPR::R9),
-                    Location::Memory(GPR::RSP, 0),
-                );
+            Location::Imm64(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                let tmp = self.pick_temp_gpr();
+                if let Some(x) = tmp {
+                    self.assembler.emit_mov(Size::S64, loc, Location::GPR(x));
+                    self.assembler.emit_mov(Size::S64, Location::GPR(x), dest);
+                } else {
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(GPR::RAX), dest);
+                    self.assembler
+                        .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    self.assembler
+                        .emit_xchg(Size::S64, Location::GPR(GPR::RAX), dest);
+                }
             }
-            Location::SIMD(_) => {
-                // Dummy value slot to be filled with `mov`.
-                self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
-
-                // XMM registers can be directly stored to memory.
-                self.move_location(Size::S64, loc, Location::Memory(GPR::RSP, 0));
-            }
-            _ => self.assembler.emit_push(Size::S64, loc),
+            _ => self.assembler.emit_mov(Size::S64, loc, dest),
         }
     }
 
