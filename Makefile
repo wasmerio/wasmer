@@ -253,6 +253,7 @@ ifeq ($(ENABLE_LLVM), 1)
 			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		else ifeq ($(IS_RISCV64), 1)
+			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
 		endif
 	endif

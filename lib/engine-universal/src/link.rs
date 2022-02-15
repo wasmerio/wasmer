@@ -1,6 +1,7 @@
 //! Linking for Universal-compiled code.
 
 use crate::trampoline::get_libcall_trampoline;
+use std::collections::HashMap;
 use std::ptr::{read_unaligned, write_unaligned};
 use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
@@ -19,6 +20,7 @@ fn apply_relocation(
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
     libcall_trampolines: SectionIndex,
     libcall_trampoline_len: usize,
+    riscv_pcrel_hi20s: &mut HashMap<usize, u32>,
 ) {
     let target_func_address: usize = match r.reloc_target {
         RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
@@ -107,6 +109,32 @@ fn apply_relocation(
                 | read_unaligned(reloc_address as *mut u32);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
+        RelocationKind::RiscvPCRelHi20 => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+
+            // save for later reference with RiscvPCRelLo12I
+            riscv_pcrel_hi20s.insert(reloc_address, reloc_delta as u32);
+
+            let reloc_delta = ((reloc_delta.wrapping_add(0x800) & 0xfffff000) as u32)
+                | read_unaligned(reloc_address as *mut u32);
+            write_unaligned(reloc_address as *mut u32, reloc_delta);
+        },
+        RelocationKind::RiscvPCRelLo12I => unsafe {
+            let (reloc_address, reloc_abs) = r.for_address(body, target_func_address as u64);
+            let reloc_delta = ((riscv_pcrel_hi20s.get(&(reloc_abs as usize)).expect(
+                "R_RISCV_PCREL_LO12_I relocation target must be a symbol with R_RISCV_PCREL_HI20",
+            ) & 0xfff)
+                << 20)
+                | read_unaligned(reloc_address as *mut u32);
+            write_unaligned(reloc_address as *mut u32, reloc_delta);
+        },
+        RelocationKind::RiscvCall => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            let reloc_delta = ((reloc_delta & 0xfff) << 52)
+                | (reloc_delta.wrapping_add(0x800) & 0xfffff000)
+                | read_unaligned(reloc_address as *mut u64);
+            write_unaligned(reloc_address as *mut u64, reloc_delta);
+        },
         kind => panic!(
             "Relocation kind unsupported in the current architecture {}",
             kind
@@ -126,6 +154,8 @@ pub fn link_module(
     libcall_trampolines: SectionIndex,
     trampoline_len: usize,
 ) {
+    let mut riscv_pcrel_hi20s: HashMap<usize, u32> = HashMap::new();
+
     for (i, section_relocs) in section_relocations.iter() {
         let body = *allocated_sections[i] as usize;
         for r in section_relocs {
@@ -137,6 +167,7 @@ pub fn link_module(
                 allocated_sections,
                 libcall_trampolines,
                 trampoline_len,
+                &mut riscv_pcrel_hi20s,
             );
         }
     }
@@ -151,6 +182,7 @@ pub fn link_module(
                 allocated_sections,
                 libcall_trampolines,
                 trampoline_len,
+                &mut riscv_pcrel_hi20s,
             );
         }
     }

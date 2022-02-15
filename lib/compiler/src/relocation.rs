@@ -58,6 +58,10 @@ pub enum RelocationKind {
     Arm64Movw2,
     /// Arm64 movk/z part 3
     Arm64Movw3,
+    /// RISC-V PC-relative high 20bit
+    RiscvPCRelHi20,
+    /// RISC-V PC-relative low 12bit, I-type
+    RiscvPCRelLo12I,
     /// RISC-V call target
     RiscvCall,
     /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
@@ -85,6 +89,8 @@ impl fmt::Display for RelocationKind {
             Self::Arm64Movw2 => write!(f, "Arm64MovwG2"),
             Self::Arm64Movw3 => write!(f, "Arm64MovwG3"),
             Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
+            Self::RiscvPCRelHi20 => write!(f, "RiscvPCRelHi20"),
+            Self::RiscvPCRelLo12I => write!(f, "RiscvPCRelLo12I"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }
@@ -137,7 +143,8 @@ impl Relocation {
             | RelocationKind::Arm64Movw0
             | RelocationKind::Arm64Movw1
             | RelocationKind::Arm64Movw2
-            | RelocationKind::Arm64Movw3 => {
+            | RelocationKind::Arm64Movw3
+            | RelocationKind::RiscvPCRelLo12I => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_abs = target_func_address
@@ -171,7 +178,9 @@ impl Relocation {
                     .wrapping_add(reloc_addend as u32);
                 (reloc_address, reloc_delta_u32 as u64)
             }
-            RelocationKind::Arm64Call | RelocationKind::RiscvCall => {
+            RelocationKind::Arm64Call
+            | RelocationKind::RiscvCall
+            | RelocationKind::RiscvPCRelHi20 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_delta_u32 = target_func_address
