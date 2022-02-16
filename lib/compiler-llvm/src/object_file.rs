@@ -192,6 +192,11 @@ where
                     object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G3),
                     0,
                 ) => RelocationKind::Arm64Movw3,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationKind::Elf(object::elf::R_RISCV_CALL_PLT),
+                    0,
+                ) => RelocationKind::RiscvCall,
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",

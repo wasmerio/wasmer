@@ -231,6 +231,8 @@ ifeq ($(ENABLE_LLVM), 1)
 			compilers_engines += llvm-universal
 		else ifeq ($(IS_AARCH64), 1)
 			compilers_engines += llvm-universal
+		else ifeq ($(IS_RISCV64), 1)
+			compilers_engines += llvm-universal
 		endif
 	endif
 endif
