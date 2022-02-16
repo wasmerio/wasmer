@@ -193,6 +193,11 @@ where
                 (object::Architecture::Aarch64, object::RelocationKind::PltRelative, 26) => {
                     RelocationKind::Arm64Call
                 }
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationKind::Elf(object::elf::R_RISCV_CALL_PLT),
+                    0,
+                ) => RelocationKind::RiscvCall,
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",

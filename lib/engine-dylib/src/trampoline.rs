@@ -34,6 +34,13 @@ const AARCH64_TRAMPOLINE: [u8; 12] = [
 // JMP [RIP + ...]   FF 25 00 00 00 00
 const X86_64_TRAMPOLINE: [u8; 6] = [0xff, 0x25, 0x00, 0x00, 0x00, 0x00];
 
+// AUIPC t1, #...     17 03 00 00
+// LD t1, #...(t1)    03 33 03 00
+// JR t1              67 00 03 00
+const RISCV64_TRAMPOLINE: [u8; 12] = [
+    0x17, 0x03, 0x00, 0x00, 0x03, 0x33, 0x03, 0x00, 0x67, 0x00, 0x03, 0x00,
+];
+
 fn emit_trampoline(
     obj: &mut Object,
     text: SectionId,
@@ -111,6 +118,40 @@ fn emit_trampoline(
                     // -4 because RIP-relative addressing starts from the end of
                     // the instruction.
                     addend: -4,
+                },
+            )
+            .unwrap();
+        }
+        Architecture::Riscv64(_) => {
+            let (reloc1, reloc2) = match obj.format() {
+                BinaryFormat::Elf => (
+                    RelocationKind::Elf(elf::R_RISCV_PCREL_HI20),
+                    RelocationKind::Elf(elf::R_RISCV_PCREL_LO12_I),
+                ),
+                _ => panic!("Unsupported binary format on Riscv64"),
+            };
+            let offset = obj.add_symbol_data(libcall_symbol, text, &RISCV64_TRAMPOLINE, 4);
+            obj.add_relocation(
+                text,
+                Relocation {
+                    offset: offset,
+                    size: 32,
+                    kind: reloc1,
+                    encoding: RelocationEncoding::Generic,
+                    symbol: trampoline_table_symbols[libcall as usize],
+                    addend: 0,
+                },
+            )
+            .unwrap();
+            obj.add_relocation(
+                text,
+                Relocation {
+                    offset: offset + 4,
+                    size: 32,
+                    kind: reloc2,
+                    encoding: RelocationEncoding::Generic,
+                    symbol: libcall_symbol,
+                    addend: 0,
                 },
             )
             .unwrap();
