@@ -5,8 +5,8 @@ use crate::location::Reg;
 use crate::machine::*;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
+use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
 use std::ops::{Deref, DerefMut};
-use dynasmrt::{x64::X64Relocation, VecAssembler, DynasmError};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
     CallingConvention, CpuFeature, CustomSection, CustomSectionProtection, FunctionBody,
