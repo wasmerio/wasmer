@@ -8,8 +8,8 @@ use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    Architecture, CallingConvention, CustomSection, FunctionBody, InstructionAddressMap,
-    Relocation, RelocationTarget, Target, TrapInformation,
+    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody,
+    InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation,
 };
 use wasmer_types::{FunctionIndex, FunctionType};
 use wasmer_vm::{TrapCode, VMOffsets};
@@ -2200,7 +2200,13 @@ pub fn gen_std_trampoline(
 ) -> FunctionBody {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
@@ -2210,6 +2216,7 @@ pub fn gen_std_trampoline(
         _ => unimplemented!(),
     }
 }
+
 /// Generates dynamic import function call trampoline for a function type.
 pub fn gen_std_dynamic_import_trampoline(
     vmoffsets: &VMOffsets,
@@ -2219,7 +2226,13 @@ pub fn gen_std_dynamic_import_trampoline(
 ) -> FunctionBody {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
@@ -2239,7 +2252,13 @@ pub fn gen_import_call_trampoline(
 ) -> CustomSection {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
