@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["MachineX86_64",""]],"type":[["Assembler",""],["Location",""]]});
+initSidebarItems({"struct":[["AssemblerX64",""],["MachineX86_64",""]],"type":[["Assembler",""],["Location",""]]});

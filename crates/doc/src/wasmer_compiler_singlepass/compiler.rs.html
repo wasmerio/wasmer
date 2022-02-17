@@ -297,6 +297,9 @@
 <span id="297">297</span>
 <span id="298">298</span>
 <span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -368,13 +371,16 @@
                 ))
             }
         }
-        <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Architecture::X86_64</span>
-            <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX</span>)
-        {
+
+        <span class="kw">let</span> <span class="ident">simd_arch</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX</span>) {
+            <span class="ident">CpuFeature::AVX</span>
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE42</span>) {
+            <span class="ident">CpuFeature::SSE42</span>
+        } <span class="kw">else</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(
-                <span class="string">&quot;x86_64 without AVX&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="string">&quot;x86_64 without AVX or SSE 4.2&quot;</span>.<span class="ident">to_string</span>(),
             ));
-        }
+        };
         <span class="kw">if</span> <span class="ident">compile_info</span>.<span class="ident">features</span>.<span class="ident">multi_value</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedFeature</span>(<span class="string">&quot;multivalue&quot;</span>.<span class="ident">to_string</span>()));
         }
@@ -430,7 +436,7 @@
 
                 <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
                     <span class="ident">Architecture::X86_64</span> <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineX86_64::new</span>();
+                        <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineX86_64::new</span>(<span class="prelude-val">Some</span>(<span class="ident">simd_arch</span>));
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">generator</span> <span class="op">=</span> <span class="ident">FuncGen::new</span>(
                             <span class="ident">module</span>,
                             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>,

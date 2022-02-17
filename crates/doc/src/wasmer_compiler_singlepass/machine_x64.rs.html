@@ -7044,6 +7044,47 @@
 <span id="7044">7044</span>
 <span id="7045">7045</span>
 <span id="7046">7046</span>
+<span id="7047">7047</span>
+<span id="7048">7048</span>
+<span id="7049">7049</span>
+<span id="7050">7050</span>
+<span id="7051">7051</span>
+<span id="7052">7052</span>
+<span id="7053">7053</span>
+<span id="7054">7054</span>
+<span id="7055">7055</span>
+<span id="7056">7056</span>
+<span id="7057">7057</span>
+<span id="7058">7058</span>
+<span id="7059">7059</span>
+<span id="7060">7060</span>
+<span id="7061">7061</span>
+<span id="7062">7062</span>
+<span id="7063">7063</span>
+<span id="7064">7064</span>
+<span id="7065">7065</span>
+<span id="7066">7066</span>
+<span id="7067">7067</span>
+<span id="7068">7068</span>
+<span id="7069">7069</span>
+<span id="7070">7070</span>
+<span id="7071">7071</span>
+<span id="7072">7072</span>
+<span id="7073">7073</span>
+<span id="7074">7074</span>
+<span id="7075">7075</span>
+<span id="7076">7076</span>
+<span id="7077">7077</span>
+<span id="7078">7078</span>
+<span id="7079">7079</span>
+<span id="7080">7080</span>
+<span id="7081">7081</span>
+<span id="7082">7082</span>
+<span id="7083">7083</span>
+<span id="7084">7084</span>
+<span id="7085">7085</span>
+<span id="7086">7086</span>
+<span id="7087">7087</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -7051,20 +7092,58 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl::new_machine_state</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl</span>::{<span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">X64Register</span>, <span class="ident">GPR</span>, <span class="ident">XMM</span>};
-<span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">x64::X64Relocation</span>, <span class="ident">VecAssembler</span>};
+<span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">x64::X64Relocation</span>, <span class="ident">DynasmError</span>, <span class="ident">VecAssembler</span>};
+<span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">CallingConvention</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>,
-    <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>,
+    <span class="ident">CallingConvention</span>, <span class="ident">CpuFeature</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>,
+    <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">SourceLoc</span>,
+    <span class="ident">TrapInformation</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">Type</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">TrapCode</span>, <span class="ident">VMOffsets</span>};
 
 <span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">X64Relocation</span><span class="op">&gt;</span>;
+
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">AssemblerX64</span> {
+    <span class="doccomment">/// the actual inner</span>
+    <span class="kw">pub</span> <span class="ident">inner</span>: <span class="ident">Assembler</span>,
+    <span class="doccomment">/// the simd instructions set on the target.</span>
+    <span class="doccomment">/// Currently only supports SSE 4.2 and AVX</span>
+    <span class="kw">pub</span> <span class="ident">simd_arch</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">AssemblerX64</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">baseaddr</span>: <span class="ident">usize</span>, <span class="ident">simd_arch</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">inner</span>: <span class="ident">Assembler::new</span>(<span class="ident">baseaddr</span>),
+            <span class="ident">simd_arch</span>,
+        }
+    }
+
+    <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">DynasmError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">finalize</span>()
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">AssemblerX64</span> {
+    <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> <span class="ident">Assembler</span>;
+
+    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Target</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">DerefMut</span> <span class="kw">for</span> <span class="ident">AssemblerX64</span> {
+    <span class="kw">fn</span> <span class="ident">deref_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident"><span class="self">Self</span>::Target</span> {
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">inner</span>
+    }
+}
+
 <span class="kw">type</span> <span class="ident">Location</span> <span class="op">=</span> <span class="ident">AbstractLocation</span><span class="op">&lt;</span><span class="ident">GPR</span>, <span class="ident">XMM</span><span class="op">&gt;</span>;
 
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MachineX86_64</span> {
-    <span class="ident">assembler</span>: <span class="ident">Assembler</span>,
+    <span class="ident">assembler</span>: <span class="ident">AssemblerX64</span>,
     <span class="ident">used_gprs</span>: <span class="ident">u32</span>,
     <span class="ident">used_simd</span>: <span class="ident">u32</span>,
     <span class="ident">trap_table</span>: <span class="ident">TrapTable</span>,
@@ -7077,9 +7156,9 @@
 }
 
 <span class="kw">impl</span> <span class="ident">MachineX86_64</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">simd_arch</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="ident">MachineX86_64</span> {
-            <span class="ident">assembler</span>: <span class="ident">Assembler::new</span>(<span class="number">0</span>),
+            <span class="ident">assembler</span>: <span class="ident">AssemblerX64::new</span>(<span class="number">0</span>, <span class="ident">simd_arch</span>),
             <span class="ident">used_gprs</span>: <span class="number">0</span>,
             <span class="ident">used_simd</span>: <span class="number">0</span>,
             <span class="ident">trap_table</span>: <span class="ident">TrapTable::default</span>(),
@@ -7089,7 +7168,7 @@
     }
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_relaxed_binop</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
+        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
@@ -7102,11 +7181,11 @@
         }
         <span class="kw">let</span> <span class="ident">mode</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="kw">_</span>), <span class="ident">Location::GPR</span>(<span class="kw">_</span>))
-                <span class="kw">if</span> (<span class="ident">op</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Assembler::emit_imul</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">=</span><span class="op">&gt;</span>
+                <span class="kw">if</span> (<span class="ident">op</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span> <span class="op">=</span><span class="op">=</span> <span class="ident">AssemblerX64::emit_imul</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">=</span><span class="op">&gt;</span>
             {
                 <span class="ident">RelaxMode::Direct</span>
             }
-            <span class="kw">_</span> <span class="kw">if</span> (<span class="ident">op</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Assembler::emit_imul</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelaxMode::BothToGPR</span>,
+            <span class="kw">_</span> <span class="kw">if</span> (<span class="ident">op</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span> <span class="op">=</span><span class="op">=</span> <span class="ident">AssemblerX64::emit_imul</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelaxMode::BothToGPR</span>,
 
             (<span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>), <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelaxMode::SrcToGPR</span>,
             (<span class="ident">Location::Imm64</span>(<span class="kw">_</span>), <span class="ident">Location::Imm64</span>(<span class="kw">_</span>)) <span class="op">|</span> (<span class="ident">Location::Imm64</span>(<span class="kw">_</span>), <span class="ident">Location::Imm32</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> {
@@ -7115,7 +7194,7 @@
             (<span class="kw">_</span>, <span class="ident">Location::Imm32</span>(<span class="kw">_</span>)) <span class="op">|</span> (<span class="kw">_</span>, <span class="ident">Location::Imm64</span>(<span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelaxMode::DstToGPR</span>,
             (<span class="ident">Location::Imm64</span>(<span class="kw">_</span>), <span class="ident">Location::Memory</span>(<span class="kw">_</span>, <span class="kw">_</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">RelaxMode::SrcToGPR</span>,
             (<span class="ident">Location::Imm64</span>(<span class="kw">_</span>), <span class="ident">Location::GPR</span>(<span class="kw">_</span>))
-                <span class="kw">if</span> (<span class="ident">op</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Assembler::emit_mov</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">=</span><span class="op">&gt;</span>
+                <span class="kw">if</span> (<span class="ident">op</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span> <span class="op">!</span><span class="op">=</span> <span class="ident">AssemblerX64::emit_mov</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>) <span class="op">=</span><span class="op">&gt;</span>
             {
                 <span class="ident">RelaxMode::SrcToGPR</span>
             }
@@ -7163,7 +7242,7 @@
     }
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_relaxed_zx_sx</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Size</span>, <span class="ident">Location</span>),
+        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Size</span>, <span class="ident">Location</span>),
         <span class="ident">sz_src</span>: <span class="ident">Size</span>,
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_dst</span>: <span class="ident">Size</span>,
@@ -7233,7 +7312,7 @@
     <span class="doccomment">/// I32 binary operation with both operands popped from the virtual stack.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_i32</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
+        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
         <span class="ident">loc_a</span>: <span class="ident">Location</span>,
         <span class="ident">loc_b</span>: <span class="ident">Location</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span>,
@@ -7251,7 +7330,7 @@
     <span class="doccomment">/// I64 binary operation with both operands popped from the virtual stack.</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_i64</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
+        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
         <span class="ident">loc_a</span>: <span class="ident">Location</span>,
         <span class="ident">loc_b</span>: <span class="ident">Location</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span>,
@@ -7298,7 +7377,7 @@
     <span class="doccomment">/// I64 shift with both operands popped from the virtual stack.</span>
     <span class="kw">fn</span> <span class="ident">emit_shift_i64</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
+        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
         <span class="ident">loc_a</span>: <span class="ident">Location</span>,
         <span class="ident">loc_b</span>: <span class="ident">Location</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span>,
@@ -7315,7 +7394,7 @@
     <span class="doccomment">/// Moves `loc` to a valid location for `div`/`idiv`.</span>
     <span class="kw">fn</span> <span class="ident">emit_relaxed_xdiv</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">Size</span>, <span class="ident">Location</span>),
+        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">Size</span>, <span class="ident">Location</span>),
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span>,
         <span class="ident">integer_division_by_zero</span>: <span class="ident">Label</span>,
@@ -7372,7 +7451,7 @@
     <span class="doccomment">/// I32 shift with both operands popped from the virtual stack.</span>
     <span class="kw">fn</span> <span class="ident">emit_shift_i32</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
+        <span class="ident">f</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">Size</span>, <span class="ident">Location</span>, <span class="ident">Location</span>),
         <span class="ident">loc_a</span>: <span class="ident">Location</span>,
         <span class="ident">loc_b</span>: <span class="ident">Location</span>,
         <span class="ident">ret</span>: <span class="ident">Location</span>,
@@ -7405,7 +7484,7 @@
         <span class="kw">let</span> (<span class="ident">base_loc</span>, <span class="ident">bound_loc</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">imported_memories</span> {
             <span class="comment">// Imported memories require one level of indirection.</span>
             <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(
-                <span class="ident">Assembler::emit_mov</span>,
+                <span class="ident">AssemblerX64::emit_mov</span>,
                 <span class="ident">Size::S64</span>,
                 <span class="ident">Location::Memory</span>(<span class="self">self</span>.<span class="ident">get_vmctx_reg</span>(), <span class="ident">offset</span>),
                 <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>),
@@ -7852,7 +7931,7 @@
     <span class="doccomment">/// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.</span>
     <span class="kw">fn</span> <span class="ident">emit_relaxed_avx</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Assembler</span>, <span class="ident">XMM</span>, <span class="ident">XMMOrMemory</span>, <span class="ident">XMM</span>),
+        <span class="ident">op</span>: <span class="kw">fn</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">XMM</span>, <span class="ident">XMMOrMemory</span>, <span class="ident">XMM</span>),
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
@@ -8598,7 +8677,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">emit_relaxed_atomic_xchg</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">Assembler::emit_xchg</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">AssemblerX64::emit_xchg</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">used_gprs_contains</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">GPR</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -9431,10 +9510,10 @@
 
     <span class="comment">// relaxed binop based...</span>
     <span class="kw">fn</span> <span class="ident">emit_relaxed_mov</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">Assembler::emit_mov</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">AssemblerX64::emit_mov</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_relaxed_cmp</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">Assembler::emit_cmp</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">AssemblerX64::emit_cmp</span>, <span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_relaxed_zero_extension</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -9444,9 +9523,9 @@
         <span class="ident">dst</span>: <span class="ident">Location</span>,
     ) {
         <span class="kw">if</span> (<span class="ident">sz_src</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Size::S32</span> <span class="op">|</span><span class="op">|</span> <span class="ident">sz_src</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Size::S64</span>) <span class="op">&amp;&amp;</span> <span class="ident">sz_dst</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Size::S64</span> {
-            <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">Assembler::emit_mov</span>, <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
+            <span class="self">self</span>.<span class="ident">emit_relaxed_binop</span>(<span class="ident">AssemblerX64::emit_mov</span>, <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">dst</span>);
         } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">emit_relaxed_zx_sx</span>(<span class="ident">Assembler::emit_movzx</span>, <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>);
+            <span class="self">self</span>.<span class="ident">emit_relaxed_zx_sx</span>(<span class="ident">AssemblerX64::emit_movzx</span>, <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>);
         }
     }
     <span class="kw">fn</span> <span class="ident">emit_relaxed_sign_extension</span>(
@@ -9456,17 +9535,17 @@
         <span class="ident">sz_dst</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
     ) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_zx_sx</span>(<span class="ident">Assembler::emit_movsx</span>, <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_zx_sx</span>(<span class="ident">AssemblerX64::emit_movsx</span>, <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">emit_binop_add32</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">Assembler::emit_add</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">AssemblerX64::emit_add</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_sub32</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">Assembler::emit_sub</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">AssemblerX64::emit_sub</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_mul32</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">Assembler::emit_imul</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">AssemblerX64::emit_imul</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_udiv32</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -9482,7 +9561,7 @@
         <span class="self">self</span>.<span class="ident">assembler</span>
             .<span class="ident">emit_xor</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>));
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_div</span>,
+            <span class="ident">AssemblerX64::emit_div</span>,
             <span class="ident">Size::S32</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -9504,7 +9583,7 @@
             .<span class="ident">emit_mov</span>(<span class="ident">Size::S32</span>, <span class="ident">loc_a</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_cdq</span>();
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_idiv</span>,
+            <span class="ident">AssemblerX64::emit_idiv</span>,
             <span class="ident">Size::S32</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -9527,7 +9606,7 @@
         <span class="self">self</span>.<span class="ident">assembler</span>
             .<span class="ident">emit_xor</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>));
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_div</span>,
+            <span class="ident">AssemblerX64::emit_div</span>,
             <span class="ident">Size::S32</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -9560,7 +9639,7 @@
             .<span class="ident">emit_mov</span>(<span class="ident">Size::S32</span>, <span class="ident">loc_a</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_cdq</span>();
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_idiv</span>,
+            <span class="ident">AssemblerX64::emit_idiv</span>,
             <span class="ident">Size::S32</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -9572,13 +9651,13 @@
         <span class="ident">offset</span>
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_and32</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">Assembler::emit_and</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">AssemblerX64::emit_and</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_or32</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">Assembler::emit_or</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">AssemblerX64::emit_or</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_xor32</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">Assembler::emit_xor</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i32</span>(<span class="ident">AssemblerX64::emit_xor</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i32_cmp_ge_s</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="self">self</span>.<span class="ident">emit_cmpop_i32_dynamic_b</span>(<span class="ident">Condition::GreaterEqual</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
@@ -9744,19 +9823,19 @@
         }
     }
     <span class="kw">fn</span> <span class="ident">i32_shl</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">Assembler::emit_shl</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">AssemblerX64::emit_shl</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i32_shr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">Assembler::emit_shr</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">AssemblerX64::emit_shr</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i32_sar</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">Assembler::emit_sar</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">AssemblerX64::emit_sar</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i32_rol</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">Assembler::emit_rol</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">AssemblerX64::emit_rol</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i32_ror</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">Assembler::emit_ror</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i32</span>(<span class="ident">AssemblerX64::emit_ror</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i32_load</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -9779,7 +9858,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S32</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">ret</span>,
@@ -9808,7 +9887,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movzx</span>,
+                    <span class="ident">AssemblerX64::emit_movzx</span>,
                     <span class="ident">Size::S8</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S32</span>,
@@ -9838,7 +9917,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movsx</span>,
+                    <span class="ident">AssemblerX64::emit_movsx</span>,
                     <span class="ident">Size::S8</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S32</span>,
@@ -9868,7 +9947,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movzx</span>,
+                    <span class="ident">AssemblerX64::emit_movzx</span>,
                     <span class="ident">Size::S16</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S32</span>,
@@ -9898,7 +9977,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movsx</span>,
+                    <span class="ident">AssemblerX64::emit_movsx</span>,
                     <span class="ident">Size::S16</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S32</span>,
@@ -10010,7 +10089,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S32</span>,
                     <span class="ident">target_value</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -10039,7 +10118,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S8</span>,
                     <span class="ident">target_value</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -10068,7 +10147,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S16</span>,
                     <span class="ident">target_value</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -10901,13 +10980,13 @@
     }
 
     <span class="kw">fn</span> <span class="ident">emit_binop_add64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">Assembler::emit_add</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">AssemblerX64::emit_add</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_sub64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">Assembler::emit_sub</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">AssemblerX64::emit_sub</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_mul64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">Assembler::emit_imul</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">AssemblerX64::emit_imul</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_udiv64</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -10923,7 +11002,7 @@
         <span class="self">self</span>.<span class="ident">assembler</span>
             .<span class="ident">emit_xor</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>));
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_div</span>,
+            <span class="ident">AssemblerX64::emit_div</span>,
             <span class="ident">Size::S64</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -10945,7 +11024,7 @@
             .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc_a</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_cqo</span>();
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_idiv</span>,
+            <span class="ident">AssemblerX64::emit_idiv</span>,
             <span class="ident">Size::S64</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -10968,7 +11047,7 @@
         <span class="self">self</span>.<span class="ident">assembler</span>
             .<span class="ident">emit_xor</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RDX</span>));
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_div</span>,
+            <span class="ident">AssemblerX64::emit_div</span>,
             <span class="ident">Size::S64</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -11001,7 +11080,7 @@
             .<span class="ident">emit_mov</span>(<span class="ident">Size::S64</span>, <span class="ident">loc_a</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>));
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_cqo</span>();
         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">emit_relaxed_xdiv</span>(
-            <span class="ident">Assembler::emit_idiv</span>,
+            <span class="ident">AssemblerX64::emit_idiv</span>,
             <span class="ident">Size::S64</span>,
             <span class="ident">loc_b</span>,
             <span class="ident">integer_division_by_zero</span>,
@@ -11013,13 +11092,13 @@
         <span class="ident">offset</span>
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_and64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">Assembler::emit_and</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">AssemblerX64::emit_and</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_or64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">Assembler::emit_or</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">AssemblerX64::emit_or</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">emit_binop_xor64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">Assembler::emit_xor</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_binop_i64</span>(<span class="ident">AssemblerX64::emit_xor</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i64_cmp_ge_s</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="self">self</span>.<span class="ident">emit_cmpop_i64_dynamic_b</span>(<span class="ident">Condition::GreaterEqual</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
@@ -11185,19 +11264,19 @@
         }
     }
     <span class="kw">fn</span> <span class="ident">i64_shl</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">Assembler::emit_shl</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">AssemblerX64::emit_shl</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i64_shr</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">Assembler::emit_shr</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">AssemblerX64::emit_shr</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i64_sar</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">Assembler::emit_sar</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">AssemblerX64::emit_sar</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i64_rol</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">Assembler::emit_rol</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">AssemblerX64::emit_rol</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i64_ror</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">Assembler::emit_ror</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_shift_i64</span>(<span class="ident">AssemblerX64::emit_ror</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">i64_load</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
@@ -11220,7 +11299,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S64</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">ret</span>,
@@ -11249,7 +11328,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movzx</span>,
+                    <span class="ident">AssemblerX64::emit_movzx</span>,
                     <span class="ident">Size::S8</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S64</span>,
@@ -11279,7 +11358,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movsx</span>,
+                    <span class="ident">AssemblerX64::emit_movsx</span>,
                     <span class="ident">Size::S8</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S64</span>,
@@ -11309,7 +11388,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movzx</span>,
+                    <span class="ident">AssemblerX64::emit_movzx</span>,
                     <span class="ident">Size::S16</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S64</span>,
@@ -11339,7 +11418,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movsx</span>,
+                    <span class="ident">AssemblerX64::emit_movsx</span>,
                     <span class="ident">Size::S16</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S64</span>,
@@ -11382,7 +11461,7 @@
                     }
                 }
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S32</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">ret</span>,
@@ -11411,7 +11490,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_zx_sx</span>(
-                    <span class="ident">Assembler::emit_movsx</span>,
+                    <span class="ident">AssemblerX64::emit_movsx</span>,
                     <span class="ident">Size::S32</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">Size::S64</span>,
@@ -11565,7 +11644,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S64</span>,
                     <span class="ident">target_value</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -11594,7 +11673,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S8</span>,
                     <span class="ident">target_value</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -11623,7 +11702,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S16</span>,
                     <span class="ident">target_value</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -11652,7 +11731,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S32</span>,
                     <span class="ident">target_value</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -12742,7 +12821,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S32</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">ret</span>,
@@ -12774,7 +12853,7 @@
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">canonicalize</span> {
                     <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                        <span class="ident">Assembler::emit_mov</span>,
+                        <span class="ident">AssemblerX64::emit_mov</span>,
                         <span class="ident">Size::S32</span>,
                         <span class="ident">target_value</span>,
                         <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -12806,7 +12885,7 @@
             <span class="ident">heap_access_oob</span>,
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                    <span class="ident">Assembler::emit_mov</span>,
+                    <span class="ident">AssemblerX64::emit_mov</span>,
                     <span class="ident">Size::S64</span>,
                     <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
                     <span class="ident">ret</span>,
@@ -12838,7 +12917,7 @@
             <span class="op">|</span><span class="ident">this</span>, <span class="ident">addr</span><span class="op">|</span> {
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">canonicalize</span> {
                     <span class="ident">this</span>.<span class="ident">emit_relaxed_binop</span>(
-                        <span class="ident">Assembler::emit_mov</span>,
+                        <span class="ident">AssemblerX64::emit_mov</span>,
                         <span class="ident">Size::S64</span>,
                         <span class="ident">target_value</span>,
                         <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="number">0</span>),
@@ -13060,10 +13139,10 @@
         }
     }
     <span class="kw">fn</span> <span class="ident">convert_f64_f32</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcvtss2sd</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcvtss2sd</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">convert_f32_f64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcvtsd2ss</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcvtsd2ss</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_neg</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">arch_has_fneg</span>() {
@@ -13122,47 +13201,47 @@
         <span class="self">self</span>.<span class="ident">release_gpr</span>(<span class="ident">c</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_sqrt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vsqrtsd</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vsqrtsd</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_trunc</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundsd_trunc</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundsd_trunc</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_ceil</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundsd_ceil</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundsd_ceil</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_floor</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundsd_floor</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundsd_floor</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_nearest</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundsd_nearest</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundsd_nearest</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_cmp_ge</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpgesd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpgesd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_cmp_gt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpgtsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpgtsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_cmp_le</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmplesd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmplesd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_cmp_lt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpltsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpltsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_cmp_ne</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpneqsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpneqsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_cmp_eq</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpeqsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpeqsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_min</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">arch_supports_canonicalize_nan</span>() {
-            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vminsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vminsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">tmp1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">tmp2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
@@ -13271,7 +13350,7 @@
     }
     <span class="kw">fn</span> <span class="ident">f64_max</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">arch_supports_canonicalize_nan</span>() {
-            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vmaxsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vmaxsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">tmp1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">tmp2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
@@ -13374,16 +13453,16 @@
         }
     }
     <span class="kw">fn</span> <span class="ident">f64_add</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vaddsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vaddsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_sub</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vsubsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vsubsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_mul</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vmulsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vmulsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f64_div</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vdivsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vdivsd</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_neg</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">arch_has_fneg</span>() {
@@ -13426,47 +13505,47 @@
             .<span class="ident">emit_or</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp2</span>), <span class="ident">Location::GPR</span>(<span class="ident">tmp1</span>));
     }
     <span class="kw">fn</span> <span class="ident">f32_sqrt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vsqrtss</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vsqrtss</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_trunc</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundss_trunc</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundss_trunc</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_ceil</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundss_ceil</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundss_ceil</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_floor</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundss_floor</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundss_floor</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_nearest</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vroundss_nearest</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vroundss_nearest</span>, <span class="ident">loc</span>, <span class="ident">loc</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_cmp_ge</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpgess</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpgess</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_cmp_gt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpgtss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpgtss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_cmp_le</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpless</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpless</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_cmp_lt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpltss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpltss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_cmp_ne</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpneqss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpneqss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_cmp_eq</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vcmpeqss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vcmpeqss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_and</span>(<span class="ident">Size::S32</span>, <span class="ident">Location::Imm32</span>(<span class="number">1</span>), <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_min</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">arch_supports_canonicalize_nan</span>() {
-            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vminss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vminss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">tmp1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">tmp2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
@@ -13575,7 +13654,7 @@
     }
     <span class="kw">fn</span> <span class="ident">f32_max</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">arch_supports_canonicalize_nan</span>() {
-            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vmaxss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+            <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vmaxss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">tmp1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">tmp2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_temp_simd</span>().<span class="ident">unwrap</span>();
@@ -13678,16 +13757,16 @@
         }
     }
     <span class="kw">fn</span> <span class="ident">f32_add</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vaddss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vaddss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_sub</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vsubss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vsubss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_mul</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vmulss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vmulss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
     <span class="kw">fn</span> <span class="ident">f32_div</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {
-        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">Assembler::emit_vdivss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
+        <span class="self">self</span>.<span class="ident">emit_relaxed_avx</span>(<span class="ident">AssemblerX64::emit_vdivss</span>, <span class="ident">loc_a</span>, <span class="ident">loc_b</span>, <span class="ident">ret</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">gen_std_trampoline</span>(
@@ -13695,7 +13774,8 @@
         <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionBody</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>(<span class="number">0</span>);
+        <span class="comment">// the cpu feature here is irrelevant</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">AssemblerX64::new</span>(<span class="number">0</span>, <span class="prelude-val">None</span>);
 
         <span class="comment">// Calculate stack offset.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_offset</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
@@ -13807,7 +13887,8 @@
         <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionBody</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>(<span class="number">0</span>);
+        <span class="comment">// the cpu feature here is irrelevant</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">AssemblerX64::new</span>(<span class="number">0</span>, <span class="prelude-val">None</span>);
 
         <span class="comment">// Allocate argument array.</span>
         <span class="kw">let</span> <span class="ident">stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span> <span class="op">*</span> <span class="ident">std::cmp::max</span>(<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>(), <span class="ident">sig</span>.<span class="ident">results</span>().<span class="ident">len</span>()) <span class="op">+</span> <span class="number">8</span>; <span class="comment">// 16 bytes each + 8 bytes sysv call padding</span>
@@ -13929,7 +14010,8 @@
         <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">CustomSection</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>(<span class="number">0</span>);
+        <span class="comment">// the cpu feature here is irrelevant</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">AssemblerX64::new</span>(<span class="number">0</span>, <span class="prelude-val">None</span>);
 
         <span class="comment">// TODO: ARM entry trampoline is not emitted.</span>
 
