@@ -402,14 +402,14 @@ else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 
-WAPM_VERSION = v0.5.1
+WAPM_VERSION = v0.5.2
 get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
 build-wapm: get-wapm
 ifeq ($(IS_DARWIN), 1)
 	# We build it without bundling sqlite, as is included by default in macos
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "full packagesigning telemetry update-notifications"
 else
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
 endif

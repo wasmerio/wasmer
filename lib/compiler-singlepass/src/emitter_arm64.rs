@@ -380,6 +380,30 @@ impl EmitterARM64 for Assembler {
                 assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; ldr S(reg), [X(addr), disp]);
             }
+            (Size::S64, Location::SIMD(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                assert!(offs == 0);
+                let mult = mult as u32;
+                match mult {
+                    0 => dynasm!(self ; ldr D(reg), [X(addr)]),
+                    1 => dynasm!(self ; ldr D(reg), [X(addr), X(r2)]),
+                    _ => dynasm!(self ; ldr D(reg), [X(addr), X(r2), LSL mult]),
+                };
+            }
+            (Size::S32, Location::SIMD(reg), Location::Memory2(addr, r2, mult, offs)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                let r2 = r2.into_index() as u32;
+                assert!(offs == 0);
+                let mult = mult as u32;
+                match mult {
+                    0 => dynasm!(self ; ldr S(reg), [X(addr)]),
+                    1 => dynasm!(self ; ldr S(reg), [X(addr), X(r2)]),
+                    _ => dynasm!(self ; ldr S(reg), [X(addr), X(r2), LSL mult]),
+                };
+            }
             _ => panic!("singlepass can't emit LDR {:?}, {:?}, {:?}", sz, reg, addr),
         }
     }
@@ -400,6 +424,11 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 dynasm!(self ; stur D(reg), [X(addr), offset]);
+            }
+            (Size::S32, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; stur S(reg), [X(addr), offset]);
             }
             _ => panic!(
                 "singlepass can't emit STUR {:?}, {:?}, {:?}, {:?}",
@@ -424,6 +453,11 @@ impl EmitterARM64 for Assembler {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
                 dynasm!(self ; ldur D(reg), [X(addr), offset]);
+            }
+            (Size::S32, Location::SIMD(reg)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                dynasm!(self ; ldur S(reg), [X(addr), offset]);
             }
             _ => panic!(
                 "singlepass can't emit LDUR {:?}, {:?}, {:?}, {:?}",
@@ -1363,7 +1397,8 @@ impl EmitterARM64 for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; ror X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let imm = imm as u32;
                 let dst = dst.into_index() as u32;
@@ -1371,6 +1406,15 @@ impl EmitterARM64 for Assembler {
                     unreachable!();
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                if imm == 0 || imm > 31 {
+                    unreachable!();
+                }
+                dynasm!(self ; ror W(dst), W(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;

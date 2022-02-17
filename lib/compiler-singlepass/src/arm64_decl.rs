@@ -4,6 +4,7 @@ use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
 use std::collections::BTreeMap;
+use std::slice::Iter;
 use wasmer_compiler::CallingConvention;
 use wasmer_types::Type;
 
@@ -98,7 +99,13 @@ impl AbstractReg for GPR {
         self as usize
     }
     fn from_index(n: usize) -> Result<GPR, ()> {
-        const REGS: [GPR; 32] = [
+        match n {
+            0..=31 => Ok(GPR::iterator().nth(n).unwrap().clone()),
+            _ => Err(()),
+        }
+    }
+    fn iterator() -> Iter<'static, GPR> {
+        static GPRS: [GPR; 32] = [
             GPR::X0,
             GPR::X1,
             GPR::X2,
@@ -132,7 +139,7 @@ impl AbstractReg for GPR {
             GPR::X30,
             GPR::XzrSp,
         ];
-        REGS.get(n).cloned().ok_or(())
+        GPRS.iter()
     }
 }
 
@@ -147,7 +154,13 @@ impl AbstractReg for NEON {
         self as usize
     }
     fn from_index(n: usize) -> Result<NEON, ()> {
-        const REGS: [NEON; 32] = [
+        match n {
+            0..=31 => Ok(NEON::iterator().nth(n).unwrap().clone()),
+            _ => Err(()),
+        }
+    }
+    fn iterator() -> Iter<'static, NEON> {
+        const NEONS: [NEON; 32] = [
             NEON::V0,
             NEON::V1,
             NEON::V2,
@@ -181,10 +194,7 @@ impl AbstractReg for NEON {
             NEON::V30,
             NEON::V31,
         ];
-        match n {
-            0..=31 => Ok(REGS[n]),
-            _ => Err(()),
-        }
+        NEONS.iter()
     }
 }
 
