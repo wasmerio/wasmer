@@ -402,7 +402,7 @@ else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 
-WAPM_VERSION = v0.5.2
+WAPM_VERSION = v0.5.3
 get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
