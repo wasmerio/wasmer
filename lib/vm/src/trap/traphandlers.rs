@@ -219,6 +219,9 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.pc as *const u8
+                } else if #[cfg(all(target_os = "linux", target_arch = "riscv64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.__gregs[libc::REG_PC] as *const u8
                 } else if #[cfg(all(target_os = "android", target_arch = "aarch64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.pc as *const u8
