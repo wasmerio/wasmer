@@ -98,11 +98,12 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     /// This invariant will be enforced in the future.
     #[inline]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<T>> {
-        let total_len = (self.offset as usize) + mem::size_of::<T>();
-        if total_len > memory.size().bytes().0 || mem::size_of::<T>() == 0 {
+        let end = (self.offset as usize).checked_add(mem::size_of::<T>())?;
+        if end > memory.size().bytes().0 || mem::size_of::<T>() == 0 {
             return None;
         }
-        let subarray = memory.uint8view().subarray(self.offset, total_len as u32);
+
+        let subarray = memory.uint8view().subarray(self.offset, end as u32);
         Some(WasmCell::new(subarray))
     }
 }
@@ -122,13 +123,12 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
         let item_size = mem::size_of::<T>() as u32;
-        let slice_full_len = index + length;
+        let slice_full_len = index.checked_add(length)?;
         let memory_size = memory.size().bytes().0 as u32;
-
-        if self.offset + (item_size * slice_full_len) > memory_size
-            || self.offset >= memory_size
-            || item_size == 0
-        {
+        let end = self
+            .offset
+            .checked_add(item_size.checked_mul(slice_full_len)?)?;
+        if end > memory_size || item_size == 0 {
             return None;
         }
 
@@ -175,10 +175,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     ///
     /// an aliasing `WasmPtr` is used to mutate memory.
     pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
-        let memory_size = memory.size().bytes().0;
-        if self.offset as usize + str_len as usize > memory.size().bytes().0
-            || self.offset as usize >= memory_size
-        {
+        let end = self.offset.checked_add(str_len)?;
+        if end as usize > memory.size().bytes().0 {
             return None;
         }
 

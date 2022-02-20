@@ -3,9 +3,9 @@ use crate::arm64_decl::{GPR, NEON};
 use crate::common_decl::*;
 use crate::emitter_arm64::*;
 use crate::location::Location as AbstractLocation;
+use crate::location::Reg;
 use crate::machine::*;
 use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
-use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
     CallingConvention, CustomSection, FunctionBody, InstructionAddressMap, Relocation,
@@ -19,8 +19,8 @@ type Location = AbstractLocation<GPR, NEON>;
 
 pub struct MachineARM64 {
     assembler: Assembler,
-    used_gprs: HashSet<GPR>,
-    used_simd: HashSet<NEON>,
+    used_gprs: u32,
+    used_simd: u32,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     ///
@@ -57,8 +57,8 @@ impl MachineARM64 {
     pub fn new() -> Self {
         MachineARM64 {
             assembler: Assembler::new(0),
-            used_gprs: HashSet::new(),
-            used_simd: HashSet::new(),
+            used_gprs: 0,
+            used_simd: 0,
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
@@ -163,12 +163,51 @@ impl MachineARM64 {
                     tmp
                 };
                 if read_val {
-                    let offsize = if sz == Size::S32 {
-                        ImmType::OffsetWord
-                    } else {
-                        ImmType::OffsetDWord
+                    let offsize = match sz {
+                        Size::S8 => ImmType::OffsetByte,
+                        Size::S16 => ImmType::OffsetHWord,
+                        Size::S32 => ImmType::OffsetWord,
+                        Size::S64 => ImmType::OffsetDWord,
                     };
-                    if self.compatible_imm(val as i64, offsize) {
+                    if sz == Size::S8 {
+                        if self.compatible_imm(val as i64, offsize) {
+                            self.assembler.emit_ldrb(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory(reg, val as _),
+                            );
+                        } else {
+                            if reg == tmp {
+                                unreachable!();
+                            }
+                            self.assembler
+                                .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
+                            self.assembler.emit_ldrb(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory2(reg, tmp, Multiplier::One, 0),
+                            );
+                        }
+                    } else if sz == Size::S16 {
+                        if self.compatible_imm(val as i64, offsize) {
+                            self.assembler.emit_ldrh(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory(reg, val as _),
+                            );
+                        } else {
+                            if reg == tmp {
+                                unreachable!();
+                            }
+                            self.assembler
+                                .emit_mov_imm(Location::GPR(tmp), (val as i64) as u64);
+                            self.assembler.emit_ldrh(
+                                sz,
+                                Location::GPR(tmp),
+                                Location::Memory2(reg, tmp, Multiplier::One, 0),
+                            );
+                        }
+                    } else if self.compatible_imm(val as i64, offsize) {
                         self.assembler.emit_ldr(
                             sz,
                             Location::GPR(tmp),
@@ -1103,6 +1142,29 @@ impl MachineARM64 {
         self.emit_label(end);
         self.restore_fpcr(old_fpcr);
     }
+
+    fn used_gprs_contains(&self, r: &GPR) -> bool {
+        self.used_gprs & (1 << r.into_index()) != 0
+    }
+    fn used_simd_contains(&self, r: &NEON) -> bool {
+        self.used_simd & (1 << r.into_index()) != 0
+    }
+    fn used_gprs_insert(&mut self, r: GPR) {
+        self.used_gprs |= 1 << r.into_index();
+    }
+    fn used_simd_insert(&mut self, r: NEON) {
+        self.used_simd |= 1 << r.into_index();
+    }
+    fn used_gprs_remove(&mut self, r: &GPR) -> bool {
+        let ret = self.used_gprs_contains(r);
+        self.used_gprs &= !(1 << r.into_index());
+        ret
+    }
+    fn used_simd_remove(&mut self, r: &NEON) -> bool {
+        let ret = self.used_simd_contains(r);
+        self.used_simd &= !(1 << r.into_index());
+        ret
+    }
 }
 
 impl Machine for MachineARM64 {
@@ -1123,18 +1185,36 @@ impl Machine for MachineARM64 {
     }
 
     fn get_used_gprs(&self) -> Vec<GPR> {
-        self.used_gprs.iter().cloned().collect()
+        GPR::iterator()
+            .filter_map(|x| {
+                if self.used_gprs & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn get_used_simd(&self) -> Vec<NEON> {
-        self.used_simd.iter().cloned().collect()
+        NEON::iterator()
+            .filter_map(|x| {
+                if self.used_simd & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[X9, X10, X11, X12, X13, X14, X15];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1146,7 +1226,7 @@ impl Machine for MachineARM64 {
         use GPR::*;
         static REGS: &[GPR] = &[X8, X7, X6, X5, X4, X3, X2, X1];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1156,27 +1236,26 @@ impl Machine for MachineARM64 {
     fn acquire_temp_gpr(&mut self) -> Option<GPR> {
         let gpr = self.pick_temp_gpr();
         if let Some(x) = gpr {
-            self.used_gprs.insert(x);
+            self.used_gprs_insert(x);
         }
         gpr
     }
 
     fn release_gpr(&mut self, gpr: GPR) {
-        assert!(self.used_gprs.remove(&gpr));
+        assert!(self.used_gprs_remove(&gpr));
     }
 
     fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
-        assert!(!self.used_gprs.contains(&gpr));
-        self.used_gprs.insert(gpr);
+        assert!(!self.used_gprs_contains(&gpr));
+        self.used_gprs_insert(gpr);
         gpr
     }
 
     fn reserve_gpr(&mut self, gpr: GPR) {
-        self.used_gprs.insert(gpr);
+        self.used_gprs_insert(gpr);
     }
 
-    fn push_used_gpr(&mut self) -> usize {
-        let used_gprs = self.get_used_gprs();
+    fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
         if used_gprs.len() % 2 == 1 {
             self.emit_push(Size::S64, Location::GPR(GPR::XzrSp));
         }
@@ -1185,8 +1264,7 @@ impl Machine for MachineARM64 {
         }
         ((used_gprs.len() + 1) / 2) * 16
     }
-    fn pop_used_gpr(&mut self) {
-        let used_gprs = self.get_used_gprs();
+    fn pop_used_gpr(&mut self, used_gprs: &Vec<GPR>) {
         for r in used_gprs.iter().rev() {
             self.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1200,7 +1278,7 @@ impl Machine for MachineARM64 {
         use NEON::*;
         static REGS: &[NEON] = &[V8, V9, V10, V11, V12];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1212,7 +1290,7 @@ impl Machine for MachineARM64 {
         use NEON::*;
         static REGS: &[NEON] = &[V0, V1, V2, V3, V4, V5, V6, V7];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1223,22 +1301,21 @@ impl Machine for MachineARM64 {
     fn acquire_temp_simd(&mut self) -> Option<NEON> {
         let simd = self.pick_temp_simd();
         if let Some(x) = simd {
-            self.used_simd.insert(x);
+            self.used_simd_insert(x);
         }
         simd
     }
 
     fn reserve_simd(&mut self, simd: NEON) {
-        self.used_simd.insert(simd);
+        self.used_simd_insert(simd);
     }
 
     // Releases a temporary NEON register.
     fn release_simd(&mut self, simd: NEON) {
-        assert_eq!(self.used_simd.remove(&simd), true);
+        assert_eq!(self.used_simd_remove(&simd), true);
     }
 
-    fn push_used_simd(&mut self) -> usize {
-        let used_neons = self.get_used_simd();
+    fn push_used_simd(&mut self, used_neons: &Vec<NEON>) -> usize {
         let stack_adjust = if used_neons.len() & 1 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
@@ -1255,8 +1332,7 @@ impl Machine for MachineARM64 {
         }
         stack_adjust as usize
     }
-    fn pop_used_simd(&mut self) {
-        let used_neons = self.get_used_simd();
+    fn pop_used_simd(&mut self, used_neons: &Vec<NEON>) {
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_ldr(
                 Size::S64,
@@ -1407,13 +1483,17 @@ impl Machine for MachineARM64 {
         );
     }
     // push a value on the stack for a native call
-    fn push_location_for_native(&mut self, loc: Location) {
+    fn move_location_for_native(&mut self, size: Size, loc: Location, dest: Location) {
         match loc {
-            Location::Imm64(_) => {
-                self.move_location(Size::S64, loc, Location::GPR(GPR::X17));
-                self.emit_push(Size::S64, Location::GPR(GPR::X17));
+            Location::Imm64(_)
+            | Location::Imm32(_)
+            | Location::Imm8(_)
+            | Location::Memory(_, _)
+            | Location::Memory2(_, _, _, _) => {
+                self.move_location(size, loc, Location::GPR(GPR::X17));
+                self.move_location(size, Location::GPR(GPR::X17), dest);
             }
-            _ => self.emit_push(Size::S64, loc),
+            _ => self.move_location(size, loc, dest),
         }
     }
 
@@ -1964,6 +2044,14 @@ impl Machine for MachineARM64 {
                 let tmp = self.location_to_neon(sz, output, &mut tempn, ImmType::None, false);
                 self.assembler.emit_fmax(sz, input, input, tmp);
                 self.move_location(sz, tmp, output);
+            }
+            (Size::S32, Location::Memory(_, _), _) | (Size::S64, Location::Memory(_, _), _) => {
+                let src = self.location_to_neon(sz, input, &mut tempn, ImmType::None, true);
+                let tmp = self.location_to_neon(sz, output, &mut tempn, ImmType::None, false);
+                self.assembler.emit_fmax(sz, src, src, tmp);
+                if tmp != output {
+                    self.move_location(sz, tmp, output);
+                }
             }
             _ => panic!(
                 "singlepass can't emit canonicalize_nan {:?} {:?} {:?}",

@@ -737,8 +737,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .collect();
 
         // Save used GPRs. Preserve correct stack alignment
-        let mut used_stack = self.machine.push_used_gpr();
         let used_gprs = self.machine.get_used_gprs();
+        let mut used_stack = self.machine.push_used_gpr(&used_gprs);
         for r in used_gprs.iter() {
             let content = self.state.register_values[self.machine.index_from_gpr(*r).0].clone();
             if content == MachineValue::Undefined {
@@ -752,7 +752,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
         if used_simds.len() > 0 {
-            used_stack += self.machine.push_used_simd();
+            used_stack += self.machine.push_used_simd(&used_simds);
 
             for r in used_simds.iter().rev() {
                 let content =
@@ -842,7 +842,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             self.state.stack_values.push(MachineValue::Undefined);
                         }
                     }
-                    self.machine.move_location(params_size[i], *param, loc);
+                    self.machine
+                        .move_location_for_native(params_size[i], *param, loc);
                 }
                 _ => {
                     return Err(CodegenError {
@@ -914,14 +915,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Restore SIMDs.
         if !used_simds.is_empty() {
-            self.machine.pop_used_simd();
+            self.machine.pop_used_simd(&used_simds);
             for _ in 0..used_simds.len() {
                 self.state.stack_values.pop().unwrap();
             }
         }
 
         // Restore GPRs.
-        self.machine.pop_used_gpr();
+        self.machine.pop_used_gpr(&used_gprs);
         for _ in used_gprs.iter().rev() {
             self.state.stack_values.pop().unwrap();
         }

@@ -69,13 +69,21 @@ impl Compiler for SinglepassCompiler {
                 ))
             }
         }
-        if target.triple().architecture == Architecture::X86_64
-            && !target.cpu_features().contains(CpuFeature::AVX)
-        {
-            return Err(CompileError::UnsupportedTarget(
-                "x86_64 without AVX".to_string(),
-            ));
-        }
+
+        let simd_arch = match target.triple().architecture {
+            Architecture::X86_64 => {
+                if target.cpu_features().contains(CpuFeature::AVX) {
+                    Some(CpuFeature::AVX)
+                } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                    Some(CpuFeature::SSE42)
+                } else {
+                    return Err(CompileError::UnsupportedTarget(
+                        "x86_64 without AVX or SSE 4.2".to_string(),
+                    ));
+                }
+            }
+            _ => None,
+        };
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
@@ -131,7 +139,7 @@ impl Compiler for SinglepassCompiler {
 
                 match target.triple().architecture {
                     Architecture::X86_64 => {
-                        let machine = MachineX86_64::new();
+                        let machine = MachineX86_64::new(simd_arch);
                         let mut generator = FuncGen::new(
                             module,
                             &self.config,

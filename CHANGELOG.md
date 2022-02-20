@@ -8,6 +8,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 2.2.0-rc2 - 2022/02/15
+
+### Fixed
+- [#2778](https://github.com/wasmerio/wasmer/pull/2778) Fixed f32_load/f64_load in Singlepass. Also fixed issues with out-of-range conditional branches.
+- [#2786](https://github.com/wasmerio/wasmer/pull/2786) Fixed a potential integer overflow in WasmPtr memory access methods.
+- [#2787](https://github.com/wasmerio/wasmer/pull/2787) Fixed a codegen regression in the Singlepass compiler due to non-determinism of `HashSet` iteration.
+
 ## 2.2.0-rc1 - 2022/01/28
 
 ### Added

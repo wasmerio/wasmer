@@ -8,8 +8,8 @@ use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    Architecture, CallingConvention, CustomSection, FunctionBody, InstructionAddressMap,
-    Relocation, RelocationTarget, Target, TrapInformation,
+    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody,
+    InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation,
 };
 use wasmer_types::{FunctionIndex, FunctionType};
 use wasmer_vm::{TrapCode, VMOffsets};
@@ -83,9 +83,9 @@ pub trait Machine {
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
     /// Push used gpr to the stack. Return the bytes taken on the stack
-    fn push_used_gpr(&mut self) -> usize;
+    fn push_used_gpr(&mut self, grps: &Vec<Self::GPR>) -> usize;
     /// Pop used gpr to the stack
-    fn pop_used_gpr(&mut self);
+    fn pop_used_gpr(&mut self, grps: &Vec<Self::GPR>);
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used
@@ -101,9 +101,9 @@ pub trait Machine {
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: Self::SIMD);
     /// Push used simd regs to the stack. Return bytes taken on the stack
-    fn push_used_simd(&mut self) -> usize;
+    fn push_used_simd(&mut self, simds: &Vec<Self::SIMD>) -> usize;
     /// Pop used simd regs to the stack
-    fn pop_used_simd(&mut self);
+    fn pop_used_simd(&mut self, simds: &Vec<Self::SIMD>);
     /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
@@ -140,7 +140,12 @@ pub trait Machine {
     /// GPR Reg used for local pointer on the stack
     fn local_pointer(&self) -> Self::GPR;
     /// push a value on the stack for a native call
-    fn push_location_for_native(&mut self, loc: Location<Self::GPR, Self::SIMD>);
+    fn move_location_for_native(
+        &mut self,
+        size: Size,
+        loc: Location<Self::GPR, Self::SIMD>,
+        dest: Location<Self::GPR, Self::SIMD>,
+    );
     /// Determine whether a local should be allocated on the stack.
     fn is_local_on_stack(&self, idx: usize) -> bool;
     /// Determine a local's location.
@@ -2195,7 +2200,13 @@ pub fn gen_std_trampoline(
 ) -> FunctionBody {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
@@ -2205,6 +2216,7 @@ pub fn gen_std_trampoline(
         _ => unimplemented!(),
     }
 }
+
 /// Generates dynamic import function call trampoline for a function type.
 pub fn gen_std_dynamic_import_trampoline(
     vmoffsets: &VMOffsets,
@@ -2214,7 +2226,13 @@ pub fn gen_std_dynamic_import_trampoline(
 ) -> FunctionBody {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
@@ -2234,7 +2252,13 @@ pub fn gen_import_call_trampoline(
 ) -> CustomSection {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {

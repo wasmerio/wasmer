@@ -136,8 +136,9 @@ languages**, so you can use WebAssembly _anywhere_.
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 | ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
 | ![Crystal logo] | [**Crystal**][Crystal integration] | *no published package* | [Learn][crystal docs] |
-| ![Lisp logo] | [**Lisp**][Lisp integration] | *under heavy development - no published package* | |
+| ![Lisp logo] | [**Lisp**][Lisp integration] | *no published package* | |
 | ![Julia logo] | [**Julia**][Julia integration] | *no published package* | |
+| ![VLang logo] | [**V**][vlang integration] | *no published package* | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -223,6 +224,9 @@ languages**, so you can use WebAssembly _anywhere_.
 
 [julia logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/julia.svg
 [julia integration]: https://github.com/Pangoraw/Wasmer.jl
+
+[vlang logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/vlang.svg
+[vlang integration]: https://github.com/vlang/wasmer
 
 ## Contribute
 
