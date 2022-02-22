@@ -3869,13 +3869,14 @@ impl Machine for MachineX86_64 {
         self.release_gpr(compare);
     }
 
-    fn move_with_reloc(
+    fn emit_call_with_reloc(
         &mut self,
+        _calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
-        relocations: &mut Vec<Relocation>,
-    ) {
+    ) -> Vec<Relocation> {
         let reloc_at = self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
 
+        let mut relocations = vec![];
         relocations.push(Relocation {
             kind: RelocationKind::Abs8,
             reloc_target,
@@ -3890,6 +3891,8 @@ impl Machine for MachineX86_64 {
             Location::Imm64(std::u64::MAX),
             Location::GPR(GPR::RAX),
         );
+        self.assembler.emit_call_register(GPR::RAX);
+        relocations
     }
 
     fn emit_binop_add64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {

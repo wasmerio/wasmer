@@ -157,8 +157,10 @@ pub trait EmitterARM64 {
     fn emit_clz(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_rbit(&mut self, sz: Size, src: Location, dst: Location);
 
+    fn emit_nop(&mut self);
     fn emit_label(&mut self, label: Label);
     fn emit_load_label(&mut self, reg: GPR, label: Label);
+    fn emit_ldr_label(&mut self, size: Size, reg: GPR, label: Label);
     fn emit_b_label(&mut self, label: Label);
     fn emit_cbz_label(&mut self, sz: Size, reg: Location, label: Label);
     fn emit_cbnz_label(&mut self, sz: Size, reg: Location, label: Label);
@@ -1892,6 +1894,9 @@ impl EmitterARM64 for Assembler {
         }
     }
 
+    fn emit_nop(&mut self) {
+        dynasm!(self ; nop);
+    }
     fn emit_label(&mut self, label: Label) {
         dynasm!(self ; => label);
     }
@@ -1899,6 +1904,18 @@ impl EmitterARM64 for Assembler {
         let reg = reg.into_index() as u32;
         dynasm!(self ; adr X(reg), =>label);
     }
+    fn emit_ldr_label(&mut self, size: Size, reg: GPR, label: Label) {
+        let reg = reg.into_index() as u32;
+        match size {
+            Size::S32 => dynasm!(self ; ldr W(reg), =>label),
+            Size::S64 => dynasm!(self ; ldr X(reg), =>label),
+            _ => panic!(
+                "singlepass can't emit LDR {:?} {:?} => {:?} ",
+                size, reg, label
+            ),
+        }
+    }
+
     fn emit_b_label(&mut self, label: Label) {
         dynasm!(self ; b =>label);
     }

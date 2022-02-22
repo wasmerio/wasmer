@@ -80,7 +80,7 @@ fn apply_relocation(
                 )
             }
             let reloc_delta = (((reloc_delta / 4) as u32) & 0x3ff_ffff)
-                | read_unaligned(reloc_address as *mut u32);
+                | (read_unaligned(reloc_address as *mut u32) & 0xfc00_0000);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
         RelocationKind::Arm64Movw0 => unsafe {

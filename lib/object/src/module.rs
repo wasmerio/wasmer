@@ -275,6 +275,8 @@ pub fn emit_compilation(
         let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
 
         for r in relocations {
+            let relocation_address = section_offset + r.offset as u64;
+
             let (relocation_kind, relocation_encoding, relocation_size) = match r.kind {
                 Reloc::Abs4 => (RelocationKind::Absolute, RelocationEncoding::Generic, 32),
                 Reloc::Abs8 => (RelocationKind::Absolute, RelocationEncoding::Generic, 64),
@@ -309,6 +311,62 @@ pub fn emit_compilation(
                     RelocationEncoding::Generic,
                     32,
                 ),
+                Reloc::Arm64Movw0 => (
+                    match obj.format() {
+                        object::BinaryFormat::Elf => {
+                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G0)
+                        }
+                        fmt => panic!(
+                            "unsupported binary format {:?} for relocation {:?}",
+                            fmt,
+                            obj.format()
+                        ),
+                    },
+                    RelocationEncoding::Generic,
+                    16,
+                ),
+                Reloc::Arm64Movw1 => (
+                    match obj.format() {
+                        object::BinaryFormat::Elf => {
+                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G1)
+                        }
+                        fmt => panic!(
+                            "unsupported binary format {:?} for relocation {:?}",
+                            fmt,
+                            obj.format()
+                        ),
+                    },
+                    RelocationEncoding::Generic,
+                    16,
+                ),
+                Reloc::Arm64Movw2 => (
+                    match obj.format() {
+                        object::BinaryFormat::Elf => {
+                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G2)
+                        }
+                        fmt => panic!(
+                            "unsupported binary format {:?} for relocation {:?}",
+                            fmt,
+                            obj.format()
+                        ),
+                    },
+                    RelocationEncoding::Generic,
+                    16,
+                ),
+                Reloc::Arm64Movw3 => (
+                    match obj.format() {
+                        object::BinaryFormat::Elf => {
+                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G3)
+                        }
+                        fmt => panic!(
+                            "unsupported binary format {:?} for relocation {:?}",
+                            fmt,
+                            obj.format()
+                        ),
+                    },
+                    RelocationEncoding::Generic,
+                    16,
+                ),
                 other => {
                     return Err(ObjectError::UnsupportedArchitecture(format!(
                         "{} (relocation: {}",
@@ -316,8 +374,6 @@ pub fn emit_compilation(
                     )))
                 }
             };
-
-            let relocation_address = section_offset + r.offset as u64;
 
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {

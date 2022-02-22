@@ -1038,11 +1038,11 @@ pub trait Machine {
     );
 
     /// emit a move function address to GPR ready for call, using appropriate relocation
-    fn move_with_reloc(
+    fn emit_call_with_reloc(
         &mut self,
+        calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
-        relocations: &mut Vec<Relocation>,
-    );
+    ) -> Vec<Relocation>;
     /// Add with location directly from the stack
     fn emit_binop_add64(
         &mut self,
