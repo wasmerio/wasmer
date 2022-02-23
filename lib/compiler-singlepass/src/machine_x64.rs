@@ -3874,24 +3874,17 @@ impl Machine for MachineX86_64 {
         _calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
     ) -> Vec<Relocation> {
-        let reloc_at = self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
-
         let mut relocations = vec![];
+        let next = self.get_label();
+        let reloc_at = self.assembler.get_offset().0 + 1; // skip E8
+        self.assembler.emit_call_label(next);
+        self.emit_label(next);
         relocations.push(Relocation {
-            kind: RelocationKind::Abs8,
+            kind: RelocationKind::X86CallPCRel4,
             reloc_target,
             offset: reloc_at as u32,
-            addend: 0,
+            addend: -4,
         });
-
-        // RAX is preserved on entry to `emit_call_native` callback.
-        // The Imm64 value is relocated by the JIT linker.
-        self.assembler.emit_mov(
-            Size::S64,
-            Location::Imm64(std::u64::MAX),
-            Location::GPR(GPR::RAX),
-        );
-        self.assembler.emit_call_register(GPR::RAX);
         relocations
     }
 

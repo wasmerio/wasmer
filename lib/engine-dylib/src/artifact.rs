@@ -384,7 +384,7 @@ impl DylibArtifact {
             // We are explicit on the target when the host system is
             // Apple Silicon, otherwise compilation fails.
             if target_triple_str == "arm64-apple-darwin" {
-                vec![form at!("--target={}", target_triple_str)]
+                vec![format!("--target={}", target_triple_str)]
             } else {
                 vec![]
             }
@@ -400,12 +400,6 @@ impl DylibArtifact {
             Triple::host().to_string(),
         );
 
-        let notext = match (target_triple.operating_system, target_triple.architecture) {
-            (OperatingSystem::Linux, Architecture::X86_64) => vec!["-Wl,-z,notext"],
-            (OperatingSystem::MacOSX, Architecture::X86_64) => vec!["-Wl,-read_only_relocs,suppress"],
-            _ => vec![],
-        };
-
         let linker = engine_inner.linker().executable();
         let output = Command::new(linker)
             .arg(&filepath)
@@ -415,7 +409,6 @@ impl DylibArtifact {
             .args(&target_args)
             // .args(&wasmer_symbols)
             .arg("-shared")
-            .args(&notext)
             .args(&cross_compiling_args)
             .arg("-v")
             .output()
