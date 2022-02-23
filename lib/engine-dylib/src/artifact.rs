@@ -384,7 +384,7 @@ impl DylibArtifact {
             // We are explicit on the target when the host system is
             // Apple Silicon, otherwise compilation fails.
             if target_triple_str == "arm64-apple-darwin" {
-                vec![format!("--target={}", target_triple_str)]
+                vec![form at!("--target={}", target_triple_str)]
             } else {
                 vec![]
             }
@@ -402,6 +402,7 @@ impl DylibArtifact {
 
         let notext = match (target_triple.operating_system, target_triple.architecture) {
             (OperatingSystem::Linux, Architecture::X86_64) => vec!["-Wl,-z,notext"],
+            (OperatingSystem::MacOSX, Architecture::X86_64) => vec!["-Wl,-read_only_relocs,suppress"],
             _ => vec![],
         };
 
