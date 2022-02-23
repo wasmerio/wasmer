@@ -2,7 +2,6 @@
 singlepass spec::multi_value # Singlepass has not implemented multivalue (functions that returns "structs"/"tuples")
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 
-singlepass+dylib+aarch64+macos *
 windows+dylib * # This might be trivial to fix?
 musl+dylib * # Dynamic loading not supported in Musl
 

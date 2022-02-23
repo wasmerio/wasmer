@@ -3237,8 +3237,8 @@ impl Machine for MachineARM64 {
         let mut relocations = vec![];
         let next = self.get_label();
         let reloc_at = self.assembler.get_offset().0;
+        self.emit_label(next); // this is to be sure the current imm26 value is 0
         self.assembler.emit_call_label(next);
-        self.emit_label(next);
         relocations.push(Relocation {
             kind: RelocationKind::Arm64Call,
             reloc_target,
