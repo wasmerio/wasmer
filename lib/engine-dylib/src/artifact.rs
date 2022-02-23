@@ -400,6 +400,11 @@ impl DylibArtifact {
             Triple::host().to_string(),
         );
 
+        let notext = match (target_triple.operating_system, target_triple.architecture) {
+            (OperatingSystem::Linux, Architecture::X86_64) => vec!["-Wl,-z,notext"],
+            _ => vec![],
+        };
+
         let linker = engine_inner.linker().executable();
         let output = Command::new(linker)
             .arg(&filepath)
@@ -409,6 +414,7 @@ impl DylibArtifact {
             .args(&target_args)
             // .args(&wasmer_symbols)
             .arg("-shared")
+            .args(&notext)
             .args(&cross_compiling_args)
             .arg("-v")
             .output()
