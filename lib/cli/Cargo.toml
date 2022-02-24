@@ -70,6 +70,7 @@ default = [
     "cache",
     "wasi",
     "emscripten",
+    "experimental-io-devices",
 ]
 engine = []
 universal = [
