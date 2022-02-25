@@ -434,6 +434,20 @@
 <span id="434">434</span>
 <span id="435">435</span>
 <span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::Store</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
@@ -470,8 +484,22 @@
 <span class="doccomment">/// contents rather than a deep copy.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Module</span> {
-    <span class="ident">store</span>: <span class="ident">Store</span>,
+    <span class="comment">// The field ordering here is actually significant because of the drop</span>
+    <span class="comment">// order: we want to drop the artifact before dropping the engine.</span>
+    <span class="comment">//</span>
+    <span class="comment">// The reason for this is that dropping the Artifact will de-register the</span>
+    <span class="comment">// trap handling metadata from the global registry. This must be done before</span>
+    <span class="comment">// the code memory for the artifact is freed (which happens when the store</span>
+    <span class="comment">// is dropped) since there is a chance that this memory could be reused by</span>
+    <span class="comment">// another module which will try to register its own trap information.</span>
+    <span class="comment">//</span>
+    <span class="comment">// Note that in Rust, the drop order for struct fields is from top to</span>
+    <span class="comment">// bottom: the opposite of C++.</span>
+    <span class="comment">//</span>
+    <span class="comment">// In the future, this code should be refactored to properly describe the</span>
+    <span class="comment">// ownership of the code and its metadata.</span>
     <span class="ident">artifact</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Artifact</span><span class="op">&gt;</span>,
+    <span class="ident">store</span>: <span class="ident">Store</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Module</span> {
