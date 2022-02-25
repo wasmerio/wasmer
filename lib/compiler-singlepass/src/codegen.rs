@@ -517,7 +517,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // so here we probe it explicitly when needed.
         for i in (sig.params().len()..n)
             .step_by(NATIVE_PAGE_SIZE / 8)
-            .skip(0)
+            .skip(1)
         {
             self.machine.zero_location(Size::S64, locations[i]);
         }
