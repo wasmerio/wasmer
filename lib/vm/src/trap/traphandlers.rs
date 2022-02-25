@@ -827,13 +827,18 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
 pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     // Reset YIEDER to None for the duration of this call to indicate that we
     // are no longer on the Wasm stack.
-    let yielder_ptr = YIELDER
-        .with(|cell| cell.replace(None))
-        .expect("not running on Wasm stack");
-    let yielder = unsafe { yielder_ptr.as_ref() };
+    let yielder_ptr = YIELDER.with(|cell| cell.replace(None));
 
+    // If we are already on the host stack, execute the function directly. This
+    // happens if a host function is called directly from the API.
+    let yielder = match yielder_ptr {
+        Some(ptr) => unsafe { ptr.as_ref() },
+        None => return f(),
+    };
+
+    // Restore YIELDER upon exiting normally or unwinding.
     defer! {
-        YIELDER.with(|cell| cell.set(Some(yielder_ptr)));
+        YIELDER.with(|cell| cell.set(yielder_ptr));
     }
 
     // on_parent_stack requires the closure to be Send so that the Yielder
