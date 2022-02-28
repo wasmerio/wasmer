@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "2.2.0-rc2"
+version = "2.2.0"
 description = "High-performance WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
@@ -32,19 +32,19 @@ wat = { version = "1.0", optional = true }
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=2.2.0-rc2" }
-wasmer-compiler = { path = "../compiler", version = "=2.2.0-rc2" }
-wasmer-derive = { path = "../derive", version = "=2.2.0-rc2" }
-wasmer-engine = { path = "../engine", version = "=2.2.0-rc2" }
-wasmer-types = { path = "../types", version = "=2.2.0-rc2" }
+wasmer-vm = { path = "../vm", version = "=2.2.0" }
+wasmer-compiler = { path = "../compiler", version = "=2.2.0" }
+wasmer-derive = { path = "../derive", version = "=2.2.0" }
+wasmer-engine = { path = "../engine", version = "=2.2.0" }
+wasmer-types = { path = "../types", version = "=2.2.0" }
 target-lexicon = { version = "0.12.2", default-features = false }
 loupe = "0.1"
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.2.0-rc2", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=2.2.0-rc2", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=2.2.0-rc2", optional = true }
-wasmer-engine-universal = { path = "../engine-universal", version = "=2.2.0-rc2", optional = true }
-wasmer-engine-dylib = { path = "../engine-dylib", version = "=2.2.0-rc2", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.2.0", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=2.2.0", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=2.2.0", optional = true }
+wasmer-engine-universal = { path = "../engine-universal", version = "=2.2.0", optional = true }
+wasmer-engine-dylib = { path = "../engine-dylib", version = "=2.2.0", optional = true }
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
 winapi = "0.3"
@@ -57,10 +57,10 @@ anyhow = "1.0"
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=2.2.0-rc2", default-features = false, features = ["std"] }
+wasmer-types = { path = "../types", version = "=2.2.0", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
 js-sys = "0.3.51"
-wasmer-derive = { path = "../derive", version = "=2.2.0-rc2" }
+wasmer-derive = { path = "../derive", version = "=2.2.0" }
 # - Optional dependencies for `js`.
 wasmparser = { version = "0.78", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }

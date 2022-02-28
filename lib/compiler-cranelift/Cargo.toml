@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-cranelift"
-version = "2.2.0-rc2"
+version = "2.2.0"
 description = "Cranelift compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "cranelift"]
@@ -12,9 +12,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=2.2.0-rc2", features = ["translator"], default-features = false }
-wasmer-vm = { path = "../vm", version = "=2.2.0-rc2" }
-wasmer-types = { path = "../types", version = "=2.2.0-rc2", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "=2.2.0", features = ["translator"], default-features = false }
+wasmer-vm = { path = "../vm", version = "=2.2.0" }
+wasmer-types = { path = "../types", version = "=2.2.0", default-features = false, features = ["std"] }
 cranelift-entity = { version = "0.76", default-features = false }
 cranelift-codegen = { version = "0.76", default-features = false, features = ["x86", "arm64"] }
 cranelift-frontend = { version = "0.76", default-features = false }

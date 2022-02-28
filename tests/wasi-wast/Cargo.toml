@@ -1,6 +1,6 @@
 [package]
 name = "wasi-test-generator"
-version = "2.2.0-rc2"
+version = "2.2.0"
 description = "Tests for our WASI implementation"
 license = "MIT"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
