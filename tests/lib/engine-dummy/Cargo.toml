@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-dummy"
-version = "2.2.0-rc2"
+version = "2.2.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Wasmer placeholder engine"
 license = "MIT"
@@ -8,10 +8,10 @@ edition = "2018"
 publish = false
 
 [dependencies]
-wasmer-types = { path = "../../../lib/types", version = "=2.2.0-rc2" }
-wasmer-compiler = { path = "../../../lib/compiler", version = "=2.2.0-rc2" }
-wasmer-vm = { path = "../../../lib/vm", version = "=2.2.0-rc2" }
-wasmer-engine = { path = "../../../lib/engine", version = "=2.2.0-rc2" }
+wasmer-types = { path = "../../../lib/types", version = "=2.2.0" }
+wasmer-compiler = { path = "../../../lib/compiler", version = "=2.2.0" }
+wasmer-vm = { path = "../../../lib/vm", version = "=2.2.0" }
+wasmer-engine = { path = "../../../lib/engine", version = "=2.2.0" }
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 serde_bytes = { version = "0.11", optional = true }
 bincode = { version = "1.2", optional = true }
