@@ -1,3 +1,4 @@
+#[cfg(feature = "unwind")]
 use gimli::{write::CallFrameInstruction, write::CommonInformationEntry, Encoding, Format, X86_64};
 use std::fmt::Debug;
 use wasmer_compiler::Architecture;
@@ -9,6 +10,7 @@ pub enum UnwindOps {
 }
 
 /// generate a default systemv  cie
+#[cfg(feature = "unwind")]
 pub fn create_systemv_cie(arch: Architecture) -> Option<gimli::write::CommonInformationEntry> {
     match arch {
         Architecture::X86_64 => {

@@ -2,6 +2,7 @@ use crate::address_map::get_function_address_map;
 use crate::location::{Location, Reg};
 use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
 use crate::{common_decl::*, config::Singlepass};
+#[cfg(feature = "unwind")]
 use gimli::write::FrameDescriptionEntry;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
@@ -20,6 +21,9 @@ use wasmer_types::{
     SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+
+#[cfg(not(feature = "unwind"))]
+pub type FrameDescriptionEntry = u32;
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
