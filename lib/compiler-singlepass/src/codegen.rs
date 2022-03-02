@@ -2,6 +2,7 @@ use crate::address_map::get_function_address_map;
 use crate::location::{Location, Reg};
 use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
 use crate::{common_decl::*, config::Singlepass};
+use gimli::write::FrameDescriptionEntry;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
@@ -5850,7 +5851,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    pub fn finalize(mut self, data: &FunctionBodyData) -> CompiledFunction {
+    pub fn finalize(
+        mut self,
+        data: &FunctionBodyData,
+    ) -> (CompiledFunction, Option<FrameDescriptionEntry>) {
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero);
@@ -5895,18 +5899,21 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let traps = self.machine.collect_trap_information();
         let body = self.machine.assembler_finalize();
 
-        CompiledFunction {
-            body: FunctionBody {
-                body: body,
-                unwind_info: None,
+        (
+            CompiledFunction {
+                body: FunctionBody {
+                    body: body,
+                    unwind_info: None,
+                },
+                relocations: self.relocations.clone(),
+                jt_offsets: SecondaryMap::new(),
+                frame_info: CompiledFunctionFrameInfo {
+                    traps: traps,
+                    address_map,
+                },
             },
-            relocations: self.relocations.clone(),
-            jt_offsets: SecondaryMap::new(),
-            frame_info: CompiledFunctionFrameInfo {
-                traps: traps,
-                address_map,
-            },
-        }
+            None,
+        )
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

@@ -3,6 +3,7 @@ use crate::emitter_x64::*;
 use crate::location::Location as AbstractLocation;
 use crate::location::Reg;
 use crate::machine::*;
+use crate::unwind::UnwindOps;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
@@ -66,6 +67,8 @@ pub struct MachineX86_64 {
     instructions_address_map: Vec<InstructionAddressMap>,
     /// The source location for the current operator.
     src_loc: u32,
+    /// Vector of unwind operations with offset
+    unwind_ops: Vec<(usize, UnwindOps)>,
 }
 
 impl MachineX86_64 {
@@ -77,6 +80,7 @@ impl MachineX86_64 {
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
+            unwind_ops: vec![],
         }
     }
     pub fn emit_relaxed_binop(
@@ -2180,7 +2184,16 @@ impl Machine for MachineX86_64 {
 
     fn emit_function_prolog(&mut self) {
         self.emit_push(Size::S64, Location::GPR(GPR::RBP));
+        self.unwind_ops
+            .push((self.get_offset().0, UnwindOps::PushFP { up_to_sp: 16 }));
         self.move_location(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
+        self.unwind_ops.push((
+            self.get_offset().0,
+            UnwindOps::DefineNewFrame {
+                up_to_sp: 0,
+                down_to_clobber: 0,
+            },
+        ));
     }
 
     fn emit_function_epilog(&mut self) {

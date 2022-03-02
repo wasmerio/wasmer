@@ -164,11 +164,61 @@ impl CombinedRegister for X64Register {
     fn from_simd(x: u16) -> Self {
         X64Register::XMM(XMM::from_index(x as usize).unwrap())
     }
-
+    /* x86_64-abi-0.99.pdf
+     * Register Name                    | Number | Abbreviation
+     * General Purpose Register RAX     | 0      | %rax
+     * General Purpose Register RDX     | 1      | %rdx
+     * General Purpose Register RCX     | 2      | %rcx
+     * General Purpose Register RBX     | 3      | %rbx
+     * General Purpose Register RSI     | 4      | %rsi
+     * General Purpose Register RDI     | 5      | %rdi
+     * Frame Pointer Register   RBP     | 6      | %rbp
+     * Stack Pointer Register   RSP     | 7      | %rsp
+     * Extended Integer Registers 8-15  | 8-15   | %r8-%r15
+     * Return Address RA                | 16     |
+     * Vector Registers 0-7             | 17-24  | %xmm0-%xmm7
+     * Extended Vector Registers 8-15   | 25-32  | %xmm8-%xmm15
+     * Floating Point Registers 0-7     | 33-40  | %st0-%st7
+     * MMX Registers 0-7                | 41-48  | %mm0-%mm7
+     * Flag Register                    | 49     | %rFLAGS
+     * Segment Register ES              | 50     | %es
+     * Segment Register CS              | 51     | %cs
+     * Segment Register SS              | 52     | %ss
+     * Segment Register DS              | 53     | %ds
+     * Segment Register FS              | 54     | %fs
+     * Segment Register GS              | 55     | %gs
+     * Reserved                         | 56-57  |
+     * FS Base address                  | 58     | %fs.base
+     * GS Base address                  | 59     | %gs.base
+     * Reserved                         | 60-61  |
+     * Task Register                    | 62     | %tr
+     * LDT Register                     | 63     | %ldtr
+     * 128-bit Media Control and Status | 64     | %mxcsr
+     * x87 Control Word                 | 65     | %fcw
+     * x87 Status Word                  | 66     | %fsw
+     */
     /// Converts a DWARF regnum to X64Register.
     fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
+        static DWARF_REGS: [GPR; 16] = [
+            GPR::RAX,
+            GPR::RDX,
+            GPR::RCX,
+            GPR::RBX,
+            GPR::RSI,
+            GPR::RDI,
+            GPR::RBP,
+            GPR::RSP,
+            GPR::R8,
+            GPR::R9,
+            GPR::R10,
+            GPR::R11,
+            GPR::R12,
+            GPR::R13,
+            GPR::R14,
+            GPR::R15,
+        ];
         Some(match x {
-            0..=15 => X64Register::GPR(GPR::from_index(x as usize).unwrap()),
+            0..=15 => X64Register::GPR(DWARF_REGS[x as usize]),
             17..=24 => X64Register::XMM(XMM::from_index(x as usize - 17).unwrap()),
             _ => return None,
         })
