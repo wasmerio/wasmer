@@ -43,8 +43,6 @@ singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
 # https://github.com/wasmerio/wasmer/issues/2808
 cranelift+aarch64 spec::skip_stack_guard_page
 llvm+aarch64      spec::skip_stack_guard_page
-# Stack probing doesn't seem to be working correctly on Windows with Cranelift
-cranelift+windows spec::skip_stack_guard_page
 # TODO: Needs more investigation
 cranelift+macos spec::skip_stack_guard_page
 llvm+macos spec::skip_stack_guard_page
