@@ -95,7 +95,7 @@ curl https://get.wasmer.io -sSfL | sh
 ### Quickstart
 
 You can start by running
-[QuickJS](https://github.com/bellard/quickjs/), a small and
+[QuickJS](https://wapm.io/saghul/quickjs), a small and
 embeddable Javascript engine compiled as a WebAssembly module ([`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)):
 
 ```bash
