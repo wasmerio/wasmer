@@ -7194,7 +7194,7 @@ impl Machine for MachineX86_64 {
         })
     }
     #[cfg(not(feature = "unwind"))]
-    fn gen_unwind_info(&mut self) -> Option<UnwindInstructions> {
+    fn gen_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
         None
     }
 }

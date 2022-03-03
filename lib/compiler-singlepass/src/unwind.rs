@@ -3,6 +3,7 @@ use gimli::write::{Address, CallFrameInstruction, CommonInformationEntry, FrameD
 #[cfg(feature = "unwind")]
 use gimli::{Encoding, Format, X86_64};
 use std::fmt::Debug;
+#[cfg(feature = "unwind")]
 use wasmer_compiler::Architecture;
 
 #[derive(Clone, Debug)]
