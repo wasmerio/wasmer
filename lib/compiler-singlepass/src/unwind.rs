@@ -1,12 +1,35 @@
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, write::CommonInformationEntry, Encoding, Format, X86_64};
+use gimli::write::{Address, CallFrameInstruction, CommonInformationEntry, FrameDescriptionEntry};
+#[cfg(feature = "unwind")]
+use gimli::{Encoding, Format, X86_64};
 use std::fmt::Debug;
 use wasmer_compiler::Architecture;
 
 #[derive(Clone, Debug)]
 pub enum UnwindOps {
     PushFP { up_to_sp: u32 },
-    DefineNewFrame { up_to_sp: u32, down_to_clobber: u32 },
+    DefineNewFrame,
+    SaveRegister { reg: u16, bp_neg_offset: i32 },
+}
+
+#[cfg(not(feature = "unwind"))]
+pub type CallFrameInstruction = u32;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnwindInstructions {
+    pub instructions: Vec<(u32, CallFrameInstruction)>,
+    pub len: u32,
+}
+
+impl UnwindInstructions {
+    /// Converts the unwind information into a `FrameDescriptionEntry`.
+    pub fn to_fde(&self, address: Address) -> gimli::write::FrameDescriptionEntry {
+        let mut fde = FrameDescriptionEntry::new(address, self.len);
+        for (offset, inst) in &self.instructions {
+            fde.add_instruction(*offset, inst.clone().into());
+        }
+        fde
+    }
 }
 
 /// generate a default systemv  cie

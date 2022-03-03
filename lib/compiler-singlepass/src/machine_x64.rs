@@ -3,10 +3,12 @@ use crate::emitter_x64::*;
 use crate::location::Location as AbstractLocation;
 use crate::location::Reg;
 use crate::machine::*;
-use crate::unwind::UnwindOps;
+use crate::unwind::{UnwindInstructions, UnwindOps};
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
+#[cfg(feature = "unwind")]
+use gimli::{write::CallFrameInstruction, X86_64};
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
@@ -55,6 +57,51 @@ impl DerefMut for AssemblerX64 {
 }
 
 type Location = AbstractLocation<GPR, XMM>;
+
+#[cfg(feature = "unwind")]
+fn dwarf_index(reg: u16) -> gimli::Register {
+    static DWARF_GPR: [gimli::Register; 16] = [
+        X86_64::RAX,
+        X86_64::RDX,
+        X86_64::RCX,
+        X86_64::RBX,
+        X86_64::RSI,
+        X86_64::RDI,
+        X86_64::RBP,
+        X86_64::RSP,
+        X86_64::R8,
+        X86_64::R9,
+        X86_64::R10,
+        X86_64::R11,
+        X86_64::R12,
+        X86_64::R13,
+        X86_64::R14,
+        X86_64::R15,
+    ];
+    static DWARF_XMM: [gimli::Register; 16] = [
+        X86_64::XMM0,
+        X86_64::XMM1,
+        X86_64::XMM2,
+        X86_64::XMM3,
+        X86_64::XMM4,
+        X86_64::XMM5,
+        X86_64::XMM6,
+        X86_64::XMM7,
+        X86_64::XMM8,
+        X86_64::XMM9,
+        X86_64::XMM10,
+        X86_64::XMM11,
+        X86_64::XMM12,
+        X86_64::XMM13,
+        X86_64::XMM14,
+        X86_64::XMM15,
+    ];
+    match reg {
+        0..=15 => DWARF_GPR[reg as usize],
+        17..=24 => DWARF_XMM[reg as usize - 17],
+        _ => panic!("Unknown register index {}", reg),
+    }
+}
 
 pub struct MachineX86_64 {
     assembler: AssemblerX64,
@@ -1938,6 +1985,27 @@ impl Machine for MachineX86_64 {
             location,
             Location::Memory(GPR::RBP, -stack_offset),
         );
+        match location {
+            Location::GPR(x) => {
+                self.unwind_ops.push((
+                    self.get_offset().0,
+                    UnwindOps::SaveRegister {
+                        reg: x.to_dwarf(),
+                        bp_neg_offset: stack_offset,
+                    },
+                ));
+            }
+            Location::SIMD(x) => {
+                self.unwind_ops.push((
+                    self.get_offset().0,
+                    UnwindOps::SaveRegister {
+                        reg: x.to_dwarf(),
+                        bp_neg_offset: stack_offset,
+                    },
+                ));
+            }
+            _ => (),
+        }
     }
 
     // List of register to save, depending on the CallingConvention
@@ -2187,13 +2255,8 @@ impl Machine for MachineX86_64 {
         self.unwind_ops
             .push((self.get_offset().0, UnwindOps::PushFP { up_to_sp: 16 }));
         self.move_location(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
-        self.unwind_ops.push((
-            self.get_offset().0,
-            UnwindOps::DefineNewFrame {
-                up_to_sp: 0,
-                down_to_clobber: 0,
-            },
-        ));
+        self.unwind_ops
+            .push((self.get_offset().0, UnwindOps::DefineNewFrame));
     }
 
     fn emit_function_epilog(&mut self) {
@@ -7096,5 +7159,42 @@ impl Machine for MachineX86_64 {
             bytes: section_body,
             relocations: vec![],
         }
+    }
+    #[cfg(feature = "unwind")]
+    fn gen_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
+        let mut instructions = vec![];
+        for &(instruction_offset, ref inst) in &self.unwind_ops {
+            let instruction_offset = instruction_offset as u32;
+            match inst {
+                &UnwindOps::PushFP { up_to_sp } => {
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::CfaOffset(up_to_sp as i32),
+                    ));
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::Offset(X86_64::RBP, -(up_to_sp as i32)),
+                    ));
+                }
+                &UnwindOps::DefineNewFrame => {
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::CfaRegister(X86_64::RBP),
+                    ));
+                }
+                &UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
+                    instruction_offset,
+                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                )),
+            }
+        }
+        Some(UnwindInstructions {
+            instructions,
+            len: code_len as u32,
+        })
+    }
+    #[cfg(not(feature = "unwind"))]
+    fn gen_unwind_info(&mut self) -> Option<UnwindInstructions> {
+        None
     }
 }

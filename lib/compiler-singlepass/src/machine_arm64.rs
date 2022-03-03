@@ -5,6 +5,7 @@ use crate::emitter_arm64::*;
 use crate::location::Location as AbstractLocation;
 use crate::location::Reg;
 use crate::machine::*;
+use crate::unwind::UnwindInstructions;
 use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
@@ -5107,5 +5108,8 @@ impl Machine for MachineARM64 {
         calling_convention: CallingConvention,
     ) -> CustomSection {
         gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention)
+    }
+    fn gen_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
+        None
     }
 }

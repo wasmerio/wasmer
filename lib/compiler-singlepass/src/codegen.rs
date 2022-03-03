@@ -1,13 +1,17 @@
 use crate::address_map::get_function_address_map;
+#[cfg(feature = "unwind")]
+use crate::dwarf::WriterRelocate;
 use crate::location::{Location, Reg};
 use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
 use crate::{common_decl::*, config::Singlepass};
 #[cfg(feature = "unwind")]
-use gimli::write::FrameDescriptionEntry;
+use gimli::write::{Address, FrameDescriptionEntry};
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
 use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
+#[cfg(feature = "unwind")]
+use wasmer_compiler::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, FunctionBodyData,
     Relocation, RelocationTarget, SectionIndex,
@@ -5898,6 +5902,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.finalize_function();
 
         let body_len = self.machine.assembler_get_offset().0;
+
+        #[cfg(feature = "unwind")]
+        let (unwind_info, fde) = {
+            let unwind_info = self.machine.gen_unwind_info(body_len);
+            match (self.calling_convention, unwind_info) {
+                (CallingConvention::SystemV, Some(unwind)) => {
+                    let fde = unwind.to_fde(Address::Symbol {
+                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                        addend: self.fsm.local_function_id as _,
+                    });
+                    (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+                }
+                (_, _) => (None, None),
+            }
+        };
+        #[cfg(not(feature = "unwind"))]
+        let (unwind_info, fde) = (None, None);
+
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
@@ -5907,7 +5929,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             CompiledFunction {
                 body: FunctionBody {
                     body: body,
-                    unwind_info: None,
+                    unwind_info,
                 },
                 relocations: self.relocations.clone(),
                 jt_offsets: SecondaryMap::new(),
@@ -5916,7 +5938,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     address_map,
                 },
             },
-            None,
+            fde,
         )
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies

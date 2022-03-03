@@ -2,6 +2,7 @@ use crate::common_decl::*;
 use crate::location::{Location, Reg};
 use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
+use crate::unwind::UnwindInstructions;
 use dynasmrt::{AssemblyOffset, DynamicLabel};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -2190,6 +2191,8 @@ pub trait Machine {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> CustomSection;
+    /// generate eh_frame instruction (or None if not possible / supported)
+    fn gen_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
 }
 
 /// Standard entry trampoline generation

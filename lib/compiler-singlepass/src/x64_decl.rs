@@ -94,6 +94,26 @@ impl AbstractReg for GPR {
         ];
         GPRS.iter()
     }
+    fn to_dwarf(self) -> u16 {
+        match self {
+            GPR::RAX => 0,
+            GPR::RDX => 1,
+            GPR::RCX => 2,
+            GPR::RBX => 3,
+            GPR::RSI => 4,
+            GPR::RDI => 5,
+            GPR::RBP => 6,
+            GPR::RSP => 7,
+            GPR::R8 => 8,
+            GPR::R9 => 9,
+            GPR::R10 => 10,
+            GPR::R11 => 11,
+            GPR::R12 => 12,
+            GPR::R13 => 13,
+            GPR::R14 => 14,
+            GPR::R15 => 15,
+        }
+    }
 }
 
 impl AbstractReg for XMM {
@@ -136,6 +156,9 @@ impl AbstractReg for XMM {
             XMM::XMM15,
         ];
         XMMS.iter()
+    }
+    fn to_dwarf(self) -> u16 {
+        self.into_index() as u16 + 17
     }
 }
 
