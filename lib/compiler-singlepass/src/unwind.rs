@@ -22,6 +22,7 @@ pub struct UnwindInstructions {
     pub len: u32,
 }
 
+#[cfg(feature = "unwind")]
 impl UnwindInstructions {
     /// Converts the unwind information into a `FrameDescriptionEntry`.
     pub fn to_fde(&self, address: Address) -> gimli::write::FrameDescriptionEntry {
