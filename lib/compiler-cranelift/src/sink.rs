@@ -2,11 +2,9 @@
 
 use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
-use cranelift_codegen::ir::LibCall;
 use cranelift_codegen::ir::{self, ExternalName};
 use cranelift_entity::EntityRef as CraneliftEntityRef;
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};
-use wasmer_compiler::{RelocationKind, SectionIndex};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo};
 use wasmer_vm::TrapCode;
@@ -20,9 +18,6 @@ pub(crate) struct RelocSink<'a> {
 
     /// Relocations recorded for the function.
     pub func_relocs: Vec<Relocation>,
-
-    /// The section where the probestack trampoline call is located
-    pub probestack_trampoline_relocation_target: Option<SectionIndex>,
 }
 
 impl<'a> binemit::RelocSink for RelocSink<'a> {
@@ -42,21 +37,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
                     .expect("The provided function should be local"),
             )
         } else if let ExternalName::LibCall(libcall) = *name {
-            match (libcall, self.probestack_trampoline_relocation_target) {
-                (LibCall::Probestack, Some(probestack_trampoline_relocation_target)) => {
-                    self.func_relocs.push(Relocation {
-                        kind: RelocationKind::X86CallPCRel4,
-                        reloc_target: RelocationTarget::CustomSection(
-                            probestack_trampoline_relocation_target,
-                        ),
-                        offset: offset,
-                        addend: addend,
-                    });
-                    // Skip the default path
-                    return;
-                }
-                _ => RelocationTarget::LibCall(irlibcall_to_libcall(libcall)),
-            }
+            RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
         } else {
             panic!("unrecognized external name")
         };
@@ -93,11 +74,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
 
 impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
-    pub fn new(
-        module: &'a ModuleInfo,
-        func_index: FunctionIndex,
-        probestack_trampoline_relocation_target: Option<SectionIndex>,
-    ) -> Self {
+    pub fn new(module: &'a ModuleInfo, func_index: FunctionIndex) -> Self {
         let local_func_index = module
             .local_func_index(func_index)
             .expect("The provided function should be local");
@@ -105,7 +82,6 @@ impl<'a> RelocSink<'a> {
             module,
             local_func_index,
             func_relocs: Vec::new(),
-            probestack_trampoline_relocation_target,
         }
     }
 }
