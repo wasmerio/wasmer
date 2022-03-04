@@ -135,13 +135,9 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
 
     let e = run_func.call(&[]).err().expect("error calling function");
 
-    let trace = e.trace();
-    assert!(trace.len() >= 32);
-    for i in 0..trace.len() {
-        assert_eq!(trace[i].module_name(), "rec_mod");
-        assert_eq!(trace[i].func_index(), 0);
-        assert_eq!(trace[i].function_name(), Some("run"));
-    }
+    // We specifically don't check the stack trace here: stack traces after
+    // stack overflows are not generally possible due to unreliable unwinding
+    // information.
     assert!(e.message().contains("call stack exhausted"));
 
     Ok(())

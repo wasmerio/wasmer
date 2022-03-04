@@ -36,16 +36,10 @@ aarch64    traps::start_trap_pretty
 singlepass multi_value_imports::dylib # Singlepass doesn't support multivalue
 singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
 
-# TODO: We need to fix this in ARM. The issue is caused by libunwind overflowing
-# the stack while creating the stacktrace.
-# https://github.com/rust-lang/backtrace-rs/issues/356
 # Also neither LLVM nor Cranelift currently implement stack probing on AArch64.
 # https://github.com/wasmerio/wasmer/issues/2808
 cranelift+aarch64 spec::skip_stack_guard_page
 llvm+aarch64      spec::skip_stack_guard_page
-# TODO: Needs more investigation
-cranelift+macos spec::skip_stack_guard_page
-llvm+macos spec::skip_stack_guard_page
 
 # Some SIMD opperations are not yet supported by Cranelift
 # Cranelift just added support for most of those recently, it might be easy to update

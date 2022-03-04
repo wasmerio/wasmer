@@ -715,9 +715,6 @@ impl<T> TrapHandlerContextInner<T> {
             return false;
         }
 
-        // Set up the register state for exception return to force the
-        // coroutine to return to its caller with UnwindReason::WasmTrap.
-        let backtrace = Backtrace::new_unresolved();
         let signal_trap = maybe_fault_address.map(|addr| {
             if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
                 TrapCode::StackOverflow
@@ -725,6 +722,21 @@ impl<T> TrapHandlerContextInner<T> {
                 TrapCode::HeapAccessOutOfBounds
             }
         });
+
+        // Don't try to generate a backtrace for stack overflows: unwinding
+        // information is often not precise enough to properly describe what is
+        // happenning during a function prologue, which can lead the unwinder to
+        // read invalid memory addresses.
+        //
+        // See: https://github.com/rust-lang/backtrace-rs/pull/357
+        let backtrace = if signal_trap == Some(TrapCode::StackOverflow) {
+            Backtrace::from(vec![])
+        } else {
+            Backtrace::new_unresolved()
+        };
+
+        // Set up the register state for exception return to force the
+        // coroutine to return to its caller with UnwindReason::WasmTrap.
         let unwind = UnwindReason::WasmTrap {
             backtrace,
             signal_trap,
