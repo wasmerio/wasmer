@@ -1666,6 +1666,9 @@ impl MachineX86_64 {
         self.used_simd &= !(1 << r.into_index());
         ret
     }
+    fn emit_unwind_op(&mut self, op: UnwindOps) {
+        self.unwind_ops.push((self.get_offset().0, op));
+    }
 }
 
 impl Machine for MachineX86_64 {
@@ -1987,22 +1990,16 @@ impl Machine for MachineX86_64 {
         );
         match location {
             Location::GPR(x) => {
-                self.unwind_ops.push((
-                    self.get_offset().0,
-                    UnwindOps::SaveRegister {
-                        reg: x.to_dwarf(),
-                        bp_neg_offset: stack_offset,
-                    },
-                ));
+                self.emit_unwind_op(UnwindOps::SaveRegister {
+                    reg: x.to_dwarf(),
+                    bp_neg_offset: stack_offset,
+                });
             }
             Location::SIMD(x) => {
-                self.unwind_ops.push((
-                    self.get_offset().0,
-                    UnwindOps::SaveRegister {
-                        reg: x.to_dwarf(),
-                        bp_neg_offset: stack_offset,
-                    },
-                ));
+                self.emit_unwind_op(UnwindOps::SaveRegister {
+                    reg: x.to_dwarf(),
+                    bp_neg_offset: stack_offset,
+                });
             }
             _ => (),
         }
@@ -2252,11 +2249,9 @@ impl Machine for MachineX86_64 {
 
     fn emit_function_prolog(&mut self) {
         self.emit_push(Size::S64, Location::GPR(GPR::RBP));
-        self.unwind_ops
-            .push((self.get_offset().0, UnwindOps::PushFP { up_to_sp: 16 }));
+        self.emit_unwind_op(UnwindOps::PushFP { up_to_sp: 16 });
         self.move_location(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
-        self.unwind_ops
-            .push((self.get_offset().0, UnwindOps::DefineNewFrame));
+        self.emit_unwind_op(UnwindOps::DefineNewFrame);
     }
 
     fn emit_function_epilog(&mut self) {
