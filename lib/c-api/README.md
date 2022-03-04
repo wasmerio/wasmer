@@ -184,9 +184,9 @@ $ wasmer config --libs
 -L/Users/myuser/.wasmer/lib -lwasmer
 ```
 
-### `wasmer config --libs`
+### `wasmer config --cflags`
 
-Libraries needed to link against Wasmer components:
+Headers needed to build against Wasmer components:
 
 ```bash
 $ wasmer config --cflags

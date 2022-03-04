@@ -34,8 +34,22 @@ pub enum IoCompileError {
 /// contents rather than a deep copy.
 #[derive(Clone, MemoryUsage)]
 pub struct Module {
-    store: Store,
+    // The field ordering here is actually significant because of the drop
+    // order: we want to drop the artifact before dropping the engine.
+    //
+    // The reason for this is that dropping the Artifact will de-register the
+    // trap handling metadata from the global registry. This must be done before
+    // the code memory for the artifact is freed (which happens when the store
+    // is dropped) since there is a chance that this memory could be reused by
+    // another module which will try to register its own trap information.
+    //
+    // Note that in Rust, the drop order for struct fields is from top to
+    // bottom: the opposite of C++.
+    //
+    // In the future, this code should be refactored to properly describe the
+    // ownership of the code and its metadata.
     artifact: Arc<dyn Artifact>,
+    store: Store,
 }
 
 impl Module {

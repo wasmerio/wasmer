@@ -4,6 +4,7 @@ use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
 use std::collections::BTreeMap;
+use std::slice::Iter;
 use wasmer_compiler::CallingConvention;
 use wasmer_types::Type;
 
@@ -67,7 +68,13 @@ impl AbstractReg for GPR {
         self as usize
     }
     fn from_index(n: usize) -> Result<GPR, ()> {
-        const REGS: [GPR; 16] = [
+        match n {
+            0..=15 => Ok(GPR::iterator().nth(n).unwrap().clone()),
+            _ => Err(()),
+        }
+    }
+    fn iterator() -> Iter<'static, GPR> {
+        static GPRS: [GPR; 16] = [
             GPR::RAX,
             GPR::RCX,
             GPR::RDX,
@@ -85,10 +92,7 @@ impl AbstractReg for GPR {
             GPR::R14,
             GPR::R15,
         ];
-        match n {
-            0..=15 => Ok(REGS[n]),
-            _ => Err(()),
-        }
+        GPRS.iter()
     }
 }
 
@@ -107,7 +111,13 @@ impl AbstractReg for XMM {
         self as usize
     }
     fn from_index(n: usize) -> Result<XMM, ()> {
-        const REGS: [XMM; 16] = [
+        match n {
+            0..=15 => Ok(XMM::iterator().nth(n).unwrap().clone()),
+            _ => Err(()),
+        }
+    }
+    fn iterator() -> Iter<'static, XMM> {
+        static XMMS: [XMM; 16] = [
             XMM::XMM0,
             XMM::XMM1,
             XMM::XMM2,
@@ -125,10 +135,7 @@ impl AbstractReg for XMM {
             XMM::XMM14,
             XMM::XMM15,
         ];
-        match n {
-            0..=15 => Ok(REGS[n]),
-            _ => Err(()),
-        }
+        XMMS.iter()
     }
 }
 
@@ -164,35 +171,6 @@ impl CombinedRegister for X64Register {
             0..=15 => X64Register::GPR(GPR::from_index(x as usize).unwrap()),
             17..=24 => X64Register::XMM(XMM::from_index(x as usize - 17).unwrap()),
             _ => return None,
-        })
-    }
-
-    /// Returns the instruction prefix for `movq %this_reg, ?(%rsp)`.
-    ///
-    /// To build an instruction, append the memory location as a 32-bit
-    /// offset to the stack pointer to this prefix.
-    fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]> {
-        Some(match *self {
-            X64Register::GPR(gpr) => match gpr {
-                GPR::RDI => &[0x48, 0x89, 0xbc, 0x24],
-                GPR::RSI => &[0x48, 0x89, 0xb4, 0x24],
-                GPR::RDX => &[0x48, 0x89, 0x94, 0x24],
-                GPR::RCX => &[0x48, 0x89, 0x8c, 0x24],
-                GPR::R8 => &[0x4c, 0x89, 0x84, 0x24],
-                GPR::R9 => &[0x4c, 0x89, 0x8c, 0x24],
-                _ => return None,
-            },
-            X64Register::XMM(xmm) => match xmm {
-                XMM::XMM0 => &[0x66, 0x0f, 0xd6, 0x84, 0x24],
-                XMM::XMM1 => &[0x66, 0x0f, 0xd6, 0x8c, 0x24],
-                XMM::XMM2 => &[0x66, 0x0f, 0xd6, 0x94, 0x24],
-                XMM::XMM3 => &[0x66, 0x0f, 0xd6, 0x9c, 0x24],
-                XMM::XMM4 => &[0x66, 0x0f, 0xd6, 0xa4, 0x24],
-                XMM::XMM5 => &[0x66, 0x0f, 0xd6, 0xac, 0x24],
-                XMM::XMM6 => &[0x66, 0x0f, 0xd6, 0xb4, 0x24],
-                XMM::XMM7 => &[0x66, 0x0f, 0xd6, 0xbc, 0x24],
-                _ => return None,
-            },
         })
     }
 }

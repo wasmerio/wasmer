@@ -17,7 +17,9 @@ use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
     ModuleTranslationState,
 };
-use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
+use wasmer_engine::{
+    Artifact, DeserializeError, InstantiationError, MetadataHeader, SerializeError,
+};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -206,10 +208,8 @@ impl StaticlibArtifact {
          */
 
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
-        let mut metadata_binary = vec![0; 10];
-        let mut writable = &mut metadata_binary[..];
-        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
-            .expect("Should write number");
+        let mut metadata_binary = vec![];
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
         metadata_binary.extend(serialized_data);
         let metadata_length = metadata_binary.len();
 
@@ -321,15 +321,15 @@ impl StaticlibArtifact {
         engine: &StaticlibEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
-        let mut reader = bytes;
-        let data_len = leb128::read::unsigned(&mut reader).unwrap() as usize;
+        let metadata_len = MetadataHeader::parse(bytes)?;
 
-        let metadata: ModuleMetadata = bincode::deserialize(&bytes[10..(data_len + 10)]).unwrap();
+        let metadata: ModuleMetadata =
+            bincode::deserialize(&bytes[MetadataHeader::LEN..][..metadata_len]).unwrap();
 
         const WORD_SIZE: usize = mem::size_of::<usize>();
         let mut byte_buffer = [0u8; WORD_SIZE];
 
-        let mut cur_offset = data_len + 10;
+        let mut cur_offset = MetadataHeader::LEN + metadata_len;
         byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
         cur_offset += WORD_SIZE;
 

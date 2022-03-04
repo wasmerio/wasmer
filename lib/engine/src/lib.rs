@@ -28,7 +28,7 @@ mod resolver;
 mod trap;
 mod tunables;
 
-pub use crate::artifact::Artifact;
+pub use crate::artifact::{Artifact, MetadataHeader};
 pub use crate::engine::{Engine, EngineId};
 pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
