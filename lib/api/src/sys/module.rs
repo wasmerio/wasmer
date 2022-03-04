@@ -268,7 +268,7 @@ impl Module {
             let instance_handle = self.artifact.instantiate(
                 self.store.tunables(),
                 resolver,
-                Box::new((self.artifact.clone(), self.store.clone())),
+                Box::new(self.clone()),
             )?;
 
             // After the instance handle is created, we need to initialize
