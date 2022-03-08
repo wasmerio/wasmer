@@ -7181,6 +7181,7 @@ impl Machine for MachineX86_64 {
                     instruction_offset,
                     CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
                 )),
+                &UnwindOps::Push2Regs { .. } => unimplemented!(),
             }
         }
         Some(UnwindInstructions {

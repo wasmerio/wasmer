@@ -1,7 +1,7 @@
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, CallFrameInstruction, CommonInformationEntry, FrameDescriptionEntry};
 #[cfg(feature = "unwind")]
-use gimli::{Encoding, Format, X86_64};
+use gimli::{AArch64, Encoding, Format, X86_64};
 use std::fmt::Debug;
 #[cfg(feature = "unwind")]
 use wasmer_compiler::Architecture;
@@ -9,6 +9,7 @@ use wasmer_compiler::Architecture;
 #[derive(Clone, Debug)]
 pub enum UnwindOps {
     PushFP { up_to_sp: u32 },
+    Push2Regs { reg1: u16, reg2: u16, up_to_sp: u32 },
     DefineNewFrame,
     SaveRegister { reg: u16, bp_neg_offset: i32 },
 }
@@ -53,7 +54,20 @@ pub fn create_systemv_cie(arch: Architecture) -> Option<gimli::write::CommonInfo
             entry.add_instruction(CallFrameInstruction::Offset(X86_64::RA, -8));
             Some(entry)
         }
-        Architecture::Aarch64(_) => None,
+        Architecture::Aarch64(_) => {
+            let mut entry = CommonInformationEntry::new(
+                Encoding {
+                    address_size: 8,
+                    format: Format::Dwarf32,
+                    version: 1,
+                },
+                1,
+                -8,
+                AArch64::X30,
+            );
+            entry.add_instruction(CallFrameInstruction::Cfa(AArch64::SP, 0));
+            Some(entry)
+        }
         _ => None,
     }
 }

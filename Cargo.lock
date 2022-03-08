@@ -985,6 +985,11 @@ name = "gimli"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
+dependencies = [
+ "fallible-iterator",
+ "indexmap",
+ "stable_deref_trait",
+]
 
 [[package]]
 name = "glob"
@@ -2989,7 +2994,7 @@ dependencies = [
  "byteorder",
  "dynasm",
  "dynasmrt",
- "gimli 0.25.0",
+ "gimli 0.26.1",
  "hashbrown 0.11.2",
  "lazy_static",
  "loupe",

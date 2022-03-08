@@ -17,7 +17,7 @@ wasmer-vm = { path = "../vm", version = "=2.2.0" }
 wasmer-types = { path = "../types", version = "=2.2.0", default-features = false, features = ["std"] }
 rayon = { version = "1.5", optional = true }
 hashbrown = { version = "0.11", optional = true }
-gimli = { version = "0.25", optional = true }
+gimli = { version = "0.26", optional = true }
 more-asserts = "0.2"
 dynasm = "1.2.1"
 dynasmrt = "1.2.1"
