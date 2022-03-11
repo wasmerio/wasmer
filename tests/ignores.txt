@@ -10,20 +10,16 @@ musl+dylib * # Dynamic loading not supported in Musl
 ## Traps. Tracing doesn't work properly in Singlepass
 ## Unwinding is not properly implemented in Singlepass
 # Needs investigation
-#singlepass+windows traps::test_trap_trace
 singlepass+aarch64+macos traps::test_trap_trace
 dylib     traps::test_trap_trace
 cranelift+aarch64    traps::test_trap_trace
-#singlepass+windows traps::test_trap_stack_overflow # Need to investigate
 singlepass+aarch64+macos traps::test_trap_stack_overflow # Need to investigate
 dylib     traps::test_trap_stack_overflow # Need to investigate
 cranelift+aarch64    traps::test_trap_stack_overflow # Need to investigate
-#singlepass+windows traps::trap_display_pretty
 singlepass+aarch64+macos traps::trap_display_pretty
 llvm       traps::trap_display_pretty
 dylib     traps::trap_display_pretty
 cranelift+aarch64    traps::trap_display_pretty
-#singlepass+windows traps::trap_display_multi_module
 singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
 dylib     traps::trap_display_multi_module
@@ -32,7 +28,6 @@ singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]
 llvm       traps::call_signature_mismatch
 dylib     traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch
-#singlepass+windows traps::start_trap_pretty
 singlepass+aarch64+macos traps::start_trap_pretty
 llvm       traps::start_trap_pretty
 dylib     traps::start_trap_pretty

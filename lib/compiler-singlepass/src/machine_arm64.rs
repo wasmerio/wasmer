@@ -5276,7 +5276,7 @@ impl Machine for MachineARM64 {
         None
     }
 
-    fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>> {
+    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
     }
 }
