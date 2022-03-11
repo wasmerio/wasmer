@@ -13,7 +13,7 @@ use crate::machine::{
 use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
-use crate::unwind::create_systemv_cie;
+use crate::unwind::{create_systemv_cie, UnwindFrame};
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable};
 use loupe::MemoryUsage;
@@ -249,7 +249,9 @@ impl Compiler for SinglepassCompiler {
         let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
             for fde in fdes {
                 if let Some(fde) = fde {
-                    dwarf_frametable.add_fde(cie_id, fde);
+                    match fde {
+                        UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
+                    }
                 }
             }
             let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));

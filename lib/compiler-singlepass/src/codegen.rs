@@ -3,9 +3,10 @@ use crate::address_map::get_function_address_map;
 use crate::dwarf::WriterRelocate;
 use crate::location::{Location, Reg};
 use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
+use crate::unwind::UnwindFrame;
 use crate::{common_decl::*, config::Singlepass};
 #[cfg(feature = "unwind")]
-use gimli::write::{Address, FrameDescriptionEntry};
+use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
@@ -25,9 +26,6 @@ use wasmer_types::{
     SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
-
-#[cfg(not(feature = "unwind"))]
-pub type FrameDescriptionEntry = u32;
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
@@ -5859,10 +5857,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    pub fn finalize(
-        mut self,
-        data: &FunctionBodyData,
-    ) -> (CompiledFunction, Option<FrameDescriptionEntry>) {
+    pub fn finalize(mut self, data: &FunctionBodyData) -> (CompiledFunction, Option<UnwindFrame>) {
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero);
@@ -5905,16 +5900,29 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         #[cfg(feature = "unwind")]
         let (unwind_info, fde) = {
-            let unwind_info = self.machine.gen_unwind_info(body_len);
-            match (self.calling_convention, unwind_info) {
-                (CallingConvention::SystemV, Some(unwind)) => {
-                    let fde = unwind.to_fde(Address::Symbol {
-                        symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        addend: self.fsm.local_function_id as _,
-                    });
-                    (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+            match self.calling_convention {
+                CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
+                    let unwind_info = self.machine.gen_unwind_info(body_len);
+                    if let Some(unwind) = unwind_info {
+                        let fde = unwind.to_fde(Address::Symbol {
+                            symbol: WriterRelocate::FUNCTION_SYMBOL,
+                            addend: self.fsm.local_function_id as _,
+                        });
+                        (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+                    } else {
+                        (None, None)
+                    }
                 }
-                (_, _) => (None, None),
+                CallingConvention::WindowsFastcall => {
+                    let unwind_info = self.machine.gen_windows_unwind_info(body_len);
+                    match unwind_info {
+                        Some(unwind) => {
+                            (Some(CompiledFunctionUnwindInfo::WindowsX64(unwind)), None)
+                        }
+                        _ => (None, None),
+                    }
+                }
+                _ => (None, None),
             }
         };
         #[cfg(not(feature = "unwind"))]

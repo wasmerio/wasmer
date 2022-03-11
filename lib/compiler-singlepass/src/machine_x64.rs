@@ -4,6 +4,8 @@ use crate::location::Location as AbstractLocation;
 use crate::location::Reg;
 use crate::machine::*;
 use crate::unwind::{UnwindInstructions, UnwindOps};
+#[cfg(feature = "unwind")]
+use crate::unwind_winx64::create_unwind_info_from_insts;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
 use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
@@ -7191,6 +7193,24 @@ impl Machine for MachineX86_64 {
     }
     #[cfg(not(feature = "unwind"))]
     fn gen_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
+        None
+    }
+
+    #[cfg(feature = "unwind")]
+    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
+        let unwind_info = create_unwind_info_from_insts(&self.unwind_ops);
+        if let Some(unwind) = unwind_info {
+            let sz = unwind.emit_size();
+            let mut tbl = vec![0; sz];
+            unwind.emit(&mut tbl);
+            Some(tbl)
+        } else {
+            None
+        }
+    }
+
+    #[cfg(not(feature = "unwind"))]
+    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
     }
 }

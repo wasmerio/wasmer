@@ -23,6 +23,8 @@ mod machine;
 mod machine_arm64;
 mod machine_x64;
 mod unwind;
+#[cfg(feature = "unwind")]
+mod unwind_winx64;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;

@@ -24,14 +24,22 @@ pub struct UnwindInstructions {
 }
 
 #[cfg(feature = "unwind")]
+pub enum UnwindFrame {
+    SystemV(gimli::write::FrameDescriptionEntry),
+}
+
+#[cfg(not(feature = "unwind"))]
+pub type UnwindFrame = u32;
+
+#[cfg(feature = "unwind")]
 impl UnwindInstructions {
     /// Converts the unwind information into a `FrameDescriptionEntry`.
-    pub fn to_fde(&self, address: Address) -> gimli::write::FrameDescriptionEntry {
+    pub fn to_fde(&self, address: Address) -> UnwindFrame {
         let mut fde = FrameDescriptionEntry::new(address, self.len);
         for (offset, inst) in &self.instructions {
             fde.add_instruction(*offset, inst.clone().into());
         }
-        fde
+        UnwindFrame::SystemV(fde)
     }
 }
 
