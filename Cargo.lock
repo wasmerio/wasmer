@@ -421,13 +421,14 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "corosensei"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85789bf244cdbe2736a4a6912117c0ff010aba1680d81a90abaf96725e0570bc"
+checksum = "ab4b310cff9117ec16d05970743c20df3eaddafd461829f2758e76a8de2863a9"
 dependencies = [
  "autocfg",
  "cfg-if 1.0.0",
  "libc",
+ "scopeguard",
  "windows-sys",
 ]
 
