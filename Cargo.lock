@@ -3152,6 +3152,7 @@ dependencies = [
  "indexmap",
  "libc",
  "loupe",
+ "mach",
  "memoffset",
  "more-asserts",
  "region",

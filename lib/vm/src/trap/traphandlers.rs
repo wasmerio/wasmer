@@ -94,6 +94,43 @@ cfg_if::cfg_if! {
             if cfg!(target_arch = "arm") || cfg!(target_vendor = "apple") {
                 register(&mut PREV_SIGBUS, libc::SIGBUS);
             }
+
+            // This is necessary to support debugging under LLDB on Darwin.
+            // For more details see https://github.com/mono/mono/commit/8e75f5a28e6537e56ad70bf870b86e22539c2fb7
+            #[cfg(target_vendor = "apple")]
+            {
+                use mach::exception_types::*;
+                use mach::kern_return::*;
+                use mach::port::*;
+                use mach::thread_status::*;
+                use mach::traps::*;
+                use mach::mach_types::*;
+
+                extern "C" {
+                    fn task_set_exception_ports(
+                        task: task_t,
+                        exception_mask: exception_mask_t,
+                        new_port: mach_port_t,
+                        behavior: exception_behavior_t,
+                        new_flavor: thread_state_flavor_t,
+                    ) -> kern_return_t;
+                }
+
+                #[allow(non_snake_case)]
+                #[cfg(target_arch = "x86_64")]
+                let MACHINE_THREAD_STATE = x86_THREAD_STATE64;
+                #[allow(non_snake_case)]
+                #[cfg(target_arch = "aarch64")]
+                let MACHINE_THREAD_STATE = 6;
+
+                task_set_exception_ports(
+                    mach_task_self(),
+                    EXC_MASK_BAD_ACCESS | EXC_MASK_ARITHMETIC,
+                    MACH_PORT_NULL,
+                    EXCEPTION_STATE_IDENTITY as exception_behavior_t,
+                    MACHINE_THREAD_STATE,
+                );
+            }
         }
 
         unsafe extern "C" fn trap_handler(
