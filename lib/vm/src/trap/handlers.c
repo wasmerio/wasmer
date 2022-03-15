@@ -42,7 +42,7 @@ int wasmer_register_setjmp(
     void **buf_storage,
     void (*body)(void*),
     void *payload) {
-  #if 1 && defined(CFG_TARGET_OS_MACOS)
+  #if 0 && defined(CFG_TARGET_OS_MACOS)
   // Enable this block to ba able to debug Segfault with lldb
   // This will mask the EXC_BAD_ACCESS from lldb...
   static int allow_bad_access = 0;
