@@ -8,6 +8,11 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 2.2.1 - 2022/03/15
+
+### Fixed
+- [#2812](https://github.com/wasmerio/wasmer/pull/2812) Fixed another panic due to incorrect drop ordering.
+
 ## 2.2.0 - 2022/02/28
 
 ### Added
