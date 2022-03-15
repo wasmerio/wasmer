@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-staticlib"
-version = "2.2.0-rc2"
+version = "2.2.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Wasmer Staticlib Engine"
 categories = ["wasm"]
@@ -11,11 +11,11 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=2.2.0-rc2" }
-wasmer-compiler = { path = "../compiler", version = "=2.2.0-rc2" }
-wasmer-vm = { path = "../vm", version = "=2.2.0-rc2" }
-wasmer-engine = { path = "../engine", version = "=2.2.0-rc2" }
-wasmer-object = { path = "../object", version = "=2.2.0-rc2" }
+wasmer-types = { path = "../types", version = "=2.2.0" }
+wasmer-compiler = { path = "../compiler", version = "=2.2.0" }
+wasmer-vm = { path = "../vm", version = "=2.2.0" }
+wasmer-engine = { path = "../engine", version = "=2.2.0" }
+wasmer-object = { path = "../object", version = "=2.2.0" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 cfg-if = "1.0"
 tracing = "0.1"

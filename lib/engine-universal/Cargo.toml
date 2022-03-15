@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-universal"
-version = "2.2.0-rc2"
+version = "2.2.0"
 description = "Wasmer Universal Engine"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "engine", "universal"]
@@ -11,15 +11,15 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=2.2.0-rc2", features = [
+wasmer-types = { path = "../types", version = "=2.2.0", features = [
     "enable-rkyv",
 ] }
-wasmer-compiler = { path = "../compiler", version = "=2.2.0-rc2", features = [
+wasmer-compiler = { path = "../compiler", version = "=2.2.0", features = [
     "translator",
     "enable-rkyv",
 ] }
-wasmer-vm = { path = "../vm", version = "=2.2.0-rc2", features = ["enable-rkyv"] }
-wasmer-engine = { path = "../engine", version = "=2.2.0-rc2" }
+wasmer-vm = { path = "../vm", version = "=2.2.0", features = ["enable-rkyv"] }
+wasmer-engine = { path = "../engine", version = "=2.2.0" }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 region = "3.0"
 cfg-if = "1.0"

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cli"
-version = "2.2.0-rc2"
+version = "2.2.0"
 description = "Wasmer CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
@@ -24,23 +24,23 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
-wasmer = { version = "=2.2.0-rc2", path = "../api", default-features = false }
-wasmer-compiler = { version = "=2.2.0-rc2", path = "../compiler" }
-wasmer-compiler-cranelift = { version = "=2.2.0-rc2", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=2.2.0-rc2", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=2.2.0-rc2", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=2.2.0-rc2", path = "../emscripten", optional = true }
-wasmer-engine = { version = "=2.2.0-rc2", path = "../engine" }
-wasmer-engine-universal = { version = "=2.2.0-rc2", path = "../engine-universal", optional = true }
-wasmer-engine-dylib = { version = "=2.2.0-rc2", path = "../engine-dylib", optional = true }
-wasmer-engine-staticlib = { version = "=2.2.0-rc2", path = "../engine-staticlib", optional = true }
-wasmer-vm = { version = "=2.2.0-rc2", path = "../vm" }
-wasmer-wasi = { version = "=2.2.0-rc2", path = "../wasi", optional = true }
-wasmer-wasi-experimental-io-devices = { version = "=2.2.0-rc2", path = "../wasi-experimental-io-devices", optional = true }
-wasmer-wast = { version = "=2.2.0-rc2", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "=2.2.0-rc2", path = "../cache", optional = true }
-wasmer-types = { version = "=2.2.0-rc2", path = "../types" }
-wasmer-vfs  = { version = "=2.2.0-rc2", path = "../vfs", default-features = false, features = ["host-fs"] }
+wasmer = { version = "=2.2.0", path = "../api", default-features = false }
+wasmer-compiler = { version = "=2.2.0", path = "../compiler" }
+wasmer-compiler-cranelift = { version = "=2.2.0", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=2.2.0", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=2.2.0", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "=2.2.0", path = "../emscripten", optional = true }
+wasmer-engine = { version = "=2.2.0", path = "../engine" }
+wasmer-engine-universal = { version = "=2.2.0", path = "../engine-universal", optional = true }
+wasmer-engine-dylib = { version = "=2.2.0", path = "../engine-dylib", optional = true }
+wasmer-engine-staticlib = { version = "=2.2.0", path = "../engine-staticlib", optional = true }
+wasmer-vm = { version = "=2.2.0", path = "../vm" }
+wasmer-wasi = { version = "=2.2.0", path = "../wasi", optional = true }
+wasmer-wasi-experimental-io-devices = { version = "=2.2.0", path = "../wasi-experimental-io-devices", optional = true }
+wasmer-wast = { version = "=2.2.0", path = "../../tests/lib/wast", optional = true }
+wasmer-cache = { version = "=2.2.0", path = "../cache", optional = true }
+wasmer-types = { version = "=2.2.0", path = "../types" }
+wasmer-vfs  = { version = "=2.2.0", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
@@ -70,6 +70,7 @@ default = [
     "cache",
     "wasi",
     "emscripten",
+    "experimental-io-devices",
 ]
 engine = []
 universal = [

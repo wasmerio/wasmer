@@ -1825,9 +1825,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.5.4"
+version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d07a8629359eb56f1e2fb1652bb04212c072a87ba68546a04065d525673ac461"
+checksum = "1a11647b6b25ff05a515cb92c365cec08801e83423a235b51e231e1808747286"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -2672,7 +2672,7 @@ checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 
 [[package]]
 name = "wasi-test-generator"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "glob",
  "gumdrop",
@@ -2795,7 +2795,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "anyhow",
  "cfg-if 1.0.0",
@@ -2843,7 +2843,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -2872,7 +2872,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "blake3",
  "criterion",
@@ -2888,7 +2888,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -2922,7 +2922,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "enumset",
  "hashbrown 0.11.2",
@@ -2940,7 +2940,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -2961,7 +2961,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -2984,7 +2984,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -3003,7 +3003,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -3015,7 +3015,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -3028,7 +3028,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "backtrace",
  "enumset",
@@ -3048,7 +3048,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dummy"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "bincode",
  "enumset",
@@ -3063,7 +3063,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dylib"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "cfg-if 1.0.0",
  "enum-iterator",
@@ -3086,7 +3086,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-staticlib"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
@@ -3106,7 +3106,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-universal"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "cfg-if 1.0.0",
  "enum-iterator",
@@ -3124,7 +3124,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -3132,11 +3132,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "2.2.0-rc2"
+version = "2.2.0"
 
 [[package]]
 name = "wasmer-middlewares"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "loupe",
  "wasmer",
@@ -3146,7 +3146,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "object 0.28.3",
  "thiserror",
@@ -3156,7 +3156,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "indexmap",
  "loupe",
@@ -3167,7 +3167,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vfs"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "libc",
  "serde",
@@ -3179,7 +3179,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "backtrace",
  "cc",
@@ -3200,7 +3200,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "bincode",
  "cfg-if 1.0.0",
@@ -3222,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "minifb",
  "nix",
@@ -3235,7 +3235,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-types"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "byteorder",
  "serde",
@@ -3245,7 +3245,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -3259,7 +3259,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "2.2.0-rc2"
+version = "2.2.0"
 dependencies = [
  "anyhow",
  "build-deps",

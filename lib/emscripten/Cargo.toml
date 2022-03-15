@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-emscripten"
-version = "2.2.0-rc2"
+version = "2.2.0"
 description = "Emscripten implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "abi", "emscripten", "posix"]
@@ -16,7 +16,7 @@ lazy_static = "1.4"
 libc = "^0.2"
 log = "0.4"
 time = { version = "0.2", features = ["std"] }
-wasmer = { path = "../api", version = "=2.2.0-rc2", default-features = false, features = ["sys"] }
+wasmer = { path = "../api", version = "=2.2.0", default-features = false, features = ["sys"] }
 
 [target.'cfg(windows)'.dependencies]
 getrandom = "0.2"

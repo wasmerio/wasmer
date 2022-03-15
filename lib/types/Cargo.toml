@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-types"
-version = "2.2.0-rc2"
+version = "2.2.0"
 description = "Wasmer Common Types"
 categories = ["wasm", "no-std", "data-structures"]
 keywords = ["wasm", "webassembly", "types"]

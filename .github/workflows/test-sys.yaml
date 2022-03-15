@@ -104,10 +104,15 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
+      - name: Install dependencies on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libwayland-cursor0 libxkbcommon-dev libwayland-dev
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++ libxkbcommon-dev wayland-dev
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
