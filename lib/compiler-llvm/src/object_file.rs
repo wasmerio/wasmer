@@ -96,7 +96,6 @@ where
     libcalls.insert("wasmer_vm_memory32_init".to_string(), LibCall::Memory32Init);
     libcalls.insert("wasmer_vm_data_drop".to_string(), LibCall::DataDrop);
     libcalls.insert("wasmer_vm_raise_trap".to_string(), LibCall::RaiseTrap);
-    libcalls.insert("wasmer_vm_probestack".to_string(), LibCall::Probestack);
 
     let elf = object::File::parse(contents).map_err(map_object_err)?;
 

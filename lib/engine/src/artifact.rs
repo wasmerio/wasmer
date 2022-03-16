@@ -176,7 +176,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
     /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(
         &self,
-        trap_handler: &dyn TrapHandler,
+        trap_handler: &(dyn TrapHandler + 'static),
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
