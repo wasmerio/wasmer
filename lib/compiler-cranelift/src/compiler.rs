@@ -21,7 +21,6 @@ use gimli::write::{Address, EhFrame, FrameTable};
 use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
-use target_lexicon::{Architecture, OperatingSystem};
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
@@ -30,13 +29,8 @@ use wasmer_compiler::{
     FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
     SectionIndex,
 };
-use wasmer_compiler::{
-    CustomSection, CustomSectionProtection, Relocation, RelocationKind, RelocationTarget,
-    SectionBody,
-};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
-use wasmer_vm::libcalls::LibCall;
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
@@ -109,35 +103,6 @@ impl Compiler for CraneliftCompiler {
 
         let mut custom_sections = PrimaryMap::new();
 
-        let probestack_trampoline_relocation_target = if target.triple().operating_system
-            == OperatingSystem::Linux
-            && target.triple().architecture == Architecture::X86_64
-        {
-            let probestack_trampoline = CustomSection {
-                protection: CustomSectionProtection::ReadExecute,
-                // We create a jump to an absolute 64bits address
-                // with an indrect jump immediatly followed but the absolute address
-                // JMP [IP+0]   FF 25 00 00 00 00
-                // 64bits ADDR  00 00 00 00 00 00 00 00 preset to 0 until the relocation takes place
-                bytes: SectionBody::new_with_vec(vec![
-                    0xff, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00,
-                ]),
-                relocations: vec![Relocation {
-                    kind: RelocationKind::Abs8,
-                    reloc_target: RelocationTarget::LibCall(LibCall::Probestack),
-                    // 6 is the size of the jmp instruction. The relocated address must follow
-                    offset: 6,
-                    addend: 0,
-                }],
-            };
-            custom_sections.push(probestack_trampoline);
-
-            Some(SectionIndex::new(custom_sections.len() - 1))
-        } else {
-            None
-        };
-
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -174,8 +139,7 @@ impl Compiler for CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink =
-                    RelocSink::new(&module, func_index, probestack_trampoline_relocation_target);
+                let mut reloc_sink = RelocSink::new(&module, func_index);
                 let mut trap_sink = TrapSink::new();
                 let mut stackmap_sink = binemit::NullStackMapSink {};
                 context
