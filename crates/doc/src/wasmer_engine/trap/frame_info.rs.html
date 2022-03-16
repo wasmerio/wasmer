@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;engine&#x2F;src&#x2F;trap&#x2F;frame_info.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>frame_info.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_engine/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;engine&#x2F;src&#x2F;trap&#x2F;frame_info.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>frame_info.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../../wasmer_engine/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.png" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_engine/index.html"><img class="rust-logo" src="../../../rust-logo.png" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -318,14 +320,6 @@
 <span id="318">318</span>
 <span id="319">319</span>
 <span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
 <span class="doccomment">//! compiled functions (addresses and function index) and a module,</span>
@@ -371,14 +365,6 @@
     <span class="ident">ranges</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">ModuleInfoFrameInfo</span><span class="op">&gt;</span>,
 }
 
-<span class="doccomment">/// Returns whether the `pc`, according to globally registered information,</span>
-<span class="doccomment">/// is a wasm trap or not.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_wasm_pc</span>(<span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">frame_info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">module_info</span> <span class="op">=</span> <span class="ident">frame_info</span>.<span class="ident">module_info</span>(<span class="ident">pc</span>);
-    <span class="ident">module_info</span>.<span class="ident">is_some</span>()
-}
-
 <span class="doccomment">/// An RAII structure used to unregister a module&#39;s frame information when the</span>
 <span class="doccomment">/// module is destroyed.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
@@ -397,12 +383,12 @@
 }
 
 <span class="kw">impl</span> <span class="ident">ModuleInfoFrameInfo</span> {
-    <span class="kw">fn</span> <span class="ident">function_debug_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">local_index</span>: <span class="ident">LocalFunctionIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">CompiledFunctionFrameInfo</span> {
+    <span class="kw">fn</span> <span class="ident">function_debug_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">local_index</span>: <span class="ident">LocalFunctionIndex</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">CompiledFunctionFrameInfo</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">frame_infos</span>.<span class="ident">get</span>(<span class="ident">local_index</span>).<span class="ident">unwrap</span>()
     }
 
     <span class="doccomment">/// Gets a function given a pc</span>
-    <span class="kw">fn</span> <span class="ident">function_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionInfo</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">function_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionInfo</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">end</span>, <span class="ident">func</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">functions</span>.<span class="ident">range</span>(<span class="ident">pc</span>..).<span class="ident">next</span>()<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">func</span>.<span class="ident">start</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">pc</span> <span class="op">&amp;&amp;</span> <span class="ident">pc</span> <span class="op">&lt;</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">end</span> {
             <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">func</span>);
@@ -423,7 +409,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// Returns an object if this `pc` is known to some previously registered</span>
     <span class="doccomment">/// module, or returns `None` if no information can be found.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_frame_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FrameInfo</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_frame_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FrameInfo</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">function_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
 
@@ -437,18 +423,18 @@
             .<span class="ident">binary_search_by_key</span>(<span class="kw-2">&amp;</span><span class="ident">rel_pos</span>, <span class="op">|</span><span class="ident">map</span><span class="op">|</span> <span class="ident">map</span>.<span class="ident">code_offset</span>)
         {
             <span class="comment">// Exact hit!</span>
-            <span class="prelude-val">Ok</span>(<span class="ident">pos</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">pos</span>),
+            <span class="prelude-val">Ok</span>(<span class="ident">pos</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">pos</span>),
 
             <span class="comment">// This *would* be at the first slot in the array, so no</span>
             <span class="comment">// instructions cover `pc`.</span>
-            <span class="prelude-val">Err</span>(<span class="number">0</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">None</span>,
+            <span class="prelude-val">Err</span>(<span class="number">0</span>) =&gt; <span class="prelude-val">None</span>,
 
             <span class="comment">// This would be at the `nth` slot, so check `n-1` to see if we&#39;re</span>
             <span class="comment">// part of that instruction. This happens due to the minus one when</span>
             <span class="comment">// this function is called form trap symbolication, where we don&#39;t</span>
             <span class="comment">// always get called with a `pc` that&#39;s an exact instruction</span>
             <span class="comment">// boundary.</span>
-            <span class="prelude-val">Err</span>(<span class="ident">n</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="prelude-val">Err</span>(<span class="ident">n</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">instr</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">instr_map</span>.<span class="ident">instructions</span>[<span class="ident">n</span> <span class="op">-</span> <span class="number">1</span>];
                 <span class="kw">if</span> <span class="ident">instr</span>.<span class="ident">code_offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">rel_pos</span> <span class="op">&amp;&amp;</span> <span class="ident">rel_pos</span> <span class="op">&lt;</span> <span class="ident">instr</span>.<span class="ident">code_offset</span> <span class="op">+</span> <span class="ident">instr</span>.<span class="ident">code_len</span> {
                     <span class="prelude-val">Some</span>(<span class="ident">n</span> <span class="op">-</span> <span class="number">1</span>)
@@ -459,12 +445,12 @@
         };
 
         <span class="kw">let</span> <span class="ident">instr</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pos</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">pos</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instr_map</span>.<span class="ident">instructions</span>[<span class="ident">pos</span>].<span class="ident">srcloc</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">pos</span>) =&gt; <span class="ident">instr_map</span>.<span class="ident">instructions</span>[<span class="ident">pos</span>].<span class="ident">srcloc</span>,
             <span class="comment">// Some compilers don&#39;t emit yet the full trap information for each of</span>
             <span class="comment">// the instructions (such as LLVM).</span>
             <span class="comment">// In case no specific instruction is found, we return by default the</span>
             <span class="comment">// start offset of the function.</span>
-            <span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instr_map</span>.<span class="ident">start_srcloc</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="ident">instr_map</span>.<span class="ident">start_srcloc</span>,
         };
         <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">module</span>.<span class="ident">func_index</span>(<span class="ident">func</span>.<span class="ident">local_index</span>);
         <span class="prelude-val">Some</span>(<span class="ident">FrameInfo</span> {
@@ -477,7 +463,7 @@
     }
 
     <span class="doccomment">/// Fetches trap information about a program counter in a backtrace.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_trap_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">TrapInformation</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_trap_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">TrapInformation</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">function_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">function_debug_info</span>(<span class="ident">func</span>.<span class="ident">local_index</span>).<span class="ident">traps</span>;
@@ -488,7 +474,7 @@
     }
 
     <span class="doccomment">/// Gets a module given a pc</span>
-    <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ModuleInfoFrameInfo</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ModuleInfoFrameInfo</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">end</span>, <span class="ident">module_info</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">ranges</span>.<span class="ident">range</span>(<span class="ident">pc</span>..).<span class="ident">next</span>()<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">module_info</span>.<span class="ident">start</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">pc</span> <span class="op">&amp;&amp;</span> <span class="ident">pc</span> <span class="op">&lt;</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">end</span> {
             <span class="prelude-val">Some</span>(<span class="ident">module_info</span>)
@@ -499,7 +485,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">GlobalFrameInfoRegistration</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">info</span>) <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">write</span>() {
             <span class="ident">info</span>.<span class="ident">ranges</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">key</span>);
         }
@@ -528,7 +514,7 @@
     <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
     <span class="ident">finished_functions</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionExtent</span><span class="op">&gt;</span>,
     <span class="ident">frame_infos</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">min</span> <span class="op">=</span> <span class="ident">usize::max_value</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">max</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">functions</span> <span class="op">=</span> <span class="ident">BTreeMap::new</span>();
@@ -600,7 +586,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function index is the index in the function index space of the</span>
     <span class="doccomment">/// WebAssembly module that this frame comes from.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">func_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">func_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
         <span class="self">self</span>.<span class="ident">func_index</span>
     }
 
@@ -613,7 +599,7 @@
     <span class="doccomment">/// debugging and therefore may be tweaked over time.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function returns `None` when no name can be found or inferred.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">str</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module_name</span>
     }
 
@@ -631,7 +617,7 @@
     <span class="doccomment">/// in debugging.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function returns `None` when no name could be inferred.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">function_name</span>.<span class="ident">as_deref</span>()
     }
 
@@ -640,7 +626,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// The offset here is the offset from the beginning of the original wasm</span>
     <span class="doccomment">/// module to the instruction that this frame points to.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">instr</span>.<span class="ident">bits</span>() <span class="kw">as</span> <span class="ident">usize</span>
     }
 
@@ -650,11 +636,10 @@
     <span class="doccomment">/// The offset here is the offset from the beginning of the defining</span>
     <span class="doccomment">/// function of this frame (within the wasm module) to the instruction this</span>
     <span class="doccomment">/// frame points to.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">func_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">func_offset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
         (<span class="self">self</span>.<span class="ident">instr</span>.<span class="ident">bits</span>() <span class="op">-</span> <span class="self">self</span>.<span class="ident">func_start</span>.<span class="ident">bits</span>()) <span class="kw">as</span> <span class="ident">usize</span>
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_engine" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_engine" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

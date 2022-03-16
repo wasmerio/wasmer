@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;cli&#x2F;src&#x2F;commands&#x2F;run.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>run.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_cli/index.html'><div class='logo-container rust-logo'><img src='https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;cli&#x2F;src&#x2F;commands&#x2F;run.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>run.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -571,7 +573,7 @@
 
 <span class="kw">impl</span> <span class="ident">Run</span> {
     <span class="doccomment">/// Execute the run command</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">debug</span> {
             <span class="ident">logging::set_up_logging</span>(<span class="self">self</span>.<span class="ident">verbose</span>).<span class="ident">unwrap</span>();
@@ -589,7 +591,7 @@
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">inner_execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">inner_execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_module</span>()<span class="question-mark">?</span>;
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;emscripten&quot;</span>)]</span>
         {
@@ -606,10 +608,10 @@
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>))<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">em_env</span> <span class="op">=</span> <span class="ident">EmEnv::new</span>(<span class="kw-2">&amp;</span><span class="ident">emscripten_globals</span>.<span class="ident">data</span>, <span class="ident">Default::default</span>());
                 <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span>
-                    <span class="ident">generate_emscripten_env</span>(<span class="ident">module</span>.<span class="ident">store</span>(), <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">emscripten_globals</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">em_env</span>);
+                    <span class="ident">generate_emscripten_env</span>(<span class="ident">module</span>.<span class="ident">store</span>(), <span class="kw-2">&amp;mut</span> <span class="ident">emscripten_globals</span>, <span class="kw-2">&amp;mut</span> <span class="ident">em_env</span>);
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">import_object</span>) {
-                    <span class="prelude-val">Ok</span>(<span class="ident">instance</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instance</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="prelude-val">Ok</span>(<span class="ident">instance</span>) =&gt; <span class="ident">instance</span>,
+                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                         <span class="kw">let</span> <span class="ident">err</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>);
                         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
                         {
@@ -622,9 +624,9 @@
                 };
 
                 <span class="ident">run_emscripten_instance</span>(
-                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">instance</span>,
-                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">em_env</span>,
-                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">emscripten_globals</span>,
+                    <span class="kw-2">&amp;mut</span> <span class="ident">instance</span>,
+                    <span class="kw-2">&amp;mut</span> <span class="ident">em_env</span>,
+                    <span class="kw-2">&amp;mut</span> <span class="ident">emscripten_globals</span>,
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cn</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">command_name</span> {
                         <span class="ident">cn</span>
                     } <span class="kw">else</span> {
@@ -645,9 +647,9 @@
 
             <span class="kw">let</span> <span class="ident">wasi_versions</span> <span class="op">=</span> <span class="ident">Wasi::get_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>);
             <span class="kw">match</span> <span class="ident">wasi_versions</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">wasi_versions</span>) <span class="kw">if</span> <span class="op">!</span><span class="ident">wasi_versions</span>.<span class="ident">is_empty</span>() <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="prelude-val">Some</span>(<span class="ident">wasi_versions</span>) <span class="kw">if</span> <span class="op">!</span><span class="ident">wasi_versions</span>.<span class="ident">is_empty</span>() =&gt; {
                     <span class="kw">if</span> <span class="ident">wasi_versions</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">2</span> {
-                        <span class="kw">let</span> <span class="ident">get_version_list</span> <span class="op">=</span> <span class="op">|</span><span class="ident">versions</span>: <span class="kw-2">&amp;</span><span class="ident">BTreeSet</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
+                        <span class="kw">let</span> <span class="ident">get_version_list</span> <span class="op">=</span> <span class="op">|</span><span class="ident">versions</span>: <span class="kw-2">&amp;</span><span class="ident">BTreeSet</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span><span class="op">|</span> -&gt; <span class="ident">String</span> {
                             <span class="ident">versions</span>
                                 .<span class="ident">iter</span>()
                                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, <span class="ident">v</span>.<span class="ident">get_namespace_str</span>()))
@@ -677,7 +679,7 @@
                         .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;failed to instantiate WASI module&quot;</span>)<span class="question-mark">?</span>
                 }
                 <span class="comment">// not WASI</span>
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports!</span> {})<span class="question-mark">?</span>,
+                <span class="kw">_</span> =&gt; <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports!</span> {})<span class="question-mark">?</span>,
             }
         };
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
@@ -715,7 +717,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">get_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">get_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">contents</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
         {
@@ -765,7 +767,7 @@
         <span class="ident">contents</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
         <span class="ident">engine_type</span>: <span class="kw-2">&amp;</span><span class="ident">EngineType</span>,
         <span class="ident">compiler_type</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerType</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
         <span class="comment">// We try to get it from cache, in case caching is enabled</span>
         <span class="comment">// and the file length is greater than 4KB.</span>
         <span class="comment">// For files smaller than 4KB caching is not worth,</span>
@@ -779,13 +781,13 @@
             .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">key</span><span class="op">|</span> <span class="ident">Hash::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">key</span>).<span class="ident">ok</span>())
             .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Hash::generate</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>));
         <span class="kw">match</span> <span class="kw">unsafe</span> { <span class="ident">cache</span>.<span class="ident">load</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">hash</span>) } {
-            <span class="prelude-val">Ok</span>(<span class="ident">module</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">module</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="prelude-val">Ok</span>(<span class="ident">module</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">module</span>),
+            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
                 <span class="kw">match</span> <span class="ident">e</span> {
-                    <span class="ident">DeserializeError::Io</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">DeserializeError::Io</span>(<span class="kw">_</span>) =&gt; {
                         <span class="comment">// Do not notify on IO errors</span>
                     }
-                    <span class="ident">err</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="ident">err</span> =&gt; {
                         <span class="macro">warning!</span>(<span class="string">&quot;cached module is corrupted: {}&quot;</span>, <span class="ident">err</span>);
                     }
                 }
@@ -803,7 +805,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">engine_type</span>: <span class="kw-2">&amp;</span><span class="ident">EngineType</span>,
         <span class="ident">compiler_type</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerType</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FileSystemCache</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FileSystemCache</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache_dir_root</span> <span class="op">=</span> <span class="ident">get_cache_dir</span>();
         <span class="ident">cache_dir_root</span>.<span class="ident">push</span>(<span class="ident">compiler_type</span>.<span class="ident">to_string</span>());
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">FileSystemCache::new</span>(<span class="ident">cache_dir_root</span>)<span class="question-mark">?</span>;
@@ -814,17 +816,17 @@
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_patterns</span>)]</span>
         <span class="kw">let</span> <span class="ident">extension</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">engine_type</span> {
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)]</span>
-            <span class="ident">EngineType::Dylib</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">EngineType::Dylib</span> =&gt; {
                 <span class="ident">wasmer_engine_dylib::DylibArtifact::get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">Triple::host</span>())
                     .<span class="ident">to_string</span>()
             }
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;universal&quot;</span>)]</span>
-            <span class="ident">EngineType::Universal</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">EngineType::Universal</span> =&gt; {
                 <span class="ident">wasmer_engine_universal::UniversalArtifact::get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">Triple::host</span>())
                     .<span class="ident">to_string</span>()
             }
             <span class="comment">// We use the compiler type as the default extension</span>
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">compiler_type</span>.<span class="ident">to_string</span>(),
+            <span class="kw">_</span> =&gt; <span class="ident">compiler_type</span>.<span class="ident">to_string</span>(),
         };
         <span class="ident">cache</span>.<span class="ident">set_cache_extension</span>(<span class="prelude-val">Some</span>(<span class="ident">extension</span>));
         <span class="prelude-val">Ok</span>(<span class="ident">cache</span>)
@@ -835,7 +837,7 @@
         <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>,
         <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">instance</span>
             .<span class="ident">exports</span>
             .<span class="ident">get_function</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>)
@@ -856,7 +858,7 @@
                         <span class="ident">suggested_functions</span>.<span class="ident">get</span>(<span class="number">0</span>).<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">String::new</span>()),
                         <span class="ident">args</span>.<span class="ident">join</span>(<span class="string">&quot; &quot;</span>)
                     );
-                    <span class="kw">let</span> <span class="ident">suggestion</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">suggested_functions</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
+                    <span class="kw">let</span> <span class="ident">suggestion</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">suggested_functions</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span> {
                         <span class="ident">String::from</span>(<span class="string">&quot;Can not find any export functions.&quot;</span>)
                     } <span class="kw">else</span> {
                         <span class="macro">format!</span>(
@@ -865,10 +867,10 @@
                         )
                     };
                     <span class="kw">match</span> <span class="ident">e</span> {
-                        <span class="ident">ExportError::Missing</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="ident">ExportError::Missing</span>(<span class="kw">_</span>) =&gt; {
                             <span class="macro">anyhow!</span>(<span class="string">&quot;No export `{}` found in the module.\n{}&quot;</span>, <span class="ident">name</span>, <span class="ident">suggestion</span>)
                         }
-                        <span class="ident">ExportError::IncompatibleType</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">anyhow!</span>(
+                        <span class="ident">ExportError::IncompatibleType</span> =&gt; <span class="macro">anyhow!</span>(
                             <span class="string">&quot;Export `{}` found, but is not a function.\n{}&quot;</span>,
                             <span class="ident">name</span>,
                             <span class="ident">suggestion</span>
@@ -884,7 +886,7 @@
         <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>,
         <span class="ident">invoke</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Val</span>]<span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Val</span>]<span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">func</span>: <span class="ident">Function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">try_find_function</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="ident">invoke</span>, <span class="ident">args</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">func_ty</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">ty</span>();
         <span class="kw">let</span> <span class="ident">required_arguments</span> <span class="op">=</span> <span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">len</span>();
@@ -901,27 +903,27 @@
             .<span class="ident">iter</span>()
             .<span class="ident">zip</span>(<span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">iter</span>())
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">arg</span>, <span class="ident">param_type</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">param_type</span> {
-                <span class="ident">ValType::I32</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ValType::I32</span> =&gt; {
                     <span class="prelude-val">Ok</span>(<span class="ident">Val::I32</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                         <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a i32&quot;</span>, <span class="ident">arg</span>)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="ident">ValType::I64</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ValType::I64</span> =&gt; {
                     <span class="prelude-val">Ok</span>(<span class="ident">Val::I64</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                         <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a i64&quot;</span>, <span class="ident">arg</span>)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="ident">ValType::F32</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ValType::F32</span> =&gt; {
                     <span class="prelude-val">Ok</span>(<span class="ident">Val::F32</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                         <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a f32&quot;</span>, <span class="ident">arg</span>)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="ident">ValType::F64</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="ident">ValType::F64</span> =&gt; {
                     <span class="prelude-val">Ok</span>(<span class="ident">Val::F64</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
                         <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a f64&quot;</span>, <span class="ident">arg</span>)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+                <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
                     <span class="string">&quot;Don&#39;t know how to convert {} into {:?}&quot;</span>,
                     <span class="ident">arg</span>,
                     <span class="ident">param_type</span>
@@ -933,7 +935,7 @@
 
     <span class="doccomment">/// Create Run instance for arguments/env,</span>
     <span class="doccomment">/// assuming we&#39;re being run from a CFP binfmt interpreter.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binfmt_args</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Run</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binfmt_args</span>() -&gt; <span class="ident">Run</span> {
         <span class="ident"><span class="self">Self</span>::from_binfmt_args_fallible</span>().<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
             <span class="ident"><span class="kw">crate</span>::error::PrettyError::report</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>(
                 <span class="prelude-val">Err</span>(<span class="ident">e</span>).<span class="ident">context</span>(<span class="string">&quot;Failed to set up wasmer binfmt invocation&quot;</span>),
@@ -942,11 +944,11 @@
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">from_binfmt_args_fallible</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Run</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">from_binfmt_args_fallible</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Run</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">argv</span> <span class="op">=</span> <span class="ident">std::env::args_os</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="kw">let</span> (<span class="ident">_interpreter</span>, <span class="ident">executable</span>, <span class="ident">original_executable</span>, <span class="ident">args</span>) <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">argv</span>[..] {
-            [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span> @ ..] <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+            [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span> @ ..] =&gt; (<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>),
+            <span class="kw">_</span> =&gt; {
                 <span class="macro">bail!</span>(<span class="string">&quot;Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})&quot;</span>, <span class="ident">argv</span>);
             }
         };
@@ -982,11 +984,10 @@
         })
     }
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">from_binfmt_args_fallible</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Run</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">from_binfmt_args_fallible</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Run</span><span class="op">&gt;</span> {
         <span class="macro">bail!</span>(<span class="string">&quot;binfmt_misc is only available on linux.&quot;</span>)
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

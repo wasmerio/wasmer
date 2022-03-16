@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;api&#x2F;src&#x2F;sys&#x2F;tunables.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>tunables.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer/index.html'><div class='logo-container rust-logo'><img src='https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;api&#x2F;src&#x2F;sys&#x2F;tunables.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>tunables.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../../wasmer/index.html"><div class="logo-container"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer/index.html"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -226,20 +228,20 @@
 
 <span class="kw">impl</span> <span class="ident">BaseTunables</span> {
     <span class="doccomment">/// Get the `BaseTunables` for a specific Target</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_target</span>(<span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_target</span>(<span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) -&gt; <span class="self">Self</span> {
         <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">triple</span>();
         <span class="kw">let</span> <span class="ident">pointer_width</span>: <span class="ident">PointerWidth</span> <span class="op">=</span> <span class="ident">triple</span>.<span class="ident">pointer_width</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> (<span class="ident">static_memory_bound</span>, <span class="ident">static_memory_offset_guard_size</span>): (<span class="ident">Pages</span>, <span class="ident">u64</span>) <span class="op">=</span>
             <span class="kw">match</span> <span class="ident">pointer_width</span> {
-                <span class="ident">PointerWidth::U16</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="number">0x400</span>.<span class="ident">into</span>(), <span class="number">0x1000</span>),
-                <span class="ident">PointerWidth::U32</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="number">0x4000</span>.<span class="ident">into</span>(), <span class="number">0x1_0000</span>),
+                <span class="ident">PointerWidth::U16</span> =&gt; (<span class="number">0x400</span>.<span class="ident">into</span>(), <span class="number">0x1000</span>),
+                <span class="ident">PointerWidth::U32</span> =&gt; (<span class="number">0x4000</span>.<span class="ident">into</span>(), <span class="number">0x1_0000</span>),
                 <span class="comment">// Static Memory Bound:</span>
                 <span class="comment">//   Allocating 4 GiB of address space let us avoid the</span>
                 <span class="comment">//   need for explicit bounds checks.</span>
                 <span class="comment">// Static Memory Guard size:</span>
                 <span class="comment">//   Allocating 2 GiB of address space lets us translate wasm</span>
                 <span class="comment">//   offsets into x86 offsets as aggressively as we can.</span>
-                <span class="ident">PointerWidth::U64</span> <span class="op">=</span><span class="op">&gt;</span> (<span class="number">0x1_0000</span>.<span class="ident">into</span>(), <span class="number">0x8000_0000</span>),
+                <span class="ident">PointerWidth::U64</span> =&gt; (<span class="number">0x1_0000</span>.<span class="ident">into</span>(), <span class="number">0x8000_0000</span>),
             };
 
         <span class="comment">// Allocate a small guard to optimize common cases but without</span>
@@ -262,7 +264,7 @@
 
 <span class="kw">impl</span> <span class="ident">Tunables</span> <span class="kw">for</span> <span class="ident">BaseTunables</span> {
     <span class="doccomment">/// Get a `MemoryStyle` for the provided `MemoryType`</span>
-    <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MemoryStyle</span> {
+    <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span> {
         <span class="comment">// A heap with a maximum that doesn&#39;t exceed the static memory bound specified by the</span>
         <span class="comment">// tunables make it static.</span>
         <span class="comment">//</span>
@@ -282,7 +284,7 @@
     }
 
     <span class="doccomment">/// Get a [`TableStyle`] for the provided [`TableType`].</span>
-    <span class="kw">fn</span> <span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">TableStyle</span> {
+    <span class="kw">fn</span> <span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>) -&gt; <span class="ident">TableStyle</span> {
         <span class="ident">TableStyle::CallerChecksSignature</span>
     }
 
@@ -291,7 +293,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearMemory::new</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>, <span class="kw-2">&amp;</span><span class="ident">style</span>)<span class="question-mark">?</span>))
     }
 
@@ -305,7 +307,7 @@
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
         <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Memory</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearMemory::from_definition</span>(
             <span class="kw-2">&amp;</span><span class="ident">ty</span>,
             <span class="kw-2">&amp;</span><span class="ident">style</span>,
@@ -318,7 +320,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearTable::new</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>, <span class="kw-2">&amp;</span><span class="ident">style</span>)<span class="question-mark">?</span>))
     }
 
@@ -332,7 +334,7 @@
         <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
         <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
         <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Table</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">Arc::new</span>(<span class="ident">LinearTable::from_definition</span>(
             <span class="kw-2">&amp;</span><span class="ident">ty</span>,
             <span class="kw-2">&amp;</span><span class="ident">style</span>,
@@ -357,16 +359,16 @@
         <span class="kw">let</span> <span class="ident">requested</span> <span class="op">=</span> <span class="ident">MemoryType::new</span>(<span class="number">3</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>);
         <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="ident">tunables</span>.<span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="ident">requested</span>);
         <span class="kw">match</span> <span class="ident">style</span> {
-            <span class="ident">MemoryStyle::Dynamic</span> { <span class="ident">offset_guard_size</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">assert_eq!</span>(<span class="ident">offset_guard_size</span>, <span class="number">256</span>),
-            <span class="ident">s</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unexpected memory style: {:?}&quot;</span>, <span class="ident">s</span>),
+            <span class="ident">MemoryStyle::Dynamic</span> { <span class="ident">offset_guard_size</span> } =&gt; <span class="macro">assert_eq!</span>(<span class="ident">offset_guard_size</span>, <span class="number">256</span>),
+            <span class="ident">s</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected memory style: {:?}&quot;</span>, <span class="ident">s</span>),
         }
 
         <span class="comment">// Large maximum</span>
         <span class="kw">let</span> <span class="ident">requested</span> <span class="op">=</span> <span class="ident">MemoryType::new</span>(<span class="number">3</span>, <span class="prelude-val">Some</span>(<span class="number">5_000_000</span>), <span class="bool-val">true</span>);
         <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="ident">tunables</span>.<span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="ident">requested</span>);
         <span class="kw">match</span> <span class="ident">style</span> {
-            <span class="ident">MemoryStyle::Dynamic</span> { <span class="ident">offset_guard_size</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">assert_eq!</span>(<span class="ident">offset_guard_size</span>, <span class="number">256</span>),
-            <span class="ident">s</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unexpected memory style: {:?}&quot;</span>, <span class="ident">s</span>),
+            <span class="ident">MemoryStyle::Dynamic</span> { <span class="ident">offset_guard_size</span> } =&gt; <span class="macro">assert_eq!</span>(<span class="ident">offset_guard_size</span>, <span class="number">256</span>),
+            <span class="ident">s</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected memory style: {:?}&quot;</span>, <span class="ident">s</span>),
         }
 
         <span class="comment">// Small maximum</span>
@@ -376,15 +378,14 @@
             <span class="ident">MemoryStyle::Static</span> {
                 <span class="ident">bound</span>,
                 <span class="ident">offset_guard_size</span>,
-            } <span class="op">=</span><span class="op">&gt;</span> {
+            } =&gt; {
                 <span class="macro">assert_eq!</span>(<span class="ident">bound</span>, <span class="ident">Pages</span>(<span class="number">2048</span>));
                 <span class="macro">assert_eq!</span>(<span class="ident">offset_guard_size</span>, <span class="number">128</span>);
             }
-            <span class="ident">s</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic!</span>(<span class="string">&quot;Unexpected memory style: {:?}&quot;</span>, <span class="ident">s</span>),
+            <span class="ident">s</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected memory style: {:?}&quot;</span>, <span class="ident">s</span>),
         }
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;emscripten&#x2F;src&#x2F;syscalls&#x2F;mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_emscripten/index.html'><div class='logo-container rust-logo'><img src='https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;emscripten&#x2F;src&#x2F;syscalls&#x2F;mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_emscripten/index.html"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -797,32 +799,32 @@
 }
 
 <span class="doccomment">/// read</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall3</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall3</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">i32</span> {
     <span class="comment">// -&gt; ssize_t</span>
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall3 (read) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">count</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; fd: {}, buf_offset: {}, count: {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">buf</span>, <span class="ident">count</span>);
-    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
+    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">read</span>(<span class="ident">fd</span>, <span class="ident">buf_addr</span>, <span class="ident">count</span> <span class="kw">as</span> <span class="kw">_</span>) };
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; ret: {}&quot;</span>, <span class="ident">ret</span>);
     <span class="ident">ret</span> <span class="kw">as</span> <span class="kw">_</span>
 }
 
 <span class="doccomment">/// write</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall4</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall4</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall4 (write) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">count</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;=&gt; fd: {}, buf: {}, count: {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">buf</span>, <span class="ident">count</span>);
-    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_void</span>;
+    <span class="kw">let</span> <span class="ident">buf_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">buf</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_void</span>;
     <span class="kw">unsafe</span> { <span class="ident">write</span>(<span class="ident">fd</span>, <span class="ident">buf_addr</span>, <span class="ident">count</span> <span class="kw">as</span> <span class="kw">_</span>) <span class="kw">as</span> <span class="ident">i32</span> }
 }
 
 <span class="doccomment">/// close</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall6</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall6</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall6 (close) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;fd: {}&quot;</span>, <span class="ident">fd</span>);
@@ -830,10 +832,10 @@
 }
 
 <span class="comment">// chdir</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall12</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall12</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall12 (chdir) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">path_ptr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path_ptr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">path_ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -848,69 +850,69 @@
     <span class="ident">ret</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall10</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall10</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall10&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall14</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall14</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall14&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall15</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall15</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall15&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="comment">// getpid</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall20</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall20</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall20 (getpid)&quot;</span>);
     <span class="kw">unsafe</span> { <span class="ident">getpid</span>() }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall21</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall21</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall21&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall25</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall25</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall25&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall29</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall29</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall29&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall32</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall32</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall32&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall33</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall33</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall33&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall36</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall36</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall36&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="comment">// rename</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall38</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall38</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall38 (rename)&quot;</span>);
     <span class="kw">let</span> <span class="ident">old_path</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">new_path</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_old_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">old_path</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_old_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">old_path</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_old_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_old_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
         <span class="ident">old_path</span>
     };
-    <span class="kw">let</span> <span class="ident">real_new_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">new_path</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_new_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">new_path</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_new_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_new_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -927,10 +929,10 @@
 }
 
 <span class="comment">// rmdir</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall40</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall40</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall40 (rmdir)&quot;</span>);
     <span class="kw">let</span> <span class="ident">pathname_addr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -940,7 +942,7 @@
 }
 
 <span class="comment">// pipe</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall42</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall42</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall42 (pipe)&quot;</span>);
     <span class="comment">// offset to a file descriptor, which contains a read end and write end, 2 integers</span>
     <span class="kw">let</span> <span class="ident">fd_offset</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -962,34 +964,34 @@
     <span class="kw">let</span> <span class="ident">result</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc::pipe</span>(<span class="ident">fd_ptr</span>, <span class="number">2048</span>, <span class="number">0</span>) };
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
     <span class="kw">let</span> <span class="ident">result</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc::pipe</span>(<span class="ident">fd_ptr</span>) };
-    <span class="kw">if</span> <span class="ident">result</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
+    <span class="kw">if</span> <span class="ident">result</span> <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
         <span class="macro">debug!</span>(<span class="string">&quot;=&gt; os error: {}&quot;</span>, <span class="ident">Error::last_os_error</span>());
     }
     <span class="ident">result</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall51</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall51</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall51&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall52</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall52</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall52&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall53</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall53</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall53&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall60</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall60</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall60&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="comment">// dup2</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall63</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall63</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall63 (dup2) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">src</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -999,93 +1001,93 @@
 }
 
 <span class="comment">// getppid</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall64</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall64</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall64 (getppid)&quot;</span>);
     <span class="kw">unsafe</span> { <span class="ident">getpid</span>() }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall66</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall66</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall66&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall75</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall75</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall75&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall91</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall91</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall91 - stub&quot;</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall96</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall96</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall96&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall97</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall97</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall97&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall110</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall110</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall110&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall121</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall121</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall121&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall125</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall125</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall125&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall133</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall133</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall133&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall144</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall144</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall144&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall147</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall147</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall147&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall150</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall150</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall150&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall151</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall151</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall151&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall152</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall152</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall152&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall153</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall153</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall153&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall163</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall163</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall163&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="comment">// getcwd</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall183</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall183</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall183&quot;</span>);
     <span class="kw">let</span> <span class="ident">buf_offset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">libc::c_char</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">_size</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1103,7 +1105,7 @@
 }
 
 <span class="comment">// mmap2</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall192</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall192</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall192 (mmap2) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">_addr</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1116,13 +1118,13 @@
         <span class="ident">_addr</span>, <span class="ident">len</span>, <span class="ident">_prot</span>, <span class="ident">_flags</span>, <span class="ident">fd</span>, <span class="ident">_off</span>
     );
 
-    <span class="kw">if</span> <span class="ident">fd</span> <span class="op">=</span><span class="op">=</span> <span class="op">-</span><span class="number">1</span> {
+    <span class="kw">if</span> <span class="ident">fd</span> <span class="op">==</span> <span class="op">-</span><span class="number">1</span> {
         <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">env::call_memalign</span>(<span class="ident">ctx</span>, <span class="number">16384</span>, <span class="ident">len</span>);
-        <span class="kw">if</span> <span class="ident">ptr</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="kw">if</span> <span class="ident">ptr</span> <span class="op">==</span> <span class="number">0</span> {
             <span class="comment">// ENOMEM</span>
             <span class="kw">return</span> <span class="op">-</span><span class="number">12</span>;
         }
-        <span class="kw">let</span> <span class="ident">real_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">ptr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>;
+        <span class="kw">let</span> <span class="ident">real_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">ptr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>;
         <span class="ident">env::call_memset</span>(<span class="ident">ctx</span>, <span class="ident">ptr</span>, <span class="number">0</span>, <span class="ident">len</span>);
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..(<span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>) {
             <span class="kw">unsafe</span> {
@@ -1138,7 +1140,7 @@
 }
 
 <span class="doccomment">/// lseek</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall140</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall140</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">i32</span> {
     <span class="comment">// -&gt; c_int</span>
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall140 (lseek) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1167,7 +1169,7 @@
 
 <span class="doccomment">/// readv</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall145</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall145</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">i32</span> {
     <span class="comment">// -&gt; ssize_t</span>
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall145 (readv) {}&quot;</span>, <span class="ident">_which</span>);
 
@@ -1186,9 +1188,9 @@
     <span class="kw">unsafe</span> {
         <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">iovcnt</span> {
             <span class="kw">let</span> <span class="ident">guest_iov_addr</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>)) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">GuestIovec</span>;
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>)) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">GuestIovec</span>;
             <span class="kw">let</span> <span class="ident">iov_base</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_base</span>)
-                <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>;
+                <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>;
             <span class="kw">let</span> <span class="ident">iov_len</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_len</span> <span class="kw">as</span> <span class="kw">_</span>;
             <span class="comment">// debug!(&quot;=&gt; iov_addr: {:?}, {:?}&quot;, iov_base, iov_len);</span>
             <span class="kw">let</span> <span class="ident">curr</span> <span class="op">=</span> <span class="ident">read</span>(<span class="ident">fd</span>, <span class="ident">iov_base</span>, <span class="ident">iov_len</span>);
@@ -1204,7 +1206,7 @@
 
 <span class="comment">// writev</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall146</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall146</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">i32</span> {
     <span class="comment">// -&gt; ssize_t</span>
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall146 (writev) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1222,9 +1224,9 @@
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">iovcnt</span> {
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">guest_iov_addr</span> <span class="op">=</span>
-                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>)) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">GuestIovec</span>;
+                <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), (<span class="ident">iov</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>)) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">GuestIovec</span>;
             <span class="kw">let</span> <span class="ident">iov_base</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_base</span>)
-                <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_void</span>;
+                <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_void</span>;
             <span class="kw">let</span> <span class="ident">iov_len</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">guest_iov_addr</span>).<span class="ident">iov_len</span> <span class="kw">as</span> <span class="kw">_</span>;
             <span class="comment">// debug!(&quot;=&gt; iov_addr: {:?}, {:?}&quot;, iov_base, iov_len);</span>
             <span class="kw">let</span> <span class="ident">curr</span> <span class="op">=</span> <span class="ident">write</span>(<span class="ident">fd</span>, <span class="ident">iov_base</span>, <span class="ident">iov_len</span>);
@@ -1245,35 +1247,35 @@
     <span class="ident">ret</span> <span class="kw">as</span> <span class="kw">_</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall191</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall191</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">i32</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">i32</span> {
     <span class="kw">let</span> <span class="ident">_resource</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="macro">debug!</span>(
         <span class="string">&quot;emscripten::___syscall191 - mostly stub, resource: {}&quot;</span>,
         <span class="ident">_resource</span>
     );
     <span class="kw">let</span> <span class="ident">rlim_emptr</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">rlim_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">rlim_emptr</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>;
+    <span class="kw">let</span> <span class="ident">rlim_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">rlim_emptr</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
     <span class="kw">let</span> <span class="ident">rlim</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">rlim_ptr</span>, <span class="number">16</span>) };
 
     <span class="comment">// set all to RLIM_INIFINTY</span>
-    <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rlim</span>[..], <span class="op">-</span><span class="number">1</span>);
-    <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">rlim</span>[<span class="number">8</span>..], <span class="op">-</span><span class="number">1</span>);
+    <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rlim</span>[..], <span class="op">-</span><span class="number">1</span>);
+    <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rlim</span>[<span class="number">8</span>..], <span class="op">-</span><span class="number">1</span>);
 
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall193</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall193</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall193&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="comment">// stat64</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall195</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall195</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall195 (stat64) {}&quot;</span>, <span class="ident">_which</span>);
     <span class="kw">let</span> <span class="ident">pathname_addr</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get_str</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">buf</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="kw">_</span>);
+    <span class="kw">let</span> <span class="ident">real_path_owned</span> <span class="op">=</span> <span class="ident">get_cstr_path</span>(<span class="ident">ctx</span>, <span class="ident">pathname_addr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span>);
     <span class="kw">let</span> <span class="ident">real_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">rp</span>) <span class="op">=</span> <span class="ident">real_path_owned</span> {
         <span class="ident">rp</span>.<span class="ident">as_c_str</span>().<span class="ident">as_ptr</span>()
     } <span class="kw">else</span> {
@@ -1282,7 +1284,7 @@
 
     <span class="kw">unsafe</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">_stat</span>: <span class="ident">stat</span> <span class="op">=</span> <span class="ident">std::mem::zeroed</span>();
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">stat</span>(<span class="ident">real_path</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">_stat</span>);
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">stat</span>(<span class="ident">real_path</span>, <span class="kw-2">&amp;mut</span> <span class="ident">_stat</span>);
         <span class="macro">debug!</span>(
             <span class="string">&quot;=&gt; pathname: {}, buf: {} = {}&quot;</span>,
             <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">real_path</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>(),
@@ -1299,7 +1301,7 @@
 }
 
 <span class="comment">// fstat64</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall197</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall197</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall197 (fstat64) {}&quot;</span>, <span class="ident">_which</span>);
 
     <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">c_int</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1307,7 +1309,7 @@
 
     <span class="kw">unsafe</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stat</span> <span class="op">=</span> <span class="ident">std::mem::zeroed</span>();
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">fstat</span>(<span class="ident">fd</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">stat</span>);
+        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">fstat</span>(<span class="ident">fd</span>, <span class="kw-2">&amp;mut</span> <span class="ident">stat</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;=&gt; fd: {}, buf: {} = {}&quot;</span>, <span class="ident">fd</span>, <span class="ident">buf</span>, <span class="ident">ret</span>);
         <span class="kw">if</span> <span class="ident">ret</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="macro">debug!</span>(<span class="string">&quot;=&gt; os error: {}&quot;</span>, <span class="ident">Error::last_os_error</span>());
@@ -1318,129 +1320,129 @@
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall209</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall209</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall209&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall211</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall211</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall211&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall218</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall218</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall218&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall268</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall268</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall268&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall269</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall269</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall269&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall272</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall272</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall272&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall295</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall295</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall295&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall296</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall296</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall296&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall297</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall297</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall297&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall298</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall298</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall298&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall300</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall300</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall300&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall301</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall301</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall301&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall302</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall302</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall302&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall303</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall303</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall303&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall304</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall304</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall304&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall305</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall305</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall305&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall306</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall306</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall306&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall307</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall307</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall307&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall308</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall308</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall308&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="comment">// utimensat</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall320</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">_varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall320</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">_varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall320 (utimensat), {}&quot;</span>, <span class="ident">_which</span>);
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall331</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall331</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall331&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall333</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall333</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall333&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall334</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall334</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall334&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall337</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall337</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall337&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
 <span class="comment">// prlimit64</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall340</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall340</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_which</span>: <span class="ident">c_int</span>, <span class="kw-2">mut</span> <span class="ident">varargs</span>: <span class="ident">VarArgs</span>) -&gt; <span class="ident">c_int</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall340 (prlimit64), {}&quot;</span>, <span class="ident">_which</span>);
     <span class="comment">// NOTE: Doesn&#39;t really matter. Wasm modules cannot exceed WASM_PAGE_SIZE anyway.</span>
     <span class="kw">let</span> <span class="ident">_pid</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
@@ -1450,27 +1452,26 @@
 
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">resource</span> {
         <span class="comment">// RLIMIT_NOFILE</span>
-        <span class="number">7</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">1024</span>,
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="op">-</span><span class="number">1</span>, <span class="comment">// RLIM_INFINITY</span>
+        <span class="number">7</span> =&gt; <span class="number">1024</span>,
+        <span class="kw">_</span> =&gt; <span class="op">-</span><span class="number">1</span>, <span class="comment">// RLIM_INFINITY</span>
     };
 
     <span class="kw">if</span> <span class="ident">old_limit</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
         <span class="comment">// just report no limits</span>
-        <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">old_limit</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">u8</span>;
+        <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">old_limit</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
         <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">buf_ptr</span>, <span class="number">16</span>) };
 
-        <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>[..], <span class="ident">val</span>);
-        <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buf</span>[<span class="number">8</span>..], <span class="ident">val</span>);
+        <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>[..], <span class="ident">val</span>);
+        <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>[<span class="number">8</span>..], <span class="ident">val</span>);
     }
 
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall345</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___syscall345</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___syscall345&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_emscripten" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>

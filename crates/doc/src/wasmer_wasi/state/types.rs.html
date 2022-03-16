@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;wasi&#x2F;src&#x2F;state&#x2F;types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../wasmer_wasi/index.html'><div class='logo-container rust-logo'><img src='https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;wasi&#x2F;src&#x2F;state&#x2F;types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../../wasmer_wasi/index.html"><div class="logo-container"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasi/index.html"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -324,58 +326,58 @@
 
 <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">FsError</span>, <span class="ident">VirtualFile</span>};
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_from_wasi_err</span>(<span class="ident">err</span>: <span class="ident">__wasi_errno_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FsError</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_from_wasi_err</span>(<span class="ident">err</span>: <span class="ident">__wasi_errno_t</span>) -&gt; <span class="ident">FsError</span> {
     <span class="kw">match</span> <span class="ident">err</span> {
-        <span class="ident">__WASI_EBADF</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::InvalidFd</span>,
-        <span class="ident">__WASI_EEXIST</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::AlreadyExists</span>,
-        <span class="ident">__WASI_EIO</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::IOError</span>,
-        <span class="ident">__WASI_EADDRINUSE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::AddressInUse</span>,
-        <span class="ident">__WASI_EADDRNOTAVAIL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::AddressNotAvailable</span>,
-        <span class="ident">__WASI_EPIPE</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::BrokenPipe</span>,
-        <span class="ident">__WASI_ECONNABORTED</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::ConnectionAborted</span>,
-        <span class="ident">__WASI_ECONNREFUSED</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::ConnectionRefused</span>,
-        <span class="ident">__WASI_ECONNRESET</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::ConnectionReset</span>,
-        <span class="ident">__WASI_EINTR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::Interrupted</span>,
-        <span class="ident">__WASI_EINVAL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::InvalidInput</span>,
-        <span class="ident">__WASI_ENOTCONN</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::NotConnected</span>,
-        <span class="ident">__WASI_ENODEV</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::NoDevice</span>,
-        <span class="ident">__WASI_ENOENT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::EntityNotFound</span>,
-        <span class="ident">__WASI_EPERM</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::PermissionDenied</span>,
-        <span class="ident">__WASI_ETIMEDOUT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::TimedOut</span>,
-        <span class="ident">__WASI_EPROTO</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::UnexpectedEof</span>,
-        <span class="ident">__WASI_EAGAIN</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::WouldBlock</span>,
-        <span class="ident">__WASI_ENOSPC</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::WriteZero</span>,
-        <span class="ident">__WASI_ENOTEMPTY</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::DirectoryNotEmpty</span>,
-        <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">FsError::UnknownError</span>,
+        <span class="ident">__WASI_EBADF</span> =&gt; <span class="ident">FsError::InvalidFd</span>,
+        <span class="ident">__WASI_EEXIST</span> =&gt; <span class="ident">FsError::AlreadyExists</span>,
+        <span class="ident">__WASI_EIO</span> =&gt; <span class="ident">FsError::IOError</span>,
+        <span class="ident">__WASI_EADDRINUSE</span> =&gt; <span class="ident">FsError::AddressInUse</span>,
+        <span class="ident">__WASI_EADDRNOTAVAIL</span> =&gt; <span class="ident">FsError::AddressNotAvailable</span>,
+        <span class="ident">__WASI_EPIPE</span> =&gt; <span class="ident">FsError::BrokenPipe</span>,
+        <span class="ident">__WASI_ECONNABORTED</span> =&gt; <span class="ident">FsError::ConnectionAborted</span>,
+        <span class="ident">__WASI_ECONNREFUSED</span> =&gt; <span class="ident">FsError::ConnectionRefused</span>,
+        <span class="ident">__WASI_ECONNRESET</span> =&gt; <span class="ident">FsError::ConnectionReset</span>,
+        <span class="ident">__WASI_EINTR</span> =&gt; <span class="ident">FsError::Interrupted</span>,
+        <span class="ident">__WASI_EINVAL</span> =&gt; <span class="ident">FsError::InvalidInput</span>,
+        <span class="ident">__WASI_ENOTCONN</span> =&gt; <span class="ident">FsError::NotConnected</span>,
+        <span class="ident">__WASI_ENODEV</span> =&gt; <span class="ident">FsError::NoDevice</span>,
+        <span class="ident">__WASI_ENOENT</span> =&gt; <span class="ident">FsError::EntityNotFound</span>,
+        <span class="ident">__WASI_EPERM</span> =&gt; <span class="ident">FsError::PermissionDenied</span>,
+        <span class="ident">__WASI_ETIMEDOUT</span> =&gt; <span class="ident">FsError::TimedOut</span>,
+        <span class="ident">__WASI_EPROTO</span> =&gt; <span class="ident">FsError::UnexpectedEof</span>,
+        <span class="ident">__WASI_EAGAIN</span> =&gt; <span class="ident">FsError::WouldBlock</span>,
+        <span class="ident">__WASI_ENOSPC</span> =&gt; <span class="ident">FsError::WriteZero</span>,
+        <span class="ident">__WASI_ENOTEMPTY</span> =&gt; <span class="ident">FsError::DirectoryNotEmpty</span>,
+        <span class="kw">_</span> =&gt; <span class="ident">FsError::UnknownError</span>,
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_into_wasi_err</span>(<span class="ident">fs_error</span>: <span class="ident">FsError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs_error_into_wasi_err</span>(<span class="ident">fs_error</span>: <span class="ident">FsError</span>) -&gt; <span class="ident">__wasi_errno_t</span> {
     <span class="kw">match</span> <span class="ident">fs_error</span> {
-        <span class="ident">FsError::AlreadyExists</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EEXIST</span>,
-        <span class="ident">FsError::AddressInUse</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EADDRINUSE</span>,
-        <span class="ident">FsError::AddressNotAvailable</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EADDRNOTAVAIL</span>,
-        <span class="ident">FsError::BaseNotDirectory</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOTDIR</span>,
-        <span class="ident">FsError::BrokenPipe</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EPIPE</span>,
-        <span class="ident">FsError::ConnectionAborted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ECONNABORTED</span>,
-        <span class="ident">FsError::ConnectionRefused</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ECONNREFUSED</span>,
-        <span class="ident">FsError::ConnectionReset</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ECONNRESET</span>,
-        <span class="ident">FsError::Interrupted</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EINTR</span>,
-        <span class="ident">FsError::InvalidData</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EIO</span>,
-        <span class="ident">FsError::InvalidFd</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EBADF</span>,
-        <span class="ident">FsError::InvalidInput</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EINVAL</span>,
-        <span class="ident">FsError::IOError</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EIO</span>,
-        <span class="ident">FsError::NoDevice</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENODEV</span>,
-        <span class="ident">FsError::NotAFile</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EINVAL</span>,
-        <span class="ident">FsError::NotConnected</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOTCONN</span>,
-        <span class="ident">FsError::EntityNotFound</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOENT</span>,
-        <span class="ident">FsError::PermissionDenied</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EPERM</span>,
-        <span class="ident">FsError::TimedOut</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ETIMEDOUT</span>,
-        <span class="ident">FsError::UnexpectedEof</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EPROTO</span>,
-        <span class="ident">FsError::WouldBlock</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EAGAIN</span>,
-        <span class="ident">FsError::WriteZero</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOSPC</span>,
-        <span class="ident">FsError::DirectoryNotEmpty</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_ENOTEMPTY</span>,
-        <span class="ident">FsError::Lock</span> <span class="op">|</span> <span class="ident">FsError::UnknownError</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">__WASI_EIO</span>,
+        <span class="ident">FsError::AlreadyExists</span> =&gt; <span class="ident">__WASI_EEXIST</span>,
+        <span class="ident">FsError::AddressInUse</span> =&gt; <span class="ident">__WASI_EADDRINUSE</span>,
+        <span class="ident">FsError::AddressNotAvailable</span> =&gt; <span class="ident">__WASI_EADDRNOTAVAIL</span>,
+        <span class="ident">FsError::BaseNotDirectory</span> =&gt; <span class="ident">__WASI_ENOTDIR</span>,
+        <span class="ident">FsError::BrokenPipe</span> =&gt; <span class="ident">__WASI_EPIPE</span>,
+        <span class="ident">FsError::ConnectionAborted</span> =&gt; <span class="ident">__WASI_ECONNABORTED</span>,
+        <span class="ident">FsError::ConnectionRefused</span> =&gt; <span class="ident">__WASI_ECONNREFUSED</span>,
+        <span class="ident">FsError::ConnectionReset</span> =&gt; <span class="ident">__WASI_ECONNRESET</span>,
+        <span class="ident">FsError::Interrupted</span> =&gt; <span class="ident">__WASI_EINTR</span>,
+        <span class="ident">FsError::InvalidData</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">FsError::InvalidFd</span> =&gt; <span class="ident">__WASI_EBADF</span>,
+        <span class="ident">FsError::InvalidInput</span> =&gt; <span class="ident">__WASI_EINVAL</span>,
+        <span class="ident">FsError::IOError</span> =&gt; <span class="ident">__WASI_EIO</span>,
+        <span class="ident">FsError::NoDevice</span> =&gt; <span class="ident">__WASI_ENODEV</span>,
+        <span class="ident">FsError::NotAFile</span> =&gt; <span class="ident">__WASI_EINVAL</span>,
+        <span class="ident">FsError::NotConnected</span> =&gt; <span class="ident">__WASI_ENOTCONN</span>,
+        <span class="ident">FsError::EntityNotFound</span> =&gt; <span class="ident">__WASI_ENOENT</span>,
+        <span class="ident">FsError::PermissionDenied</span> =&gt; <span class="ident">__WASI_EPERM</span>,
+        <span class="ident">FsError::TimedOut</span> =&gt; <span class="ident">__WASI_ETIMEDOUT</span>,
+        <span class="ident">FsError::UnexpectedEof</span> =&gt; <span class="ident">__WASI_EPROTO</span>,
+        <span class="ident">FsError::WouldBlock</span> =&gt; <span class="ident">__WASI_EAGAIN</span>,
+        <span class="ident">FsError::WriteZero</span> =&gt; <span class="ident">__WASI_ENOSPC</span>,
+        <span class="ident">FsError::DirectoryNotEmpty</span> =&gt; <span class="ident">__WASI_ENOTEMPTY</span>,
+        <span class="ident">FsError::Lock</span> <span class="op">|</span> <span class="ident">FsError::UnknownError</span> =&gt; <span class="ident">__WASI_EIO</span>,
     }
 }
 
@@ -395,14 +397,14 @@
 }
 
 <span class="kw">impl</span> <span class="ident">PollEvent</span> {
-    <span class="kw">fn</span> <span class="ident">from_i16</span>(<span class="ident">raw_num</span>: <span class="ident">i16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PollEvent</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">from_i16</span>(<span class="ident">raw_num</span>: <span class="ident">i16</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PollEvent</span><span class="op">&gt;</span> {
         <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="ident">raw_num</span> {
-            <span class="number">1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent::PollIn</span>,
-            <span class="number">2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent::PollOut</span>,
-            <span class="number">4</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent::PollError</span>,
-            <span class="number">8</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent::PollHangUp</span>,
-            <span class="number">16</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">PollEvent::PollInvalid</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
+            <span class="number">1</span> =&gt; <span class="ident">PollEvent::PollIn</span>,
+            <span class="number">2</span> =&gt; <span class="ident">PollEvent::PollOut</span>,
+            <span class="number">4</span> =&gt; <span class="ident">PollEvent::PollError</span>,
+            <span class="number">8</span> =&gt; <span class="ident">PollEvent::PollHangUp</span>,
+            <span class="number">16</span> =&gt; <span class="ident">PollEvent::PollInvalid</span>,
+            <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">None</span>,
         })
     }
 }
@@ -423,8 +425,8 @@
 <span class="kw">impl</span> <span class="ident">Iterator</span> <span class="kw">for</span> <span class="ident">PollEventIter</span> {
     <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> <span class="ident">PollEvent</span>;
 
-    <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pes</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">i</span> <span class="op">&gt;</span> <span class="number">15</span> {
+    <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pes</span> <span class="op">==</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">i</span> <span class="op">&gt;</span> <span class="number">15</span> {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
             <span class="kw">while</span> <span class="self">self</span>.<span class="ident">i</span> <span class="op">&lt;</span> <span class="number">16</span> {
@@ -440,21 +442,21 @@
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iterate_poll_events</span>(<span class="ident">pes</span>: <span class="ident">PollEventSet</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventIter</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iterate_poll_events</span>(<span class="ident">pes</span>: <span class="ident">PollEventSet</span>) -&gt; <span class="ident">PollEventIter</span> {
     <span class="ident">PollEventIter</span> { <span class="ident">pes</span>, <span class="ident">i</span>: <span class="number">0</span> }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">fn</span> <span class="ident">poll_event_set_to_platform_poll_events</span>(<span class="kw-2">mut</span> <span class="ident">pes</span>: <span class="ident">PollEventSet</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i16</span> {
+<span class="kw">fn</span> <span class="ident">poll_event_set_to_platform_poll_events</span>(<span class="kw-2">mut</span> <span class="ident">pes</span>: <span class="ident">PollEventSet</span>) -&gt; <span class="ident">i16</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="number">0</span>;
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">16</span> {
         <span class="ident">out</span> <span class="op">|</span><span class="op">=</span> <span class="kw">match</span> <span class="ident">PollEvent::from_i16</span>(<span class="ident">pes</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>)) {
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollIn</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::POLLIN</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollOut</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::POLLOUT</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollError</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::POLLERR</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollHangUp</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::POLLHUP</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollInvalid</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">libc::POLLNVAL</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">0</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollIn</span>) =&gt; <span class="ident">libc::POLLIN</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollOut</span>) =&gt; <span class="ident">libc::POLLOUT</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollError</span>) =&gt; <span class="ident">libc::POLLERR</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollHangUp</span>) =&gt; <span class="ident">libc::POLLHUP</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">PollEvent::PollInvalid</span>) =&gt; <span class="ident">libc::POLLNVAL</span>,
+            <span class="kw">_</span> =&gt; <span class="number">0</span>,
         };
         <span class="ident">pes</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>);
     }
@@ -462,16 +464,16 @@
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">fn</span> <span class="ident">platform_poll_events_to_pollevent_set</span>(<span class="kw-2">mut</span> <span class="ident">num</span>: <span class="ident">i16</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventSet</span> {
+<span class="kw">fn</span> <span class="ident">platform_poll_events_to_pollevent_set</span>(<span class="kw-2">mut</span> <span class="ident">num</span>: <span class="ident">i16</span>) -&gt; <span class="ident">PollEventSet</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">peb</span> <span class="op">=</span> <span class="ident">PollEventBuilder::new</span>();
     <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">16</span> {
         <span class="ident">peb</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">num</span> <span class="op">&amp;</span> (<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>) {
-            <span class="ident">libc::POLLIN</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollIn</span>),
-            <span class="ident">libc::POLLOUT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollOut</span>),
-            <span class="ident">libc::POLLERR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollError</span>),
-            <span class="ident">libc::POLLHUP</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollHangUp</span>),
-            <span class="ident">libc::POLLNVAL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollInvalid</span>),
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">peb</span>,
+            <span class="ident">libc::POLLIN</span> =&gt; <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollIn</span>),
+            <span class="ident">libc::POLLOUT</span> =&gt; <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollOut</span>),
+            <span class="ident">libc::POLLERR</span> =&gt; <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollError</span>),
+            <span class="ident">libc::POLLHUP</span> =&gt; <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollHangUp</span>),
+            <span class="ident">libc::POLLNVAL</span> =&gt; <span class="ident">peb</span>.<span class="ident">add</span>(<span class="ident">PollEvent::PollInvalid</span>),
+            <span class="kw">_</span> =&gt; <span class="ident">peb</span>,
         };
         <span class="ident">num</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">i</span>);
     }
@@ -479,16 +481,16 @@
 }
 
 <span class="kw">impl</span> <span class="ident">PollEventBuilder</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventBuilder</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="ident">PollEventBuilder</span> {
         <span class="ident">PollEventBuilder</span> { <span class="ident">inner</span>: <span class="number">0</span> }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">PollEvent</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventBuilder</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">PollEvent</span>) -&gt; <span class="ident">PollEventBuilder</span> {
         <span class="self">self</span>.<span class="ident">inner</span> <span class="op">|</span><span class="op">=</span> <span class="ident">event</span> <span class="kw">as</span> <span class="ident">PollEventSet</span>;
         <span class="self">self</span>
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">PollEventSet</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>) -&gt; <span class="ident">PollEventSet</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
     }
 }
@@ -497,9 +499,9 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">poll</span>(
     <span class="ident">selfs</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span>],
     <span class="ident">events</span>: <span class="kw-2">&amp;</span>[<span class="ident">PollEventSet</span>],
-    <span class="ident">seen_events</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">PollEventSet</span>],
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="op">!</span>(<span class="ident">selfs</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="op">&amp;&amp;</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">seen_events</span>.<span class="ident">len</span>()) {
+    <span class="ident">seen_events</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">PollEventSet</span>],
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="kw">if</span> <span class="op">!</span>(<span class="ident">selfs</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="op">&amp;&amp;</span> <span class="ident">events</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">seen_events</span>.<span class="ident">len</span>()) {
         <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::InvalidInput</span>);
     }
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fds</span> <span class="op">=</span> <span class="ident">selfs</span>
@@ -530,8 +532,8 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">poll</span>(
     <span class="ident">_selfs</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span>],
     <span class="ident">_events</span>: <span class="kw-2">&amp;</span>[<span class="ident">PollEventSet</span>],
-    <span class="ident">_seen_events</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">PollEventSet</span>],
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="ident">_seen_events</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">PollEventSet</span>],
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
     <span class="macro">unimplemented!</span>(<span class="string">&quot;VirtualFile::poll is not implemented for non-Unix-like targets yet&quot;</span>);
 }
 
@@ -545,13 +547,13 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Pipe</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
         <span class="ident"><span class="self">Self</span>::default</span>()
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">amt</span> <span class="op">=</span> <span class="ident">std::cmp::min</span>(<span class="ident">buf</span>.<span class="ident">len</span>(), <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">len</span>());
         <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">drain</span>(..<span class="ident">amt</span>).<span class="ident">enumerate</span>() {
             <span class="ident">buf</span>[<span class="ident">i</span>] <span class="op">=</span> <span class="ident">byte</span>;
@@ -561,17 +563,17 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">extend</span>(<span class="ident">buf</span>);
         <span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>())
     }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
 }
 
 <span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io::SeekFrom</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io::SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
         <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
             <span class="ident">io::ErrorKind::Other</span>,
             <span class="string">&quot;can not seek in a pipe&quot;</span>,
@@ -581,26 +583,26 @@
 
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">typetag::serde</span>)]</span>
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>
     }
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>
     }
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">len</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">len</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">resize</span>(<span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="number">0</span>);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">len</span>())
     }
 }
@@ -615,6 +617,5 @@ trait WasiFdBacking: std::fmt::Debug {
 }
 */</span>
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasi" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
 </body></html>
