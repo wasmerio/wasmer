@@ -154,5 +154,7 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["js", "wasmparser"]
 
+js-serializable-module = []
+
 [package.metadata.docs.rs]
 features = ["compiler", "core", "cranelift", "default-compiler", "default-dylib", "default-engine", "dylib", "engine", "jit", "native", "singlepass", "sys", "sys-default", "universal"]

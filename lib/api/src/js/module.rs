@@ -3,7 +3,7 @@ use crate::js::resolver::Resolver;
 use crate::js::store::Store;
 use crate::js::types::{ExportType, ImportType};
 // use crate::js::InstantiationError;
-use crate::js::error::CompileError;
+use crate::js::error::{CompileError, SerializeError, DeserializeError};
 #[cfg(feature = "wat")]
 use crate::js::error::WasmError;
 use crate::js::RuntimeError;
@@ -62,6 +62,8 @@ pub struct Module {
     name: Option<String>,
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
+    #[cfg(feature = "js-serializable-module")]
+    raw_bytes: Option<Vec<u8>>
 }
 
 impl Module {
@@ -194,6 +196,8 @@ impl Module {
             module,
             type_hints,
             name,
+            #[cfg(feature = "js-serializable-module")]
+            raw_bytes: Some(binary.to_vec())
         })
     }
 
@@ -271,6 +275,23 @@ impl Module {
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|s| s.as_ref())
         // self.artifact.module_ref().name.as_deref()
+    }
+
+    /// Serializes a module into a binary representation that the `Engine`
+    /// can later process via [`Module::deserialize`].
+    ///
+    #[cfg(feature = "js-serializable-module")]
+    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        self.raw_bytes.clone().ok_or(SerializeError::Generic("Not able to serialize module".to_string()))
+    }
+
+    /// Deserializes a serialized Module binary into a `Module`.
+    ///
+    /// This is safe since deserialization under `js` is essentially same as reconstructing `Module`.
+    /// We maintain the `unsafe` to preserve the same API as Wasmer
+    #[cfg(feature = "js-serializable-module")]
+    pub unsafe fn deserialize(store: &Store, bytes: &[u8]) -> Result<Self, DeserializeError> {
+        Self::new(store, bytes).map_err(|e| DeserializeError::Compiler(e))
     }
 
     /// Sets the name of the current module.
@@ -512,6 +533,8 @@ impl From<WebAssembly::Module> for Module {
             module,
             name: None,
             type_hints: None,
+            #[cfg(feature = "js-serializable-module")]
+            raw_bytes: None
         }
     }
 }
