@@ -50,14 +50,6 @@ pub enum RelocationKind {
     Arm32Call,
     /// Arm64 call target
     Arm64Call,
-    /// Arm64 movk/z part 0
-    Arm64Movw0,
-    /// Arm64 movk/z part 1
-    Arm64Movw1,
-    /// Arm64 movk/z part 2
-    Arm64Movw2,
-    /// Arm64 movk/z part 3
-    Arm64Movw3,
     // /// RISC-V call target
     // RiscvCall,
     /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
@@ -80,10 +72,6 @@ impl fmt::Display for RelocationKind {
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
             Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
             Self::Arm32Call | Self::Arm64Call => write!(f, "Call"),
-            Self::Arm64Movw0 => write!(f, "Arm64MovwG0"),
-            Self::Arm64Movw1 => write!(f, "Arm64MovwG1"),
-            Self::Arm64Movw2 => write!(f, "Arm64MovwG2"),
-            Self::Arm64Movw3 => write!(f, "Arm64MovwG3"),
             Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
@@ -133,11 +121,7 @@ impl Relocation {
     /// The function returns the relocation address and the delta.
     pub fn for_address(&self, start: usize, target_func_address: u64) -> (usize, u64) {
         match self.kind {
-            RelocationKind::Abs8
-            | RelocationKind::Arm64Movw0
-            | RelocationKind::Arm64Movw1
-            | RelocationKind::Arm64Movw2
-            | RelocationKind::Arm64Movw3 => {
+            RelocationKind::Abs8 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_abs = target_func_address

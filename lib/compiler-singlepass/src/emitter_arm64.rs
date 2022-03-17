@@ -1899,6 +1899,7 @@ impl EmitterARM64 for Assembler {
         let reg = reg.into_index() as u32;
         dynasm!(self ; adr X(reg), =>label);
     }
+
     fn emit_b_label(&mut self, label: Label) {
         dynasm!(self ; b =>label);
     }

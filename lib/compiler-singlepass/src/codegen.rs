@@ -2606,17 +2606,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         function_index - self.module.num_imported_functions,
                     ))
                 };
-                self.machine
-                    .move_with_reloc(reloc_target, &mut self.relocations);
+                let calling_convention = self.calling_convention;
 
                 self.emit_call_native(
                     |this| {
                         let offset = this
                             .machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
-                        this.machine
-                            .emit_call_register(this.machine.get_grp_for_call());
+                        let mut relocations = this
+                            .machine
+                            .emit_call_with_reloc(calling_convention, reloc_target);
                         this.machine.mark_instruction_address_end(offset);
+                        this.relocations.append(&mut relocations);
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
