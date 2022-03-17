@@ -311,62 +311,6 @@ pub fn emit_compilation(
                     RelocationEncoding::Generic,
                     32,
                 ),
-                Reloc::Arm64Movw0 => (
-                    match obj.format() {
-                        object::BinaryFormat::Elf => {
-                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G0)
-                        }
-                        fmt => panic!(
-                            "unsupported binary format {:?} for relocation {:?}",
-                            fmt,
-                            obj.format()
-                        ),
-                    },
-                    RelocationEncoding::Generic,
-                    16,
-                ),
-                Reloc::Arm64Movw1 => (
-                    match obj.format() {
-                        object::BinaryFormat::Elf => {
-                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G1)
-                        }
-                        fmt => panic!(
-                            "unsupported binary format {:?} for relocation {:?}",
-                            fmt,
-                            obj.format()
-                        ),
-                    },
-                    RelocationEncoding::Generic,
-                    16,
-                ),
-                Reloc::Arm64Movw2 => (
-                    match obj.format() {
-                        object::BinaryFormat::Elf => {
-                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G2)
-                        }
-                        fmt => panic!(
-                            "unsupported binary format {:?} for relocation {:?}",
-                            fmt,
-                            obj.format()
-                        ),
-                    },
-                    RelocationEncoding::Generic,
-                    16,
-                ),
-                Reloc::Arm64Movw3 => (
-                    match obj.format() {
-                        object::BinaryFormat::Elf => {
-                            RelocationKind::Elf(elf::R_AARCH64_MOVW_UABS_G3)
-                        }
-                        fmt => panic!(
-                            "unsupported binary format {:?} for relocation {:?}",
-                            fmt,
-                            obj.format()
-                        ),
-                    },
-                    RelocationEncoding::Generic,
-                    16,
-                ),
                 other => {
                     return Err(ObjectError::UnsupportedArchitecture(format!(
                         "{} (relocation: {}",
