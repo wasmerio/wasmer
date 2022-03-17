@@ -2857,6 +2857,7 @@
 <span id="2855">2855</span>
 <span id="2856">2856</span>
 <span id="2857">2857</span>
+<span id="2858">2858</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -4758,6 +4759,7 @@
         <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">adr</span> <span class="ident">X</span>(<span class="ident">reg</span>), =&gt;<span class="ident">label</span>);
     }
+
     <span class="kw">fn</span> <span class="ident">emit_b_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span> =&gt;<span class="ident">label</span>);
     }

@@ -7083,10 +7083,6 @@
 <span id="7081">7081</span>
 <span id="7082">7082</span>
 <span id="7083">7083</span>
-<span id="7084">7084</span>
-<span id="7085">7085</span>
-<span id="7086">7086</span>
-<span id="7087">7087</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -10958,27 +10954,23 @@
         <span class="self">self</span>.<span class="ident">release_gpr</span>(<span class="ident">compare</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">move_with_reloc</span>(
+    <span class="kw">fn</span> <span class="ident">emit_call_with_reloc</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">_calling_convention</span>: <span class="ident">CallingConvention</span>,
         <span class="ident">reloc_target</span>: <span class="ident">RelocationTarget</span>,
-        <span class="ident">relocations</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span>,
-    ) {
-        <span class="kw">let</span> <span class="ident">reloc_at</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">arch_mov64_imm_offset</span>();
-
+    ) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">relocations</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_label</span>();
+        <span class="kw">let</span> <span class="ident">reloc_at</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span> <span class="op">+</span> <span class="number">1</span>; <span class="comment">// skip E8</span>
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_label</span>(<span class="ident">next</span>);
+        <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">next</span>);
         <span class="ident">relocations</span>.<span class="ident">push</span>(<span class="ident">Relocation</span> {
-            <span class="ident">kind</span>: <span class="ident">RelocationKind::Abs8</span>,
+            <span class="ident">kind</span>: <span class="ident">RelocationKind::X86CallPCRel4</span>,
             <span class="ident">reloc_target</span>,
             <span class="ident">offset</span>: <span class="ident">reloc_at</span> <span class="kw">as</span> <span class="ident">u32</span>,
-            <span class="ident">addend</span>: <span class="number">0</span>,
+            <span class="ident">addend</span>: <span class="op">-</span><span class="number">4</span>,
         });
-
-        <span class="comment">// RAX is preserved on entry to `emit_call_native` callback.</span>
-        <span class="comment">// The Imm64 value is relocated by the JIT linker.</span>
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_mov</span>(
-            <span class="ident">Size::S64</span>,
-            <span class="ident">Location::Imm64</span>(<span class="ident">std::u64::MAX</span>),
-            <span class="ident">Location::GPR</span>(<span class="ident">GPR::RAX</span>),
-        );
+        <span class="ident">relocations</span>
     }
 
     <span class="kw">fn</span> <span class="ident">emit_binop_add64</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">loc_a</span>: <span class="ident">Location</span>, <span class="ident">loc_b</span>: <span class="ident">Location</span>, <span class="ident">ret</span>: <span class="ident">Location</span>) {

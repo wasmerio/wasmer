@@ -3349,11 +3349,11 @@
     );
 
     <span class="doccomment">/// emit a move function address to GPR ready for call, using appropriate relocation</span>
-    <span class="kw">fn</span> <span class="ident">move_with_reloc</span>(
+    <span class="kw">fn</span> <span class="ident">emit_call_with_reloc</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
         <span class="ident">reloc_target</span>: <span class="ident">RelocationTarget</span>,
-        <span class="ident">relocations</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span>,
-    );
+    ) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span>;
     <span class="doccomment">/// Add with location directly from the stack</span>
     <span class="kw">fn</span> <span class="ident">emit_binop_add64</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,

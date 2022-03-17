@@ -911,12 +911,6 @@
 <span id="909">909</span>
 <span id="910">910</span>
 <span id="911">911</span>
-<span id="912">912</span>
-<span id="913">913</span>
-<span id="914">914</span>
-<span id="915">915</span>
-<span id="916">916</span>
-<span id="917">917</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
 
@@ -1319,11 +1313,6 @@
             <span class="ident">Triple::host</span>().<span class="ident">to_string</span>(),
         );
 
-        <span class="kw">let</span> <span class="ident">notext</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">target_triple</span>.<span class="ident">operating_system</span>, <span class="ident">target_triple</span>.<span class="ident">architecture</span>) {
-            (<span class="ident">OperatingSystem::Linux</span>, <span class="ident">Architecture::X86_64</span>) =&gt; <span class="macro">vec!</span>[<span class="string">&quot;-Wl,-z,notext&quot;</span>],
-            <span class="kw">_</span> =&gt; <span class="macro">vec!</span>[],
-        };
-
         <span class="kw">let</span> <span class="ident">linker</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">linker</span>().<span class="ident">executable</span>();
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">linker</span>)
             .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">filepath</span>)
@@ -1333,7 +1322,6 @@
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">target_args</span>)
             <span class="comment">// .args(&amp;wasmer_symbols)</span>
             .<span class="ident">arg</span>(<span class="string">&quot;-shared&quot;</span>)
-            .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">notext</span>)
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="ident">cross_compiling_args</span>)
             .<span class="ident">arg</span>(<span class="string">&quot;-v&quot;</span>)
             .<span class="ident">output</span>()

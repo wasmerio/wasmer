@@ -5960,6 +5960,7 @@
 <span id="5958">5958</span>
 <span id="5959">5959</span>
 <span id="5960">5960</span>
+<span id="5961">5961</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{<span class="ident">CodegenError</span>, <span class="ident">Label</span>, <span class="ident">Machine</span>, <span class="ident">MachineStackOffset</span>, <span class="ident">NATIVE_PAGE_SIZE</span>};
@@ -8561,17 +8562,18 @@
                         <span class="ident">function_index</span> <span class="op">-</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_functions</span>,
                     ))
                 };
-                <span class="self">self</span>.<span class="ident">machine</span>
-                    .<span class="ident">move_with_reloc</span>(<span class="ident">reloc_target</span>, <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">relocations</span>);
+                <span class="kw">let</span> <span class="ident">calling_convention</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">calling_convention</span>;
 
                 <span class="self">self</span>.<span class="ident">emit_call_native</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
                         <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">this</span>
                             .<span class="ident">machine</span>
                             .<span class="ident">mark_instruction_with_trap_code</span>(<span class="ident">TrapCode::StackOverflow</span>);
-                        <span class="ident">this</span>.<span class="ident">machine</span>
-                            .<span class="ident">emit_call_register</span>(<span class="ident">this</span>.<span class="ident">machine</span>.<span class="ident">get_grp_for_call</span>());
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">relocations</span> <span class="op">=</span> <span class="ident">this</span>
+                            .<span class="ident">machine</span>
+                            .<span class="ident">emit_call_with_reloc</span>(<span class="ident">calling_convention</span>, <span class="ident">reloc_target</span>);
                         <span class="ident">this</span>.<span class="ident">machine</span>.<span class="ident">mark_instruction_address_end</span>(<span class="ident">offset</span>);
+                        <span class="ident">this</span>.<span class="ident">relocations</span>.<span class="ident">append</span>(<span class="kw-2">&amp;mut</span> <span class="ident">relocations</span>);
                     },
                     <span class="ident">params</span>.<span class="ident">iter</span>().<span class="ident">copied</span>(),
                     <span class="ident">param_types</span>.<span class="ident">iter</span>().<span class="ident">copied</span>(),

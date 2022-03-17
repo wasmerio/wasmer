@@ -666,6 +666,8 @@
         <span class="kw">let</span> (<span class="ident">_symbol_id</span>, <span class="ident">section_offset</span>) <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">symbol_section_and_offset</span>(<span class="ident">symbol_id</span>).<span class="ident">unwrap</span>();
 
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">relocations</span> {
+            <span class="kw">let</span> <span class="ident">relocation_address</span> <span class="op">=</span> <span class="ident">section_offset</span> <span class="op">+</span> <span class="ident">r</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>;
+
             <span class="kw">let</span> (<span class="ident">relocation_kind</span>, <span class="ident">relocation_encoding</span>, <span class="ident">relocation_size</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">kind</span> {
                 <span class="ident">Reloc::Abs4</span> =&gt; (<span class="ident">RelocationKind::Absolute</span>, <span class="ident">RelocationEncoding::Generic</span>, <span class="number">32</span>),
                 <span class="ident">Reloc::Abs8</span> =&gt; (<span class="ident">RelocationKind::Absolute</span>, <span class="ident">RelocationEncoding::Generic</span>, <span class="number">64</span>),
@@ -707,8 +709,6 @@
                     )))
                 }
             };
-
-            <span class="kw">let</span> <span class="ident">relocation_address</span> <span class="op">=</span> <span class="ident">section_offset</span> <span class="op">+</span> <span class="ident">r</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>;
 
             <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">reloc_target</span> {
                 <span class="ident">RelocationTarget::LocalFunc</span>(<span class="ident">index</span>) =&gt; {
