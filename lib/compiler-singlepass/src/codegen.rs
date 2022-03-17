@@ -5899,35 +5899,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let body_len = self.machine.assembler_get_offset().0;
 
+        let mut unwind_info = None;
+        let mut fde = None;
         #[cfg(feature = "unwind")]
-        let (unwind_info, fde) = {
-            match self.calling_convention {
-                CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
-                    let unwind_info = self.machine.gen_dwarf_unwind_info(body_len);
-                    if let Some(unwind) = unwind_info {
-                        let fde = unwind.to_fde(Address::Symbol {
-                            symbol: WriterRelocate::FUNCTION_SYMBOL,
-                            addend: self.fsm.local_function_id as _,
-                        });
-                        (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
-                    } else {
-                        (None, None)
-                    }
+        match self.calling_convention {
+            CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
+                let unwind = self.machine.gen_dwarf_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    fde = Some(unwind.to_fde(Address::Symbol {
+                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                        addend: self.fsm.local_function_id as _,
+                    }));
+                    unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
-                CallingConvention::WindowsFastcall => {
-                    let unwind_info = self.machine.gen_windows_unwind_info(body_len);
-                    match unwind_info {
-                        Some(unwind) => {
-                            (Some(CompiledFunctionUnwindInfo::WindowsX64(unwind)), None)
-                        }
-                        _ => (None, None),
-                    }
-                }
-                _ => (None, None),
             }
+            CallingConvention::WindowsFastcall => {
+                let unwind = self.machine.gen_windows_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+                }
+            }
+            _ => (),
         };
-        #[cfg(not(feature = "unwind"))]
-        let (unwind_info, fde) = (None, None);
 
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
