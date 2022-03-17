@@ -42,7 +42,7 @@ use crate::probestack::PROBESTACK;
 use crate::table::{RawTableElement, TableElement};
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
-use crate::VMExternRef;
+use crate::{on_host_stack, VMExternRef};
 use enum_iterator::IntoEnumIterator;
 use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
@@ -155,13 +155,15 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
     delta: u32,
     memory_index: u32,
 ) -> u32 {
-    let instance = (&*vmctx).instance();
-    let memory_index = LocalMemoryIndex::from_u32(memory_index);
+    on_host_stack(|| {
+        let instance = (&*vmctx).instance();
+        let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-    instance
-        .memory_grow(memory_index, delta)
-        .map(|pages| pages.0)
-        .unwrap_or(u32::max_value())
+        instance
+            .memory_grow(memory_index, delta)
+            .map(|pages| pages.0)
+            .unwrap_or(u32::max_value())
+    })
 }
 
 /// Implementation of memory.grow for imported 32-bit memories.
@@ -175,13 +177,15 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
     delta: u32,
     memory_index: u32,
 ) -> u32 {
-    let instance = (&*vmctx).instance();
-    let memory_index = MemoryIndex::from_u32(memory_index);
+    on_host_stack(|| {
+        let instance = (&*vmctx).instance();
+        let memory_index = MemoryIndex::from_u32(memory_index);
 
-    instance
-        .imported_memory_grow(memory_index, delta)
-        .map(|pages| pages.0)
-        .unwrap_or(u32::max_value())
+        instance
+            .imported_memory_grow(memory_index, delta)
+            .map(|pages| pages.0)
+            .unwrap_or(u32::max_value())
+    })
 }
 
 /// Implementation of memory.size for locally-defined 32-bit memories.
@@ -440,18 +444,20 @@ pub unsafe extern "C" fn wasmer_vm_table_grow(
     delta: u32,
     table_index: u32,
 ) -> u32 {
-    let instance = (&*vmctx).instance();
-    let table_index = LocalTableIndex::from_u32(table_index);
+    on_host_stack(|| {
+        let instance = (&*vmctx).instance();
+        let table_index = LocalTableIndex::from_u32(table_index);
 
-    let init_value = match instance.get_local_table(table_index).ty().ty {
-        Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
-        Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
-        _ => panic!("Unrecognized table type: does not contain references"),
-    };
+        let init_value = match instance.get_local_table(table_index).ty().ty {
+            Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
+            Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
+            _ => panic!("Unrecognized table type: does not contain references"),
+        };
 
-    instance
-        .table_grow(table_index, delta, init_value)
-        .unwrap_or(u32::max_value())
+        instance
+            .table_grow(table_index, delta, init_value)
+            .unwrap_or(u32::max_value())
+    })
 }
 
 /// Implementation of `table.grow` for imported tables.
@@ -466,17 +472,19 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_grow(
     delta: u32,
     table_index: u32,
 ) -> u32 {
-    let instance = (&*vmctx).instance();
-    let table_index = TableIndex::from_u32(table_index);
-    let init_value = match instance.get_table(table_index).ty().ty {
-        Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
-        Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
-        _ => panic!("Unrecognized table type: does not contain references"),
-    };
+    on_host_stack(|| {
+        let instance = (&*vmctx).instance();
+        let table_index = TableIndex::from_u32(table_index);
+        let init_value = match instance.get_table(table_index).ty().ty {
+            Type::ExternRef => TableElement::ExternRef(init_value.extern_ref.into()),
+            Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
+            _ => panic!("Unrecognized table type: does not contain references"),
+        };
 
-    instance
-        .imported_table_grow(table_index, delta, init_value)
-        .unwrap_or(u32::max_value())
+        instance
+            .imported_table_grow(table_index, delta, init_value)
+            .unwrap_or(u32::max_value())
+    })
 }
 
 /// Implementation of `func.ref`.
@@ -517,7 +525,7 @@ pub unsafe extern "C" fn wasmer_vm_externref_inc(externref: VMExternRef) {
 /// and other serious memory bugs may occur.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_vm_externref_dec(mut externref: VMExternRef) {
-    externref.ref_drop()
+    on_host_stack(|| externref.ref_drop())
 }
 
 /// Implementation of `elem.drop`.
@@ -527,9 +535,11 @@ pub unsafe extern "C" fn wasmer_vm_externref_dec(mut externref: VMExternRef) {
 /// `vmctx` must be dereferenceable.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_vm_elem_drop(vmctx: *mut VMContext, elem_index: u32) {
-    let elem_index = ElemIndex::from_u32(elem_index);
-    let instance = (&*vmctx).instance();
-    instance.elem_drop(elem_index);
+    on_host_stack(|| {
+        let elem_index = ElemIndex::from_u32(elem_index);
+        let instance = (&*vmctx).instance();
+        instance.elem_drop(elem_index);
+    })
 }
 
 /// Implementation of `memory.copy` for locally defined memories.
@@ -656,9 +666,11 @@ pub unsafe extern "C" fn wasmer_vm_memory32_init(
 /// `vmctx` must be dereferenceable.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_vm_data_drop(vmctx: *mut VMContext, data_index: u32) {
-    let data_index = DataIndex::from_u32(data_index);
-    let instance = (&*vmctx).instance();
-    instance.data_drop(data_index)
+    on_host_stack(|| {
+        let data_index = DataIndex::from_u32(data_index);
+        let instance = (&*vmctx).instance();
+        instance.data_drop(data_index)
+    })
 }
 
 /// Implementation for raising a trap

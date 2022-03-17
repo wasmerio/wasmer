@@ -236,6 +236,9 @@ languages**, so you can use WebAssembly _anywhere_.
 
 We appreciate your help! 💜
 
+We recommend reading the following guide on how to contribute into a complex project successfully: 
+https://mitchellh.com/writing/contributing-to-complex-projects
+
 Check our docs on how to [build Wasmer from
 source](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) or [test your changes](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 

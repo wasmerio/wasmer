@@ -205,6 +205,7 @@ pub struct File {
     #[cfg_attr(feature = "enable-serde", serde(skip_serializing))]
     pub inner: fs::File,
     pub host_path: PathBuf,
+    #[cfg(feature = "enable-serde")]
     flags: u16,
 }
 
@@ -303,24 +304,25 @@ impl File {
 
     /// creates a new host file from a `std::fs::File` and a path
     pub fn new(file: fs::File, host_path: PathBuf, read: bool, write: bool, append: bool) -> Self {
-        let mut flags = 0;
+        let mut _flags = 0;
 
         if read {
-            flags |= Self::READ;
+            _flags |= Self::READ;
         }
 
         if write {
-            flags |= Self::WRITE;
+            _flags |= Self::WRITE;
         }
 
         if append {
-            flags |= Self::APPEND;
+            _flags |= Self::APPEND;
         }
 
         Self {
             inner: file,
             host_path,
-            flags,
+            #[cfg(feature = "enable-serde")]
+            _flags,
         }
     }
 
