@@ -5221,7 +5221,7 @@ impl Machine for MachineARM64 {
         gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention)
     }
     #[cfg(feature = "unwind")]
-    fn gen_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
+    fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
         let mut instructions = vec![];
         for &(instruction_offset, ref inst) in &self.unwind_ops {
             let instruction_offset = instruction_offset as u32;
@@ -5272,7 +5272,7 @@ impl Machine for MachineARM64 {
         })
     }
     #[cfg(not(feature = "unwind"))]
-    fn gen_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
+    fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
         None
     }
 

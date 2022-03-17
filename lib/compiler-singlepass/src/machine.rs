@@ -2192,7 +2192,7 @@ pub trait Machine {
         calling_convention: CallingConvention,
     ) -> CustomSection;
     /// generate eh_frame instruction (or None if not possible / supported)
-    fn gen_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
+    fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
     /// generate Windows unwind instructions (or None if not possible / supported)
     fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>>;
 }

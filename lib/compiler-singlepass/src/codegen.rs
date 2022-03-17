@@ -5903,7 +5903,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let (unwind_info, fde) = {
             match self.calling_convention {
                 CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
-                    let unwind_info = self.machine.gen_unwind_info(body_len);
+                    let unwind_info = self.machine.gen_dwarf_unwind_info(body_len);
                     if let Some(unwind) = unwind_info {
                         let fde = unwind.to_fde(Address::Symbol {
                             symbol: WriterRelocate::FUNCTION_SYMBOL,
