@@ -3150,6 +3150,7 @@ dependencies = [
  "corosensei",
  "enum-iterator",
  "indexmap",
+ "lazy_static",
  "libc",
  "loupe",
  "mach",

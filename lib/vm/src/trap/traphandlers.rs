@@ -7,6 +7,7 @@
 use super::trapcode::TrapCode;
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use backtrace::Backtrace;
+use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
 use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
 use scopeguard::defer;
@@ -19,7 +20,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
-use std::sync::Once;
+use std::sync::{Mutex, Once};
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
@@ -835,8 +836,18 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     trap_handler: &(dyn TrapHandler + 'static),
     f: F,
 ) -> Result<T, UnwindReason> {
+    // Allocating a new stack is pretty expensive since it involves several
+    // system calls. We therefore keep a cache of pre-allocated stacks which
+    // allows them to be reused multiple times.
+    // FIXME(Amanieu): We should refactor this to avoid the lock.
+    lazy_static::lazy_static! {
+        static ref STACK_POOL: Mutex<Vec<DefaultStack>> = Mutex::new(vec![]);
+    }
+    let stack = STACK_POOL.lock().unwrap().pop().unwrap_or_default();
+    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
+
     // Create a coroutine with a new stack to run the function on.
-    let mut coro = ScopedCoroutine::new(move |yielder, ()| {
+    let mut coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
 
