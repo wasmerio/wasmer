@@ -1021,6 +1021,17 @@
 <span id="1019">1019</span>
 <span id="1020">1020</span>
 <span id="1021">1021</span>
+<span id="1022">1022</span>
+<span id="1023">1023</span>
+<span id="1024">1024</span>
+<span id="1025">1025</span>
+<span id="1026">1026</span>
+<span id="1027">1027</span>
+<span id="1028">1028</span>
+<span id="1029">1029</span>
+<span id="1030">1030</span>
+<span id="1031">1031</span>
+<span id="1032">1032</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1030,6 +1041,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::trapcode::TrapCode</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{<span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMTrampoline</span>};
 <span class="kw">use</span> <span class="ident">backtrace::Backtrace</span>;
+<span class="kw">use</span> <span class="ident">corosensei::stack::DefaultStack</span>;
 <span class="kw">use</span> <span class="ident">corosensei::trap</span>::{<span class="ident">CoroutineTrapHandler</span>, <span class="ident">TrapHandlerRegs</span>};
 <span class="kw">use</span> <span class="ident">corosensei</span>::{<span class="ident">CoroutineResult</span>, <span class="ident">ScopedCoroutine</span>, <span class="ident">Yielder</span>};
 <span class="kw">use</span> <span class="ident">scopeguard::defer</span>;
@@ -1042,7 +1054,7 @@
 <span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">compiler_fence</span>, <span class="ident">AtomicPtr</span>, <span class="ident">Ordering</span>};
-<span class="kw">use</span> <span class="ident">std::sync::Once</span>;
+<span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Mutex</span>, <span class="ident">Once</span>};
 
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span> {
@@ -1858,8 +1870,18 @@
     <span class="ident">trap_handler</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">TrapHandler</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>),
     <span class="ident">f</span>: <span class="ident">F</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">UnwindReason</span><span class="op">&gt;</span> {
+    <span class="comment">// Allocating a new stack is pretty expensive since it involves several</span>
+    <span class="comment">// system calls. We therefore keep a cache of pre-allocated stacks which</span>
+    <span class="comment">// allows them to be reused multiple times.</span>
+    <span class="comment">// FIXME(Amanieu): We should refactor this to avoid the lock.</span>
+    <span class="macro">lazy_static::lazy_static!</span> {
+        <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">STACK_POOL</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DefaultStack</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Mutex::new</span>(<span class="macro">vec!</span>[]);
+    }
+    <span class="kw">let</span> <span class="ident">stack</span> <span class="op">=</span> <span class="ident">STACK_POOL</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>().<span class="ident">pop</span>().<span class="ident">unwrap_or_default</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack</span> <span class="op">=</span> <span class="ident">scopeguard::guard</span>(<span class="ident">stack</span>, <span class="op">|</span><span class="ident">stack</span><span class="op">|</span> <span class="ident">STACK_POOL</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>().<span class="ident">push</span>(<span class="ident">stack</span>));
+
     <span class="comment">// Create a coroutine with a new stack to run the function on.</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">coro</span> <span class="op">=</span> <span class="ident">ScopedCoroutine::new</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">yielder</span>, ()<span class="op">|</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">coro</span> <span class="op">=</span> <span class="ident">ScopedCoroutine::with_stack</span>(<span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">stack</span>, <span class="kw">move</span> <span class="op">|</span><span class="ident">yielder</span>, ()<span class="op">|</span> {
         <span class="comment">// Save the yielder to TLS so that it can be used later.</span>
         <span class="ident">YIELDER</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cell</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">set</span>(<span class="prelude-val">Some</span>(<span class="ident">yielder</span>.<span class="ident">into</span>())));
 
