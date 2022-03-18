@@ -25,9 +25,8 @@ wasmer-engine-universal = { path = "../engine-universal", version = "=2.2.1" }
 wasmer-engine-dylib = { path = "../engine-dylib", version = "=2.2.1" }
 
 [features]
-default = ["sys"]
-sys = ["wasmer/sys-default"]
-js = ["wasmer/js-default", "wasmer/js-serializable-module"]
+default = ["wasmer/js-serializable-module"]
+filesystem = []
 blake3-pure = ["blake3/pure"]
 
 [[bench]]

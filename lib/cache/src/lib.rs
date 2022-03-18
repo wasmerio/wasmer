@@ -24,7 +24,7 @@ mod filesystem;
 mod hash;
 
 pub use crate::cache::Cache;
-#[cfg(feature = "sys")]
+#[cfg(feature = "filesystem")]
 pub use crate::filesystem::FileSystemCache;
 pub use crate::hash::Hash;
 
