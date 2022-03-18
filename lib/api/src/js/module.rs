@@ -3,9 +3,9 @@ use crate::js::resolver::Resolver;
 use crate::js::store::Store;
 use crate::js::types::{ExportType, ImportType};
 // use crate::js::InstantiationError;
-use crate::js::error::{CompileError, SerializeError, DeserializeError};
 #[cfg(feature = "wat")]
 use crate::js::error::WasmError;
+use crate::js::error::{CompileError, DeserializeError, SerializeError};
 use crate::js::RuntimeError;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;
@@ -63,7 +63,7 @@ pub struct Module {
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
-    raw_bytes: Option<Vec<u8>>
+    raw_bytes: Option<Vec<u8>>,
 }
 
 impl Module {
@@ -197,7 +197,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.to_vec())
+            raw_bytes: Some(binary.to_vec()),
         })
     }
 
@@ -282,7 +282,9 @@ impl Module {
     ///
     #[cfg(feature = "js-serializable-module")]
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        self.raw_bytes.clone().ok_or(SerializeError::Generic("Not able to serialize module".to_string()))
+        self.raw_bytes.clone().ok_or(SerializeError::Generic(
+            "Not able to serialize module".to_string(),
+        ))
     }
 
     /// Deserializes a serialized Module binary into a `Module`.
@@ -534,7 +536,7 @@ impl From<WebAssembly::Module> for Module {
             name: None,
             type_hints: None,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: None
+            raw_bytes: None,
         }
     }
 }
