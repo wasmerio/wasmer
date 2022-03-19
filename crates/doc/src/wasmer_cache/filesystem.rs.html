@@ -115,7 +115,11 @@
 <span id="113">113</span>
 <span id="114">114</span>
 <span id="115">115</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cache::Cache</span>;
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;filesystem&quot;</span>), <span class="ident">allow</span>(<span class="ident">unused</span>))]</span>
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cache::Cache</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::hash::Hash</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="ident">create_dir_all</span>, <span class="ident">File</span>};
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Write</span>};
@@ -152,6 +156,7 @@
     <span class="ident">ext</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 }
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;filesystem&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">FileSystemCache</span> {
     <span class="doccomment">/// Construct a new `FileSystemCache` around the specified directory.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">path</span>: <span class="ident">P</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
@@ -201,6 +206,7 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;filesystem&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">Cache</span> <span class="kw">for</span> <span class="ident">FileSystemCache</span> {
     <span class="kw">type</span> <span class="ident">DeserializeError</span> <span class="op">=</span> <span class="ident">DeserializeError</span>;
     <span class="kw">type</span> <span class="ident">SerializeError</span> <span class="op">=</span> <span class="ident">SerializeError</span>;

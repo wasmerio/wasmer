@@ -31,6 +31,7 @@
 <span id="29">29</span>
 <span id="30">30</span>
 <span id="31">31</span>
+<span id="32">32</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The `wasmer-cache` crate provides the necessary abstractions</span>
 <span class="doccomment">//! to cache WebAssembly Modules easily.</span>
 
@@ -57,6 +58,7 @@
 <span class="kw">mod</span> <span class="ident">hash</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cache::Cache</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;filesystem&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::filesystem::FileSystemCache</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::hash::Hash</span>;
 
