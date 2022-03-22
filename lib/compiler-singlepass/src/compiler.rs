@@ -22,9 +22,9 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex,
+    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex, TrapCode,
 };
-use wasmer_vm::{TrapCode, VMOffsets};
+use wasmer_vm::VMOffsets;
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass

@@ -13,8 +13,8 @@ use wasmer_compiler::{
     InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SectionBody, SourceLoc,
     TrapInformation,
 };
-use wasmer_types::{FunctionIndex, FunctionType, Type};
-use wasmer_vm::{TrapCode, VMOffsets};
+use wasmer_types::{FunctionIndex, FunctionType, TrapCode, Type};
+use wasmer_vm::VMOffsets;
 
 type Assembler = VecAssembler<X64Relocation>;
 
