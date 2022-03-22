@@ -18,14 +18,11 @@ use wasmer_compiler::{
     Relocation, RelocationTarget, SectionIndex,
 };
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap},
-    FunctionType,
+    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
+    ModuleInfo, SignatureIndex, TableIndex, TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
 };
-use wasmer_types::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, TrapCode, Type,
-};
-use wasmer_vm::{MemoryStyle, TableStyle, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::{MemoryStyle, TableStyle};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {

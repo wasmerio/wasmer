@@ -12,8 +12,7 @@ use wasmer_compiler::{
     Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody,
     InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation,
 };
-use wasmer_types::{FunctionIndex, FunctionType, TrapCode};
-use wasmer_vm::VMOffsets;
+use wasmer_types::{FunctionIndex, FunctionType, TrapCode, VMOffsets};
 
 pub type Label = DynamicLabel;
 pub type Offset = AssemblyOffset;
