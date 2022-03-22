@@ -62,6 +62,7 @@ mod initializers;
 mod memory_view;
 mod module;
 mod native;
+mod trapcode;
 mod types;
 mod units;
 mod values;
@@ -92,6 +93,8 @@ pub use types::{
 
 #[cfg(feature = "enable-rkyv")]
 pub use archives::ArchivableIndexMap;
+
+pub use crate::trapcode::TrapCode;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

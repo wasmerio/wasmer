@@ -23,9 +23,9 @@ use wasmer_types::{
 };
 use wasmer_types::{
     FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, Type,
+    SignatureIndex, TableIndex, TrapCode, Type,
 };
-use wasmer_vm::{MemoryStyle, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::{MemoryStyle, TableStyle, VMBuiltinFunctionIndex, VMOffsets};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
