@@ -6,14 +6,134 @@
 
 #![deny(broken_intra_doc_links)]
 
-use crate::VMBuiltinFunctionIndex;
-use loupe::MemoryUsage;
-use more_asserts::assert_lt;
-use std::convert::TryFrom;
-use wasmer_types::{
+use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex,
 };
+use loupe::MemoryUsage;
+use more_asserts::assert_lt;
+use std::convert::TryFrom;
+
+/// An index type for builtin functions.
+#[derive(Copy, Clone, Debug)]
+pub struct VMBuiltinFunctionIndex(u32);
+
+impl VMBuiltinFunctionIndex {
+    /// Returns an index for wasm's `memory.grow` builtin function.
+    pub const fn get_memory32_grow_index() -> Self {
+        Self(0)
+    }
+    /// Returns an index for wasm's imported `memory.grow` builtin function.
+    pub const fn get_imported_memory32_grow_index() -> Self {
+        Self(1)
+    }
+    /// Returns an index for wasm's `memory.size` builtin function.
+    pub const fn get_memory32_size_index() -> Self {
+        Self(2)
+    }
+    /// Returns an index for wasm's imported `memory.size` builtin function.
+    pub const fn get_imported_memory32_size_index() -> Self {
+        Self(3)
+    }
+    /// Returns an index for wasm's `table.copy` when both tables are locally
+    /// defined.
+    pub const fn get_table_copy_index() -> Self {
+        Self(4)
+    }
+    /// Returns an index for wasm's `table.init`.
+    pub const fn get_table_init_index() -> Self {
+        Self(5)
+    }
+    /// Returns an index for wasm's `elem.drop`.
+    pub const fn get_elem_drop_index() -> Self {
+        Self(6)
+    }
+    /// Returns an index for wasm's `memory.copy` for locally defined memories.
+    pub const fn get_memory_copy_index() -> Self {
+        Self(7)
+    }
+    /// Returns an index for wasm's `memory.copy` for imported memories.
+    pub const fn get_imported_memory_copy_index() -> Self {
+        Self(8)
+    }
+    /// Returns an index for wasm's `memory.fill` for locally defined memories.
+    pub const fn get_memory_fill_index() -> Self {
+        Self(9)
+    }
+    /// Returns an index for wasm's `memory.fill` for imported memories.
+    pub const fn get_imported_memory_fill_index() -> Self {
+        Self(10)
+    }
+    /// Returns an index for wasm's `memory.init` instruction.
+    pub const fn get_memory_init_index() -> Self {
+        Self(11)
+    }
+    /// Returns an index for wasm's `data.drop` instruction.
+    pub const fn get_data_drop_index() -> Self {
+        Self(12)
+    }
+    /// Returns an index for wasm's `raise_trap` instruction.
+    pub const fn get_raise_trap_index() -> Self {
+        Self(13)
+    }
+    /// Returns an index for wasm's `table.size` instruction for local tables.
+    pub const fn get_table_size_index() -> Self {
+        Self(14)
+    }
+    /// Returns an index for wasm's `table.size` instruction for imported tables.
+    pub const fn get_imported_table_size_index() -> Self {
+        Self(15)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for local tables.
+    pub const fn get_table_grow_index() -> Self {
+        Self(16)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for imported tables.
+    pub const fn get_imported_table_grow_index() -> Self {
+        Self(17)
+    }
+    /// Returns an index for wasm's `table.get` instruction for local tables.
+    pub const fn get_table_get_index() -> Self {
+        Self(18)
+    }
+    /// Returns an index for wasm's `table.get` instruction for imported tables.
+    pub const fn get_imported_table_get_index() -> Self {
+        Self(19)
+    }
+    /// Returns an index for wasm's `table.set` instruction for local tables.
+    pub const fn get_table_set_index() -> Self {
+        Self(20)
+    }
+    /// Returns an index for wasm's `table.set` instruction for imported tables.
+    pub const fn get_imported_table_set_index() -> Self {
+        Self(21)
+    }
+    /// Returns an index for wasm's `func.ref` instruction.
+    pub const fn get_func_ref_index() -> Self {
+        Self(22)
+    }
+    /// Returns an index for wasm's `table.fill` instruction for local tables.
+    pub const fn get_table_fill_index() -> Self {
+        Self(23)
+    }
+    /// Returns an index for a function to increment the externref count.
+    pub const fn get_externref_inc_index() -> Self {
+        Self(24)
+    }
+    /// Returns an index for a function to decrement the externref count.
+    pub const fn get_externref_dec_index() -> Self {
+        Self(25)
+    }
+    /// Returns the total number of builtin functions.
+    pub const fn builtin_functions_total_number() -> u32 {
+        26
+    }
+
+    /// Return the index as an u32 number.
+    pub const fn index(self) -> u32 {
+        self.0
+    }
+}
 
 #[cfg(target_pointer_width = "32")]
 fn cast_to_u32(sz: usize) -> u32 {

@@ -11,8 +11,7 @@ use wasmer_compiler::{
     CallingConvention, CustomSection, FunctionBody, InstructionAddressMap, Relocation,
     RelocationKind, RelocationTarget, SourceLoc, TrapInformation,
 };
-use wasmer_types::{FunctionIndex, FunctionType, TrapCode};
-use wasmer_vm::VMOffsets;
+use wasmer_types::{FunctionIndex, FunctionType, TrapCode, VMOffsets};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 type Location = AbstractLocation<GPR, NEON>;

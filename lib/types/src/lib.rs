@@ -67,6 +67,7 @@ mod trapcode;
 mod types;
 mod units;
 mod values;
+mod vmoffsets;
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;
@@ -96,6 +97,8 @@ pub use types::{
 pub use archives::ArchivableIndexMap;
 
 pub use crate::trapcode::TrapCode;
+
+pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

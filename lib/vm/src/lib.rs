@@ -33,7 +33,6 @@ mod sig_registry;
 mod table;
 mod trap;
 mod vmcontext;
-mod vmoffsets;
 
 pub mod libcalls;
 
@@ -52,19 +51,20 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{LinearTable, Table, TableElement, TableStyle};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMFunctionBody, VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition,
-    VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition,
-    VMTableImport, VMTrampoline,
+    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
-pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 use loupe::MemoryUsage;
-pub use wasmer_types::VMExternRef;
 #[deprecated(
     since = "2.1.0",
     note = "ModuleInfo, ExportsIterator, ImportsIterator should be imported from wasmer_types."
 )]
 pub use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
+pub use wasmer_types::{
+    TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMExternRef, VMOffsets,
+};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
