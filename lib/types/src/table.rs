@@ -13,4 +13,3 @@ pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.
     CallerChecksSignature,
 }
-

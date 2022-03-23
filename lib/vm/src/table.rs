@@ -16,7 +16,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasmer_types::{ExternRef, TableType, Type as ValType, TableStyle};
+use wasmer_types::{ExternRef, TableStyle, TableType, Type as ValType};
 
 /// Trait for implementing the interface of a Wasm table.
 pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {
