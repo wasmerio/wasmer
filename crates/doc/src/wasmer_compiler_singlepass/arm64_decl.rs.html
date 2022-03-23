@@ -312,6 +312,12 @@
 <span id="310">310</span>
 <span id="311">311</span>
 <span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
 </pre><pre class="rust"><code><span class="doccomment">//! ARM64 structures.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::{<span class="ident">MachineState</span>, <span class="ident">MachineValue</span>, <span class="ident">RegisterIndex</span>};
@@ -455,6 +461,9 @@
         ];
         <span class="ident">GPRS</span>.<span class="ident">iter</span>()
     }
+    <span class="kw">fn</span> <span class="ident">to_dwarf</span>(<span class="self">self</span>) -&gt; <span class="ident">u16</span> {
+        <span class="self">self</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u16</span>
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">AbstractReg</span> <span class="kw">for</span> <span class="ident">NEON</span> {
@@ -509,6 +518,9 @@
             <span class="ident">NEON::V31</span>,
         ];
         <span class="ident">NEONS</span>.<span class="ident">iter</span>()
+    }
+    <span class="kw">fn</span> <span class="ident">to_dwarf</span>(<span class="self">self</span>) -&gt; <span class="ident">u16</span> {
+        <span class="self">self</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u16</span> <span class="op">+</span> <span class="number">64</span>
     }
 }
 

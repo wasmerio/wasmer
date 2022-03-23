@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["AssemblerX64",""],["MachineX86_64",""]],"type":[["Assembler",""],["Location",""]]});
+initSidebarItems({"fn":[["dwarf_index",""]],"struct":[["AssemblerX64",""],["MachineX86_64",""]],"type":[["Assembler",""],["Location",""]]});

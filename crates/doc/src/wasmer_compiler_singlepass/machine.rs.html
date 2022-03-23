@@ -2309,10 +2309,16 @@
 <span id="2307">2307</span>
 <span id="2308">2308</span>
 <span id="2309">2309</span>
+<span id="2310">2310</span>
+<span id="2311">2311</span>
+<span id="2312">2312</span>
+<span id="2313">2313</span>
+<span id="2314">2314</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_arm64::MachineARM64</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_x64::MachineX86_64</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind::UnwindInstructions</span>;
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">AssemblyOffset</span>, <span class="ident">DynamicLabel</span>};
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
@@ -4501,6 +4507,10 @@
         <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
     ) -&gt; <span class="ident">CustomSection</span>;
+    <span class="doccomment">/// generate eh_frame instruction (or None if not possible / supported)</span>
+    <span class="kw">fn</span> <span class="ident">gen_dwarf_unwind_info</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">code_len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindInstructions</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// generate Windows unwind instructions (or None if not possible / supported)</span>
+    <span class="kw">fn</span> <span class="ident">gen_windows_unwind_info</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">code_len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 }
 
 <span class="doccomment">/// Standard entry trampoline generation</span>

@@ -1,3 +1,4 @@
 (function() {var implementors = {};
 implementors["wasmer_compiler_cranelift"] = [{"text":"impl Writer for <a class=\"struct\" href=\"wasmer_compiler_cranelift/dwarf/struct.WriterRelocate.html\" title=\"struct wasmer_compiler_cranelift::dwarf::WriterRelocate\">WriterRelocate</a>","synthetic":false,"types":["wasmer_compiler_cranelift::dwarf::WriterRelocate"]}];
+implementors["wasmer_compiler_singlepass"] = [{"text":"impl Writer for <a class=\"struct\" href=\"wasmer_compiler_singlepass/dwarf/struct.WriterRelocate.html\" title=\"struct wasmer_compiler_singlepass::dwarf::WriterRelocate\">WriterRelocate</a>","synthetic":false,"types":["wasmer_compiler_singlepass::dwarf::WriterRelocate"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -7083,14 +7083,148 @@
 <span id="7081">7081</span>
 <span id="7082">7082</span>
 <span id="7083">7083</span>
+<span id="7084">7084</span>
+<span id="7085">7085</span>
+<span id="7086">7086</span>
+<span id="7087">7087</span>
+<span id="7088">7088</span>
+<span id="7089">7089</span>
+<span id="7090">7090</span>
+<span id="7091">7091</span>
+<span id="7092">7092</span>
+<span id="7093">7093</span>
+<span id="7094">7094</span>
+<span id="7095">7095</span>
+<span id="7096">7096</span>
+<span id="7097">7097</span>
+<span id="7098">7098</span>
+<span id="7099">7099</span>
+<span id="7100">7100</span>
+<span id="7101">7101</span>
+<span id="7102">7102</span>
+<span id="7103">7103</span>
+<span id="7104">7104</span>
+<span id="7105">7105</span>
+<span id="7106">7106</span>
+<span id="7107">7107</span>
+<span id="7108">7108</span>
+<span id="7109">7109</span>
+<span id="7110">7110</span>
+<span id="7111">7111</span>
+<span id="7112">7112</span>
+<span id="7113">7113</span>
+<span id="7114">7114</span>
+<span id="7115">7115</span>
+<span id="7116">7116</span>
+<span id="7117">7117</span>
+<span id="7118">7118</span>
+<span id="7119">7119</span>
+<span id="7120">7120</span>
+<span id="7121">7121</span>
+<span id="7122">7122</span>
+<span id="7123">7123</span>
+<span id="7124">7124</span>
+<span id="7125">7125</span>
+<span id="7126">7126</span>
+<span id="7127">7127</span>
+<span id="7128">7128</span>
+<span id="7129">7129</span>
+<span id="7130">7130</span>
+<span id="7131">7131</span>
+<span id="7132">7132</span>
+<span id="7133">7133</span>
+<span id="7134">7134</span>
+<span id="7135">7135</span>
+<span id="7136">7136</span>
+<span id="7137">7137</span>
+<span id="7138">7138</span>
+<span id="7139">7139</span>
+<span id="7140">7140</span>
+<span id="7141">7141</span>
+<span id="7142">7142</span>
+<span id="7143">7143</span>
+<span id="7144">7144</span>
+<span id="7145">7145</span>
+<span id="7146">7146</span>
+<span id="7147">7147</span>
+<span id="7148">7148</span>
+<span id="7149">7149</span>
+<span id="7150">7150</span>
+<span id="7151">7151</span>
+<span id="7152">7152</span>
+<span id="7153">7153</span>
+<span id="7154">7154</span>
+<span id="7155">7155</span>
+<span id="7156">7156</span>
+<span id="7157">7157</span>
+<span id="7158">7158</span>
+<span id="7159">7159</span>
+<span id="7160">7160</span>
+<span id="7161">7161</span>
+<span id="7162">7162</span>
+<span id="7163">7163</span>
+<span id="7164">7164</span>
+<span id="7165">7165</span>
+<span id="7166">7166</span>
+<span id="7167">7167</span>
+<span id="7168">7168</span>
+<span id="7169">7169</span>
+<span id="7170">7170</span>
+<span id="7171">7171</span>
+<span id="7172">7172</span>
+<span id="7173">7173</span>
+<span id="7174">7174</span>
+<span id="7175">7175</span>
+<span id="7176">7176</span>
+<span id="7177">7177</span>
+<span id="7178">7178</span>
+<span id="7179">7179</span>
+<span id="7180">7180</span>
+<span id="7181">7181</span>
+<span id="7182">7182</span>
+<span id="7183">7183</span>
+<span id="7184">7184</span>
+<span id="7185">7185</span>
+<span id="7186">7186</span>
+<span id="7187">7187</span>
+<span id="7188">7188</span>
+<span id="7189">7189</span>
+<span id="7190">7190</span>
+<span id="7191">7191</span>
+<span id="7192">7192</span>
+<span id="7193">7193</span>
+<span id="7194">7194</span>
+<span id="7195">7195</span>
+<span id="7196">7196</span>
+<span id="7197">7197</span>
+<span id="7198">7198</span>
+<span id="7199">7199</span>
+<span id="7200">7200</span>
+<span id="7201">7201</span>
+<span id="7202">7202</span>
+<span id="7203">7203</span>
+<span id="7204">7204</span>
+<span id="7205">7205</span>
+<span id="7206">7206</span>
+<span id="7207">7207</span>
+<span id="7208">7208</span>
+<span id="7209">7209</span>
+<span id="7210">7210</span>
+<span id="7211">7211</span>
+<span id="7212">7212</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind</span>::{<span class="ident">UnwindInstructions</span>, <span class="ident">UnwindOps</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl::new_machine_state</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::x64_decl</span>::{<span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">X64Register</span>, <span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasmrt</span>::{<span class="ident">x64::X64Relocation</span>, <span class="ident">DynasmError</span>, <span class="ident">VecAssembler</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">gimli</span>::{<span class="ident">write::CallFrameInstruction</span>, <span class="ident">X86_64</span>};
 <span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span> <span class="kw">as</span> <span class="ident">WpType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
@@ -7140,6 +7274,51 @@
 
 <span class="kw">type</span> <span class="ident">Location</span> <span class="op">=</span> <span class="ident">AbstractLocation</span><span class="op">&lt;</span><span class="ident">GPR</span>, <span class="ident">XMM</span><span class="op">&gt;</span>;
 
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+<span class="kw">fn</span> <span class="ident">dwarf_index</span>(<span class="ident">reg</span>: <span class="ident">u16</span>) -&gt; <span class="ident">gimli::Register</span> {
+    <span class="kw">static</span> <span class="ident">DWARF_GPR</span>: [<span class="ident">gimli::Register</span>; <span class="number">16</span>] <span class="op">=</span> [
+        <span class="ident">X86_64::RAX</span>,
+        <span class="ident">X86_64::RDX</span>,
+        <span class="ident">X86_64::RCX</span>,
+        <span class="ident">X86_64::RBX</span>,
+        <span class="ident">X86_64::RSI</span>,
+        <span class="ident">X86_64::RDI</span>,
+        <span class="ident">X86_64::RBP</span>,
+        <span class="ident">X86_64::RSP</span>,
+        <span class="ident">X86_64::R8</span>,
+        <span class="ident">X86_64::R9</span>,
+        <span class="ident">X86_64::R10</span>,
+        <span class="ident">X86_64::R11</span>,
+        <span class="ident">X86_64::R12</span>,
+        <span class="ident">X86_64::R13</span>,
+        <span class="ident">X86_64::R14</span>,
+        <span class="ident">X86_64::R15</span>,
+    ];
+    <span class="kw">static</span> <span class="ident">DWARF_XMM</span>: [<span class="ident">gimli::Register</span>; <span class="number">16</span>] <span class="op">=</span> [
+        <span class="ident">X86_64::XMM0</span>,
+        <span class="ident">X86_64::XMM1</span>,
+        <span class="ident">X86_64::XMM2</span>,
+        <span class="ident">X86_64::XMM3</span>,
+        <span class="ident">X86_64::XMM4</span>,
+        <span class="ident">X86_64::XMM5</span>,
+        <span class="ident">X86_64::XMM6</span>,
+        <span class="ident">X86_64::XMM7</span>,
+        <span class="ident">X86_64::XMM8</span>,
+        <span class="ident">X86_64::XMM9</span>,
+        <span class="ident">X86_64::XMM10</span>,
+        <span class="ident">X86_64::XMM11</span>,
+        <span class="ident">X86_64::XMM12</span>,
+        <span class="ident">X86_64::XMM13</span>,
+        <span class="ident">X86_64::XMM14</span>,
+        <span class="ident">X86_64::XMM15</span>,
+    ];
+    <span class="kw">match</span> <span class="ident">reg</span> {
+        <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> =&gt; <span class="ident">DWARF_GPR</span>[<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">usize</span>],
+        <span class="number">17</span>..<span class="op">=</span><span class="number">24</span> =&gt; <span class="ident">DWARF_XMM</span>[<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="number">17</span>],
+        <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unknown register index {}&quot;</span>, <span class="ident">reg</span>),
+    }
+}
+
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MachineX86_64</span> {
     <span class="ident">assembler</span>: <span class="ident">AssemblerX64</span>,
     <span class="ident">used_gprs</span>: <span class="ident">u32</span>,
@@ -7151,6 +7330,8 @@
     <span class="ident">instructions_address_map</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">InstructionAddressMap</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The source location for the current operator.</span>
     <span class="ident">src_loc</span>: <span class="ident">u32</span>,
+    <span class="doccomment">/// Vector of unwind operations with offset</span>
+    <span class="ident">unwind_ops</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">usize</span>, <span class="ident">UnwindOps</span>)<span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">MachineX86_64</span> {
@@ -7162,6 +7343,7 @@
             <span class="ident">trap_table</span>: <span class="ident">TrapTable::default</span>(),
             <span class="ident">instructions_address_map</span>: <span class="macro">vec!</span>[],
             <span class="ident">src_loc</span>: <span class="number">0</span>,
+            <span class="ident">unwind_ops</span>: <span class="macro">vec!</span>[],
         }
     }
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_relaxed_binop</span>(
@@ -8700,6 +8882,9 @@
         <span class="self">self</span>.<span class="ident">used_simd</span> <span class="op">&amp;=</span> <span class="op">!</span>(<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">r</span>.<span class="ident">into_index</span>());
         <span class="ident">ret</span>
     }
+    <span class="kw">fn</span> <span class="ident">emit_unwind_op</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">op</span>: <span class="ident">UnwindOps</span>) {
+        <span class="self">self</span>.<span class="ident">unwind_ops</span>.<span class="ident">push</span>((<span class="self">self</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">op</span>));
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">Machine</span> <span class="kw">for</span> <span class="ident">MachineX86_64</span> {
@@ -9019,6 +9204,21 @@
             <span class="ident">location</span>,
             <span class="ident">Location::Memory</span>(<span class="ident">GPR::RBP</span>, <span class="op">-</span><span class="ident">stack_offset</span>),
         );
+        <span class="kw">match</span> <span class="ident">location</span> {
+            <span class="ident">Location::GPR</span>(<span class="ident">x</span>) =&gt; {
+                <span class="self">self</span>.<span class="ident">emit_unwind_op</span>(<span class="ident">UnwindOps::SaveRegister</span> {
+                    <span class="ident">reg</span>: <span class="ident">x</span>.<span class="ident">to_dwarf</span>(),
+                    <span class="ident">bp_neg_offset</span>: <span class="ident">stack_offset</span>,
+                });
+            }
+            <span class="ident">Location::SIMD</span>(<span class="ident">x</span>) =&gt; {
+                <span class="self">self</span>.<span class="ident">emit_unwind_op</span>(<span class="ident">UnwindOps::SaveRegister</span> {
+                    <span class="ident">reg</span>: <span class="ident">x</span>.<span class="ident">to_dwarf</span>(),
+                    <span class="ident">bp_neg_offset</span>: <span class="ident">stack_offset</span>,
+                });
+            }
+            <span class="kw">_</span> =&gt; (),
+        }
     }
 
     <span class="comment">// List of register to save, depending on the CallingConvention</span>
@@ -9265,7 +9465,9 @@
 
     <span class="kw">fn</span> <span class="ident">emit_function_prolog</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="self">self</span>.<span class="ident">emit_push</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RBP</span>));
+        <span class="self">self</span>.<span class="ident">emit_unwind_op</span>(<span class="ident">UnwindOps::PushFP</span> { <span class="ident">up_to_sp</span>: <span class="number">16</span> });
         <span class="self">self</span>.<span class="ident">move_location</span>(<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">GPR::RSP</span>), <span class="ident">Location::GPR</span>(<span class="ident">GPR::RBP</span>));
+        <span class="self">self</span>.<span class="ident">emit_unwind_op</span>(<span class="ident">UnwindOps::DefineNewFrame</span>);
     }
 
     <span class="kw">fn</span> <span class="ident">emit_function_epilog</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
@@ -14164,6 +14366,62 @@
             <span class="ident">bytes</span>: <span class="ident">section_body</span>,
             <span class="ident">relocations</span>: <span class="macro">vec!</span>[],
         }
+    }
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">gen_dwarf_unwind_info</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">code_len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindInstructions</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instructions</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+        <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">instruction_offset</span>, <span class="kw-2">ref</span> <span class="ident">inst</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">unwind_ops</span> {
+            <span class="kw">let</span> <span class="ident">instruction_offset</span> <span class="op">=</span> <span class="ident">instruction_offset</span> <span class="kw">as</span> <span class="ident">u32</span>;
+            <span class="kw">match</span> <span class="ident">inst</span> {
+                <span class="kw-2">&amp;</span><span class="ident">UnwindOps::PushFP</span> { <span class="ident">up_to_sp</span> } =&gt; {
+                    <span class="ident">instructions</span>.<span class="ident">push</span>((
+                        <span class="ident">instruction_offset</span>,
+                        <span class="ident">CallFrameInstruction::CfaOffset</span>(<span class="ident">up_to_sp</span> <span class="kw">as</span> <span class="ident">i32</span>),
+                    ));
+                    <span class="ident">instructions</span>.<span class="ident">push</span>((
+                        <span class="ident">instruction_offset</span>,
+                        <span class="ident">CallFrameInstruction::Offset</span>(<span class="ident">X86_64::RBP</span>, <span class="op">-</span>(<span class="ident">up_to_sp</span> <span class="kw">as</span> <span class="ident">i32</span>)),
+                    ));
+                }
+                <span class="kw-2">&amp;</span><span class="ident">UnwindOps::DefineNewFrame</span> =&gt; {
+                    <span class="ident">instructions</span>.<span class="ident">push</span>((
+                        <span class="ident">instruction_offset</span>,
+                        <span class="ident">CallFrameInstruction::CfaRegister</span>(<span class="ident">X86_64::RBP</span>),
+                    ));
+                }
+                <span class="kw-2">&amp;</span><span class="ident">UnwindOps::SaveRegister</span> { <span class="ident">reg</span>, <span class="ident">bp_neg_offset</span> } =&gt; <span class="ident">instructions</span>.<span class="ident">push</span>((
+                    <span class="ident">instruction_offset</span>,
+                    <span class="ident">CallFrameInstruction::Offset</span>(<span class="ident">dwarf_index</span>(<span class="ident">reg</span>), <span class="op">-</span><span class="ident">bp_neg_offset</span>),
+                )),
+                <span class="kw-2">&amp;</span><span class="ident">UnwindOps::Push2Regs</span> { .. } =&gt; <span class="macro">unimplemented!</span>(),
+            }
+        }
+        <span class="prelude-val">Some</span>(<span class="ident">UnwindInstructions</span> {
+            <span class="ident">instructions</span>,
+            <span class="ident">len</span>: <span class="ident">code_len</span> <span class="kw">as</span> <span class="ident">u32</span>,
+        })
+    }
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
+    <span class="kw">fn</span> <span class="ident">gen_dwarf_unwind_info</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_code_len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindInstructions</span><span class="op">&gt;</span> {
+        <span class="prelude-val">None</span>
+    }
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">gen_windows_unwind_info</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_code_len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">unwind_info</span> <span class="op">=</span> <span class="ident">create_unwind_info_from_insts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">unwind_ops</span>);
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">unwind</span>) <span class="op">=</span> <span class="ident">unwind_info</span> {
+            <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="ident">unwind</span>.<span class="ident">emit_size</span>();
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tbl</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">sz</span>];
+            <span class="ident">unwind</span>.<span class="ident">emit</span>(<span class="kw-2">&amp;mut</span> <span class="ident">tbl</span>);
+            <span class="prelude-val">Some</span>(<span class="ident">tbl</span>)
+        } <span class="kw">else</span> {
+            <span class="prelude-val">None</span>
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
+    <span class="kw">fn</span> <span class="ident">gen_windows_unwind_info</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_code_len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="prelude-val">None</span>
     }
 }
 </code></pre></div>

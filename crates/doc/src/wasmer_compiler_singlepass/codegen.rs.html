@@ -5961,14 +5961,55 @@
 <span id="5959">5959</span>
 <span id="5960">5960</span>
 <span id="5961">5961</span>
+<span id="5962">5962</span>
+<span id="5963">5963</span>
+<span id="5964">5964</span>
+<span id="5965">5965</span>
+<span id="5966">5966</span>
+<span id="5967">5967</span>
+<span id="5968">5968</span>
+<span id="5969">5969</span>
+<span id="5970">5970</span>
+<span id="5971">5971</span>
+<span id="5972">5972</span>
+<span id="5973">5973</span>
+<span id="5974">5974</span>
+<span id="5975">5975</span>
+<span id="5976">5976</span>
+<span id="5977">5977</span>
+<span id="5978">5978</span>
+<span id="5979">5979</span>
+<span id="5980">5980</span>
+<span id="5981">5981</span>
+<span id="5982">5982</span>
+<span id="5983">5983</span>
+<span id="5984">5984</span>
+<span id="5985">5985</span>
+<span id="5986">5986</span>
+<span id="5987">5987</span>
+<span id="5988">5988</span>
+<span id="5989">5989</span>
+<span id="5990">5990</span>
+<span id="5991">5991</span>
+<span id="5992">5992</span>
+<span id="5993">5993</span>
+<span id="5994">5994</span>
+<span id="5995">5995</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{<span class="ident">CodegenError</span>, <span class="ident">Label</span>, <span class="ident">Machine</span>, <span class="ident">MachineStackOffset</span>, <span class="ident">NATIVE_PAGE_SIZE</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind::UnwindFrame</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common_decl</span>::<span class="kw-2">*</span>, <span class="ident">config::Singlepass</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">gimli::write::Address</span>;
 <span class="kw">use</span> <span class="ident">smallvec</span>::{<span class="ident">smallvec</span>, <span class="ident">SmallVec</span>};
 <span class="kw">use</span> <span class="ident">std::cmp</span>;
 <span class="kw">use</span> <span class="ident">std::iter</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasmer_compiler::CompiledFunctionUnwindInfo</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">CallingConvention</span>, <span class="ident">CompiledFunction</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionBodyData</span>,
     <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionIndex</span>,
@@ -11815,7 +11856,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span>) -&gt; <span class="ident">CompiledFunction</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span>) -&gt; (<span class="ident">CompiledFunction</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindFrame</span><span class="op">&gt;</span>) {
         <span class="comment">// Generate actual code for special labels.</span>
         <span class="self">self</span>.<span class="ident">machine</span>
             .<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">integer_division_by_zero</span>);
@@ -11855,23 +11896,50 @@
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">finalize_function</span>();
 
         <span class="kw">let</span> <span class="ident">body_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">assembler_get_offset</span>().<span class="number">0</span>;
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unwind_info</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fde</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">calling_convention</span> {
+            <span class="ident">CallingConvention::SystemV</span> <span class="op">|</span> <span class="ident">CallingConvention::AppleAarch64</span> =&gt; {
+                <span class="kw">let</span> <span class="ident">unwind</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">gen_dwarf_unwind_info</span>(<span class="ident">body_len</span>);
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">unwind</span>) <span class="op">=</span> <span class="ident">unwind</span> {
+                    <span class="ident">fde</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">unwind</span>.<span class="ident">to_fde</span>(<span class="ident">Address::Symbol</span> {
+                        <span class="ident">symbol</span>: <span class="ident">WriterRelocate::FUNCTION_SYMBOL</span>,
+                        <span class="ident">addend</span>: <span class="self">self</span>.<span class="ident">fsm</span>.<span class="ident">local_function_id</span> <span class="kw">as</span> <span class="kw">_</span>,
+                    }));
+                    <span class="ident">unwind_info</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">CompiledFunctionUnwindInfo::Dwarf</span>);
+                }
+            }
+            <span class="ident">CallingConvention::WindowsFastcall</span> =&gt; {
+                <span class="kw">let</span> <span class="ident">unwind</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">gen_windows_unwind_info</span>(<span class="ident">body_len</span>);
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">unwind</span>) <span class="op">=</span> <span class="ident">unwind</span> {
+                    <span class="ident">unwind_info</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">CompiledFunctionUnwindInfo::WindowsX64</span>(<span class="ident">unwind</span>));
+                }
+            }
+            <span class="kw">_</span> =&gt; (),
+        };
+
         <span class="kw">let</span> <span class="ident">address_map</span> <span class="op">=</span>
             <span class="ident">get_function_address_map</span>(<span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">instructions_address_map</span>(), <span class="ident">data</span>, <span class="ident">body_len</span>);
         <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">collect_trap_information</span>();
         <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">assembler_finalize</span>();
 
-        <span class="ident">CompiledFunction</span> {
-            <span class="ident">body</span>: <span class="ident">FunctionBody</span> {
-                <span class="ident">body</span>: <span class="ident">body</span>,
-                <span class="ident">unwind_info</span>: <span class="prelude-val">None</span>,
+        (
+            <span class="ident">CompiledFunction</span> {
+                <span class="ident">body</span>: <span class="ident">FunctionBody</span> {
+                    <span class="ident">body</span>: <span class="ident">body</span>,
+                    <span class="ident">unwind_info</span>,
+                },
+                <span class="ident">relocations</span>: <span class="self">self</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>(),
+                <span class="ident">jt_offsets</span>: <span class="ident">SecondaryMap::new</span>(),
+                <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> {
+                    <span class="ident">traps</span>: <span class="ident">traps</span>,
+                    <span class="ident">address_map</span>,
+                },
             },
-            <span class="ident">relocations</span>: <span class="self">self</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>(),
-            <span class="ident">jt_offsets</span>: <span class="ident">SecondaryMap::new</span>(),
-            <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> {
-                <span class="ident">traps</span>: <span class="ident">traps</span>,
-                <span class="ident">address_map</span>,
-            },
-        }
+            <span class="ident">fde</span>,
+        )
     }
     <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies</span>
     <span class="comment">// at call place.</span>

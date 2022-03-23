@@ -76,6 +76,7 @@
 <span id="74">74</span>
 <span id="75">75</span>
 <span id="76">76</span>
+<span id="77">77</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::RegisterIndex</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
@@ -122,6 +123,7 @@
     <span class="kw">fn</span> <span class="ident">into_index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span>;
     <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">i</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, ()<span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">iterator</span>() -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">to_dwarf</span>(<span class="self">self</span>) -&gt; <span class="ident">u16</span>;
 }
 
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Descriptor</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Reg</span>, <span class="ident">S</span>: <span class="ident">Reg</span><span class="op">&gt;</span> {

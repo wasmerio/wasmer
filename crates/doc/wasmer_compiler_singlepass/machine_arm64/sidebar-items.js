@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["ImmType",""]],"struct":[["MachineARM64",""]],"type":[["Assembler",""],["Location",""]]});
+initSidebarItems({"enum":[["ImmType",""]],"fn":[["dwarf_index",""]],"struct":[["MachineARM64",""]],"type":[["Assembler",""],["Location",""]]});
