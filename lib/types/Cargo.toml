@@ -17,6 +17,7 @@ more-asserts = "0.2"
 indexmap = { version = "1.6", features = ["serde-1"] }
 rkyv = { version = "0.7.20", optional = true }
 loupe = { version = "0.1", features = ["enable-indexmap"] }
+enum-iterator = "0.7.0"
 
 [features]
 default = ["std", "enable-serde", "enable-rkyv"]

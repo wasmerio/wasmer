@@ -2897,7 +2897,6 @@ dependencies = [
  "target-lexicon 0.12.3",
  "thiserror",
  "wasmer-types",
- "wasmer-vm",
  "wasmparser 0.78.2",
 ]
 
@@ -3120,6 +3119,7 @@ dependencies = [
 name = "wasmer-types"
 version = "2.2.1"
 dependencies = [
+ "enum-iterator",
  "indexmap",
  "loupe",
  "more-asserts",

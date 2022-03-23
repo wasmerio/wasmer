@@ -10,6 +10,7 @@ use wasmer_engine::FunctionExtent;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
 use wasmer_vm::SectionBodyPtr;
+use wasmer_vm::libcalls::function_pointer;
 
 fn apply_relocation(
     body: usize,
@@ -26,7 +27,7 @@ fn apply_relocation(
             // Use the direct target of the libcall if the relocation supports
             // a full 64-bit address. Otherwise use a trampoline.
             if r.kind == RelocationKind::Abs8 || r.kind == RelocationKind::X86PCRel8 {
-                libcall.function_pointer()
+                function_pointer(libcall)
             } else {
                 get_libcall_trampoline(
                     libcall,
