@@ -9,8 +9,8 @@ use wasmer_compiler::{
 use wasmer_engine::FunctionExtent;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
-use wasmer_vm::SectionBodyPtr;
 use wasmer_vm::libcalls::function_pointer;
+use wasmer_vm::SectionBodyPtr;
 
 fn apply_relocation(
     body: usize,

@@ -57,6 +57,7 @@ pub use crate::vmcontext::{
     VMTrampoline,
 };
 use loupe::MemoryUsage;
+pub use wasmer_types::LibCall;
 pub use wasmer_types::TableStyle;
 #[deprecated(
     since = "2.1.0",
@@ -64,7 +65,6 @@ pub use wasmer_types::TableStyle;
 )]
 pub use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use wasmer_types::{MemoryError, MemoryStyle};
-pub use wasmer_types::LibCall;
 pub use wasmer_types::{
     TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMExternRef, VMOffsets,
 };

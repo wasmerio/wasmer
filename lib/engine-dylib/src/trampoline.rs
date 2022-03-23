@@ -17,7 +17,7 @@ use object::{
     BinaryFormat, RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope,
 };
 use wasmer_compiler::{Architecture, Target};
-use wasmer_vm::libcalls::{LibCall, function_pointer};
+use wasmer_vm::libcalls::{function_pointer, LibCall};
 
 /// Symbol exported from the dynamic library which points to the trampoline table.
 pub const WASMER_TRAMPOLINES_SYMBOL: &[u8] = b"WASMER_TRAMPOLINES";
