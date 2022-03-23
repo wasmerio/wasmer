@@ -56,6 +56,7 @@ pub use crate::vmcontext::{
     VMTrampoline,
 };
 use loupe::MemoryUsage;
+pub use wasmer_types::LibCall;
 pub use wasmer_types::TableStyle;
 #[deprecated(
     since = "2.1.0",

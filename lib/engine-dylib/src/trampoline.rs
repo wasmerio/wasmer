@@ -17,7 +17,7 @@ use object::{
     BinaryFormat, RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope,
 };
 use wasmer_compiler::{Architecture, Target};
-use wasmer_vm::libcalls::LibCall;
+use wasmer_vm::libcalls::{function_pointer, LibCall};
 
 /// Symbol exported from the dynamic library which points to the trampoline table.
 pub const WASMER_TRAMPOLINES_SYMBOL: &[u8] = b"WASMER_TRAMPOLINES";
@@ -161,6 +161,6 @@ pub fn emit_trampolines(obj: &mut Object, target: &Target) {
 /// Fills in the libcall trampoline table at the given address.
 pub unsafe fn fill_trampoline_table(table: *mut usize) {
     for libcall in LibCall::into_enum_iter() {
-        *table.add(libcall as usize) = libcall.function_pointer();
+        *table.add(libcall as usize) = function_pointer(libcall);
     }
 }

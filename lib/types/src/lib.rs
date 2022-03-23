@@ -59,6 +59,7 @@ mod extern_ref;
 mod features;
 mod indexes;
 mod initializers;
+mod libcalls;
 mod memory;
 mod memory_view;
 mod module;
@@ -97,6 +98,7 @@ pub use types::{
 #[cfg(feature = "enable-rkyv")]
 pub use archives::ArchivableIndexMap;
 
+pub use crate::libcalls::LibCall;
 pub use crate::memory::{MemoryError, MemoryStyle};
 pub use crate::table::TableStyle;
 pub use crate::trapcode::TrapCode;
