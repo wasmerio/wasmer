@@ -17,6 +17,7 @@ wasmer-vm = { path = "../vm", version = "=2.2.1" }
 wasmer-types = { path = "../types", version = "=2.2.1", default-features = false, features = ["std"] }
 rayon = { version = "1.5", optional = true }
 hashbrown = { version = "0.11", optional = true }
+gimli = { version = "0.26", optional = true }
 more-asserts = "0.2"
 dynasm = "1.2.1"
 dynasmrt = "1.2.1"
@@ -32,8 +33,9 @@ target-lexicon = { version = "0.12.2", default-features = false }
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "rayon", "avx"]
+default = ["std", "rayon", "unwind", "avx"]
 std = ["wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
+unwind = ["gimli"]
 sse = []
 avx = []
