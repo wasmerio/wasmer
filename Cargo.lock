@@ -2961,7 +2961,6 @@ dependencies = [
  "target-lexicon 0.12.3",
  "wasmer-compiler",
  "wasmer-types",
- "wasmer-vm",
 ]
 
 [[package]]
@@ -3123,6 +3122,7 @@ version = "2.2.1"
 dependencies = [
  "indexmap",
  "loupe",
+ "more-asserts",
  "rkyv",
  "serde",
  "thiserror",
