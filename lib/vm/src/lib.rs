@@ -43,11 +43,11 @@ pub use crate::instance::{
     ImportFunctionEnv, ImportInitializerFuncPtr, InstanceAllocator, InstanceHandle,
     WeakOrStrongInstanceRef,
 };
-pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
+pub use crate::memory::{LinearMemory, Memory};
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
-pub use crate::table::{LinearTable, Table, TableElement, TableStyle};
+pub use crate::table::{LinearTable, Table, TableElement};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody,
@@ -56,11 +56,13 @@ pub use crate::vmcontext::{
     VMTrampoline,
 };
 use loupe::MemoryUsage;
+pub use wasmer_types::TableStyle;
 #[deprecated(
     since = "2.1.0",
     note = "ModuleInfo, ExportsIterator, ImportsIterator should be imported from wasmer_types."
 )]
 pub use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
+pub use wasmer_types::{MemoryError, MemoryStyle};
 pub use wasmer_types::{
     TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMExternRef, VMOffsets,
 };

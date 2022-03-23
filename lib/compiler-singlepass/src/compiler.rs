@@ -315,7 +315,7 @@ mod tests {
     use std::str::FromStr;
     use target_lexicon::triple;
     use wasmer_compiler::{CpuFeature, Features, Triple};
-    use wasmer_vm::{MemoryStyle, TableStyle};
+    use wasmer_types::{MemoryStyle, TableStyle};
 
     fn dummy_compilation_ingredients<'a>() -> (
         CompileModuleInfo,
