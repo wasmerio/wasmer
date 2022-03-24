@@ -101,7 +101,7 @@ pub use archives::ArchivableIndexMap;
 pub use crate::libcalls::LibCall;
 pub use crate::memory::{MemoryError, MemoryStyle};
 pub use crate::table::TableStyle;
-pub use crate::trapcode::TrapCode;
+pub use crate::trapcode::{Trap, TrapCode};
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 /// Version number of this crate.
