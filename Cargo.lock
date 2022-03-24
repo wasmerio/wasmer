@@ -3119,6 +3119,7 @@ dependencies = [
 name = "wasmer-types"
 version = "2.2.1"
 dependencies = [
+ "backtrace",
  "enum-iterator",
  "indexmap",
  "loupe",
