@@ -24,6 +24,7 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
+wasmer-artifact = { version = "=2.2.1", path = "../artifact" }
 wasmer-compiler = { version = "=2.2.1", path = "../compiler" }
 wasmer-compiler-singlepass = { version = "=2.2.1", path = "../compiler-singlepass", optional = true }
 wasmer-engine = { version = "=2.2.1", path = "../engine" }

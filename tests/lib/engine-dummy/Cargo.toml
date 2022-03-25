@@ -8,6 +8,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
+wasmer-artifact = { path = "../../../lib/artifact", version = "=2.2.1" }
 wasmer-types = { path = "../../../lib/types", version = "=2.2.1" }
 wasmer-compiler = { path = "../../../lib/compiler", version = "=2.2.1" }
 wasmer-vm = { path = "../../../lib/vm", version = "=2.2.1" }

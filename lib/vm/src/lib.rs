@@ -50,12 +50,11 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{LinearTable, Table, TableElement};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody,
-    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
-    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
-    VMTrampoline,
+    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionEnvironment,
+    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
+    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-use loupe::MemoryUsage;
+pub use wasmer_artifact::{FunctionBodyPtr, VMFunctionBody};
 pub use wasmer_types::LibCall;
 pub use wasmer_types::TableStyle;
 #[deprecated(
@@ -70,28 +69,6 @@ pub use wasmer_types::{
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// A safe wrapper around `VMFunctionBody`.
-#[derive(Clone, Copy, Debug, MemoryUsage)]
-#[repr(transparent)]
-pub struct FunctionBodyPtr(pub *const VMFunctionBody);
-
-impl std::ops::Deref for FunctionBodyPtr {
-    type Target = *const VMFunctionBody;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-/// # Safety
-/// The VMFunctionBody that this points to is opaque, so there's no data to
-/// read or write through this pointer. This is essentially a usize.
-unsafe impl Send for FunctionBodyPtr {}
-/// # Safety
-/// The VMFunctionBody that this points to is opaque, so there's no data to
-/// read or write through this pointer. This is essentially a usize.
-unsafe impl Sync for FunctionBodyPtr {}
 
 /// Pointers to section data.
 #[derive(Clone, Copy, Debug)]

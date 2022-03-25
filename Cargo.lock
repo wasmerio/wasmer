@@ -2765,6 +2765,7 @@ dependencies = [
  "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -2778,6 +2779,17 @@ dependencies = [
  "wasmparser 0.83.0",
  "wat",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-artifact"
+version = "2.2.1"
+dependencies = [
+ "enumset",
+ "loupe",
+ "thiserror",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -2858,6 +2870,7 @@ dependencies = [
  "tempfile",
  "unix_mode",
  "wasmer",
+ "wasmer-artifact",
  "wasmer-cache",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
@@ -2996,6 +3009,7 @@ dependencies = [
  "serde_bytes",
  "target-lexicon 0.12.3",
  "thiserror",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
@@ -3010,6 +3024,7 @@ dependencies = [
  "loupe",
  "serde",
  "serde_bytes",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-types",
@@ -3031,6 +3046,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
@@ -3052,6 +3068,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
@@ -3070,6 +3087,7 @@ dependencies = [
  "loupe",
  "region",
  "rkyv",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-types",
@@ -3156,6 +3174,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "thiserror",
+ "wasmer-artifact",
  "wasmer-types",
  "winapi",
 ]

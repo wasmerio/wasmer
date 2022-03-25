@@ -19,6 +19,7 @@ use tempfile::NamedTempFile;
 use tracing::log::error;
 #[cfg(feature = "compiler")]
 use tracing::trace;
+use wasmer_artifact::ArtifactCreate;
 use wasmer_compiler::{
     Architecture, CompileError, CompiledFunctionFrameInfo, CpuFeature, Features,
     FunctionAddressMap, OperatingSystem, Symbol, SymbolRegistry, Triple,
@@ -678,7 +679,7 @@ impl DylibArtifact {
     }
 }
 
-impl Artifact for DylibArtifact {
+impl ArtifactCreate for DylibArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -841,30 +842,6 @@ impl Artifact for DylibArtifact {
         &self.metadata.compile_info.table_styles
     }
 
-    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
-        &self.finished_functions
-    }
-
-    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
-        &self.finished_function_call_trampolines
-    }
-
-    fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
-        &self.finished_dynamic_function_trampolines
-    }
-
-    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
-        &self.signatures
-    }
-
-    fn func_data_registry(&self) -> &FuncDataRegistry {
-        &self.func_data_registry
-    }
-
-    fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        Ok(())
-    }
-
     /// Serialize a `DylibArtifact`.
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.dylib_path)?)
@@ -905,6 +882,31 @@ impl Artifact for DylibArtifact {
                 .output()?;
         }
 
+        Ok(())
+    }
+}
+impl Artifact for DylibArtifact {
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
+        &self.finished_functions
+    }
+
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
+    }
+
+    fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
+        &self.finished_dynamic_function_trampolines
+    }
+
+    fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
+        &self.signatures
+    }
+
+    fn func_data_registry(&self) -> &FuncDataRegistry {
+        &self.func_data_registry
+    }
+
+    fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())
     }
 }

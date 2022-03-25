@@ -20,6 +20,7 @@ use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
+pub use wasmer_artifact::VMFunctionBody;
 
 /// Union representing the first parameter passed when calling a function.
 ///
@@ -166,24 +167,6 @@ mod test_vmdynamicfunction_import_context {
             offset_of!(VMDynamicFunctionContext<usize>, ctx),
             usize::from(offsets.vmdynamicfunction_import_context_ctx())
         );
-    }
-}
-
-/// A placeholder byte-sized type which is just used to provide some amount of type
-/// safety when dealing with pointers to JIT-compiled function bodies. Note that it's
-/// deliberately not Copy, as we shouldn't be carelessly copying function body bytes
-/// around.
-#[repr(C)]
-pub struct VMFunctionBody(u8);
-
-#[cfg(test)]
-mod test_vmfunction_body {
-    use super::VMFunctionBody;
-    use std::mem::size_of;
-
-    #[test]
-    fn check_vmfunction_body_offsets() {
-        assert_eq!(size_of::<VMFunctionBody>(), 1);
     }
 }
 
@@ -799,9 +782,8 @@ pub struct VMSharedSignatureIndex(u32);
 #[cfg(test)]
 mod test_vmshared_signature_index {
     use super::VMSharedSignatureIndex;
-    use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
     use std::mem::size_of;
-    use wasmer_types::ModuleInfo;
+    use wasmer_types::{ModuleInfo, TargetSharedSignatureIndex, VMOffsets};
 
     #[test]
     fn check_vmshared_signature_index() {

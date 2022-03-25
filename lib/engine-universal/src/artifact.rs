@@ -11,6 +11,7 @@ use enumset::EnumSet;
 use loupe::MemoryUsage;
 use std::mem;
 use std::sync::{Arc, Mutex};
+use wasmer_artifact::ArtifactCreate;
 use wasmer_compiler::{CompileError, CpuFeature, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment, ModuleMiddlewareChain};
@@ -267,7 +268,7 @@ impl UniversalArtifact {
     }
 }
 
-impl Artifact for UniversalArtifact {
+impl ArtifactCreate for UniversalArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.serializable.compile_info.module.clone()
     }
@@ -324,6 +325,19 @@ impl Artifact for UniversalArtifact {
         &self.serializable.compile_info.table_styles
     }
 
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        let serialized_data = self.serializable.serialize()?;
+        assert!(mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
+
+        let mut metadata_binary = vec![];
+        metadata_binary.extend(Self::MAGIC_HEADER);
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
+        metadata_binary.extend(serialized_data);
+        Ok(metadata_binary)
+    }
+}
+
+impl Artifact for UniversalArtifact {
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
@@ -342,15 +356,5 @@ impl Artifact for UniversalArtifact {
 
     fn func_data_registry(&self) -> &FuncDataRegistry {
         &self.func_data_registry
-    }
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let serialized_data = self.serializable.serialize()?;
-        assert!(mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
-
-        let mut metadata_binary = vec![];
-        metadata_binary.extend(Self::MAGIC_HEADER);
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
-        metadata_binary.extend(serialized_data);
-        Ok(metadata_binary)
     }
 }
