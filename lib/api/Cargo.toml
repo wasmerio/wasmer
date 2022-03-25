@@ -22,6 +22,7 @@ edition = "2018"
 # Shared dependencies.
 [dependencies]
 # - Mandatory shared dependencies.
+wasmer-artifact = { path = "../artifact", version = "=2.2.1" }
 indexmap = { version = "1.6", features = ["serde-1"] }
 cfg-if = "1.0"
 thiserror = "1.0"
