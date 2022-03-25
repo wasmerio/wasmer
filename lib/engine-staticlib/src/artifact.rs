@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
 use std::sync::Arc;
+use wasmer_artifact::ArtifactCreate;
 use wasmer_compiler::{
     CompileError, CpuFeature, Features, OperatingSystem, SymbolRegistry, Triple,
 };
@@ -436,7 +437,7 @@ impl StaticlibArtifact {
     }
 }
 
-impl Artifact for StaticlibArtifact {
+impl ArtifactCreate for StaticlibArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -473,6 +474,12 @@ impl Artifact for StaticlibArtifact {
         &self.metadata.compile_info.table_styles
     }
 
+    /// Serialize a StaticlibArtifact
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Ok(self.module_bytes.clone())
+    }
+}
+impl Artifact for StaticlibArtifact {
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
@@ -492,7 +499,6 @@ impl Artifact for StaticlibArtifact {
     fn func_data_registry(&self) -> &FuncDataRegistry {
         &self.func_data_registry
     }
-
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
         if self.is_compiled {
             panic!(
@@ -501,10 +507,5 @@ impl Artifact for StaticlibArtifact {
             );
         }
         Ok(())
-    }
-
-    /// Serialize a StaticlibArtifact
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(self.module_bytes.clone())
     }
 }
