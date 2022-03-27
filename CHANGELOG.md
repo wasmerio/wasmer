@@ -8,6 +8,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+### Fixed
+- [#2828](https://github.com/wasmerio/wasmer/pull/2828) Fix JsImportObject resolver.
+
 ## 2.2.1 - 2022/03/15
 
 ### Fixed
