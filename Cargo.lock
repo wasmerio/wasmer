@@ -3030,6 +3030,7 @@ dependencies = [
  "loupe",
  "serde",
  "serde_bytes",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-types",

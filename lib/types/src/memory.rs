@@ -2,6 +2,7 @@ use crate::Pages;
 use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -48,11 +49,12 @@ pub enum MemoryError {
 }
 
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, MemoryUsage)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {
