@@ -33,7 +33,7 @@ mod import_object;
 mod instance;
 mod js_import_object;
 mod module;
-#[cfg(feature = "wasm-types-polyfill")]
+#[cfg(feature = "js-types-polyfill")]
 mod module_info_polyfill;
 mod native;
 mod ptr;

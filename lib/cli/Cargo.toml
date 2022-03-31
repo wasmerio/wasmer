@@ -49,7 +49,8 @@ log = { version = "0.4", optional = true }
 tempfile = "3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasmer = { version = "=2.2.1", path = "../api", default-features = false, features = ["js-default"] }
+wasmer = { version = "=2.2.1", path = "../api", default-features = false, features = ["wasm-default"] }
+wasmer-fakevm = { version = "=2.2.1", path = "../fakevm" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer = { version = "=2.2.1", path = "../api", default-features = false }

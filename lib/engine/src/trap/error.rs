@@ -3,6 +3,9 @@ use backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{raise_user_trap, Trap, TrapCode};
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{raise_user_trap, Trap, TrapCode};
 
 /// A struct representing an aborted instruction execution, with a message

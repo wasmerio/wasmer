@@ -59,12 +59,20 @@ anyhow = "1.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
 wasmer-types = { path = "../types", version = "=2.2.1", default-features = false, features = ["std"] }
-wasm-bindgen = "0.2.74"
-js-sys = "0.3.51"
+wasm-bindgen = { version = "0.2.74", optional = true }
+js-sys = { version = "0.3.51", optional = true }
 wasmer-derive = { path = "../derive", version = "=2.2.1" }
 # - Optional dependencies for `js`.
 wasmparser = { version = "0.78", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
+wasmer-compiler = { path = "../compiler", version = "=2.2.1", optional = true }
+wasmer-engine = { path = "../engine", version = "=2.2.1", optional = true }
+wasmer-engine-universal = { path = "../engine-universal", version = "=2.2.1", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.2.1", optional = true }
+wasmer-fakevm = { path = "../fakevm", version = "=2.2.1", optional = true }
+loupe = { version = "0.1", optional = true }
+target-lexicon = { version = "0.12.2", default-features = false, optional = true }
+
 # - Development Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wat = "1.0"
@@ -96,8 +104,22 @@ compiler = [
     "wasmer-engine-universal/compiler",
     "wasmer-engine-dylib/compiler",
 ]
+compiler-wasm = [
+    "wasm",
+    "loupe",
+    "target-lexicon",
+    "wasmer-fakevm",
+    "wasmer-engine",
+    "wasmer-compiler/translator",
+    "wasmer-engine-universal/compiler",
+    "wasmer-engine-dylib/compiler",
+]
     singlepass = [
         "compiler",
+        "wasmer-compiler-singlepass",
+    ]
+    singlepass-wasm = [
+        "compiler-wasm",
         "wasmer-compiler-singlepass",
     ]
     cranelift = [
@@ -121,6 +143,11 @@ default-compiler = []
         "default-compiler",
         "llvm",
     ]
+default-compiler-wasm = []
+    default-singlepass-wasm = [
+        "default-compiler-wasm",
+        "singlepass-wasm",
+    ]
 # - Engines.
 engine = ["sys"]
     universal = [
@@ -140,6 +167,16 @@ default-engine = []
         "default-engine",
         "dylib",
     ]
+default-engine-wasm = []
+    default-universal-wasm = [
+        "default-engine-wasm",
+        "universal-wasm",
+    ]
+engine-wasm = ["wasm"]
+    universal-wasm = [
+        "engine-wasm",
+        "wasmer-engine-universal",
+    ]
 # - Experimental / in-development features
 experimental-reference-types-extern-ref = [
     "sys",
@@ -151,11 +188,18 @@ native = ["dylib"]
 
 # Features for `js`.
 js = []
-js-default = ["js", "std", "wasm-types-polyfill"]
+js-default = ["js", "std", "js-types-polyfill", "wasm-bindgen", "js-sys"]
 
-wasm-types-polyfill = ["js", "wasmparser"]
+js-types-polyfill = ["js", "wasmparser"]
 
 js-serializable-module = []
 
+# Features for `wasm`.
+wasm-types-polyfill = ["wasm", "wasmparser"]
+wasm = ["default-compiler-wasm", "singlepass-wasm", "default-universal-wasm", "default-singlepass-wasm"]
+wasm-default = ["wasm", "std"]
+
+wasm-serializable-module = []
+
 [package.metadata.docs.rs]
-features = ["compiler", "core", "cranelift", "default-compiler", "default-dylib", "default-engine", "dylib", "engine", "jit", "native", "singlepass", "sys", "sys-default", "universal"]
+features = ["compiler", "core", "cranelift", "default-compiler", "default-dylib", "default-engine", "dylib", "engine", "jit", "native", "singlepass", "sys", "sys-default", "universal", "wasm", "wasm-default", "default-compiler-wasm", "singlepass-wasm"]

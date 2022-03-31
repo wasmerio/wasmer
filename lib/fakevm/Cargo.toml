@@ -1,0 +1,34 @@
+[package]
+name = "wasmer-fakevm"
+version = "2.2.1"
+description = "Fake Runtime library support for Wasmer"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasmer-types = { path = "../types", version = "=2.2.1" }
+wasmer-artifact = { path = "../artifact", version = "=2.2.1" }
+memoffset = "0.6"
+indexmap = { version = "1.6", features = ["serde-1"] }
+thiserror = "1.0"
+more-asserts = "0.2"
+cfg-if = "1.0"
+backtrace = "0.3"
+serde = { version = "1.0", features = ["derive", "rc"] }
+rkyv = { version = "0.7.20", optional = true }
+loupe = { version = "0.1", features = ["enable-indexmap"] }
+enum-iterator = "0.7.0"
+scopeguard = "1.1.0"
+lazy_static = "1.4.0"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = []
+enable-rkyv = ["rkyv"]

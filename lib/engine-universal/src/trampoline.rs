@@ -8,6 +8,9 @@ use wasmer_compiler::{
     Architecture, CustomSection, CustomSectionProtection, Relocation, RelocationKind,
     RelocationTarget, SectionBody, Target,
 };
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::libcalls::LibCall;
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::libcalls::LibCall;
 
 // SystemV says that both x16 and x17 are available as intra-procedural scratch

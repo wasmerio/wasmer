@@ -9,10 +9,16 @@ use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{
+    FuncDataRegistry, FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMCallerCheckedAnyfunc,
+    VMFuncRef, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     Features, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo, SignatureIndex,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMCallerCheckedAnyfunc,
     VMFuncRef, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,

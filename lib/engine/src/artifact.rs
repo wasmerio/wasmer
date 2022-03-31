@@ -4,8 +4,14 @@ use std::any::Any;
 pub use wasmer_artifact::MetadataHeader;
 use wasmer_artifact::{ArtifactCreate, Upcastable};
 use wasmer_compiler::CpuFeature;
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{
+    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, TrapHandler,
+    VMSharedSignatureIndex, VMTrampoline,
+};
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, TrapHandler,
     VMSharedSignatureIndex, VMTrampoline,

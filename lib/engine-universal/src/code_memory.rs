@@ -5,6 +5,9 @@
 use crate::unwind::UnwindRegistry;
 use loupe::MemoryUsage;
 use wasmer_compiler::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{Mmap, VMFunctionBody};
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{Mmap, VMFunctionBody};
 
 /// The optimal alignment for functions.
@@ -52,6 +55,9 @@ impl CodeMemory {
         let mut data_section_result = vec![];
         let mut executable_section_result = vec![];
 
+        #[cfg(target_arch = "wasm32")]
+        let page_size = 65536;
+        #[cfg(not(target_arch = "wasm32"))]
         let page_size = region::page::size();
 
         // 1. Calculate the total size, that is:
@@ -143,6 +149,7 @@ impl CodeMemory {
             return;
         }
         assert!(self.mmap.len() >= self.start_of_nonexecutable_pages);
+        #[cfg(not(target_arch = "wasm32"))]
         unsafe {
             region::protect(
                 self.mmap.as_mut_ptr(),

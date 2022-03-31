@@ -7,10 +7,12 @@ use wasmer_compiler::{
     SectionIndex,
 };
 use wasmer_engine::FunctionExtent;
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{libcalls::function_pointer, SectionBodyPtr};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
-use wasmer_vm::libcalls::function_pointer;
-use wasmer_vm::SectionBodyPtr;
+#[cfg(not(target_arch = "wasm32"))]
+use wasmer_vm::{libcalls::function_pointer, SectionBodyPtr};
 
 fn apply_relocation(
     body: usize,

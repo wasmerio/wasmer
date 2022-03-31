@@ -1,5 +1,8 @@
 use loupe::MemoryUsage;
 use std::sync::Arc;
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{ImportInitializerFuncPtr, VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{ImportInitializerFuncPtr, VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
 
 /// The value of an export passed from one instance to another.

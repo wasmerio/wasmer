@@ -16,8 +16,11 @@ use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::FunctionBodyPtr;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::FunctionBodyPtr;
 
 lazy_static::lazy_static! {

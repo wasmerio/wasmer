@@ -21,11 +21,17 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{
+    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex,
+    VMTrampoline,
+};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
     SignatureIndex, TableIndex,
 };
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex,
     VMTrampoline,

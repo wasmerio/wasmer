@@ -11,6 +11,10 @@ use structopt::StructOpt;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
+#[cfg(all(target_arch = "wasm32", feature = "compiler"))]
+use wasmer_compiler::{CpuFeature, Features, Target, Triple};
+#[cfg(all(target_arch = "wasm32", feature = "compiler"))]
+use wasmer_engine::Engine;
 
 #[derive(Debug, Clone, StructOpt, Default)]
 /// The compiler and engine options

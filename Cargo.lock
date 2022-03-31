@@ -2781,6 +2781,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-dylib",
  "wasmer-engine-universal",
+ "wasmer-fakevm",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.78.2",
@@ -2888,6 +2889,7 @@ dependencies = [
  "wasmer-engine-dylib",
  "wasmer-engine-staticlib",
  "wasmer-engine-universal",
+ "wasmer-fakevm",
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-vm",
@@ -3017,6 +3019,7 @@ dependencies = [
  "thiserror",
  "wasmer-artifact",
  "wasmer-compiler",
+ "wasmer-fakevm",
  "wasmer-types",
  "wasmer-vm",
 ]
@@ -3096,9 +3099,30 @@ dependencies = [
  "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-fakevm",
  "wasmer-types",
  "wasmer-vm",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-fakevm"
+version = "2.2.1"
+dependencies = [
+ "backtrace",
+ "cfg-if 1.0.0",
+ "enum-iterator",
+ "indexmap",
+ "lazy_static",
+ "loupe",
+ "memoffset",
+ "more-asserts",
+ "rkyv",
+ "scopeguard",
+ "serde",
+ "thiserror",
+ "wasmer-artifact",
+ "wasmer-types",
 ]
 
 [[package]]

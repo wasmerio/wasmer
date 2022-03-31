@@ -2,15 +2,21 @@ use crate::error::LinkError;
 use loupe::MemoryUsage;
 use std::ptr::NonNull;
 use std::sync::Arc;
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{
+    Global, Memory, MemoryError, MemoryStyle, Table, TableStyle, VMMemoryDefinition,
+    VMTableDefinition,
+};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
     ModuleInfo, TableIndex, TableType,
 };
-use wasmer_vm::MemoryError;
-use wasmer_vm::{Global, Memory, Table};
-use wasmer_vm::{MemoryStyle, TableStyle};
-use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
+#[cfg(not(target_arch = "wasm32"))]
+use wasmer_vm::{
+    Global, Memory, MemoryError, MemoryStyle, Table, TableStyle, VMMemoryDefinition,
+    VMTableDefinition,
+};
 
 /// An engine delegates the creation of memories, tables, and globals
 /// to a foreign implementor of this trait.

@@ -8,7 +8,10 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasmer_compiler::{CompileError, Target};
+#[cfg(target_arch = "wasm32")]
+use wasmer_fakevm::{VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex};
 use wasmer_types::FunctionType;
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex};
 
 /// A unimplemented Wasmer `Engine`.

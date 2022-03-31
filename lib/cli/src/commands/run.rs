@@ -38,6 +38,7 @@ pub struct Run {
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
+    #[cfg(not(target_arch = "wasm32"))]
     #[structopt(long = "command-name", hidden = true)]
     command_name: Option<String>,
 

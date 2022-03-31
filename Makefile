@@ -379,6 +379,9 @@ build-wasmer-debug:
 bench:
 	cargo bench $(compiler_features)
 
+build-wasmer-wasm:
+	cargo build --release --manifest-path lib/cli/Cargo.toml --target wasm32-wasi --features singlepass,universal --bin wasmer --no-default-features
+
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
 # [profile.release]

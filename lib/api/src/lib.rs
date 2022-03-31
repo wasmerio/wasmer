@@ -444,20 +444,27 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
-#[cfg(all(not(feature = "sys"), not(feature = "js")))]
-compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
+#[cfg(all(not(feature = "sys"), not(any(feature = "js", feature = "wasm"))))]
+compile_error!(
+    "At least the `sys` or one of the `js` or `wasm` feature must be enabled. Please, pick one."
+);
 
-#[cfg(all(feature = "sys", feature = "js"))]
+#[cfg(all(feature = "sys", any(feature = "js", feature = "wasm")))]
 compile_error!(
     "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "js", feature = "wasm"))]
+compile_error!(
+    "Cannot have both `js` and `wasm` features enabled at the same time. Please, pick one."
 );
 
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
 compile_error!("The `sys` feature must be enabled only for non-`wasm32` target.");
 
-#[cfg(all(feature = "js", not(target_arch = "wasm32")))]
+#[cfg(all(any(feature = "js", feature = "wasm"), not(target_arch = "wasm32")))]
 compile_error!(
-    "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
+    "The `js` and `wasm` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
 #[cfg(feature = "sys")]
@@ -471,3 +478,9 @@ mod js;
 
 #[cfg(feature = "js")]
 pub use js::*;
+
+#[cfg(feature = "wasm")]
+mod wasm;
+
+#[cfg(feature = "wasm")]
+pub use wasm::*;

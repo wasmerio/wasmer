@@ -4,6 +4,8 @@ use anyhow::{Context, Result};
 use std::path::PathBuf;
 use structopt::StructOpt;
 use wasmer::*;
+#[cfg(all(target_arch = "wasm32", feature = "compiler"))]
+use wasmer_compiler::{CpuFeature, Features, Target, Triple};
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer compile` subcommand
@@ -17,6 +19,7 @@ pub struct Compile {
     output: PathBuf,
 
     /// Output path for generated header file
+    #[cfg(not(target_arch = "wasm32"))]
     #[structopt(name = "HEADER PATH", long = "header", parse(from_os_str))]
     header_path: Option<PathBuf>,
 
