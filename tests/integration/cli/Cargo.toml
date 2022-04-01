@@ -9,4 +9,4 @@ publish = false
 
 [dependencies]
 anyhow = "1"
-tempfile = "3"
+tempfile = "3.3"

@@ -128,12 +128,16 @@ impl Module {
     /// Creates a new WebAssembly module from a file path.
     pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
         let file_ref = file.as_ref();
+        #[cfg(not(target_arch = "wasm32"))]
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
         let mut module = Self::new(store, &wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
+        #[cfg(not(target_arch = "wasm32"))]
         let filename = canonical.as_path().to_str().unwrap();
+        #[cfg(target_arch = "wasm32")]
+        let filename = file_ref.to_str().unwrap();
         module.set_name(filename);
         Ok(module)
     }

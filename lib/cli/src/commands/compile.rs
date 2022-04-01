@@ -100,7 +100,6 @@ impl Compile {
         println!("Engine: {}", engine_type.to_string());
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
-
         let module = Module::from_file(&store, &self.path)?;
         let _ = module.serialize_to_file(&self.output)?;
         eprintln!(

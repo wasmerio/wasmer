@@ -17,7 +17,7 @@ wasmer-wasi = { path = "../../../lib/wasi", version = "=2.2.1" }
 wasmer-vfs = { path = "../../../lib/vfs", version = "=2.2.1" }
 wast = "38.0"
 serde = "1"
-tempfile = "3"
+tempfile = "3.3"
 thiserror = "1.0"
 
 [features]

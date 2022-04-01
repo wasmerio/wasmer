@@ -52,7 +52,7 @@ winapi = "0.3"
 # - Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 wat = "1.0"
-tempfile = "3.1"
+tempfile = "3.3"
 anyhow = "1.0"
 
 # Dependencies and Develoment Dependencies for `js`.
@@ -68,7 +68,7 @@ hashbrown = { version = "0.11", optional = true }
 wasmer-compiler = { path = "../compiler", version = "=2.2.1", optional = true }
 wasmer-engine = { path = "../engine", version = "=2.2.1", optional = true }
 wasmer-engine-universal = { path = "../engine-universal", version = "=2.2.1", optional = true }
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.2.1", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.2.1", optional = true, default-features = false, features = ["wasm"] }
 wasmer-fakevm = { path = "../fakevm", version = "=2.2.1", optional = true }
 loupe = { version = "0.1", optional = true }
 target-lexicon = { version = "0.12.2", default-features = false, optional = true }

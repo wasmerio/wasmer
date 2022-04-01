@@ -26,7 +26,6 @@ required-features = ["headless"]
 [dependencies]
 wasmer-artifact = { version = "=2.2.1", path = "../artifact" }
 wasmer-compiler = { version = "=2.2.1", path = "../compiler" }
-wasmer-compiler-singlepass = { version = "=2.2.1", path = "../compiler-singlepass", optional = true }
 wasmer-engine = { version = "=2.2.1", path = "../engine" }
 wasmer-engine-universal = { version = "=2.2.1", path = "../engine-universal", optional = true }
 wasmer-wasi = { version = "=2.2.1", path = "../wasi", optional = true }
@@ -46,11 +45,11 @@ cfg-if = "1.0"
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
 log = { version = "0.4", optional = true }
-tempfile = "3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasmer = { version = "=2.2.1", path = "../api", default-features = false, features = ["wasm-default"] }
 wasmer-fakevm = { version = "=2.2.1", path = "../fakevm" }
+wasmer-compiler-singlepass = { version = "=2.2.1", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer = { version = "=2.2.1", path = "../api", default-features = false }
@@ -61,6 +60,8 @@ wasmer-wasi-experimental-io-devices = { version = "=2.2.1", path = "../wasi-expe
 wasmer-emscripten = { version = "=2.2.1", path = "../emscripten", optional = true }
 wasmer-engine-dylib = { version = "=2.2.1", path = "../engine-dylib", optional = true }
 wasmer-engine-staticlib = { version = "=2.2.1", path = "../engine-staticlib", optional = true }
+wasmer-compiler-singlepass = { version = "=2.2.1", path = "../compiler-singlepass", optional = true }
+tempfile = "3.3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"

@@ -74,7 +74,7 @@ lazy_static = "1.4"
 serial_test = "0.5"
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
-tempfile = "3.1"
+tempfile = "3.3"
 loupe = "0.1"
 # For logging tests using the `RUST_LOG=debug` when testing
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
