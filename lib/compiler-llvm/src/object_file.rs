@@ -9,7 +9,7 @@ use wasmer_compiler::{
     CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
     RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
-use wasmer_types::entity::{PrimaryMap, SecondaryMap};
+use wasmer_types::entity::PrimaryMap;
 use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
@@ -331,7 +331,6 @@ where
     Ok(CompiledFunction {
         compiled_function: wasmer_compiler::CompiledFunction {
             body: function_body,
-            jt_offsets: SecondaryMap::new(),
             relocations: relocations
                 .remove_entry(&root_section_index)
                 .map_or(vec![], |(_, v)| v),

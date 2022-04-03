@@ -18,7 +18,7 @@ use wasmer_compiler::{
     Relocation, RelocationTarget, SectionIndex,
 };
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    entity::{EntityRef, PrimaryMap},
     FunctionType,
 };
 use wasmer_types::{
@@ -5935,7 +5935,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     unwind_info,
                 },
                 relocations: self.relocations.clone(),
-                jt_offsets: SecondaryMap::new(),
                 frame_info: CompiledFunctionFrameInfo {
                     traps: traps,
                     address_map,
