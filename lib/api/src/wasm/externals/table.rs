@@ -1,12 +1,10 @@
-use crate::wasm::export::VMFunction;
 use crate::wasm::export::{Export, VMTable};
 use crate::wasm::exports::{ExportError, Exportable};
-use crate::wasm::externals::{Extern, Function as WasmerFunction};
+use crate::wasm::externals::Extern;
 use crate::wasm::store::Store;
 use crate::wasm::types::Val;
 use crate::wasm::RuntimeError;
 use crate::wasm::TableType;
-use wasmer_types::FunctionType;
 
 /// A WebAssembly `table` instance.
 ///
@@ -30,7 +28,7 @@ impl Table {
     ///
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::js::tunables::BaseTunables].
-    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
+    pub fn new(_store: &Store, _ty: TableType, _init: Val) -> Result<Self, RuntimeError> {
         panic!("Not implemented!")
     }
 
@@ -45,12 +43,12 @@ impl Table {
     }
 
     /// Retrieves an element of the table at the provided `index`.
-    pub fn get(&self, index: u32) -> Option<Val> {
+    pub fn get(&self, _index: u32) -> Option<Val> {
         panic!("Not implemented!")
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
-    pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
+    pub fn set(&self, _index: u32, _val: Val) -> Result<(), RuntimeError> {
         panic!("Not implemented!")
     }
 
@@ -97,7 +95,7 @@ impl Table {
     }
 
     /// Returns whether or not these two tables refer to the same data.
-    pub fn same(&self, other: &Self) -> bool {
+    pub fn same(&self, _other: &Self) -> bool {
         panic!("Not implemented!")
     }
 

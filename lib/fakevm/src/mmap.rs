@@ -1,11 +1,4 @@
-// This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
-
-//! Low-level abstraction for allocating and managing zero-filled pages
-//! of memory.
-
 use loupe::{MemoryUsage, MemoryUsageTracker};
-use std::slice;
 
 /// Round `size` up to the nearest multiple of `page_size`.
 fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
@@ -23,9 +16,6 @@ pub struct Mmap {
 impl Mmap {
     /// Construct a new empty instance of `Mmap`.
     pub fn new() -> Self {
-        // Rust's slices require non-null pointers, even when empty. `Vec`
-        // contains code to create a non-null dangling pointer value when
-        // constructed empty, so we reuse that here.
         let empty = Vec::<u8>::new();
         Self { mem: empty, len: 0 }
     }
@@ -37,7 +27,9 @@ impl Mmap {
         Self::accessible_reserved(rounded_size, rounded_size)
     }
 
-    /// Not implemented on FakeVM
+    /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
+    /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
+    /// must be native page-size multiples.
     pub fn accessible_reserved(
         accessible_size: usize,
         _mapping_size: usize,
@@ -50,7 +42,9 @@ impl Mmap {
         })
     }
 
-    /// Not implemented on FakeVM
+    /// Make the memory starting at `start` and extending for `len` bytes accessible.
+    /// `start` and `len` must be native page-size multiples and describe a range within
+    /// `self`'s reserved memory.
     pub fn make_accessible(&mut self, _start: usize, _len: usize) -> Result<(), String> {
         Ok(())
     }

@@ -58,7 +58,7 @@ impl RuntimeError {
     }
 
     /// Raises a custom user Error
-    pub fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
+    pub fn raise(_error: Box<dyn Error + Send + Sync>) -> ! {
         panic!("Not implemented!")
     }
 

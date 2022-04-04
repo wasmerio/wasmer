@@ -3,10 +3,9 @@ use crate::wasm::exports::{ExportError, Exportable};
 use crate::wasm::externals::Extern;
 use crate::wasm::store::Store;
 use crate::wasm::{MemoryType, MemoryView};
-use std::convert::TryInto;
 use thiserror::Error;
 
-use wasmer_types::{Bytes, Pages, ValueType};
+use wasmer_types::{Pages, ValueType};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
@@ -59,7 +58,7 @@ impl Memory {
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(store: &Store, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new(_store: &Store, _ty: MemoryType) -> Result<Self, MemoryError> {
         panic!("Not implemented!")
     }
 
@@ -179,7 +178,7 @@ impl Memory {
     /// // This results in an error: `MemoryError::CouldNotGrow`.
     /// let s = m.grow(1).unwrap();
     /// ```
-    pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
+    pub fn grow<IntoPages>(&self, _delta: IntoPages) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
@@ -240,7 +239,7 @@ impl Memory {
     ///
     /// assert!(m.same(&m));
     /// ```
-    pub fn same(&self, other: &Self) -> bool {
+    pub fn same(&self, _other: &Self) -> bool {
         panic!("Not implemented!")
     }
 }

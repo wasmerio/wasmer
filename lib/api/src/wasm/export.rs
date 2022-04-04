@@ -1,12 +1,4 @@
-use crate::wasm::instance::Instance;
-use crate::wasm::HostEnvInitError;
-use crate::wasm::WasmerEnv;
-use std::cell::RefCell;
-use std::fmt;
-use std::sync::Arc;
-use wasmer_fakevm::{Memory, Table};
 pub use wasmer_fakevm::{VMFunction, VMGlobal, VMMemory, VMTable};
-use wasmer_types::{ExternType, FunctionType, GlobalType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]

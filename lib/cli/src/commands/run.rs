@@ -1,11 +1,17 @@
+#[cfg(not(target_arch = "wasm32"))]
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::store::{CompilerType, EngineType, StoreOptions};
+#[cfg(target_arch = "wasm32")]
+use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
 use std::str::FromStr;
 use wasmer::*;
 #[cfg(feature = "cache")]

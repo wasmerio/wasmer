@@ -3,6 +3,7 @@
 
 use crate::common::WasmFeatures;
 use anyhow::Result;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use std::string::ToString;
 #[allow(unused_imports)]
@@ -12,7 +13,7 @@ use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 #[cfg(all(target_arch = "wasm32", feature = "compiler"))]
-use wasmer_compiler::{CpuFeature, Features, Target, Triple};
+use wasmer_compiler::{Features, Target};
 #[cfg(all(target_arch = "wasm32", feature = "compiler"))]
 use wasmer_engine::Engine;
 

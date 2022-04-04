@@ -7,7 +7,6 @@ use crate::wasm::NativeFunc;
 use crate::wasm::RuntimeError;
 use crate::wasm::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
-use std::iter::FromIterator;
 
 use crate::wasm::export::{Export, VMFunction};
 use std::fmt;
@@ -384,11 +383,6 @@ impl Function {
     {
         panic!("Not implemented!")
     }
-
-    #[track_caller]
-    fn closures_unsupported_panic() -> ! {
-        unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
-    }
 }
 
 impl<'a> Exportable<'a> for Function {
@@ -439,7 +433,7 @@ mod inner {
 
     #[cfg(feature = "experimental-reference-types-extern-ref")]
     pub use wasmer_types::{ExternRef, VMExternRef};
-    use wasmer_types::{FunctionType, NativeWasmType, Type};
+    use wasmer_types::{NativeWasmType, Type};
     // use wasmer::{raise_user_trap, resume_panic};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
@@ -758,28 +752,6 @@ mod inner {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        /// Creates a new `Function`.
-        pub fn new<F, T, E>(function: F) -> Self
-        where
-            F: HostFunction<Args, Rets, T, E>,
-            T: HostFunctionKind,
-            E: Sized,
-        {
-            Self {
-                address: function.function_body_ptr(),
-                _phantom: PhantomData,
-            }
-        }
-
-        /// Get the function type of this `Function`.
-        pub fn ty(&self) -> FunctionType {
-            FunctionType::new(Args::wasm_types(), Rets::wasm_types())
-        }
-
-        /// Get the address of this `Function`.
-        pub fn address(&self) -> *const VMFunctionBody {
-            self.address
-        }
     }
 
     macro_rules! impl_host_function {

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 use wasmer::*;
 #[cfg(all(target_arch = "wasm32", feature = "compiler"))]
-use wasmer_compiler::{CpuFeature, Features, Target, Triple};
+use wasmer_compiler::{CpuFeature, Target, Triple};
 
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer compile` subcommand

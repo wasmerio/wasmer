@@ -97,7 +97,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<T>> {
+    pub fn deref<'a>(self, _memory: &'a Memory) -> Option<WasmCell<T>> {
         panic!("Not implemented!")
     }
 }
@@ -113,7 +113,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// If you're unsure what that means, it likely does not apply to you.
     /// This invariant will be enforced in the future.
     #[inline]
-    pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<Vec<WasmCell<T>>> {
+    pub fn deref(self, _memory: &Memory, _index: u32, _length: u32) -> Option<Vec<WasmCell<T>>> {
         panic!("Not implemented!")
     }
 
@@ -146,7 +146,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     /// Get a UTF-8 `String` from the `WasmPtr` with the given length.
     ///
     /// an aliasing `WasmPtr` is used to mutate memory.
-    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
+    pub fn get_utf8_string(self, _memory: &Memory, _str_len: u32) -> Option<String> {
         panic!("Not implemented!")
     }
 }

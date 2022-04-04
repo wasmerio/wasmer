@@ -3,7 +3,7 @@ use crate::wasm::export::VMGlobal;
 use crate::wasm::exports::{ExportError, Exportable};
 use crate::wasm::externals::Extern;
 use crate::wasm::store::Store;
-use crate::wasm::types::{Val, ValType};
+use crate::wasm::types::Val;
 use crate::wasm::GlobalType;
 use crate::wasm::Mutability;
 use crate::wasm::RuntimeError;
@@ -155,7 +155,7 @@ impl Global {
     /// // This results in an error: `RuntimeError`.
     /// g.set(Value::I64(2)).unwrap();
     /// ```
-    pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
+    pub fn set(&self, _val: Val) -> Result<(), RuntimeError> {
         panic!("Not implemented!")
     }
 
@@ -178,7 +178,7 @@ impl Global {
     ///
     /// assert!(g.same(&g));
     /// ```
-    pub fn same(&self, other: &Self) -> bool {
+    pub fn same(&self, _other: &Self) -> bool {
         panic!("Not implemented!")
     }
 }
