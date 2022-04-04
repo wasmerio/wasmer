@@ -15,7 +15,7 @@ use std::fmt;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
+    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
     VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
@@ -803,32 +803,34 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
         values_vec: *mut i128,
     ) {
         use std::panic::{self, AssertUnwindSafe};
-        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-            let func_ty = self.ctx.function_type();
-            let mut args = Vec::with_capacity(func_ty.params().len());
-            let store = self.ctx.store();
-            for (i, ty) in func_ty.params().iter().enumerate() {
-                args.push(Val::read_value_from(store, values_vec.add(i), *ty));
-            }
-            let returns = self.ctx.call(&args)?;
+        let result = on_host_stack(|| {
+            panic::catch_unwind(AssertUnwindSafe(|| {
+                let func_ty = self.ctx.function_type();
+                let mut args = Vec::with_capacity(func_ty.params().len());
+                let store = self.ctx.store();
+                for (i, ty) in func_ty.params().iter().enumerate() {
+                    args.push(Val::read_value_from(store, values_vec.add(i), *ty));
+                }
+                let returns = self.ctx.call(&args)?;
 
-            // We need to dynamically check that the returns
-            // match the expected types, as well as expected length.
-            let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
-            if return_types != func_ty.results() {
-                return Err(RuntimeError::new(format!(
-                    "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
-                    func_ty.results(),
-                    return_types
-                )));
-            }
-            for (i, ret) in returns.iter().enumerate() {
-                ret.write_value_to(values_vec.add(i));
-            }
-            Ok(())
-        })); // We get extern ref drops at the end of this block that we don't need.
-             // By preventing extern ref incs in the code above we can save the work of
-             // incrementing and decrementing. However the logic as-is is correct.
+                // We need to dynamically check that the returns
+                // match the expected types, as well as expected length.
+                let return_types = returns.iter().map(|ret| ret.ty()).collect::<Vec<_>>();
+                if return_types != func_ty.results() {
+                    return Err(RuntimeError::new(format!(
+                        "Dynamic function returned wrong signature. Expected {:?} but got {:?}",
+                        func_ty.results(),
+                        return_types
+                    )));
+                }
+                for (i, ret) in returns.iter().enumerate() {
+                    ret.write_value_to(values_vec.add(i));
+                }
+                Ok(())
+            })) // We get extern ref drops at the end of this block that we don't need.
+                // By preventing extern ref incs in the code above we can save the work of
+                // incrementing and decrementing. However the logic as-is is correct.
+        });
 
         match result {
             Ok(Ok(())) => {}
@@ -846,6 +848,7 @@ mod inner {
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
+    use wasmer_vm::on_host_stack;
 
     #[cfg(feature = "experimental-reference-types-extern-ref")]
     pub use wasmer_types::{ExternRef, VMExternRef};
@@ -1309,9 +1312,11 @@ mod inner {
                         Func: Fn( $( $x ),* ) -> RetsAsResult + 'static
                     {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
-                        }));
+                        let result = on_host_stack(|| {
+                            panic::catch_unwind(AssertUnwindSafe(|| {
+                                func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
+                            }))
+                        });
 
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(),
@@ -1353,9 +1358,11 @@ mod inner {
                     {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
 
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
-                        }));
+                        let result = on_host_stack(|| {
+                            panic::catch_unwind(AssertUnwindSafe(|| {
+                                func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
+                            }))
+                        });
 
                         match result {
                             Ok(Ok(result)) => return result.into_c_struct(),

@@ -1,11 +1,18 @@
 use crate::address_map::get_function_address_map;
+#[cfg(feature = "unwind")]
+use crate::dwarf::WriterRelocate;
 use crate::location::{Location, Reg};
 use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
+use crate::unwind::UnwindFrame;
 use crate::{common_decl::*, config::Singlepass};
+#[cfg(feature = "unwind")]
+use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
 use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
+#[cfg(feature = "unwind")]
+use wasmer_compiler::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, FunctionBodyData,
     Relocation, RelocationTarget, SectionIndex,
@@ -510,6 +517,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Allocate save area, without actually writing to it.
         static_area_size = self.machine.round_stack_adjust(static_area_size);
+
+        // Stack probe.
+        //
+        // `rep stosq` writes data from low address to high address and may skip the stack guard page.
+        // so here we probe it explicitly when needed.
+        for i in (sig.params().len()..n)
+            .step_by(NATIVE_PAGE_SIZE / 8)
+            .skip(1)
+        {
+            self.machine.zero_location(Size::S64, locations[i]);
+        }
+
         self.machine.adjust_stack(static_area_size as _);
 
         // Save callee-saved registers.
@@ -585,17 +604,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .get_simple_param_location(0, calling_convention),
             Location::GPR(self.machine.get_vmctx_reg()),
         );
-
-        // Stack probe.
-        //
-        // `rep stosq` writes data from low address to high address and may skip the stack guard page.
-        // so here we probe it explicitly when needed.
-        for i in (sig.params().len()..n)
-            .step_by(NATIVE_PAGE_SIZE / 8)
-            .skip(1)
-        {
-            self.machine.zero_location(Size::S64, locations[i]);
-        }
 
         // Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
@@ -2598,17 +2606,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         function_index - self.module.num_imported_functions,
                     ))
                 };
-                self.machine
-                    .move_with_reloc(reloc_target, &mut self.relocations);
+                let calling_convention = self.calling_convention;
 
                 self.emit_call_native(
                     |this| {
                         let offset = this
                             .machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
-                        this.machine
-                            .emit_call_register(this.machine.get_grp_for_call());
+                        let mut relocations = this
+                            .machine
+                            .emit_call_with_reloc(calling_convention, reloc_target);
                         this.machine.mark_instruction_address_end(offset);
+                        this.relocations.append(&mut relocations);
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
@@ -5847,7 +5856,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    pub fn finalize(mut self, data: &FunctionBodyData) -> CompiledFunction {
+    pub fn finalize(mut self, data: &FunctionBodyData) -> (CompiledFunction, Option<UnwindFrame>) {
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero);
@@ -5878,23 +5887,50 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.finalize_function();
 
         let body_len = self.machine.assembler_get_offset().0;
+
+        let mut unwind_info = None;
+        let mut fde = None;
+        #[cfg(feature = "unwind")]
+        match self.calling_convention {
+            CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
+                let unwind = self.machine.gen_dwarf_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    fde = Some(unwind.to_fde(Address::Symbol {
+                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                        addend: self.fsm.local_function_id as _,
+                    }));
+                    unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
+                }
+            }
+            CallingConvention::WindowsFastcall => {
+                let unwind = self.machine.gen_windows_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+                }
+            }
+            _ => (),
+        };
+
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
         let body = self.machine.assembler_finalize();
 
-        CompiledFunction {
-            body: FunctionBody {
-                body: body,
-                unwind_info: None,
+        (
+            CompiledFunction {
+                body: FunctionBody {
+                    body: body,
+                    unwind_info,
+                },
+                relocations: self.relocations.clone(),
+                jt_offsets: SecondaryMap::new(),
+                frame_info: CompiledFunctionFrameInfo {
+                    traps: traps,
+                    address_map,
+                },
             },
-            relocations: self.relocations.clone(),
-            jt_offsets: SecondaryMap::new(),
-            frame_info: CompiledFunctionFrameInfo {
-                traps: traps,
-                address_map,
-            },
-        }
+            fde,
+        )
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

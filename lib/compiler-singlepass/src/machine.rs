@@ -2,14 +2,15 @@ use crate::common_decl::*;
 use crate::location::{Location, Reg};
 use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
+use crate::unwind::UnwindInstructions;
 use dynasmrt::{AssemblyOffset, DynamicLabel};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    Architecture, CallingConvention, CustomSection, FunctionBody, InstructionAddressMap,
-    Relocation, RelocationTarget, Target, TrapInformation,
+    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody,
+    InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation,
 };
 use wasmer_types::{FunctionIndex, FunctionType};
 use wasmer_vm::{TrapCode, VMOffsets};
@@ -1038,11 +1039,11 @@ pub trait Machine {
     );
 
     /// emit a move function address to GPR ready for call, using appropriate relocation
-    fn move_with_reloc(
+    fn emit_call_with_reloc(
         &mut self,
+        calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
-        relocations: &mut Vec<Relocation>,
-    );
+    ) -> Vec<Relocation>;
     /// Add with location directly from the stack
     fn emit_binop_add64(
         &mut self,
@@ -2190,6 +2191,10 @@ pub trait Machine {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> CustomSection;
+    /// generate eh_frame instruction (or None if not possible / supported)
+    fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
+    /// generate Windows unwind instructions (or None if not possible / supported)
+    fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>>;
 }
 
 /// Standard entry trampoline generation
@@ -2200,7 +2205,13 @@ pub fn gen_std_trampoline(
 ) -> FunctionBody {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
@@ -2210,6 +2221,7 @@ pub fn gen_std_trampoline(
         _ => unimplemented!(),
     }
 }
+
 /// Generates dynamic import function call trampoline for a function type.
 pub fn gen_std_dynamic_import_trampoline(
     vmoffsets: &VMOffsets,
@@ -2219,7 +2231,13 @@ pub fn gen_std_dynamic_import_trampoline(
 ) -> FunctionBody {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
@@ -2239,7 +2257,13 @@ pub fn gen_import_call_trampoline(
 ) -> CustomSection {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = MachineX86_64::new();
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {

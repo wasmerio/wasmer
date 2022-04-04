@@ -44,6 +44,7 @@ pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
     fn into_index(self) -> usize;
     fn from_index(i: usize) -> Result<Self, ()>;
     fn iterator() -> Iter<'static, Self>;
+    fn to_dwarf(self) -> u16;
 }
 
 pub trait Descriptor<R: Reg, S: Reg> {

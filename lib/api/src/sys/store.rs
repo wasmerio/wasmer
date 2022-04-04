@@ -1,11 +1,10 @@
 use crate::sys::tunables::BaseTunables;
 use loupe::MemoryUsage;
-use std::any::Any;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{is_wasm_pc, Engine, Tunables};
+use wasmer_engine::{Engine, Tunables};
 use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
@@ -48,7 +47,7 @@ impl Store {
     {
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
-        init_traps(is_wasm_pc);
+        init_traps();
 
         Self {
             engine: engine.cloned(),
@@ -82,11 +81,6 @@ impl PartialEq for Store {
 }
 
 unsafe impl TrapHandler for Store {
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
         if let Some(handler) = *&self.trap_handler.read().unwrap().as_ref() {
             call(handler)

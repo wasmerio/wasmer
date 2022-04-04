@@ -51,6 +51,7 @@ pub use wasmer_derive::WasmerEnv;
 
 pub use crate::js::cell::WasmCell;
 pub use crate::js::env::{HostEnvInitError, LazyInit, WasmerEnv};
+pub use crate::js::error::{DeserializeError, SerializeError};
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{

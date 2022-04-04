@@ -8,6 +8,25 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+### Fixed
+- [#2829](https://github.com/wasmerio/wasmer/pull/2829) Improve error message oriented from JS object.
+- [#2828](https://github.com/wasmerio/wasmer/pull/2828) Fix JsImportObject resolver.
+
+## 2.2.1 - 2022/03/15
+
+### Fixed
+- [#2812](https://github.com/wasmerio/wasmer/pull/2812) Fixed another panic due to incorrect drop ordering.
+
+## 2.2.0 - 2022/02/28
+
+### Added
+- [#2775](https://github.com/wasmerio/wasmer/pull/2775) Added support for SSE 4.2 in the Singlepass compiler as an alternative to AVX.
+- [#2805](https://github.com/wasmerio/wasmer/pull/2805) Enabled WASI experimental I/O devices by default in releases.
+
+### Fixed
+- [#2795](https://github.com/wasmerio/wasmer/pull/2795) Fixed a bug in the Singlepass compiler introduced in #2775.
+- [#2806](https://github.com/wasmerio/wasmer/pull/2806) Fixed a panic due to incorrect drop ordering of `Module` fields.
+
 ## 2.2.0-rc2 - 2022/02/15
 
 ### Fixed

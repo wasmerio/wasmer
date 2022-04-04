@@ -28,6 +28,10 @@ jobs:
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-12
           echo '/opt/llvm-12/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
+      - name: Install dependencies on Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libwayland-cursor0 libxkbcommon-dev libwayland-dev
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"

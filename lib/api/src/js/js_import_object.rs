@@ -50,7 +50,7 @@ impl JsImportObject {
     /// import_object.get_export("module", "name");
     /// ```
     pub fn get_export(&self, module: &str, name: &str) -> Option<Export> {
-        let namespace = js_sys::Reflect::get(&self.object, &name.into()).ok()?;
+        let namespace = js_sys::Reflect::get(&self.object, &module.into()).ok()?;
         let js_export = js_sys::Reflect::get(&namespace, &name.into()).ok()?;
         match self
             .module_imports

@@ -43,7 +43,7 @@ impl fmt::Display for RuntimeErrorSource {
         match self {
             Self::Generic(s) => write!(f, "{}", s),
             Self::User(s) => write!(f, "{}", s),
-            Self::Js(s) => write!(f, "{}", s.as_string().unwrap_or("".to_string())),
+            Self::Js(s) => write!(f, "{:?}", s),
         }
     }
 }

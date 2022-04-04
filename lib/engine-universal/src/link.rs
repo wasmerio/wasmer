@@ -80,31 +80,7 @@ fn apply_relocation(
                 )
             }
             let reloc_delta = (((reloc_delta / 4) as u32) & 0x3ff_ffff)
-                | read_unaligned(reloc_address as *mut u32);
-            write_unaligned(reloc_address as *mut u32, reloc_delta);
-        },
-        RelocationKind::Arm64Movw0 => unsafe {
-            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            let reloc_delta =
-                (((reloc_delta & 0xffff) as u32) << 5) | read_unaligned(reloc_address as *mut u32);
-            write_unaligned(reloc_address as *mut u32, reloc_delta);
-        },
-        RelocationKind::Arm64Movw1 => unsafe {
-            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            let reloc_delta = ((((reloc_delta >> 16) & 0xffff) as u32) << 5)
-                | read_unaligned(reloc_address as *mut u32);
-            write_unaligned(reloc_address as *mut u32, reloc_delta);
-        },
-        RelocationKind::Arm64Movw2 => unsafe {
-            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            let reloc_delta = ((((reloc_delta >> 32) & 0xffff) as u32) << 5)
-                | read_unaligned(reloc_address as *mut u32);
-            write_unaligned(reloc_address as *mut u32, reloc_delta);
-        },
-        RelocationKind::Arm64Movw3 => unsafe {
-            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
-            let reloc_delta = ((((reloc_delta >> 48) & 0xffff) as u32) << 5)
-                | read_unaligned(reloc_address as *mut u32);
+                | (read_unaligned(reloc_address as *mut u32) & 0xfc00_0000);
             write_unaligned(reloc_address as *mut u32, reloc_delta);
         },
         kind => panic!(
