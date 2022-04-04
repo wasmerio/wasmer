@@ -818,9 +818,7 @@ impl<T> TrapHandlerContextInner<T> {
             return false;
         }
 
-        let signal_trap = if trap_code.is_some() {
-            trap_code
-        } else {
+        let signal_trap = trap_code.or_else(|| {
             maybe_fault_address.map(|addr| {
                 if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
                     TrapCode::StackOverflow
@@ -828,7 +826,7 @@ impl<T> TrapHandlerContextInner<T> {
                     TrapCode::HeapAccessOutOfBounds
                 }
             })
-        };
+        });
 
         // Don't try to generate a backtrace for stack overflows: unwinding
         // information is often not precise enough to properly describe what is
