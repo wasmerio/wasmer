@@ -1,11 +1,18 @@
 use crate::address_map::get_function_address_map;
+#[cfg(feature = "unwind")]
+use crate::dwarf::WriterRelocate;
 use crate::location::{Location, Reg};
 use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
+use crate::unwind::UnwindFrame;
 use crate::{common_decl::*, config::Singlepass};
+#[cfg(feature = "unwind")]
+use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
 use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
+#[cfg(feature = "unwind")]
+use wasmer_compiler::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, FunctionBodyData,
     Relocation, RelocationTarget, SectionIndex,
@@ -5849,7 +5856,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    pub fn finalize(mut self, data: &FunctionBodyData) -> CompiledFunction {
+    pub fn finalize(mut self, data: &FunctionBodyData) -> (CompiledFunction, Option<UnwindFrame>) {
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero);
@@ -5889,23 +5896,50 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.finalize_function();
 
         let body_len = self.machine.assembler_get_offset().0;
+
+        let mut unwind_info = None;
+        let mut fde = None;
+        #[cfg(feature = "unwind")]
+        match self.calling_convention {
+            CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
+                let unwind = self.machine.gen_dwarf_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    fde = Some(unwind.to_fde(Address::Symbol {
+                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                        addend: self.fsm.local_function_id as _,
+                    }));
+                    unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
+                }
+            }
+            CallingConvention::WindowsFastcall => {
+                let unwind = self.machine.gen_windows_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+                }
+            }
+            _ => (),
+        };
+
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
         let body = self.machine.assembler_finalize();
 
-        CompiledFunction {
-            body: FunctionBody {
-                body: body,
-                unwind_info: None,
+        (
+            CompiledFunction {
+                body: FunctionBody {
+                    body: body,
+                    unwind_info,
+                },
+                relocations: self.relocations.clone(),
+                jt_offsets: SecondaryMap::new(),
+                frame_info: CompiledFunctionFrameInfo {
+                    traps: traps,
+                    address_map,
+                },
             },
-            relocations: self.relocations.clone(),
-            jt_offsets: SecondaryMap::new(),
-            frame_info: CompiledFunctionFrameInfo {
-                traps: traps,
-                address_map,
-            },
-        }
+            fde,
+        )
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

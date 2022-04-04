@@ -141,6 +141,9 @@ impl AbstractReg for GPR {
         ];
         GPRS.iter()
     }
+    fn to_dwarf(self) -> u16 {
+        self.into_index() as u16
+    }
 }
 
 impl AbstractReg for NEON {
@@ -195,6 +198,9 @@ impl AbstractReg for NEON {
             NEON::V31,
         ];
         NEONS.iter()
+    }
+    fn to_dwarf(self) -> u16 {
+        self.into_index() as u16 + 64
     }
 }
 
