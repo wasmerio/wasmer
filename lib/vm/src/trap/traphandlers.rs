@@ -7,6 +7,7 @@
 use super::trapcode::TrapCode;
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use backtrace::Backtrace;
+use core::ptr::read_unaligned;
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
 use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
@@ -151,6 +152,9 @@ cfg_if::cfg_if! {
                 libc::SIGSEGV | libc::SIGBUS => {
                     Some((*siginfo).si_addr() as usize)
                 }
+                _ => None,
+            };
+            let trap_code = match signum {
                 // check if it was cased by a UD and if the Trap info is a payload to it
                 libc::SIGILL => {
                     let mut val: u8 = 0;
@@ -197,13 +201,13 @@ cfg_if::cfg_if! {
                 }
                 _ => None,
             };
-
             let ucontext = &mut *(context as *mut libc::ucontext_t);
             let (pc, sp) = get_pc_sp(ucontext);
             let handled = TrapHandlerContext::handle_trap(
                 pc,
                 sp,
                 maybe_fault_address,
+                trap_code,
                 |regs| update_context(ucontext, regs),
                 |handler| handler(signum, siginfo, context),
             );
@@ -699,8 +703,14 @@ thread_local! {
 /// from traps.
 struct TrapHandlerContext {
     inner: *const u8,
-    handle_trap:
-        fn(*const u8, usize, usize, Option<usize>, &mut dyn FnMut(TrapHandlerRegs)) -> bool,
+    handle_trap: fn(
+        *const u8,
+        usize,
+        usize,
+        Option<usize>,
+        Option<TrapCode>,
+        &mut dyn FnMut(TrapHandlerRegs),
+    ) -> bool,
     custom_trap: *const dyn TrapHandler,
 }
 struct TrapHandlerContextInner<T> {
@@ -723,6 +733,7 @@ impl TrapHandlerContext {
             pc: usize,
             sp: usize,
             maybe_fault_address: Option<usize>,
+            trap_code: Option<TrapCode>,
             update_regs: &mut dyn FnMut(TrapHandlerRegs),
         ) -> bool {
             unsafe {
@@ -730,6 +741,7 @@ impl TrapHandlerContext {
                     pc,
                     sp,
                     maybe_fault_address,
+                    trap_code,
                     update_regs,
                 )
             }
@@ -764,6 +776,7 @@ impl TrapHandlerContext {
         pc: usize,
         sp: usize,
         maybe_fault_address: Option<usize>,
+        trap_code: Option<TrapCode>,
         mut update_regs: impl FnMut(TrapHandlerRegs),
         call_handler: impl Fn(&TrapHandlerFn) -> bool,
     ) -> bool {
@@ -779,7 +792,14 @@ impl TrapHandlerContext {
             return true;
         }
 
-        (ctx.handle_trap)(ctx.inner, pc, sp, maybe_fault_address, &mut update_regs)
+        (ctx.handle_trap)(
+            ctx.inner,
+            pc,
+            sp,
+            maybe_fault_address,
+            trap_code,
+            &mut update_regs,
+        )
     }
 }
 
@@ -789,6 +809,7 @@ impl<T> TrapHandlerContextInner<T> {
         pc: usize,
         sp: usize,
         maybe_fault_address: Option<usize>,
+        trap_code: Option<TrapCode>,
         update_regs: &mut dyn FnMut(TrapHandlerRegs),
     ) -> bool {
         // Check if this trap occurred while executing on the Wasm stack. We can
@@ -797,13 +818,17 @@ impl<T> TrapHandlerContextInner<T> {
             return false;
         }
 
-        let signal_trap = maybe_fault_address.map(|addr| {
-            if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
-                TrapCode::StackOverflow
-            } else {
-                TrapCode::HeapAccessOutOfBounds
-            }
-        });
+        let signal_trap = if trap_code.is_some() {
+            trap_code
+        } else {
+            maybe_fault_address.map(|addr| {
+                if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
+                    TrapCode::StackOverflow
+                } else {
+                    TrapCode::HeapAccessOutOfBounds
+                }
+            })
+        };
 
         // Don't try to generate a backtrace for stack overflows: unwinding
         // information is often not precise enough to properly describe what is
