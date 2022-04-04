@@ -586,21 +586,12 @@ impl MachineX86_64 {
         );
 
         self.emit_label(trap_overflow);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
+
+        self.emit_illegal_op(TrapCode::IntegerOverflow);
 
         self.emit_label(trap_badconv);
 
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
+        self.emit_illegal_op(TrapCode::BadConversionToInteger);
 
         self.emit_label(end);
     }
@@ -729,20 +720,10 @@ impl MachineX86_64 {
         );
 
         self.emit_label(trap_overflow);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
+        self.emit_illegal_op(TrapCode::IntegerOverflow);
 
         self.emit_label(trap_badconv);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
+        self.emit_illegal_op(TrapCode::BadConversionToInteger);
 
         self.emit_label(end);
     }
@@ -2221,8 +2202,20 @@ impl Machine for MachineX86_64 {
         self.release_simd(tmp1);
     }
 
-    fn emit_illegal_op(&mut self) {
+    fn emit_illegal_op(&mut self, trap: TrapCode) {
+        // code below is kept as a reference on how to emit illegal op with trap info
+        // without an Undefined opcode with payload
+        /*
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+        .offset_to_code
+        .insert(offset, trap);
         self.assembler.emit_ud2();
+        self.mark_instruction_address_end(offset);*/
+        let v = trap as u8;
+        // payload needs to be between 0-15
+        // this will emit an 40 0F B9 Cx opcode, with x the payload
+        self.assembler.emit_ud1_payload(v);
     }
     fn get_label(&mut self) -> Label {
         self.assembler.new_dynamic_label()

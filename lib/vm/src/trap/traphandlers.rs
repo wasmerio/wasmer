@@ -13,6 +13,7 @@ use std::error::Error;
 use std::io;
 use std::mem::{self, MaybeUninit};
 use std::ptr;
+use std::ptr::read_unaligned;
 use std::sync::Once;
 pub use tls::TlsRestore;
 
@@ -136,6 +137,50 @@ cfg_if::cfg_if! {
                         Some(TrapCode::StackOverflow)
                     } else {
                         Some(TrapCode::HeapAccessOutOfBounds)
+                    }
+                }
+                // check if it was cased by a UD and if the Trap info is a payload to it
+                libc::SIGILL => {
+                    let mut val: u8 = 0;
+                    if cfg!(target_arch = "x86_64") {
+                        let addr = (*siginfo).si_addr() as usize;
+                        val = if read_unaligned(addr as *mut u8)&0xf0 == 0x40
+                              && read_unaligned((addr+1) as *mut u8) == 0x0f
+                              && read_unaligned((addr+2) as *mut u8) == 0xb9 {
+                                read_unaligned((addr+3) as *mut u8)
+                            } else if read_unaligned(addr as *mut u8) == 0x0f
+                                    && read_unaligned((addr+1) as *mut u8) == 0xb9 {
+                                read_unaligned((addr+2) as *mut u8)
+                            } else {
+                                0
+                            }
+                    }
+                    if cfg!(target_arch = "aarch64") {
+                        let addr = (*siginfo).si_addr() as usize;
+                        val = if read_unaligned(addr as *mut u32)&0xffff0000 == 0 {
+                            read_unaligned(addr as *mut u8)
+                        } else {
+                            0
+                        }
+                    }
+                    if val&0xc0 == 0xc0 {
+                        match val&0x0f {
+                            0 => Some(TrapCode::StackOverflow),
+                            1 => Some(TrapCode::HeapAccessOutOfBounds),
+                            2 => Some(TrapCode::HeapMisaligned),
+                            3 => Some(TrapCode::TableAccessOutOfBounds),
+                            4 => Some(TrapCode::OutOfBounds),
+                            5 => Some(TrapCode::IndirectCallToNull),
+                            6 => Some(TrapCode::BadSignature),
+                            7 => Some(TrapCode::IntegerOverflow),
+                            8 => Some(TrapCode::IntegerDivisionByZero),
+                            9 => Some(TrapCode::BadConversionToInteger),
+                            10 => Some(TrapCode::UnreachableCodeReached),
+                            11 => Some(TrapCode::UnalignedAtomic),
+                            _ => None,
+                        }
+                    } else {
+                        None
                     }
                 }
                 _ => None,

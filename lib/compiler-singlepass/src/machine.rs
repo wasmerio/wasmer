@@ -253,8 +253,8 @@ pub trait Machine {
         output: Location<Self::GPR, Self::SIMD>,
     );
 
-    /// emit an Illegal Opcode
-    fn emit_illegal_op(&mut self);
+    /// emit an Illegal Opcode, associated with a trapcode
+    fn emit_illegal_op(&mut self, trp: TrapCode);
     /// create a new label
     fn get_label(&mut self) -> Label;
     /// emit a label
