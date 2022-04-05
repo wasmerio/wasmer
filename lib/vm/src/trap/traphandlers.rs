@@ -465,7 +465,7 @@ cfg_if::cfg_if! {
                 EXCEPTION_ILLEGAL_INSTRUCTION => {
                     let mut val: u8 = 0;
                     if cfg!(target_arch = "x86_64") {
-                        let addr = pc as usize;
+                        let addr = pc;
                         val = if read_unaligned(addr as *mut u8)&0xf0 == 0x40
                               && read_unaligned((addr+1) as *mut u8) == 0x0f
                               && read_unaligned((addr+2) as *mut u8) == 0xb9 {
@@ -478,7 +478,7 @@ cfg_if::cfg_if! {
                             }
                     }
                     if cfg!(target_arch = "aarch64") {
-                        let addr = pc as usize;
+                        let addr = pc;
                         val = if read_unaligned(addr as *mut u32)&0xffff0000 == 0 {
                             read_unaligned(addr as *mut u8)
                         } else {
