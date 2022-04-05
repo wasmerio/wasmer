@@ -23,6 +23,11 @@ use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
 use std::sync::{Mutex, Once};
 
+// TrapInformation can be stored in the "Undefined Instruction" itself.
+// On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
+// On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
+static MAGIC: u8 = 0xc0;
+
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
@@ -179,7 +184,7 @@ cfg_if::cfg_if! {
                             0
                         }
                     }
-                    if val&0xc0 == 0xc0 {
+                    if val&MAGIC == MAGIC {
                         match val&0x0f {
                             0 => Some(TrapCode::StackOverflow),
                             1 => Some(TrapCode::HeapAccessOutOfBounds),
