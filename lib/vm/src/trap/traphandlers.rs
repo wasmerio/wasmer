@@ -513,7 +513,7 @@ cfg_if::cfg_if! {
                 pc,
                 sp,
                 maybe_fault_address,
-                trapcode,
+                trap_code,
                 |regs| update_context(context, regs),
                 |handler| handler(exception_info),
             );
