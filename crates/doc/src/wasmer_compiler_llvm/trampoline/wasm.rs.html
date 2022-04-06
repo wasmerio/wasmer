@@ -500,16 +500,6 @@
 <span id="498">498</span>
 <span id="499">499</span>
 <span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::abi</span>::{<span class="ident">get_abi</span>, <span class="ident">Abi</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config</span>::{<span class="ident">CompiledKind</span>, <span class="ident">LLVM</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::object_file</span>::{<span class="ident">load_object_file</span>, <span class="ident">CompiledFunction</span>};
@@ -667,11 +657,6 @@
                 <span class="string">&quot;trampoline generation produced relocations&quot;</span>.<span class="ident">into</span>(),
             ));
         }
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">compiled_function</span>.<span class="ident">jt_offsets</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
-                <span class="string">&quot;trampoline generation produced jump tables&quot;</span>.<span class="ident">into</span>(),
-            ));
-        }
         <span class="comment">// Ignore CompiledFunctionFrameInfo. Extra frame info isn&#39;t a problem.</span>
 
         <span class="prelude-val">Ok</span>(<span class="ident">FunctionBody</span> {
@@ -790,11 +775,6 @@
         <span class="kw">if</span> <span class="op">!</span><span class="ident">compiled_function</span>.<span class="ident">relocations</span>.<span class="ident">is_empty</span>() {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
                 <span class="string">&quot;trampoline generation produced relocations&quot;</span>.<span class="ident">into</span>(),
-            ));
-        }
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">compiled_function</span>.<span class="ident">jt_offsets</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
-                <span class="string">&quot;trampoline generation produced jump tables&quot;</span>.<span class="ident">into</span>(),
             ));
         }
         <span class="comment">// Ignore CompiledFunctionFrameInfo. Extra frame info isn&#39;t a problem.</span>

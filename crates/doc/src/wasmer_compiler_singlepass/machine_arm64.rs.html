@@ -6199,7 +6199,7 @@
             <span class="kw">if</span> <span class="self">self</span>.<span class="ident">compatible_imm</span>(<span class="ident">memarg</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">ImmType::Bits12</span>) {
                 <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_adds</span>(
                     <span class="ident">Size::S32</span>,
-                    <span class="ident">Location::Imm32</span>(<span class="ident">memarg</span>.<span class="ident">offset</span>),
+                    <span class="ident">Location::Imm32</span>(<span class="ident">memarg</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
                     <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>),
                     <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>),
                 );

@@ -7714,7 +7714,7 @@
         <span class="kw">if</span> <span class="ident">memarg</span>.<span class="ident">offset</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
             <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_add</span>(
                 <span class="ident">Size::S32</span>,
-                <span class="ident">Location::Imm32</span>(<span class="ident">memarg</span>.<span class="ident">offset</span>),
+                <span class="ident">Location::Imm32</span>(<span class="ident">memarg</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u32</span>),
                 <span class="ident">Location::GPR</span>(<span class="ident">tmp_addr</span>),
             );
 

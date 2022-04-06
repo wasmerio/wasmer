@@ -147,22 +147,6 @@
 <span id="145">145</span>
 <span id="146">146</span>
 <span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::func_environ::TargetEnvironment</span>;
@@ -171,13 +155,11 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::binemit::Reloc</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>::{<span class="self">self</span>, <span class="ident">AbiParam</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetFrontendConfig</span>;
-<span class="kw">use</span> <span class="ident">cranelift_entity</span>::{<span class="ident">EntityRef</span> <span class="kw">as</span> <span class="ident">CraneliftEntityRef</span>, <span class="ident">SecondaryMap</span> <span class="kw">as</span> <span class="ident">CraneliftSecondaryMap</span>};
 <span class="kw">use</span> <span class="ident">cranelift_frontend::FunctionBuilder</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasm_unsupported</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">JumpTable</span>, <span class="ident">RelocationKind</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::RelocationKind</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">SecondaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">Type</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::libcalls::LibCall</span>;
 
@@ -251,7 +233,6 @@
         <span class="ident">Reloc::Abs4</span> =&gt; <span class="ident">RelocationKind::Abs4</span>,
         <span class="ident">Reloc::Abs8</span> =&gt; <span class="ident">RelocationKind::Abs8</span>,
         <span class="ident">Reloc::X86PCRel4</span> =&gt; <span class="ident">RelocationKind::X86PCRel4</span>,
-        <span class="ident">Reloc::X86PCRelRodata4</span> =&gt; <span class="ident">RelocationKind::X86PCRelRodata4</span>,
         <span class="ident">Reloc::X86CallPCRel4</span> =&gt; <span class="ident">RelocationKind::X86CallPCRel4</span>,
         <span class="ident">Reloc::X86CallPLTRel4</span> =&gt; <span class="ident">RelocationKind::X86CallPLTRel4</span>,
         <span class="ident">Reloc::X86GOTPCRel4</span> =&gt; <span class="ident">RelocationKind::X86GOTPCRel4</span>,
@@ -312,19 +293,6 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_vmctx_value_label</span>() -&gt; <span class="ident">ir::ValueLabel</span> {
     <span class="kw">const</span> <span class="ident">VMCTX_LABEL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xffff_fffe</span>;
     <span class="ident">ir::ValueLabel::from_u32</span>(<span class="ident">VMCTX_LABEL</span>)
-}
-
-<span class="doccomment">/// Transforms Cranelift JumpTable&#39;s into runtime JumpTables</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">transform_jump_table</span>(
-    <span class="ident">jt_offsets</span>: <span class="ident">CraneliftSecondaryMap</span><span class="op">&lt;</span><span class="ident">ir::JumpTable</span>, <span class="ident">u32</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">JumpTable</span>, <span class="ident">u32</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_jt_offsets</span> <span class="op">=</span> <span class="ident">SecondaryMap::with_capacity</span>(<span class="ident">jt_offsets</span>.<span class="ident">capacity</span>());
-
-    <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">jt_offsets</span>.<span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="ident">new_key</span> <span class="op">=</span> <span class="ident">JumpTable::new</span>(<span class="ident">key</span>.<span class="ident">index</span>());
-        <span class="ident">func_jt_offsets</span>[<span class="ident">new_key</span>] <span class="op">=</span> <span class="kw-2">*</span><span class="ident">value</span>;
-    }
-    <span class="ident">func_jt_offsets</span>
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>

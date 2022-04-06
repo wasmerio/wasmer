@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["translate_ir_trapcode","Translates the Cranelift IR TrapCode into generic Trap Code"]],"struct":[["RelocSink","Implementation of a relocation sink that just saves all the information for later"],["TrapSink",""]]});

@@ -39,65 +39,29 @@
 <span id="37">37</span>
 <span id="38">38</span>
 <span id="39">39</span>
-<span id="40">40</span>
-<span id="41">41</span>
-<span id="42">42</span>
-<span id="43">43</span>
-<span id="44">44</span>
-<span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
-<span id="48">48</span>
-<span id="49">49</span>
-<span id="50">50</span>
-<span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
-<span id="54">54</span>
-<span id="55">55</span>
-<span id="56">56</span>
-<span id="57">57</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
+<span class="kw">use</span> <span class="ident">cranelift_codegen::Context</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::MachSrcLoc</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">isa</span>, <span class="ident">Context</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wasmparser::Range</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
     <span class="ident">range</span>: <span class="ident">Range</span>,
     <span class="ident">body_len</span>: <span class="ident">usize</span>,
-    <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">isa::TargetIsa</span>,
 ) -&gt; <span class="ident">FunctionAddressMap</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instructions</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">mcr</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">mach_compile_result</span> {
-        <span class="comment">// New-style backend: we have a `MachCompileResult` that will give us `MachSrcLoc` mapping</span>
-        <span class="comment">// tuples.</span>
-        <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">MachSrcLoc</span> { <span class="ident">start</span>, <span class="ident">end</span>, <span class="ident">loc</span> } <span class="kw">in</span> <span class="ident">mcr</span>.<span class="ident">buffer</span>.<span class="ident">get_srclocs_sorted</span>() {
-            <span class="ident">instructions</span>.<span class="ident">push</span>(<span class="ident">InstructionAddressMap</span> {
-                <span class="ident">srcloc</span>: <span class="ident">SourceLoc::new</span>(<span class="ident">loc</span>.<span class="ident">bits</span>()),
-                <span class="ident">code_offset</span>: <span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">code_len</span>: (<span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>) <span class="kw">as</span> <span class="ident">usize</span>,
-            });
-        }
-    } <span class="kw">else</span> {
-        <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">blocks</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">layout</span>.<span class="ident">blocks</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">blocks</span>.<span class="ident">sort_by_key</span>(<span class="op">|</span><span class="ident">block</span><span class="op">|</span> <span class="ident">func</span>.<span class="ident">offsets</span>[<span class="kw-2">*</span><span class="ident">block</span>]); <span class="comment">// Ensure inst offsets always increase</span>
-
-        <span class="kw">let</span> <span class="ident">encinfo</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">encoding_info</span>();
-        <span class="kw">for</span> <span class="ident">block</span> <span class="kw">in</span> <span class="ident">blocks</span> {
-            <span class="kw">for</span> (<span class="ident">offset</span>, <span class="ident">inst</span>, <span class="ident">size</span>) <span class="kw">in</span> <span class="ident">func</span>.<span class="ident">inst_offsets</span>(<span class="ident">block</span>, <span class="kw-2">&amp;</span><span class="ident">encinfo</span>) {
-                <span class="kw">let</span> <span class="ident">srcloc</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">srclocs</span>[<span class="ident">inst</span>];
-                <span class="ident">instructions</span>.<span class="ident">push</span>(<span class="ident">InstructionAddressMap</span> {
-                    <span class="ident">srcloc</span>: <span class="ident">SourceLoc::new</span>(<span class="ident">srcloc</span>.<span class="ident">bits</span>()),
-                    <span class="ident">code_offset</span>: <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                    <span class="ident">code_len</span>: <span class="ident">size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                });
-            }
-        }
+    <span class="comment">// New-style backend: we have a `MachCompileResult` that will give us `MachSrcLoc` mapping</span>
+    <span class="comment">// tuples.</span>
+    <span class="kw">let</span> <span class="ident">mcr</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">mach_compile_result</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
+    <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">MachSrcLoc</span> { <span class="ident">start</span>, <span class="ident">end</span>, <span class="ident">loc</span> } <span class="kw">in</span> <span class="ident">mcr</span>.<span class="ident">buffer</span>.<span class="ident">get_srclocs_sorted</span>() {
+        <span class="ident">instructions</span>.<span class="ident">push</span>(<span class="ident">InstructionAddressMap</span> {
+            <span class="ident">srcloc</span>: <span class="ident">SourceLoc::new</span>(<span class="ident">loc</span>.<span class="ident">bits</span>()),
+            <span class="ident">code_offset</span>: <span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            <span class="ident">code_len</span>: (<span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>) <span class="kw">as</span> <span class="ident">usize</span>,
+        });
     }
 
     <span class="comment">// Generate artificial srcloc for function start/end to identify boundary</span>

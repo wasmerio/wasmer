@@ -1041,6 +1041,40 @@
 <span id="1039">1039</span>
 <span id="1040">1040</span>
 <span id="1041">1041</span>
+<span id="1042">1042</span>
+<span id="1043">1043</span>
+<span id="1044">1044</span>
+<span id="1045">1045</span>
+<span id="1046">1046</span>
+<span id="1047">1047</span>
+<span id="1048">1048</span>
+<span id="1049">1049</span>
+<span id="1050">1050</span>
+<span id="1051">1051</span>
+<span id="1052">1052</span>
+<span id="1053">1053</span>
+<span id="1054">1054</span>
+<span id="1055">1055</span>
+<span id="1056">1056</span>
+<span id="1057">1057</span>
+<span id="1058">1058</span>
+<span id="1059">1059</span>
+<span id="1060">1060</span>
+<span id="1061">1061</span>
+<span id="1062">1062</span>
+<span id="1063">1063</span>
+<span id="1064">1064</span>
+<span id="1065">1065</span>
+<span id="1066">1066</span>
+<span id="1067">1067</span>
+<span id="1068">1068</span>
+<span id="1069">1069</span>
+<span id="1070">1070</span>
+<span id="1071">1071</span>
+<span id="1072">1072</span>
+<span id="1073">1073</span>
+<span id="1074">1074</span>
+<span id="1075">1075</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_api::wasmparser::Operator</span>;
 
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
@@ -1559,6 +1593,23 @@
     <span class="ident">F64x2ConvertLowI32x4U</span>,
     <span class="ident">I32x4TruncSatF64x2SZero</span>,
     <span class="ident">I32x4TruncSatF64x2UZero</span>,
+    <span class="ident">I8x16RelaxedSwizzle</span>,
+    <span class="ident">I32x4RelaxedTruncSatF32x4S</span>,
+    <span class="ident">I32x4RelaxedTruncSatF32x4U</span>,
+    <span class="ident">I32x4RelaxedTruncSatF64x2SZero</span>,
+    <span class="ident">I32x4RelaxedTruncSatF64x2UZero</span>,
+    <span class="ident">F32x4Fma</span>,
+    <span class="ident">F32x4Fms</span>,
+    <span class="ident">F64x2Fma</span>,
+    <span class="ident">F64x2Fms</span>,
+    <span class="ident">I8x16LaneSelect</span>,
+    <span class="ident">I16x8LaneSelect</span>,
+    <span class="ident">I32x4LaneSelect</span>,
+    <span class="ident">I64x2LaneSelect</span>,
+    <span class="ident">F32x4RelaxedMin</span>,
+    <span class="ident">F32x4RelaxedMax</span>,
+    <span class="ident">F64x2RelaxedMin</span>,
+    <span class="ident">F64x2RelaxedMax</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasmer_parser_operator_t</span> {
@@ -1578,7 +1629,7 @@
             <span class="ident">O::Delegate</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::Delegate</span>,
             <span class="ident">O::Throw</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::Throw</span>,
             <span class="ident">O::Rethrow</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::Rethrow</span>,
-            <span class="ident">O::Unwind</span> =&gt; <span class="ident"><span class="self">Self</span>::Unwind</span>,
+            <span class="comment">// O::Unwind removed</span>
             <span class="ident">O::End</span> =&gt; <span class="ident"><span class="self">Self</span>::End</span>,
             <span class="ident">O::Br</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::Br</span>,
             <span class="ident">O::BrIf</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::BrIf</span>,
@@ -2079,6 +2130,23 @@
             <span class="ident">O::F64x2ConvertLowI32x4U</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2ConvertLowI32x4U</span>,
             <span class="ident">O::I32x4TruncSatF64x2SZero</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4TruncSatF64x2SZero</span>,
             <span class="ident">O::I32x4TruncSatF64x2UZero</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4TruncSatF64x2UZero</span>,
+            <span class="ident">O::I8x16RelaxedSwizzle</span> =&gt; <span class="ident"><span class="self">Self</span>::I8x16RelaxedSwizzle</span>,
+            <span class="ident">O::I32x4RelaxedTruncSatF32x4S</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4RelaxedTruncSatF32x4S</span>,
+            <span class="ident">O::I32x4RelaxedTruncSatF32x4U</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4RelaxedTruncSatF32x4U</span>,
+            <span class="ident">O::I32x4RelaxedTruncSatF64x2SZero</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4RelaxedTruncSatF64x2SZero</span>,
+            <span class="ident">O::I32x4RelaxedTruncSatF64x2UZero</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4RelaxedTruncSatF64x2UZero</span>,
+            <span class="ident">O::F32x4Fma</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4Fma</span>,
+            <span class="ident">O::F32x4Fms</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4Fms</span>,
+            <span class="ident">O::F64x2Fma</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2Fma</span>,
+            <span class="ident">O::F64x2Fms</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2Fms</span>,
+            <span class="ident">O::I8x16LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I8x16LaneSelect</span>,
+            <span class="ident">O::I16x8LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8LaneSelect</span>,
+            <span class="ident">O::I32x4LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4LaneSelect</span>,
+            <span class="ident">O::I64x2LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I64x2LaneSelect</span>,
+            <span class="ident">O::F32x4RelaxedMin</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4RelaxedMin</span>,
+            <span class="ident">O::F32x4RelaxedMax</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4RelaxedMax</span>,
+            <span class="ident">O::F64x2RelaxedMin</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2RelaxedMin</span>,
+            <span class="ident">O::F64x2RelaxedMax</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2RelaxedMax</span>,
         }
     }
 }

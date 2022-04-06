@@ -108,8 +108,6 @@
 <span id="106">106</span>
 <span id="107">107</span>
 <span id="108">108</span>
-<span id="109">109</span>
-<span id="110">110</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions</span>
 <span class="doccomment">//! to create a compiler.</span>
 <span class="doccomment">//!</span>
@@ -166,7 +164,6 @@
 <span class="kw">mod</span> <span class="ident">compiler</span>;
 <span class="kw">mod</span> <span class="ident">error</span>;
 <span class="kw">mod</span> <span class="ident">function</span>;
-<span class="kw">mod</span> <span class="ident">jump_table</span>;
 <span class="kw">mod</span> <span class="ident">module</span>;
 <span class="kw">mod</span> <span class="ident">relocation</span>;
 <span class="kw">mod</span> <span class="ident">target</span>;
@@ -188,7 +185,6 @@
     <span class="ident">Compilation</span>, <span class="ident">CompiledFunction</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSections</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>,
     <span class="ident">Functions</span>,
 };
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::jump_table</span>::{<span class="ident">JumpTable</span>, <span class="ident">JumpTableOffsets</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::module::CompileModuleInfo</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::relocation</span>::{<span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">Relocations</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::section</span>::{<span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">SectionBody</span>, <span class="ident">SectionIndex</span>};

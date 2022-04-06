@@ -106,6 +106,9 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -191,10 +194,13 @@
 
             <span class="ident">Payload::InstanceSection</span>(<span class="kw">_</span>)
             <span class="op">|</span> <span class="ident">Payload::AliasSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::EventSection</span>(<span class="kw">_</span>)
             <span class="op">|</span> <span class="ident">Payload::ModuleSectionStart</span> { .. }
             <span class="op">|</span> <span class="ident">Payload::ModuleSectionEntry</span> { .. } =&gt; {
                 <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
+            }
+
+            <span class="ident">Payload::TagSection</span>(<span class="kw">_</span>) =&gt; {
+                <span class="macro">unimplemented!</span>(<span class="string">&quot;exception handling not implemented yet&quot;</span>)
             }
 
             <span class="ident">Payload::CustomSection</span> {

@@ -169,6 +169,11 @@
 <span id="167">167</span>
 <span id="168">168</span>
 <span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom</span>
 <span class="doccomment">//! compilers will need to implement.</span>
 
@@ -271,6 +276,11 @@
             <span class="ident">memory64</span>: <span class="ident">features</span>.<span class="ident">memory64</span>,
             <span class="ident">exceptions</span>: <span class="ident">features</span>.<span class="ident">exceptions</span>,
             <span class="ident">deterministic_only</span>: <span class="bool-val">false</span>,
+            <span class="ident">extended_const</span>: <span class="ident">features</span>.<span class="ident">extended_const</span>,
+            <span class="ident">relaxed_simd</span>: <span class="ident">features</span>.<span class="ident">relaxed_simd</span>,
+            <span class="ident">mutable_global</span>: <span class="bool-val">true</span>,
+            <span class="ident">saturating_float_to_int</span>: <span class="bool-val">true</span>,
+            <span class="ident">sign_extension</span>: <span class="bool-val">true</span>,
         };
         <span class="ident">validator</span>.<span class="ident">wasm_features</span>(<span class="ident">wasm_features</span>);
         <span class="ident">validator</span>

@@ -130,6 +130,11 @@
 <span id="128">128</span>
 <span id="129">129</span>
 <span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Dummy Engine.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::DummyArtifact</span>;
@@ -223,6 +228,11 @@
             <span class="ident">memory64</span>: <span class="ident">features</span>.<span class="ident">memory64</span>,
             <span class="ident">exceptions</span>: <span class="ident">features</span>.<span class="ident">exceptions</span>,
             <span class="ident">deterministic_only</span>: <span class="bool-val">false</span>,
+            <span class="ident">extended_const</span>: <span class="ident">features</span>.<span class="ident">extended_const</span>,
+            <span class="ident">relaxed_simd</span>: <span class="ident">features</span>.<span class="ident">relaxed_simd</span>,
+            <span class="ident">mutable_global</span>: <span class="bool-val">true</span>,
+            <span class="ident">saturating_float_to_int</span>: <span class="bool-val">true</span>,
+            <span class="ident">sign_extension</span>: <span class="bool-val">true</span>,
         };
         <span class="ident">validator</span>.<span class="ident">wasm_features</span>(<span class="ident">wasm_features</span>);
         <span class="ident">validator</span>

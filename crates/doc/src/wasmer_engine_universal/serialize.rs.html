@@ -105,7 +105,6 @@
 <span id="103">103</span>
 <span id="104">104</span>
 <span id="105">105</span>
-<span id="106">106</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
     <span class="ident">archived_value</span>, <span class="ident">de::deserializers::SharedDeserializeMap</span>, <span class="ident">ser::serializers::AllocSerializer</span>,
@@ -113,8 +112,8 @@
     <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>,
-    <span class="ident">JumpTableOffsets</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>,
+    <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>, <span class="ident">Relocation</span>,
+    <span class="ident">SectionIndex</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">DeserializeError</span>, <span class="ident">SerializeError</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
@@ -125,7 +124,6 @@
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SerializableCompilation</span> {
     <span class="kw">pub</span> <span class="ident">function_bodies</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">function_relocations</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">function_jt_offsets</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">JumpTableOffsets</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">function_frame_info</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">function_call_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">dynamic_function_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,

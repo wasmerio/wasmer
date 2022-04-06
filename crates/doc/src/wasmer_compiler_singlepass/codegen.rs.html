@@ -5994,7 +5994,6 @@
 <span id="5992">5992</span>
 <span id="5993">5993</span>
 <span id="5994">5994</span>
-<span id="5995">5995</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
@@ -6015,7 +6014,7 @@
     <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionIndex</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>, <span class="ident">SecondaryMap</span>},
+    <span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>},
     <span class="ident">FunctionType</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
@@ -9870,13 +9869,13 @@
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_label</span>(<span class="ident">after</span>);
             }
             <span class="ident">Operator::BrTable</span> { <span class="kw-2">ref</span> <span class="ident">table</span> } =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">targets</span> <span class="op">=</span> <span class="ident">table</span>
+                <span class="kw">let</span> <span class="ident">targets</span> <span class="op">=</span> <span class="ident">table</span>
                     .<span class="ident">targets</span>()
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">CodegenError</span> {
                         <span class="ident">message</span>: <span class="macro">format!</span>(<span class="string">&quot;BrTable read_table: {:?}&quot;</span>, <span class="ident">e</span>),
                     })<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">default_target</span> <span class="op">=</span> <span class="ident">targets</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>().<span class="number">0</span>;
+                <span class="kw">let</span> <span class="ident">default_target</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">default</span>();
                 <span class="kw">let</span> <span class="ident">cond</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>();
                 <span class="kw">let</span> <span class="ident">table_label</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>();
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Label</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
@@ -9890,7 +9889,7 @@
 
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_jmp_to_jumptable</span>(<span class="ident">table_label</span>, <span class="ident">cond</span>);
 
-                <span class="kw">for</span> (<span class="ident">target</span>, <span class="kw">_</span>) <span class="kw">in</span> <span class="ident">targets</span>.<span class="ident">iter</span>() {
+                <span class="kw">for</span> <span class="ident">target</span> <span class="kw">in</span> <span class="ident">targets</span>.<span class="ident">iter</span>() {
                     <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>();
                     <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_label</span>(<span class="ident">label</span>);
                     <span class="ident">table</span>.<span class="ident">push</span>(<span class="ident">label</span>);
@@ -11932,7 +11931,6 @@
                     <span class="ident">unwind_info</span>,
                 },
                 <span class="ident">relocations</span>: <span class="self">self</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>(),
-                <span class="ident">jt_offsets</span>: <span class="ident">SecondaryMap::new</span>(),
                 <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> {
                     <span class="ident">traps</span>: <span class="ident">traps</span>,
                     <span class="ident">address_map</span>,
