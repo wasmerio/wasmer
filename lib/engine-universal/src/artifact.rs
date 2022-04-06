@@ -123,7 +123,6 @@ impl UniversalArtifact {
         let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),
             function_relocations: compilation.get_relocations(),
-            function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
             function_call_trampolines,
             dynamic_function_trampolines,
@@ -193,7 +192,6 @@ impl UniversalArtifact {
         link_module(
             &serializable.compile_info.module,
             &finished_functions,
-            &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
             &custom_sections,
             &serializable.compilation.custom_section_relocations,

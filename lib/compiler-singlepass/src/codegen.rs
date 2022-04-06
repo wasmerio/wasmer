@@ -18,7 +18,7 @@ use wasmer_compiler::{
     Relocation, RelocationTarget, SectionIndex,
 };
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    entity::{EntityRef, PrimaryMap},
     FunctionType,
 };
 use wasmer_types::{
@@ -3873,13 +3873,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_label(after);
             }
             Operator::BrTable { ref table } => {
-                let mut targets = table
+                let targets = table
                     .targets()
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|e| CodegenError {
                         message: format!("BrTable read_table: {:?}", e),
                     })?;
-                let default_target = targets.pop().unwrap().0;
+                let default_target = table.default();
                 let cond = self.pop_value_released();
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
@@ -3893,7 +3893,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.machine.emit_jmp_to_jumptable(table_label, cond);
 
-                for (target, _) in targets.iter() {
+                for target in targets.iter() {
                     let label = self.machine.get_label();
                     self.machine.emit_label(label);
                     table.push(label);
@@ -5935,7 +5935,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     unwind_info,
                 },
                 relocations: self.relocations.clone(),
-                jt_offsets: SecondaryMap::new(),
                 frame_info: CompiledFunctionFrameInfo {
                     traps: traps,
                     address_map,

@@ -51,7 +51,6 @@ mod debug;
 #[cfg(feature = "unwind")]
 mod dwarf;
 mod func_environ;
-mod sink;
 mod trampoline;
 mod translator;
 

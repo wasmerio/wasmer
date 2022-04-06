@@ -1,6 +1,7 @@
 use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
+use cranelift_codegen::CodegenResult;
 use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{
@@ -67,7 +68,7 @@ impl Cranelift {
     }
 
     /// Generates the ISA for the provided target
-    pub fn isa(&self, target: &Target) -> Box<dyn TargetIsa> {
+    pub fn isa(&self, target: &Target) -> CodegenResult<Box<dyn TargetIsa>> {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features

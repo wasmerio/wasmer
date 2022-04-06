@@ -7,7 +7,7 @@
 use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
-use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
+use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, Relocation};
 use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -69,9 +69,6 @@ pub struct CompiledFunction {
 
     /// The relocations (in the body)
     pub relocations: Vec<Relocation>,
-
-    /// The jump tables offsets (in the body).
-    pub jt_offsets: JumpTableOffsets,
 
     /// The frame information.
     pub frame_info: CompiledFunctionFrameInfo,
@@ -203,14 +200,6 @@ impl Compilation {
         self.functions
             .iter()
             .map(|(_, func)| func.body.clone())
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-    }
-
-    /// Gets functions jump table offsets.
-    pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFunctionIndex, JumpTableOffsets> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.jt_offsets.clone())
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
