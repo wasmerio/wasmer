@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     global.get $offset
     global.get $length)
 
-  (data (global.get $offset) "Hello, World!"))
+  (data (i32.const 42) "Hello, World!"))
 "#,
     )?;
 
