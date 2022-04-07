@@ -19,7 +19,9 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
-    FunctionType,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
+    MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
+    VMBuiltinFunctionIndex, VMOffsets,
 };
 
 /// The singlepass per-function code generator.
