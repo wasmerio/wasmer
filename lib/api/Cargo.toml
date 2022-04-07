@@ -63,7 +63,7 @@ wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
 wasmer-derive = { path = "../derive", version = "=2.2.1" }
 # - Optional dependencies for `js`.
-wasmparser = { version = "0.78", default-features = false, optional = true }
+wasmparser = { version = "0.83", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
 wasmer-compiler = { path = "../compiler", version = "=2.2.1", optional = true }
 wasmer-engine = { path = "../engine", version = "=2.2.1", optional = true }

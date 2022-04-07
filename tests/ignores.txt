@@ -40,19 +40,6 @@ singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
 cranelift+aarch64 spec::skip_stack_guard_page
 llvm+aarch64      spec::skip_stack_guard_page
 
-# Some SIMD opperations are not yet supported by Cranelift
-# Cranelift just added support for most of those recently, it might be easy to update
-cranelift spec::simd::simd_conversions
-cranelift spec::simd::simd_i16x8_extadd_pairwise_i8x16
-cranelift spec::simd::simd_i16x8_extmul_i8x16
-cranelift spec::simd::simd_i16x8_q15mulr_sat_s
-cranelift spec::simd::simd_i32x4_extadd_pairwise_i16x8
-cranelift spec::simd::simd_i32x4_extmul_i16x8
-cranelift spec::simd::simd_i32x4_trunc_sat_f64x2
-cranelift spec::simd::simd_i64x2_extmul_i32x4
-cranelift spec::simd::simd_i8x16_arith2
-cranelift spec::simd::simd_int_to_int_extend
-
 # Windows doesn't overcommit and fails to allocate 4GB of memory
 windows wasmer::max_size_of_memory
 

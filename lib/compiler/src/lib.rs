@@ -54,7 +54,6 @@ mod address_map;
 mod compiler;
 mod error;
 mod function;
-mod jump_table;
 mod module;
 mod relocation;
 mod target;
@@ -76,7 +75,6 @@ pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
     Functions,
 };
-pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::module::CompileModuleInfo;
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};

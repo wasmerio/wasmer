@@ -100,6 +100,11 @@ pub trait Compiler: Send + MemoryUsage {
             memory64: features.memory64,
             exceptions: features.exceptions,
             deterministic_only: false,
+            extended_const: features.extended_const,
+            relaxed_simd: features.relaxed_simd,
+            mutable_global: true,
+            saturating_float_to_int: true,
+            sign_extension: true,
         };
         validator.wasm_features(wasm_features);
         validator

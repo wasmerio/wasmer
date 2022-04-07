@@ -83,10 +83,13 @@ pub fn translate_module<'data>(
 
             Payload::InstanceSection(_)
             | Payload::AliasSection(_)
-            | Payload::EventSection(_)
             | Payload::ModuleSectionStart { .. }
             | Payload::ModuleSectionEntry { .. } => {
                 unimplemented!("module linking not implemented yet")
+            }
+
+            Payload::TagSection(_) => {
+                unimplemented!("exception handling not implemented yet")
             }
 
             Payload::CustomSection {
