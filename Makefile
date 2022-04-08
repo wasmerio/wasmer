@@ -402,18 +402,6 @@ else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 
-WAPM_VERSION = v0.5.3
-get-wapm:
-	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
-
-build-wapm: get-wapm
-ifeq ($(IS_DARWIN), 1)
-	# We build it without bundling sqlite, as is included by default in macos
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "full packagesigning telemetry update-notifications"
-else
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
-endif
-
 build-docs:
 	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
@@ -601,23 +589,6 @@ generate-wasi-tests:
 #
 #####
 
-package-wapm:
-	mkdir -p "package/bin"
-ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
-	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
-		echo -e "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
-		chmod +x package/bin/wax ;\
-	fi
-else
-	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
-	fi
-ifeq ($(IS_DARWIN), 1)
-	codesign -s - package/bin/wapm || true
-endif
-endif
-
 package-minimal-headless-wasmer:
 ifeq ($(IS_WINDOWS), 1)
 	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless.exe" ]; then \
@@ -672,7 +643,7 @@ package-docs: build-docs build-docs-capi
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
-package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
+package: package-wasmer package-minimal-headless-wasmer package-capi
 
 distribution: package
 	cp LICENSE package/LICENSE

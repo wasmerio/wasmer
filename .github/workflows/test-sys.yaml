@@ -219,10 +219,6 @@ jobs:
       - name: Build Wasmer binary
         run: |
           make build-wasmer
-      - name: Build Wapm binary
-        if: needs.setup.outputs.DOING_RELEASE == '1'
-        run: |
-          make build-wapm
       - name: Install Nightly Rust for Headless
         uses: actions-rs/toolchain@v1
         with:
