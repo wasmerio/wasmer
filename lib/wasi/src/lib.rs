@@ -264,6 +264,7 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "random_get" => Function::new_native_with_env(store, env.clone(), random_get),
             "sched_yield" => Function::new_native_with_env(store, env.clone(), sched_yield),
             "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
+            "sock_accept" => Function::new_native_with_env(store, env.clone(), sock_accept),
             "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
             "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
         }

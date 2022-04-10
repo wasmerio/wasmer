@@ -2565,6 +2565,174 @@ pub fn sched_yield(env: &WasiEnv) -> __wasi_errno_t {
     __WASI_ESUCCESS
 }
 
+pub fn sock_accept(
+    env: &WasiEnv,
+    ai_sock: __wasi_fd_t,
+    ai_flags: __wasi_siflags_t,
+    ao_sock: WasmPtr<__wasi_fd_t>,
+) -> __wasi_errno_t {
+    debug!("wasi::sock_accept");
+
+    #[cfg(unix)]
+    match sock_accept_unix(env, ai_sock, ai_flags) {
+        Ok(new_wasi_fd) => {
+            let (memory, mut state) = env.get_memory_and_wasi_state(0);
+            let ao_sock_out_ptr = wasi_try!(ao_sock.deref(memory));
+            ao_sock_out_ptr.set(new_wasi_fd);
+            __WASI_ESUCCESS
+        }
+        Err(errno) => errno,
+    }
+
+    #[cfg(not(unix))]
+    {
+        unimplemented!("wasi::sock_accept")
+    }
+}
+
+// Unix wrapper for socket::accept() with lazy listening
+// on 0.0.0.0:1002
+#[cfg(unix)]
+fn sock_accept_unix(
+    env: &WasiEnv,
+    ai_sock: __wasi_fd_t,
+    ai_flags: __wasi_siflags_t,
+) -> Result<__wasi_fd_t, __wasi_errno_t> {
+    use nix::sys::socket::{self, accept, bind, listen, InetAddr, IpAddr, SockAddr};
+    use std::os::unix::io::RawFd;
+    use std::path::PathBuf;
+
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+
+    let system_ai_sock = state.fs.get_fd(ai_sock)?;
+    let rights = system_ai_sock.rights;
+    let rights_inheriting = system_ai_sock.rights_inheriting;
+    let flags = system_ai_sock.flags;
+    let open_flags = system_ai_sock.open_flags;
+    let inode_idx = system_ai_sock.inode;
+
+    let raw_fd = match state.fs.inodes[inode_idx].kind {
+        Kind::File { fd: Some(f), .. } => f,
+        _ => {
+            return Err(__WASI_EBADF);
+        }
+    };
+
+    if raw_fd > (i32::MAX as u32) {
+        return Err(__WASI_EBADF);
+    }
+
+    let raw_fd = raw_fd as i32;
+
+    let listen_address = SockAddr::new_inet(InetAddr::new(IpAddr::new_v4(0, 0, 0, 0), 1002));
+
+    socket::bind(raw_fd, &listen_address).map_err(translate_nix_error)?;
+
+    socket::listen(raw_fd, 32).map_err(translate_nix_error)?;
+
+    let out_sock = socket::accept(raw_fd).map_err(translate_nix_error)?;
+
+    if out_sock < 0 {
+        return Err(__WASI_EBADF);
+    }
+
+    let inode_fd = Kind::File {
+        handle: None,
+        path: PathBuf::new(),
+        fd: Some(out_sock as u32),
+    };
+
+    let inode = state.fs.create_inode(inode_fd, false, String::new())?;
+
+    let new_wasi_fd = state
+        .fs
+        .create_fd(rights, rights_inheriting, flags, open_flags, inode)?;
+
+    Ok(new_wasi_fd)
+}
+
+#[cfg(unix)]
+const fn translate_nix_error(error: nix::Error) -> __wasi_errno_t {
+    use nix::Error;
+    match error {
+        Error::E2BIG => __WASI_E2BIG,
+        Error::EACCES => __WASI_EACCES,
+        Error::EADDRINUSE => __WASI_EADDRINUSE,
+        Error::EADDRNOTAVAIL => __WASI_EADDRNOTAVAIL,
+        Error::EAFNOSUPPORT => __WASI_EAFNOSUPPORT,
+        Error::EAGAIN => __WASI_EAGAIN,
+        Error::EALREADY => __WASI_EALREADY,
+        Error::EBADF => __WASI_EBADF,
+        Error::EBADMSG => __WASI_EBADMSG,
+        Error::EBUSY => __WASI_EBUSY,
+        Error::ECANCELED => __WASI_ECANCELED,
+        Error::ECHILD => __WASI_ECHILD,
+        Error::ECONNABORTED => __WASI_ECONNABORTED,
+        Error::ECONNREFUSED => __WASI_ECONNREFUSED,
+        Error::ECONNRESET => __WASI_ECONNRESET,
+        Error::EDEADLK => __WASI_EDEADLK,
+        Error::EDESTADDRREQ => __WASI_EDESTADDRREQ,
+        Error::EDOM => __WASI_EDOM,
+        Error::EDQUOT => __WASI_EDQUOT,
+        Error::EEXIST => __WASI_EEXIST,
+        Error::EFAULT => __WASI_EFAULT,
+        Error::EFBIG => __WASI_EFBIG,
+        Error::EHOSTUNREACH => __WASI_EHOSTUNREACH,
+        Error::EIDRM => __WASI_EIDRM,
+        Error::EILSEQ => __WASI_EILSEQ,
+        Error::EINPROGRESS => __WASI_EINPROGRESS,
+        Error::EINTR => __WASI_EINTR,
+        Error::EINVAL => __WASI_EINVAL,
+        Error::EIO => __WASI_EIO,
+        Error::EISCONN => __WASI_EISCONN,
+        Error::EISDIR => __WASI_EISDIR,
+        Error::ELOOP => __WASI_ELOOP,
+        Error::EMFILE => __WASI_EMFILE,
+        Error::EMLINK => __WASI_EMLINK,
+        Error::EMSGSIZE => __WASI_EMSGSIZE,
+        Error::EMULTIHOP => __WASI_EMULTIHOP,
+        Error::ENAMETOOLONG => __WASI_ENAMETOOLONG,
+        Error::ENETDOWN => __WASI_ENETDOWN,
+        Error::ENETRESET => __WASI_ENETRESET,
+        Error::ENETUNREACH => __WASI_ENETUNREACH,
+        Error::ENFILE => __WASI_ENFILE,
+        Error::ENOBUFS => __WASI_ENOBUFS,
+        Error::ENODEV => __WASI_ENODEV,
+        Error::ENOENT => __WASI_ENOENT,
+        Error::ENOEXEC => __WASI_ENOEXEC,
+        Error::ENOLCK => __WASI_ENOLCK,
+        Error::ENOLINK => __WASI_ENOLINK,
+        Error::ENOMEM => __WASI_ENOMEM,
+        Error::ENOMSG => __WASI_ENOMSG,
+        Error::ENOPROTOOPT => __WASI_ENOPROTOOPT,
+        Error::ENOSPC => __WASI_ENOSPC,
+        Error::ENOSYS => __WASI_ENOSYS,
+        Error::ENOTCONN => __WASI_ENOTCONN,
+        Error::ENOTDIR => __WASI_ENOTDIR,
+        Error::ENOTEMPTY => __WASI_ENOTEMPTY,
+        Error::ENOTRECOVERABLE => __WASI_ENOTRECOVERABLE,
+        Error::ENOTSOCK => __WASI_ENOTSOCK,
+        Error::ENOTTY => __WASI_ENOTTY,
+        Error::ENXIO => __WASI_ENXIO,
+        Error::EOVERFLOW => __WASI_EOVERFLOW,
+        Error::EOWNERDEAD => __WASI_EOWNERDEAD,
+        Error::EPERM => __WASI_EPERM,
+        Error::EPIPE => __WASI_EPIPE,
+        Error::EPROTO => __WASI_EPROTO,
+        Error::EPROTONOSUPPORT => __WASI_EPROTONOSUPPORT,
+        Error::EPROTOTYPE => __WASI_EPROTOTYPE,
+        Error::ERANGE => __WASI_ERANGE,
+        Error::EROFS => __WASI_EROFS,
+        Error::ESPIPE => __WASI_ESPIPE,
+        Error::ESRCH => __WASI_ESRCH,
+        Error::ESTALE => __WASI_ESTALE,
+        Error::ETIMEDOUT => __WASI_ETIMEDOUT,
+        Error::ETXTBSY => __WASI_ETXTBSY,
+        Error::EXDEV => __WASI_EXDEV,
+        _ => __WASI_ENOTSUP,
+    }
+}
+
 pub fn sock_recv(
     env: &WasiEnv,
     sock: __wasi_fd_t,

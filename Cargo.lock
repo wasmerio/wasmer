@@ -1373,6 +1373,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f866317acbd3a240710c63f065ffb1e4fd466259045ccb504130b7f668f35c6"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
 name = "nom"
 version = "5.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3168,6 +3181,7 @@ dependencies = [
  "generational-arena",
  "getrandom",
  "libc",
+ "nix 0.23.1",
  "serde",
  "thiserror",
  "tracing",
@@ -3186,7 +3200,7 @@ name = "wasmer-wasi-experimental-io-devices"
 version = "2.2.1"
 dependencies = [
  "minifb",
- "nix",
+ "nix 0.20.2",
  "ref_thread_local",
  "serde",
  "tracing",
@@ -3325,7 +3339,7 @@ dependencies = [
  "bitflags",
  "downcast-rs",
  "libc",
- "nix",
+ "nix 0.20.2",
  "wayland-commons",
  "wayland-scanner",
  "wayland-sys",
@@ -3337,7 +3351,7 @@ version = "0.28.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a21817947c7011bbd0a27e11b17b337bfd022e8544b071a2641232047966fbda"
 dependencies = [
- "nix",
+ "nix 0.20.2",
  "once_cell",
  "smallvec",
  "wayland-sys",
@@ -3349,7 +3363,7 @@ version = "0.28.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be610084edd1586d45e7bdd275fe345c7c1873598caa464c4fb835dee70fa65a"
 dependencies = [
- "nix",
+ "nix 0.20.2",
  "wayland-client",
  "xcursor",
 ]
