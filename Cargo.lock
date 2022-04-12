@@ -2903,7 +2903,7 @@ dependencies = [
  "target-lexicon 0.12.3",
  "thiserror",
  "wasmer-types",
- "wasmparser 0.78.2",
+ "wasmparser 0.83.0",
 ]
 
 [[package]]

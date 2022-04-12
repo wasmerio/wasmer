@@ -18,7 +18,7 @@ use wasmer_compiler::{
     Relocation, RelocationTarget, SectionIndex,
 };
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    entity::{EntityRef, PrimaryMap},
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
     VMBuiltinFunctionIndex, VMOffsets,
