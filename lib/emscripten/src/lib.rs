@@ -19,7 +19,7 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, Exports, Function, FunctionType, Global, ImportObject, Instance, LazyInit,
+    imports, namespace, Exports, Function, FunctionType, Global, Imports, Instance, LazyInit,
     Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val,
     ValType, WasmPtr, WasmerEnv,
 };
@@ -539,7 +539,7 @@ pub fn generate_emscripten_env(
     store: &Store,
     globals: &mut EmscriptenGlobals,
     env: &EmEnv,
-) -> ImportObject {
+) -> Imports {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
         Function::new_native_with_env(
             store,
@@ -1016,7 +1016,7 @@ pub fn generate_emscripten_env(
         );
     }
 
-    let import_object: ImportObject = imports! {
+    let import_object: Imports = imports! {
         "env" => env_ns,
         "global" => {
           "NaN" => Global::new(store, Val::F64(f64::NAN)),

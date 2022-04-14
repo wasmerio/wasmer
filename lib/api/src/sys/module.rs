@@ -1,3 +1,4 @@
+use crate::sys::exports::Exportable;
 use crate::sys::store::Store;
 use crate::sys::types::{ExportType, ImportType};
 use crate::sys::InstantiationError;
@@ -10,7 +11,7 @@ use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
-use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{Artifact, DeserializeError, SerializeError};
 use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
 use wasmer_vm::InstanceHandle;
 
@@ -276,12 +277,15 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
-        resolver: &dyn Resolver,
+        imports: &[crate::Extern],
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
             let instance_handle = self.artifact.instantiate(
                 self.store.tunables(),
-                resolver,
+                &imports
+                    .iter()
+                    .map(crate::Extern::to_export)
+                    .collect::<Vec<_>>(),
                 Box::new(self.clone()),
             )?;
 

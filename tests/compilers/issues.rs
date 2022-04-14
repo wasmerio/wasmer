@@ -63,7 +63,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     "#;
     let module = Module::new(&store, wat)?;
     let env = Env::new();
-    let imports: ImportObject = imports! {
+    let imports: Imports = imports! {
         "env" => {
             "__read_memory" => Function::new_native_with_env(
                 &store,
@@ -214,8 +214,8 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         "gas",
         Function::new_native_with_env(&store, env.clone(), gas),
     );
-    let mut imports = ImportObject::new();
-    imports.register("env", exports);
+    let mut imports = Imports::new();
+    imports.register_namespace("env", exports);
     let instance = Instance::new(&module, &imports)?;
     instance.exports.get_function("repro")?.call(&[])?;
     Ok(())
@@ -255,7 +255,7 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
           (table (;0;) 1 1 funcref))
     "#;
     let module = Module::new(&store, wat)?;
-    let imports: ImportObject = imports! {};
+    let imports: Imports = imports! {};
     let instance = Instance::new(&module, &imports)?;
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::{resolve_imports, InstantiationError, Resolver, RuntimeError, Tunables};
+use crate::{resolve_imports, Export, InstantiationError, RuntimeError, Tunables};
 use loupe::MemoryUsage;
 use std::any::Any;
 pub use wasmer_artifact::MetadataHeader;
@@ -56,7 +56,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage + ArtifactCreate {
     unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
-        resolver: &dyn Resolver,
+        imports: &[Export],
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
@@ -75,7 +75,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage + ArtifactCreate {
         let (imports, import_function_envs) = {
             let mut imports = resolve_imports(
                 &module,
-                resolver,
+                imports,
                 &self.finished_dynamic_function_trampolines(),
                 self.memory_styles(),
                 self.table_styles(),

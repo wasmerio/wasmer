@@ -1,5 +1,4 @@
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
-use crate::sys::import_object::LikeNamespace;
 use crate::sys::native::NativeFunc;
 use crate::sys::WasmTypeList;
 use indexmap::IndexMap;
@@ -276,20 +275,21 @@ impl FromIterator<(String, Extern)> for Exports {
     }
 }
 
-impl LikeNamespace for Exports {
-    fn get_namespace_export(&self, name: &str) -> Option<Export> {
-        self.map.get(name).map(|is_export| is_export.to_export())
-    }
+impl IntoIterator for Exports {
+    type IntoIter = indexmap::map::IntoIter<String, Extern>;
+    type Item = (String, Extern);
 
-    fn get_namespace_exports(&self) -> Vec<(String, Export)> {
-        self.map
-            .iter()
-            .map(|(k, v)| (k.clone(), v.to_export()))
-            .collect()
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.clone().into_iter()
     }
+}
 
-    fn as_exports(&self) -> Option<Exports> {
-        Some(self.clone())
+impl<'a> IntoIterator for &'a Exports {
+    type IntoIter = indexmap::map::Iter<'a, String, Extern>;
+    type Item = (&'a String, &'a Extern);
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.iter()
     }
 }
 
