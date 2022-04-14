@@ -28,7 +28,7 @@ mod error;
 mod export;
 mod exports;
 mod externals;
-mod import_object;
+mod imports;
 mod instance;
 mod js_import_object;
 mod mem_access;
@@ -57,7 +57,7 @@ pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, Table,
     WasmTypeList,
 };
-pub use crate::js::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
+pub use crate::js::imports::Imports;
 pub use crate::js::instance::{Instance, InstantiationError};
 pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};

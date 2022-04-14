@@ -1,5 +1,5 @@
 use crate::{
-    resolve_imports, DeserializeError, InstantiationError, Resolver, RuntimeError, SerializeError,
+    resolve_imports, DeserializeError, Export, InstantiationError, RuntimeError, SerializeError,
     Tunables,
 };
 use enumset::EnumSet;
@@ -99,7 +99,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
     unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
-        resolver: &dyn Resolver,
+        imports: &[Export],
         host_state: Box<dyn Any>,
     ) -> Result<InstanceHandle, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
@@ -118,7 +118,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
         let (imports, import_function_envs) = {
             let mut imports = resolve_imports(
                 &module,
-                resolver,
+                imports,
                 &self.finished_dynamic_function_trampolines(),
                 self.memory_styles(),
                 self.table_styles(),

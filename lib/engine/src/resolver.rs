@@ -127,7 +127,7 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 pub fn resolve_imports(
     module: &ModuleInfo,
-    resolver: &dyn Resolver,
+    imports: &[Export],
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
@@ -140,17 +140,15 @@ pub fn resolve_imports(
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
 
     for ((module_name, field, import_idx), import_index) in module.imports.iter() {
-        let resolved = resolver.resolve(*import_idx, module_name, field);
         let import_extern = get_extern_from_import(module, import_index);
-        let resolved = match resolved {
-            None => {
-                return Err(LinkError::Import(
-                    module_name.to_string(),
-                    field.to_string(),
-                    ImportError::UnknownImport(import_extern),
-                ));
-            }
-            Some(r) => r,
+        let resolved = if let Some(r) = imports.get(*import_idx as usize) {
+            r
+        } else {
+            return Err(LinkError::Import(
+                module_name.to_string(),
+                field.to_string(),
+                ImportError::UnknownImport(import_extern),
+            ));
         };
         let export_extern = get_extern_from_export(module, &resolved);
         if !export_extern.is_compatible_with(&import_extern) {
