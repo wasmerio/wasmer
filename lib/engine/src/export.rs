@@ -3,7 +3,7 @@ use std::sync::Arc;
 use wasmer_vm::{ImportInitializerFuncPtr, VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
 
 /// The value of an export passed from one instance to another.
-#[derive(Debug, Clone)]
+#[derive(Debug, MemoryUsage, Clone)]
 pub enum Export {
     /// A function export value.
     Function(ExportFunction),

@@ -5,7 +5,7 @@ use super::super::{
     externals::wasm_extern_t, module::wasm_module_t, store::wasm_store_t, types::wasm_name_t,
     wasi::wasi_env_t,
 };
-use wasmer_api::Extern;
+use wasmer_api::{Exportable, Extern};
 use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 
 /// Unstable non-standard type wrapping `wasm_extern_t` with the
@@ -175,10 +175,10 @@ fn wasi_get_unordered_imports_inner(
     imports.set_buffer(
         import_object
             .into_iter()
-            .map(|((module, name), export)| {
+            .map(|((module, name), extern_)| {
                 let module = module.into();
                 let name = name.into();
-                let extern_inner = Extern::from_vm_export(store, export);
+                let extern_inner = Extern::from_vm_export(store, extern_.to_export());
 
                 Some(Box::new(wasmer_named_extern_t {
                     module,

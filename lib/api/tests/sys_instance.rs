@@ -19,8 +19,8 @@ mod sys {
 ",
         )?;
 
-        let import_object = ImportObject::new();
-        let instance = Instance::new(&module, &import_object)?;
+        let imports = Imports::new();
+        let instance = Instance::new(&module, &imports)?;
         let instance2 = instance.clone();
         let instance3 = instance.clone();
 
