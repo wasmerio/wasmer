@@ -13,7 +13,7 @@ pub struct Wast {
     /// recently defined.
     current: Option<Instance>,
     /// The Import Object that all wast tests will have
-    import_object: ImportObject,
+    import_object: Imports,
     /// The instances in the test
     instances: HashMap<String, Instance>,
     /// Allowed failures (ideally this should be empty)
@@ -37,7 +37,7 @@ pub struct Wast {
 
 impl Wast {
     /// Construct a new instance of `Wast` with a given imports.
-    pub fn new(store: Store, import_object: ImportObject) -> Self {
+    pub fn new(store: Store, import_object: Imports) -> Self {
         Self {
             current: None,
             store,
@@ -382,7 +382,7 @@ impl Wast {
                 .instances
                 .get(module_name)
                 .ok_or_else(|| anyhow!("constant expression required"))?;
-            imports.register(module_name, instance.exports.clone());
+            imports.register_namespace(module_name, instance.exports.clone());
         }
 
         let instance = Instance::new(&module, &imports)?;

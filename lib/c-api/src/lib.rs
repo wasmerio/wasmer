@@ -25,5 +25,4 @@
 )]
 
 pub mod error;
-mod ordered_resolver;
 pub mod wasm_c_api;
