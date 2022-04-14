@@ -2,35 +2,25 @@
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
 use crate::js::export::Export;
+use crate::js::exports::Exportable;
 use crate::js::resolver::NamedResolver;
+use crate::Extern;
 use std::borrow::{Borrow, BorrowMut};
-use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
-use std::sync::{Arc, Mutex};
-
-/// The `LikeNamespace` trait represents objects that act as a namespace for imports.
-/// For example, an `Instance` or `Namespace` could be
-/// considered namespaces that could provide imports to an instance.
-pub trait LikeNamespace {
-    /// Gets an export by name.
-    fn get_namespace_export(&self, name: &str) -> Option<Export>;
-    /// Gets all exports in the namespace.
-    fn get_namespace_exports(&self) -> Vec<(String, Export)>;
-}
 
 /// All of the import data used when instantiating.
 ///
 /// It's suggested that you use the [`imports!`] macro
-/// instead of creating an `ImportObject` by hand.
+/// instead of creating an `Imports` by hand.
 ///
 /// [`imports!`]: macro.imports.html
 ///
 /// # Usage:
 /// ```ignore
-/// use wasmer::{Exports, ImportObject, Function};
+/// use wasmer::{Exports, Imports, Function};
 ///
-/// let mut import_object = ImportObject::new();
+/// let mut import_object = Imports::new();
 /// let mut env = Exports::new();
 ///
 /// env.insert("foo", Function::new_native(foo));
@@ -41,134 +31,142 @@ pub trait LikeNamespace {
 /// }
 /// ```
 #[derive(Clone, Default)]
-pub struct ImportObject {
-    map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace + Send + Sync>>>>,
+pub struct Imports {
+    map: HashMap<(String, String), Extern>,
 }
 
-impl ImportObject {
-    /// Create a new `ImportObject`.
+impl Imports {
+    /// Create a new `Imports`.
     pub fn new() -> Self {
         Default::default()
     }
 
-    /// Gets an export given a module and a name
+    /// Gets an export given a ns and a name
     ///
     /// # Usage
     /// ```ignore
-    /// # use wasmer::{ImportObject, Instance, Namespace};
-    /// let mut import_object = ImportObject::new();
-    /// import_object.get_export("module", "name");
+    /// # use wasmer::{Imports, Instance, Namespace};
+    /// let mut import_object = Imports::new();
+    /// import_object.get_export("ns", "name");
     /// ```
-    pub fn get_export(&self, module: &str, name: &str) -> Option<Export> {
-        let guard = self.map.lock().unwrap();
-        let map_ref = guard.borrow();
-        if map_ref.contains_key(module) {
-            let namespace = map_ref[module].as_ref();
-            return namespace.get_namespace_export(name);
+    pub fn get_export(&self, ns: &str, name: &str) -> Option<Export> {
+        if self.map.contains_key(&(ns.to_string(), name.to_string())) {
+            let ext = &self.map[&(ns.to_string(), name.to_string())];
+            return Some(ext.to_export());
         }
         None
     }
 
-    /// Returns true if the ImportObject contains namespace with the provided name.
+    /// Returns true if the Imports contains namespace with the provided name.
     pub fn contains_namespace(&self, name: &str) -> bool {
-        self.map.lock().unwrap().borrow().contains_key(name)
+        self.map.keys().any(|(k, _)| (k == name))
     }
 
-    /// Register anything that implements `LikeNamespace` as a namespace.
-    ///
-    /// # Usage:
-    /// ```ignore
-    /// # use wasmer::{ImportObject, Instance, Namespace};
-    /// let mut import_object = ImportObject::new();
-    ///
-    /// import_object.register("namespace0", instance);
-    /// import_object.register("namespace1", namespace);
-    /// // ...
-    /// ```
-    pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
-    where
-        S: Into<String>,
-        N: LikeNamespace + Send + Sync + 'static,
-    {
-        let mut guard = self.map.lock().unwrap();
-        let map = guard.borrow_mut();
-
-        match map.entry(name.into()) {
-            Entry::Vacant(empty) => {
-                empty.insert(Box::new(namespace));
-                None
-            }
-            Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
+    /// TODO: Add doc
+    pub fn register_namespace(
+        &mut self,
+        ns: &str,
+        contents: impl IntoIterator<Item = (String, Extern)>,
+    ) {
+        for (name, extern_) in contents.into_iter() {
+            self.map.insert((ns.to_string(), name.clone()), extern_);
         }
     }
 
-    fn get_objects(&self) -> VecDeque<((String, String), Export)> {
-        let mut out = VecDeque::new();
-        let guard = self.map.lock().unwrap();
-        let map = guard.borrow();
-        for (name, ns) in map.iter() {
-            for (id, exp) in ns.get_namespace_exports() {
-                out.push_back(((name.clone(), id), exp));
-            }
-        }
-        out
+    /// TODO: Add doc
+    pub fn define(&mut self, ns: &str, name: &str, extern_: Extern) {
+        self.map.insert((ns.to_string(), name.to_string()), extern_);
     }
 
-    /// Returns the `ImportObject` as a Javascript `Object`
+    // /// Register anything that implements `LikeNamespace` as a namespace.
+    // ///
+    // /// # Usage:
+    // /// ```ignore
+    // /// # use wasmer::{Imports, Instance, Namespace};
+    // /// let mut import_object = Imports::new();
+    // ///
+    // /// import_object.register("namespace0", instance);
+    // /// import_object.register("namespace1", namespace);
+    // /// // ...
+    // /// ```
+    // pub fn register<S, N>(&mut self, name: S, namespace: N) -> Option<Box<dyn LikeNamespace>>
+    // where
+    //     S: Into<String>,
+    //     N: LikeNamespace + Send + Sync + 'static,
+    // {
+    //     let mut guard = self.map.lock().unwrap();
+    //     let map = guard.borrow_mut();
+
+    //     match map.entry(name.into()) {
+    //         Entry::Vacant(empty) => {
+    //             empty.insert(Box::new(namespace));
+    //             None
+    //         }
+    //         Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
+    //     }
+    // }
+
+    /// asdfsa
+    pub fn resolve_by_name(&self, ns: &str, name: &str) -> Option<Export> {
+        self.get_export(ns, name)
+    }
+
+    //fn iter(&self) -> impl Iterator<(&str, &str, Extern)> {
+    //    todo!()
+    //}
+
+    /// Returns the `Imports` as a Javascript `Object`
     pub fn as_jsobject(&self) -> js_sys::Object {
-        let guard = self.map.lock().expect("Can't get the map");
-        let map = guard.borrow();
-
         let imports = js_sys::Object::new();
-        for (module, ns) in map.iter() {
+        let namespaces: HashMap<&str, Vec<(&str, &Extern)>> =
+            self.map
+                .iter()
+                .fold(HashMap::default(), |mut acc, ((ns, name), ext)| {
+                    acc.entry(ns.as_str())
+                        .or_default()
+                        .push((name.as_str(), ext));
+                    acc
+                });
+
+        for (ns, exports) in namespaces.into_iter() {
             let import_namespace = js_sys::Object::new();
-            for (name, exp) in ns.get_namespace_exports() {
-                js_sys::Reflect::set(&import_namespace, &name.into(), exp.as_jsvalue())
-                    .expect("Error while setting into the js namespace object");
+            for (name, ext) in exports {
+                js_sys::Reflect::set(
+                    &import_namespace,
+                    &name.into(),
+                    ext.to_export().as_jsvalue(),
+                )
+                .expect("Error while setting into the js namespace object");
             }
-            js_sys::Reflect::set(&imports, &module.into(), &import_namespace.into())
+            js_sys::Reflect::set(&imports, &ns.into(), &import_namespace.into())
                 .expect("Error while setting into the js imports object");
         }
         imports
     }
 }
 
-impl Into<js_sys::Object> for ImportObject {
+impl Into<js_sys::Object> for Imports {
     fn into(self) -> js_sys::Object {
         self.as_jsobject()
     }
 }
 
-impl NamedResolver for ImportObject {
-    fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
-        self.get_export(module, name)
+impl NamedResolver for Imports {
+    fn resolve_by_name(&self, ns: &str, name: &str) -> Option<Export> {
+        self.get_export(ns, name)
     }
 }
 
-/// Iterator for an `ImportObject`'s exports.
-pub struct ImportObjectIterator {
-    elements: VecDeque<((String, String), Export)>,
-}
-
-impl Iterator for ImportObjectIterator {
-    type Item = ((String, String), Export);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.elements.pop_front()
-    }
-}
-
-impl IntoIterator for ImportObject {
-    type IntoIter = ImportObjectIterator;
-    type Item = ((String, String), Export);
+impl IntoIterator for &Imports {
+    type IntoIter = std::collections::hash_map::IntoIter<(String, String), Extern>;
+    type Item = ((String, String), Extern);
 
     fn into_iter(self) -> Self::IntoIter {
-        ImportObjectIterator {
-            elements: self.get_objects(),
-        }
+        self.map.clone().into_iter()
     }
 }
 
-impl fmt::Debug for ImportObject {
+impl fmt::Debug for Imports {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         enum SecretMap {
             Empty,
@@ -194,20 +192,17 @@ impl fmt::Debug for ImportObject {
             }
         }
 
-        f.debug_struct("ImportObject")
-            .field(
-                "map",
-                &SecretMap::new(self.map.lock().unwrap().borrow().len()),
-            )
+        f.debug_struct("Imports")
+            .field("map", &SecretMap::new(self.map.len()))
             .finish()
     }
 }
 
-// The import! macro for ImportObject
+// The import! macro for Imports
 
-/// Generate an [`ImportObject`] easily with the `imports!` macro.
+/// Generate an [`Imports`] easily with the `imports!` macro.
 ///
-/// [`ImportObject`]: struct.ImportObject.html
+/// [`Imports`]: struct.Imports.html
 ///
 /// # Usage
 ///
@@ -230,12 +225,12 @@ impl fmt::Debug for ImportObject {
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {
         {
-            let mut import_object = $crate::ImportObject::new();
+            let mut import_object = $crate::Imports::new();
 
             $({
                 let namespace = $crate::import_namespace!($ns);
 
-                import_object.register($ns_name, namespace);
+                import_object.register_namespace($ns_name, namespace);
             })*
 
             import_object

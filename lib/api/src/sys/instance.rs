@@ -1,5 +1,6 @@
 use crate::sys::exports::Exports;
 use crate::sys::externals::Extern;
+use crate::sys::imports::Imports;
 use crate::sys::module::Module;
 use crate::sys::store::Store;
 use crate::sys::{HostEnvInitError, LinkError, RuntimeError};
@@ -7,7 +8,6 @@ use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
-use wasmer_engine::Resolver;
 use wasmer_vm::{InstanceHandle, VMContext};
 
 /// A WebAssembly Instance is a stateful, executable
@@ -22,6 +22,8 @@ use wasmer_vm::{InstanceHandle, VMContext};
 pub struct Instance {
     handle: Arc<Mutex<InstanceHandle>>,
     module: Module,
+    #[allow(dead_code)]
+    imports: Vec<Extern>,
     /// The exports for an instance.
     pub exports: Exports,
 }
@@ -86,15 +88,10 @@ impl From<HostEnvInitError> for InstantiationError {
 
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
-    /// set of imports resolved by the [`Resolver`].
+    /// set of imports using [`Imports`] or the [`imports`] macro helper.
     ///
-    /// The resolver can be anything that implements the [`Resolver`] trait,
-    /// so you can plug custom resolution for the imports, if you wish not
-    /// to use [`ImportObject`].
-    ///
-    /// The [`ImportObject`] is the easiest way to provide imports to the instance.
-    ///
-    /// [`ImportObject`]: crate::ImportObject
+    /// [`imports`]: crate::imports
+    /// [`Imports`]: crate::Imports
     ///
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
@@ -118,12 +115,12 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new(
-        module: &Module,
-        resolver: &(dyn Resolver + Send + Sync),
-    ) -> Result<Self, InstantiationError> {
+    pub fn new(module: &Module, imports: &Imports) -> Result<Self, InstantiationError> {
         let store = module.store();
-        let handle = module.instantiate(resolver)?;
+        let imports = imports
+            .imports_for_module(module)
+            .map_err(InstantiationError::Link)?;
+        let handle = module.instantiate(&imports)?;
         let exports = module
             .exports()
             .map(|export| {
@@ -137,6 +134,57 @@ impl Instance {
         let instance = Self {
             handle: Arc::new(Mutex::new(handle)),
             module: module.clone(),
+            imports,
+            exports,
+        };
+
+        // # Safety
+        // `initialize_host_envs` should be called after instantiation but before
+        // returning an `Instance` to the user. We set up the host environments
+        // via `WasmerEnv::init_with_instance`.
+        //
+        // This usage is correct because we pass a valid pointer to `instance` and the
+        // correct error type returned by `WasmerEnv::init_with_instance` as a generic
+        // parameter.
+        unsafe {
+            instance
+                .handle
+                .lock()
+                .unwrap()
+                .initialize_host_envs::<HostEnvInitError>(&instance as *const _ as *const _)?;
+        }
+
+        Ok(instance)
+    }
+
+    /// Creates a new `Instance` from a WebAssembly [`Module`] and a
+    /// vector of imports.
+    ///
+    /// ## Errors
+    ///
+    /// The function can return [`InstantiationError`]s.
+    ///
+    /// Those are, as defined by the spec:
+    ///  * Link errors that happen when plugging the imports into the instance
+    ///  * Runtime errors that happen when running the module `start` function.
+    pub fn new_by_index(module: &Module, externs: &[Extern]) -> Result<Self, InstantiationError> {
+        let store = module.store();
+        let imports = externs.iter().cloned().collect::<Vec<_>>();
+        let handle = module.instantiate(&imports)?;
+        let exports = module
+            .exports()
+            .map(|export| {
+                let name = export.name().to_string();
+                let export = handle.lookup(&name).expect("export");
+                let extern_ = Extern::from_vm_export(store, export.into());
+                (name, extern_)
+            })
+            .collect::<Exports>();
+
+        let instance = Self {
+            handle: Arc::new(Mutex::new(handle)),
+            module: module.clone(),
+            imports,
             exports,
         };
 

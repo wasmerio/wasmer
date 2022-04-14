@@ -157,8 +157,8 @@
 //! [`imports`] macro:
 //!
 //! ```
-//! # use wasmer::{imports, Function, Memory, MemoryType, Store, ImportObject};
-//! # fn imports_example(store: &Store) -> ImportObject {
+//! # use wasmer::{imports, Function, Memory, MemoryType, Store, Imports};
+//! # fn imports_example(store: &Store) -> Imports {
 //! let memory = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
