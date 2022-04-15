@@ -103,14 +103,9 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         h: u64,
     ) -> u64 {
         println!("{:?}", (a, b, c, d, e, f, g, h));
-        let view = env.memory.view::<u8>();
-        let bytes = view
-            .get(e as usize..(e + d) as usize)
-            .unwrap()
-            .into_iter()
-            .map(|b| b.get())
-            .collect::<Vec<u8>>();
-        let input_string = std::str::from_utf8(&bytes).unwrap();
+        let mut buf = vec![0; d as usize];
+        env.memory.read(e, &mut buf).unwrap();
+        let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");
         0
     }
