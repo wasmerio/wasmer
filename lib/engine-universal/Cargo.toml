@@ -11,7 +11,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-artifact = { path = "../artifact", version = "=2.2.1" }
+wasmer-engine-universal-artifact = { path = "../universal-artifact", version = "=2.2.1", features = [
+    "compiler",
+] }
 wasmer-types = { path = "../types", version = "=2.2.1", features = [
     "enable-rkyv",
 ] }
@@ -27,7 +29,6 @@ leb128 = "0.2"
 rkyv = "0.7.20"
 loupe = "0.1"
 enumset = "1.0"
-enum-iterator = "0.7.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 region = { version = "3.0" }

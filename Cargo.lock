@@ -3081,18 +3081,31 @@ name = "wasmer-engine-universal"
 version = "2.2.1"
 dependencies = [
  "cfg-if 1.0.0",
- "enum-iterator",
  "enumset",
  "leb128",
  "loupe",
  "region",
  "rkyv",
- "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-engine-universal-artifact",
  "wasmer-types",
  "wasmer-vm",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-engine-universal-artifact"
+version = "2.2.1"
+dependencies = [
+ "enum-iterator",
+ "enumset",
+ "loupe",
+ "rkyv",
+ "thiserror",
+ "wasmer-artifact",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]

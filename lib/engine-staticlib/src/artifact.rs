@@ -450,10 +450,6 @@ impl ArtifactCreate for StaticlibArtifact {
         Arc::get_mut(&mut self.metadata.compile_info.module)
     }
 
-    fn register_frame_info(&self) {
-        // Do nothing for now
-    }
-
     fn features(&self) -> &Features {
         &self.metadata.compile_info.features
     }
@@ -480,6 +476,10 @@ impl ArtifactCreate for StaticlibArtifact {
     }
 }
 impl Artifact for StaticlibArtifact {
+    fn register_frame_info(&self) {
+        // Do nothing for now
+    }
+
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }

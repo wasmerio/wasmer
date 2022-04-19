@@ -207,10 +207,6 @@ impl ArtifactCreate for DummyArtifact {
         Arc::get_mut(&mut self.metadata.module)
     }
 
-    fn register_frame_info(&self) {
-        // Do nothing, since functions are not generated for the dummy engine
-    }
-
     fn features(&self) -> &Features {
         &self.metadata.features
     }
@@ -249,6 +245,10 @@ impl ArtifactCreate for DummyArtifact {
     }
 }
 impl Artifact for DummyArtifact {
+    fn register_frame_info(&self) {
+        // Do nothing, since functions are not generated for the dummy engine
+    }
+
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }

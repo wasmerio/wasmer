@@ -21,6 +21,11 @@ use wasmer_vm::{
 /// The `ArtifactRun` contains the extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
 pub trait Artifact: Send + Sync + Upcastable + MemoryUsage + ArtifactCreate {
+    /// Register thie `Artifact` stack frame information into the global scope.
+    ///
+    /// This is required to ensure that any traps can be properly symbolicated.
+    fn register_frame_info(&self);
+
     /// Returns the functions allocated in memory or this `Artifact`
     /// ready to be run.
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>;

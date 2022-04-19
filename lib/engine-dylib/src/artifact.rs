@@ -692,6 +692,70 @@ impl ArtifactCreate for DylibArtifact {
         Arc::get_mut(&mut self.metadata.compile_info.module)
     }
 
+    fn features(&self) -> &Features {
+        &self.metadata.compile_info.features
+    }
+
+    fn cpu_features(&self) -> enumset::EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.metadata.cpu_features)
+    }
+
+    fn data_initializers(&self) -> &[OwnedDataInitializer] {
+        &*self.metadata.data_initializers
+    }
+
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.metadata.compile_info.memory_styles
+    }
+
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.metadata.compile_info.table_styles
+    }
+
+    /// Serialize a `DylibArtifact`.
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Ok(std::fs::read(&self.dylib_path)?)
+    }
+
+    /// Serialize a `DylibArtifact` to a portable file
+    #[cfg(feature = "compiler")]
+    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        std::fs::write(&path, serialized)?;
+
+        /*
+        When you write the artifact to a new file it still has the 'Mach-O Identifier'
+        of the original file, and so this can causes linker issues when adding
+        the new file to an XCode project.
+
+        The below code renames the ID of the file so that it references itself through
+        an @executable_path prefix. Basically it tells XCode to find this file
+        inside of the projects' list of 'linked executables'.
+
+        You need to be running MacOS for the following to actually work though.
+        */
+        let has_extension = path.extension().is_some();
+        if has_extension && path.extension().unwrap() == "dylib" {
+            let filename = path.file_name().unwrap().to_str().unwrap();
+            let parent_dir = path.parent().unwrap();
+            let absolute_path = std::fs::canonicalize(&parent_dir)
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+
+            Command::new("install_name_tool")
+                .arg("-id")
+                .arg(format!("@executable_path/{}", &filename))
+                .arg(&filename)
+                .current_dir(&absolute_path)
+                .output()?;
+        }
+
+        Ok(())
+    }
+}
+impl Artifact for DylibArtifact {
     fn register_frame_info(&self) {
         let mut info = self.frame_info_registration.lock().unwrap();
 
@@ -822,70 +886,6 @@ impl ArtifactCreate for DylibArtifact {
         );
     }
 
-    fn features(&self) -> &Features {
-        &self.metadata.compile_info.features
-    }
-
-    fn cpu_features(&self) -> enumset::EnumSet<CpuFeature> {
-        EnumSet::from_u64(self.metadata.cpu_features)
-    }
-
-    fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        &*self.metadata.data_initializers
-    }
-
-    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
-        &self.metadata.compile_info.memory_styles
-    }
-
-    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
-        &self.metadata.compile_info.table_styles
-    }
-
-    /// Serialize a `DylibArtifact`.
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(std::fs::read(&self.dylib_path)?)
-    }
-
-    /// Serialize a `DylibArtifact` to a portable file
-    #[cfg(feature = "compiler")]
-    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
-        let serialized = self.serialize()?;
-        std::fs::write(&path, serialized)?;
-
-        /*
-        When you write the artifact to a new file it still has the 'Mach-O Identifier'
-        of the original file, and so this can causes linker issues when adding
-        the new file to an XCode project.
-
-        The below code renames the ID of the file so that it references itself through
-        an @executable_path prefix. Basically it tells XCode to find this file
-        inside of the projects' list of 'linked executables'.
-
-        You need to be running MacOS for the following to actually work though.
-        */
-        let has_extension = path.extension().is_some();
-        if has_extension && path.extension().unwrap() == "dylib" {
-            let filename = path.file_name().unwrap().to_str().unwrap();
-            let parent_dir = path.parent().unwrap();
-            let absolute_path = std::fs::canonicalize(&parent_dir)
-                .unwrap()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
-            Command::new("install_name_tool")
-                .arg("-id")
-                .arg(format!("@executable_path/{}", &filename))
-                .arg(&filename)
-                .current_dir(&absolute_path)
-                .output()?;
-        }
-
-        Ok(())
-    }
-}
-impl Artifact for DylibArtifact {
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
