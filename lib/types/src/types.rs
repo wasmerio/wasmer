@@ -324,8 +324,8 @@ implement_from_pair_to_functiontype! {
     9,0 9,1 9,2 9,3 9,4 9,5 9,6 9,7 9,8 9,9
 }
 
-impl From<&FunctionType> for FunctionType {
-    fn from(as_ref: &FunctionType) -> Self {
+impl From<&Self> for FunctionType {
+    fn from(as_ref: &Self) -> Self {
         as_ref.clone()
     }
 }

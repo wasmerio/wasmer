@@ -126,7 +126,7 @@ fn staticlib_engine_works() -> anyhow::Result<()> {
 
     WasmerCompile {
         current_dir: operating_dir.clone(),
-        wasm_path: wasm_path.clone(),
+        wasm_path: wasm_path,
         wasm_object_path: wasm_object_path.clone(),
         header_output_path,
         compiler: Compiler::Cranelift,

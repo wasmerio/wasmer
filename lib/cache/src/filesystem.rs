@@ -98,7 +98,7 @@ impl Cache for FileSystemCache {
             key.to_string()
         };
         let path = self.path.join(filename);
-        Module::deserialize_from_file(&store, path)
+        Module::deserialize_from_file(store, path)
     }
 
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {

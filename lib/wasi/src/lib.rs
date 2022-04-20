@@ -212,7 +212,7 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
             "sched_yield" => Function::new_native_with_env(store, env.clone(), sched_yield),
             "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
             "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
-            "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
+            "sock_shutdown" => Function::new_native_with_env(store, env, sock_shutdown),
         },
     }
 }
@@ -265,7 +265,7 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "sched_yield" => Function::new_native_with_env(store, env.clone(), sched_yield),
             "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
             "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
-            "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
+            "sock_shutdown" => Function::new_native_with_env(store, env, sock_shutdown),
         }
     }
 }

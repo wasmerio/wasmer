@@ -16,7 +16,7 @@ impl<T: Copy, Ty> Copy for WasmPtr<T, Ty> {}
 
 impl<T: Copy, Ty> Clone for WasmPtr<T, Ty> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(self.0)
     }
 }
 
@@ -59,7 +59,7 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
 
 impl<T: Copy + ValueType> WasmPtr<T, wasmer::Item> {
     #[inline(always)]
-    pub fn deref<'a>(self, memory: &'a Memory) -> Option<WasmCell<'a, T>> {
+    pub fn deref(self, memory: &'_ Memory) -> Option<WasmCell<'_, T>> {
         if self.0.offset() == 0 {
             None
         } else {
@@ -70,12 +70,12 @@ impl<T: Copy + ValueType> WasmPtr<T, wasmer::Item> {
 
 impl<T: Copy + ValueType> WasmPtr<T, wasmer::Array> {
     #[inline(always)]
-    pub fn deref<'a>(
+    pub fn deref(
         self,
-        memory: &'a Memory,
+        memory: &'_ Memory,
         index: u32,
         length: u32,
-    ) -> Option<Vec<WasmCell<'a, T>>> {
+    ) -> Option<Vec<WasmCell<'_, T>>> {
         if self.0.offset() == 0 {
             None
         } else {
@@ -84,7 +84,7 @@ impl<T: Copy + ValueType> WasmPtr<T, wasmer::Array> {
     }
 
     #[inline(always)]
-    pub unsafe fn get_utf8_str<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+    pub unsafe fn get_utf8_str(self, memory: &'_ Memory, str_len: u32) -> Option<&'_ str> {
         if self.0.offset() == 0 {
             None
         } else {

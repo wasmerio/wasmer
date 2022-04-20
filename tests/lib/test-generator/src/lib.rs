@@ -71,7 +71,7 @@ pub fn test_directory(
     } in dir_entries.iter()
     {
         out.path.push(testname.to_string());
-        write_test(out, &testname, &body).unwrap();
+        write_test(out, testname, body).unwrap();
         out.path.pop().unwrap();
     }
 
@@ -85,8 +85,8 @@ pub fn extract_name(path: impl AsRef<Path>) -> String {
         .expect("filename should have a stem")
         .to_str()
         .expect("filename should be representable as a string")
-        .replace("-", "_")
-        .replace("/", "_")
+        .replace('-', "_")
+        .replace('/', "_")
 }
 
 pub fn with_test_module<T>(

@@ -22,7 +22,7 @@ impl Hash {
         Self::new(hash.into())
     }
 
-    pub(crate) fn to_array(&self) -> [u8; 32] {
+    pub(crate) fn to_array(self) -> [u8; 32] {
         self.0
     }
 }
