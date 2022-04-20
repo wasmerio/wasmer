@@ -65,20 +65,6 @@
 <span id="63">63</span>
 <span id="64">64</span>
 <span id="65">65</span>
-<span id="66">66</span>
-<span id="67">67</span>
-<span id="68">68</span>
-<span id="69">69</span>
-<span id="70">70</span>
-<span id="71">71</span>
-<span id="72">72</span>
-<span id="73">73</span>
-<span id="74">74</span>
-<span id="75">75</span>
-<span id="76">76</span>
-<span id="77">77</span>
-<span id="78">78</span>
-<span id="79">79</span>
 </pre><pre class="rust"><code><span class="comment">// Allow unused imports while developing</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
 
@@ -91,7 +77,6 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Singlepass</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_nan_canonicalization</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_stack_check</span>: <span class="ident">bool</span>,
     <span class="doccomment">/// The middleware chain.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">middlewares</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
@@ -102,21 +87,8 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">enable_nan_canonicalization</span>: <span class="bool-val">true</span>,
-            <span class="ident">enable_stack_check</span>: <span class="bool-val">false</span>,
             <span class="ident">middlewares</span>: <span class="macro">vec!</span>[],
         }
-    }
-
-    <span class="doccomment">/// Enable stack check.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// When enabled, an explicit stack depth check will be performed on entry</span>
-    <span class="doccomment">/// to each function to prevent stack overflow.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note that this doesn&#39;t guarantee deterministic execution across</span>
-    <span class="doccomment">/// different platforms.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">enable_stack_check</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">enable_stack_check</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
     }
 
     <span class="kw">fn</span> <span class="ident">enable_nan_canonicalization</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
