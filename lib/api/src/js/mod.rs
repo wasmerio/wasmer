@@ -41,7 +41,6 @@ mod resolver;
 mod store;
 mod trap;
 mod types;
-mod utils;
 mod wasm_bindgen_polyfill;
 
 /// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.
@@ -75,8 +74,8 @@ pub use crate::js::types::{
     TableType, Val, ValType,
 };
 pub use crate::js::types::{Val as Value, ValType as Type};
-pub use crate::js::utils::is_wasm;
 
+pub use wasmer_types::is_wasm;
 pub use wasmer_types::{
     Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
     WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,

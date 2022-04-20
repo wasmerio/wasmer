@@ -68,6 +68,7 @@ mod table;
 mod trapcode;
 mod types;
 mod units;
+mod utils;
 mod values;
 mod vmoffsets;
 
@@ -103,6 +104,8 @@ pub use crate::memory::{MemoryError, MemoryStyle};
 pub use crate::table::TableStyle;
 pub use crate::trapcode::{Trap, TrapCode};
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
+
+pub use crate::utils::is_wasm;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
