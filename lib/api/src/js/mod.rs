@@ -37,7 +37,6 @@ mod module;
 mod module_info_polyfill;
 mod native;
 mod ptr;
-mod resolver;
 mod store;
 mod trap;
 mod types;
@@ -63,9 +62,6 @@ pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSlice
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::NativeFunc;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use crate::js::resolver::{
-    ChainableNamedResolver, NamedResolver, NamedResolverChain, Resolver,
-};
 pub use crate::js::trap::RuntimeError;
 
 pub use crate::js::store::{Store, StoreObject};

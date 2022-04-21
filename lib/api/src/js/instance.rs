@@ -1,9 +1,9 @@
 use crate::js::env::HostEnvInitError;
 use crate::js::export::Export;
-use crate::js::exports::Exports;
+use crate::js::exports::{Exportable, Exports};
 use crate::js::externals::Extern;
+use crate::js::imports::Imports;
 use crate::js::module::Module;
-use crate::js::resolver::Resolver;
 use crate::js::store::Store;
 use crate::js::trap::RuntimeError;
 use js_sys::WebAssembly;
@@ -23,6 +23,8 @@ use thiserror::Error;
 pub struct Instance {
     instance: WebAssembly::Instance,
     module: Module,
+    #[allow(dead_code)]
+    imports: Imports,
     /// The exports for an instance.
     pub exports: Exports,
 }
@@ -92,16 +94,14 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new(
-        module: &Module,
-        resolver: &(dyn Resolver + Send + Sync),
-    ) -> Result<Self, InstantiationError> {
-        let (instance, imports) = module
-            .instantiate(resolver)
+    pub fn new(module: &Module, imports: &Imports) -> Result<Self, InstantiationError> {
+        let import_copy = imports.clone();
+        let (instance, imports): (WebAssembly::Instance, Vec<Extern>) = module
+            .instantiate(imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(module, instance)?;
-        self_instance.init_envs(&imports)?;
+        let self_instance = Self::from_module_and_instance(module, instance, import_copy)?;
+        self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
 
@@ -117,6 +117,7 @@ impl Instance {
     pub fn from_module_and_instance(
         module: &Module,
         instance: WebAssembly::Instance,
+        imports: Imports,
     ) -> Result<Self, InstantiationError> {
         let store = module.store();
         let instance_exports = instance.exports();
@@ -141,6 +142,7 @@ impl Instance {
         Ok(Self {
             instance,
             module: module.clone(),
+            imports,
             exports,
         })
     }
