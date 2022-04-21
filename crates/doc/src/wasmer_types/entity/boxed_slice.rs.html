@@ -334,8 +334,6 @@
 <span id="332">332</span>
 <span id="333">333</span>
 <span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -511,7 +509,7 @@
 
     <span class="kw">impl</span> <span class="ident">EntityRef</span> <span class="kw">for</span> <span class="ident">E</span> {
         <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">i</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-            <span class="ident">E</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u32</span>)
+            <span class="self">Self</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u32</span>)
         }
         <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span> {
             <span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>
@@ -597,10 +595,8 @@
         <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">33</span>);
         <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> <span class="ident">key</span> <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">keys</span>() {
+        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">key</span>) <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">keys</span>().<span class="ident">enumerate</span>() {
             <span class="macro">assert_eq!</span>(<span class="ident">key</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
-            <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
         }
     }
 

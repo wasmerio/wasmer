@@ -765,8 +765,8 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ArchivableModuleInfo</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="ident">ModuleInfo</span>) -&gt; <span class="ident">ArchivableModuleInfo</span> {
-        <span class="ident">ArchivableModuleInfo</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="ident">ModuleInfo</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
             <span class="ident">name</span>: <span class="ident">it</span>.<span class="ident">name</span>,
             <span class="ident">imports</span>: <span class="ident">ArchivableIndexMap::from</span>(<span class="ident">it</span>.<span class="ident">imports</span>),
             <span class="ident">exports</span>: <span class="ident">ArchivableIndexMap::from</span>(<span class="ident">it</span>.<span class="ident">exports</span>),
@@ -793,8 +793,8 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ArchivableModuleInfo</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ModuleInfo</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="ident">ArchivableModuleInfo</span>) -&gt; <span class="ident">ModuleInfo</span> {
-        <span class="ident">ModuleInfo</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="ident">ArchivableModuleInfo</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
             <span class="ident">id</span>: <span class="ident">Default::default</span>(),
             <span class="ident">name</span>: <span class="ident">it</span>.<span class="ident">name</span>,
             <span class="ident">imports</span>: <span class="ident">it</span>.<span class="ident">imports</span>.<span class="ident">into</span>(),
@@ -822,8 +822,8 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ArchivableModuleInfo</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) -&gt; <span class="ident">ArchivableModuleInfo</span> {
-        <span class="ident">ArchivableModuleInfo::from</span>(<span class="ident">it</span>.<span class="ident">clone</span>())
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::from</span>(<span class="ident">it</span>.<span class="ident">clone</span>())
     }
 }
 
@@ -859,7 +859,7 @@
 
 <span class="comment">// For test serialization correctness, everything except module id should be same</span>
 <span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">ModuleInfo</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) -&gt; <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">name</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">name</span>
             <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">imports</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">imports</span>
             <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">exports</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">exports</span>
@@ -912,7 +912,7 @@
     }
 
     <span class="doccomment">/// Get the export types of the module</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>) -&gt; <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ExportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="self">self</span>) -&gt; <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ExportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">iter</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">exports</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="kw">move</span> <span class="op">|</span>(<span class="ident">name</span>, <span class="ident">export_index</span>)<span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">extern_type</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">export_index</span> {
                 <span class="ident">ExportIndex::Function</span>(<span class="ident">i</span>) =&gt; {
@@ -939,7 +939,7 @@
     }
 
     <span class="doccomment">/// Get the import types of the module</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imports</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>) -&gt; <span class="ident">ImportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ImportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imports</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="self">self</span>) -&gt; <span class="ident">ImportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ImportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">iter</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">imports</span>
             .<span class="ident">iter</span>()
@@ -1064,7 +1064,7 @@
     }
 
     <span class="doccomment">/// Get the imported function types of the module.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imported_function_types</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">FunctionType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imported_function_types</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="self">self</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">FunctionType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span> {
         <span class="self">self</span>.<span class="ident">functions</span>
             .<span class="ident">values</span>()
             .<span class="ident">take</span>(<span class="self">self</span>.<span class="ident">num_imported_functions</span>)

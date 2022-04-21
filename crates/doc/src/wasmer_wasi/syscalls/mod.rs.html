@@ -2590,10 +2590,6 @@
 <span id="2588">2588</span>
 <span id="2589">2589</span>
 <span id="2590">2590</span>
-<span id="2591">2591</span>
-<span id="2592">2592</span>
-<span id="2593">2593</span>
-<span id="2594">2594</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -2767,11 +2763,7 @@
             .<span class="ident">args</span>
             .<span class="ident">iter</span>()
             .<span class="ident">enumerate</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="macro">format!</span>(
-                <span class="string">&quot;{:&gt;20}: {}&quot;</span>,
-                <span class="ident">i</span>,
-                <span class="ident">::std::str::from_utf8</span>(<span class="ident">v</span>).<span class="ident">unwrap</span>().<span class="ident">to_string</span>()
-            ))
+            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{:&gt;20}: {}&quot;</span>, <span class="ident">i</span>, <span class="ident">::std::str::from_utf8</span>(<span class="ident">v</span>).<span class="ident">unwrap</span>()))
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">join</span>(<span class="string">&quot;\n&quot;</span>)
     );

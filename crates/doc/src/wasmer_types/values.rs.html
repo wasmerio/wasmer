@@ -474,8 +474,6 @@
 <span id="472">472</span>
 <span id="473">473</span>
 <span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::extern_ref::ExternRef</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
@@ -556,9 +554,7 @@
 <span class="kw">impl</span> <span class="ident">WasmValueType</span> <span class="kw">for</span> () {
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">write_value_to</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_p</span>: <span class="kw-2">*mut</span> <span class="ident">i128</span>) {}
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">read_value_from</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::any::Any</span>, <span class="ident">_p</span>: <span class="kw-2">*const</span> <span class="ident">i128</span>) -&gt; <span class="self">Self</span> {
-        ()
-    }
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">read_value_from</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::any::Any</span>, <span class="ident">_p</span>: <span class="kw-2">*const</span> <span class="ident">i128</span>) -&gt; <span class="self">Self</span> {}
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
@@ -827,39 +823,39 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_value_i32_from_u32</span>() {
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
 
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x01</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
 
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
 
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_value_i64_from_u64</span>() {
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
 
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x01</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
 
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>, <span class="number">0xEE</span>, <span class="number">0xFF</span>, <span class="number">0x00</span>, <span class="number">0x11</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
 
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>.<span class="ident">clone</span>())));
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>

@@ -294,7 +294,6 @@
 <span id="292">292</span>
 <span id="293">293</span>
 <span id="294">294</span>
-<span id="295">295</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>;
 <span class="kw">use</span> <span class="ident">std::sync::atomic</span>;
@@ -374,8 +373,7 @@
         <span class="comment">// taken by references to the data leaving no room for the data itself.</span>
         <span class="kw">if</span> <span class="ident">old_size</span>
             .<span class="ident">checked_add</span>(<span class="ident">growth_amount</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::MAX_REFCOUNT</span>)
-            .<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>)
+            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">&gt;</span> <span class="ident"><span class="self">Self</span>::MAX_REFCOUNT</span>)
         {
             <span class="macro">panic!</span>(<span class="string">&quot;Too many references to `ExternRef`&quot;</span>);
         }
@@ -439,7 +437,7 @@
         <span class="kw">if</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">is_null</span>() {
             <span class="number">0</span>
         } <span class="kw">else</span> {
-            <span class="kw">unsafe</span> { (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>).<span class="ident">strong</span>.<span class="ident">load</span>(<span class="ident">atomic::Ordering::SeqCst</span>) }
+            <span class="kw">unsafe</span> { (<span class="kw-2">*</span><span class="self">self</span>.<span class="number">0</span>).<span class="ident">strong</span>.<span class="ident">load</span>(<span class="ident">atomic::Ordering::SeqCst</span>) }
         }
     }
 }
@@ -511,7 +509,7 @@
         <span class="comment">// [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html</span>
         <span class="ident">atomic::fence</span>(<span class="ident">atomic::Ordering::Acquire</span>);
 
-        <span class="kw">return</span> <span class="bool-val">true</span>;
+        <span class="bool-val">true</span>
     }
 }
 

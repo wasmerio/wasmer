@@ -910,7 +910,6 @@
 <span id="908">908</span>
 <span id="909">909</span>
 <span id="910">910</span>
-<span id="911">911</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `DylibArtifact` to allow compiling and instantiating</span>
 <span class="doccomment">//! to be done as separate steps.</span>
 
@@ -1127,7 +1126,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata</span> <span class="op">=</span> <span class="ident">ModuleMetadata</span> {
             <span class="ident">compile_info</span>,
             <span class="ident">function_frame_info</span>,
-            <span class="ident">prefix</span>: <span class="ident">engine_inner</span>.<span class="ident">get_prefix</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>),
+            <span class="ident">prefix</span>: <span class="ident">engine_inner</span>.<span class="ident">get_prefix</span>(<span class="ident">data</span>),
             <span class="ident">data_initializers</span>,
             <span class="ident">function_body_lengths</span>,
             <span class="ident">cpu_features</span>: <span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">as_u64</span>(),
@@ -1142,8 +1141,8 @@
         <span class="kw">let</span> (<span class="ident">compile_info</span>, <span class="ident">symbol_registry</span>) <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">split</span>();
 
         <span class="kw">let</span> <span class="ident">maybe_obj_bytes</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">experimental_native_compile_module</span>(
-            <span class="kw-2">&amp;</span><span class="ident">target</span>,
-            <span class="kw-2">&amp;</span><span class="ident">compile_info</span>,
+            <span class="ident">target</span>,
+            <span class="ident">compile_info</span>,
             <span class="ident">module_translation</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
             <span class="kw-2">&amp;</span><span class="ident">function_body_inputs</span>,
             <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>,
@@ -1155,8 +1154,7 @@
             <span class="prelude-val">Some</span>(<span class="ident">obj_bytes</span>) =&gt; {
                 <span class="ident">extra_filepath</span> <span class="op">=</span> {
                     <span class="comment">// Create a separate object file with the trampolines.</span>
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span>
-                        <span class="ident">get_object_for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span> <span class="ident">get_object_for_target</span>(<span class="ident">target_triple</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                     <span class="ident">emit_trampolines</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">engine</span>.<span class="ident">target</span>());
                     <span class="kw">if</span> <span class="ident">obj</span>.<span class="ident">format</span>() <span class="op">==</span> <span class="ident">BinaryFormat::Coff</span> {
                         <span class="ident">obj</span>.<span class="ident">add_coff_exports</span>(<span class="ident">CoffExportStyle::Gnu</span>);
@@ -1189,12 +1187,12 @@
             }
             <span class="prelude-val">None</span> =&gt; {
                 <span class="kw">let</span> <span class="ident">compilation</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">compile_module</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">target</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">compile_info</span>,
+                    <span class="ident">target</span>,
+                    <span class="ident">compile_info</span>,
                     <span class="ident">module_translation</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
                     <span class="ident">function_body_inputs</span>,
                 )<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span> <span class="ident">get_object_for_target</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span> <span class="ident">get_object_for_target</span>(<span class="ident">target_triple</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                 <span class="ident">emit_trampolines</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">engine</span>.<span class="ident">target</span>());
                 <span class="ident">emit_data</span>(
                     <span class="kw-2">&amp;mut</span> <span class="ident">obj</span>,
@@ -1204,9 +1202,9 @@
                 )
                 .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="ident">frame_info</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_frame_info</span>().<span class="ident">clone</span>();
+                <span class="kw">let</span> <span class="ident">frame_info</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_frame_info</span>();
 
-                <span class="ident">emit_compilation</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">compilation</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>, <span class="kw-2">&amp;</span><span class="ident">target_triple</span>)
+                <span class="ident">emit_compilation</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">compilation</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>, <span class="ident">target_triple</span>)
                     .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
                 <span class="kw">if</span> <span class="ident">obj</span>.<span class="ident">format</span>() <span class="op">==</span> <span class="ident">BinaryFormat::Coff</span> {
                     <span class="ident">obj</span>.<span class="ident">add_coff_exports</span>(<span class="ident">CoffExportStyle::Gnu</span>);
@@ -1229,7 +1227,7 @@
         };
 
         <span class="kw">let</span> <span class="ident">output_filepath</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">suffix</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;.{}&quot;</span>, <span class="ident"><span class="self">Self</span>::get_default_extension</span>(<span class="kw-2">&amp;</span><span class="ident">target_triple</span>));
+            <span class="kw">let</span> <span class="ident">suffix</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;.{}&quot;</span>, <span class="ident"><span class="self">Self</span>::get_default_extension</span>(<span class="ident">target_triple</span>));
             <span class="kw">let</span> <span class="ident">shared_file</span> <span class="op">=</span> <span class="ident">tempfile::Builder::new</span>()
                 .<span class="ident">prefix</span>(<span class="string">&quot;wasmer_dylib_&quot;</span>)
                 .<span class="ident">suffix</span>(<span class="kw-2">&amp;</span><span class="ident">suffix</span>)
@@ -1513,7 +1511,7 @@
         <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">DylibEngine</span>,
         <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::is_deserializable</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>) {
+        <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::is_deserializable</span>(<span class="ident">bytes</span>) {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Incompatible</span>(
                 <span class="string">&quot;The provided bytes are not in any native format Wasmer can understand&quot;</span>.<span class="ident">to_string</span>(),
             ));
@@ -1521,10 +1519,10 @@
         <span class="comment">// Dump the bytes into a file, so we can read it with our `dlopen`</span>
         <span class="kw">let</span> <span class="ident">named_file</span> <span class="op">=</span> <span class="ident">NamedTempFile::new</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">file</span>, <span class="ident">path</span>) <span class="op">=</span> <span class="ident">named_file</span>.<span class="ident">keep</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">error</span>)<span class="question-mark">?</span>;
-        <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>)<span class="question-mark">?</span>;
+        <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
         <span class="comment">// We already checked for the header, so we don&#39;t need</span>
         <span class="comment">// to check again.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::deserialize_from_file_unchecked</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::deserialize_from_file_unchecked</span>(<span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
         <span class="ident">artifact</span>.<span class="ident">is_temporary</span> <span class="op">=</span> <span class="bool-val">true</span>;
 
         <span class="prelude-val">Ok</span>(<span class="ident">artifact</span>)
@@ -1548,7 +1546,7 @@
                 <span class="string">&quot;The provided bytes are not in any native format Wasmer can understand&quot;</span>.<span class="ident">to_string</span>(),
             ));
         }
-        <span class="ident"><span class="self">Self</span>::deserialize_from_file_unchecked</span>(<span class="kw-2">&amp;</span><span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>)
+        <span class="ident"><span class="self">Self</span>::deserialize_from_file_unchecked</span>(<span class="ident">engine</span>, <span class="ident">path</span>)
     }
 
     <span class="doccomment">/// Deserialize a `DylibArtifact` from a file path (unchecked).</span>

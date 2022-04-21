@@ -1140,8 +1140,6 @@
 <span id="1138">1138</span>
 <span id="1139">1139</span>
 <span id="1140">1140</span>
-<span id="1141">1141</span>
-<span id="1142">1142</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ptr::WasmPtr</span>, <span class="ident">varargs::VarArgs</span>, <span class="ident">LibcDirWrapper</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">libc::size_t</span>;
@@ -2003,15 +2001,13 @@
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fds_mut</span> <span class="op">=</span> <span class="ident">fds</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>().<span class="ident">get</span>();
 
-    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+    <span class="kw">unsafe</span> {
         <span class="ident">libc::poll</span>(
             <span class="kw-2">&amp;mut</span> <span class="ident">fds_mut</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">EmPollFd</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">libc::pollfd</span>,
             <span class="ident">nfds</span> <span class="kw">as</span> <span class="kw">_</span>,
             <span class="ident">timeout</span>,
         )
-    };
-
-    <span class="ident">ret</span>
+    }
 }
 
 <span class="comment">// pread</span>
@@ -2237,7 +2233,7 @@
                 <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
             }
             <span class="comment">// We set the termination string char</span>
-            <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">11</span> <span class="op">+</span> <span class="ident">i</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_char</span>) <span class="op">=</span> <span class="number">0</span> <span class="kw">as</span> <span class="ident">c_char</span>;
+            <span class="kw-2">*</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">11</span> <span class="op">+</span> <span class="ident">i</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_char</span>) <span class="op">=</span> <span class="number">0</span>;
             <span class="macro">debug!</span>(
                 <span class="string">&quot;  =&gt; file {}&quot;</span>,
                 <span class="ident">CStr::from_ptr</span>(<span class="ident">dirp</span>.<span class="ident">add</span>(<span class="ident">pos</span> <span class="op">+</span> <span class="number">11</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>)

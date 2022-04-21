@@ -447,8 +447,6 @@
 <span id="445">445</span>
 <span id="446">446</span>
 <span id="447">447</span>
-<span id="448">448</span>
-<span id="449">449</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::utils</span>::{<span class="ident">copy_cstr_into_wasm</span>, <span class="ident">write_to_buf</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">allocate_on_stack</span>, <span class="ident">lazy_static</span>, <span class="ident">EmEnv</span>};
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>};
@@ -473,8 +471,6 @@
     <span class="attribute">#[<span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;time&quot;</span>]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">libc_time</span>(<span class="ident">s</span>: <span class="kw-2">*const</span> <span class="ident">time_t</span>) -&gt; <span class="ident">time_t</span>;
 }
-
-<span class="kw">use</span> <span class="ident">time</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env</span>;
 

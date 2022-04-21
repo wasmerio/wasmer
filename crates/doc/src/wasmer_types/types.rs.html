@@ -1006,8 +1006,8 @@
     <span class="number">9</span>,<span class="number">0</span> <span class="number">9</span>,<span class="number">1</span> <span class="number">9</span>,<span class="number">2</span> <span class="number">9</span>,<span class="number">3</span> <span class="number">9</span>,<span class="number">4</span> <span class="number">9</span>,<span class="number">5</span> <span class="number">9</span>,<span class="number">6</span> <span class="number">9</span>,<span class="number">7</span> <span class="number">9</span>,<span class="number">8</span> <span class="number">9</span>,<span class="number">9</span>
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionType</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FunctionType</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">as_ref</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>) -&gt; <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="self">Self</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FunctionType</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">as_ref</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="self">Self</span> {
         <span class="ident">as_ref</span>.<span class="ident">clone</span>()
     }
 }

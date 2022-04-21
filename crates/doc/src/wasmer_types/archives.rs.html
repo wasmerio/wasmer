@@ -54,8 +54,8 @@
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">Hash</span> <span class="op">+</span> <span class="ident">Ord</span> <span class="op">+</span> <span class="ident">Archive</span> <span class="op">+</span> <span class="ident">Clone</span>, <span class="ident">V</span>: <span class="ident">Archive</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span><span class="op">&gt;</span>
     <span class="kw">for</span> <span class="ident">ArchivableIndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
 {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>) -&gt; <span class="ident">ArchivableIndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">ArchivableIndexMap</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">it</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span> <span class="op">=</span> <span class="self">Self</span> {
             <span class="ident">entries</span>: <span class="ident">Vec::new</span>(),
         };
         <span class="kw">for</span> (<span class="ident">k</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">it</span>.<span class="ident">into_iter</span>() {

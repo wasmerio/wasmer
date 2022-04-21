@@ -45,13 +45,20 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Generic Engine abstraction for Wasmer Engines.</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
 <span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_import_braces</span>)]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>,
-    <span class="ident">allow</span>(<span class="ident">clippy::new_without_default</span>, <span class="ident">clippy::new_without_default</span>)
+    <span class="ident">allow</span>(
+        <span class="ident">clippy::new_without_default</span>,
+        <span class="ident">clippy::upper_case_acronyms</span>,
+        <span class="ident">clippy::new_without_default</span>
+    )
 )]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(
     <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>,
@@ -59,8 +66,7 @@
         <span class="ident">clippy::float_arithmetic</span>,
         <span class="ident">clippy::mut_mut</span>,
         <span class="ident">clippy::nonminimal_bool</span>,
-        <span class="ident">clippy::option_map_unwrap_or</span>,
-        <span class="ident">clippy::option_map_unwrap_or_else</span>,
+        <span class="ident">clippy::map_unwrap_or</span>,
         <span class="ident">clippy::print_stdout</span>,
         <span class="ident">clippy::unicode_not_nfc</span>,
         <span class="ident">clippy::use_self</span>

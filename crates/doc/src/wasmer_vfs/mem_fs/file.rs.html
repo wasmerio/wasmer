@@ -1467,11 +1467,11 @@
         <span class="comment">// of the `Vec` will produce a valid UTF-8 string. In our</span>
         <span class="comment">// case, we use `str::from_utf8` to ensure that the UTF-8</span>
         <span class="comment">// constraint still hold before returning.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes_buffer</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">buf</span>.<span class="ident">as_mut_vec</span>() };
+        <span class="kw">let</span> <span class="ident">bytes_buffer</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">buf</span>.<span class="ident">as_mut_vec</span>() };
         <span class="ident">bytes_buffer</span>.<span class="ident">clear</span>();
-        <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes_buffer</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">read_to_end</span>(<span class="ident">bytes_buffer</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="ident">str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">bytes_buffer</span>).<span class="ident">is_err</span>() {
+        <span class="kw">if</span> <span class="ident">str::from_utf8</span>(<span class="ident">bytes_buffer</span>).<span class="ident">is_err</span>() {
             <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
                 <span class="ident">io::ErrorKind::InvalidData</span>,
                 <span class="string">&quot;buffer did not contain valid UTF-8&quot;</span>,

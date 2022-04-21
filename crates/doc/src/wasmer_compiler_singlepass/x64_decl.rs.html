@@ -342,8 +342,10 @@
 <span id="340">340</span>
 <span id="341">341</span>
 <span id="342">342</span>
+<span id="343">343</span>
 </pre><pre class="rust"><code><span class="doccomment">//! X64 structures.</span>
 
+<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::upper_case_acronyms</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::{<span class="ident">MachineState</span>, <span class="ident">MachineValue</span>, <span class="ident">RegisterIndex</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::CombinedRegister</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span> <span class="kw">as</span> <span class="ident">AbstractReg</span>;
@@ -413,7 +415,7 @@
     }
     <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">GPR</span>, ()<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">n</span> {
-            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">GPR::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>().<span class="ident">clone</span>()),
+            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">GPR::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>()),
             <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(()),
         }
     }
@@ -476,7 +478,7 @@
     }
     <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">XMM</span>, ()<span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">n</span> {
-            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">XMM::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>().<span class="ident">clone</span>()),
+            <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">XMM::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>()),
             <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(()),
         }
     }

@@ -121,7 +121,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span>, <span class="ident">Ty</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ty</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0</span>.<span class="ident">clone</span>())
+        <span class="self">Self</span>(<span class="self">self</span>.<span class="number">0</span>)
     }
 }
 
@@ -164,7 +164,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">ValueType</span><span class="op">&gt;</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">wasmer::Item</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="ident">Memory</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">offset</span>() <span class="op">==</span> <span class="number">0</span> {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
@@ -175,12 +175,12 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">ValueType</span><span class="op">&gt;</span> <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">wasmer::Array</span><span class="op">&gt;</span> {
     <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deref</span>(
         <span class="self">self</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>,
+        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="ident">Memory</span>,
         <span class="ident">index</span>: <span class="ident">u32</span>,
         <span class="ident">length</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmCell</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">offset</span>() <span class="op">==</span> <span class="number">0</span> {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {
@@ -189,7 +189,7 @@
     }
 
     <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_utf8_str</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>, <span class="ident">str_len</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_utf8_str</span>(<span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="ident">Memory</span>, <span class="ident">str_len</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="ident">str</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">offset</span>() <span class="op">==</span> <span class="number">0</span> {
             <span class="prelude-val">None</span>
         } <span class="kw">else</span> {

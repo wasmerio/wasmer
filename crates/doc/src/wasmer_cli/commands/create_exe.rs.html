@@ -441,7 +441,7 @@
                 .<span class="ident">context</span>(<span class="string">&quot;Failed to open C source code file&quot;</span>)<span class="question-mark">?</span>;
             <span class="ident">c_src_file</span>.<span class="ident">write_all</span>(<span class="ident">WASMER_MAIN_C_SOURCE</span>)<span class="question-mark">?</span>;
         }
-        <span class="ident">run_c_compile</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>, <span class="kw-2">&amp;</span><span class="ident">c_src_obj</span>, <span class="self">self</span>.<span class="ident">target_triple</span>.<span class="ident">clone</span>())
+        <span class="ident">run_c_compile</span>(<span class="ident">c_src_path</span>, <span class="kw-2">&amp;</span><span class="ident">c_src_obj</span>, <span class="self">self</span>.<span class="ident">target_triple</span>.<span class="ident">clone</span>())
             .<span class="ident">context</span>(<span class="string">&quot;Failed to compile C source code&quot;</span>)<span class="question-mark">?</span>;
         <span class="ident">LinkCode</span> {
             <span class="ident">object_paths</span>: <span class="macro">vec!</span>[<span class="ident">c_src_obj</span>, <span class="ident">wasm_object_path</span>],

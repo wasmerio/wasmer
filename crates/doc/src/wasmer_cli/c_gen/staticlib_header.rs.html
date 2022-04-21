@@ -296,6 +296,7 @@
 <span id="294">294</span>
 <span id="295">295</span>
 <span id="296">296</span>
+<span id="297">297</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Generate a header file for the object file produced by the Staticlib engine.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">generate_c</span>, <span class="ident">CStatement</span>, <span class="ident">CType</span>};
@@ -372,31 +373,32 @@ wasm_module_t* wasmer_staticlib_engine_new(wasm_store_t* store, const char* wasm
     <span class="ident">symbol_registry</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">SymbolRegistry</span>,
     <span class="ident">metadata_length</span>: <span class="ident">usize</span>,
 ) -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_statements</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
-        <span class="ident">value</span>: <span class="string">&quot;#include &lt;stdlib.h&gt;\n#include &lt;string.h&gt;\n\n&quot;</span>.<span class="ident">to_string</span>(),
-    });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
-        <span class="ident">value</span>: <span class="string">&quot;#ifdef __cplusplus\nextern \&quot;C\&quot; {\n#endif\n\n&quot;</span>.<span class="ident">to_string</span>(),
-    });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
-        <span class="ident">name</span>: <span class="string">&quot;module_bytes_len&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
-        <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-        <span class="ident">ctype</span>: <span class="ident">CType::U32</span>,
-        <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralConstant</span> {
-            <span class="ident">value</span>: <span class="ident">metadata_length</span>.<span class="ident">to_string</span>(),
-        })),
-    });
-    <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
-        <span class="ident">name</span>: <span class="string">&quot;WASMER_METADATA&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">is_extern</span>: <span class="bool-val">true</span>,
-        <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-        <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
-            <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::U8</span>),
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_statements</span> <span class="op">=</span> <span class="macro">vec!</span>[
+        <span class="ident">CStatement::LiteralConstant</span> {
+            <span class="ident">value</span>: <span class="string">&quot;#include &lt;stdlib.h&gt;\n#include &lt;string.h&gt;\n\n&quot;</span>.<span class="ident">to_string</span>(),
         },
-        <span class="ident">definition</span>: <span class="prelude-val">None</span>,
-    });
+        <span class="ident">CStatement::LiteralConstant</span> {
+            <span class="ident">value</span>: <span class="string">&quot;#ifdef __cplusplus\nextern \&quot;C\&quot; {\n#endif\n\n&quot;</span>.<span class="ident">to_string</span>(),
+        },
+        <span class="ident">CStatement::Declaration</span> {
+            <span class="ident">name</span>: <span class="string">&quot;module_bytes_len&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
+            <span class="ident">is_const</span>: <span class="bool-val">true</span>,
+            <span class="ident">ctype</span>: <span class="ident">CType::U32</span>,
+            <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralConstant</span> {
+                <span class="ident">value</span>: <span class="ident">metadata_length</span>.<span class="ident">to_string</span>(),
+            })),
+        },
+        <span class="ident">CStatement::Declaration</span> {
+            <span class="ident">name</span>: <span class="string">&quot;WASMER_METADATA&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">is_extern</span>: <span class="bool-val">true</span>,
+            <span class="ident">is_const</span>: <span class="bool-val">true</span>,
+            <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
+                <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::U8</span>),
+            },
+            <span class="ident">definition</span>: <span class="prelude-val">None</span>,
+        },
+    ];
     <span class="kw">let</span> <span class="ident">function_declarations</span> <span class="op">=</span> <span class="ident">module_info</span>
         .<span class="ident">functions</span>
         .<span class="ident">iter</span>()

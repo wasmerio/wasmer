@@ -495,8 +495,8 @@
     <span class="ident">K</span>: <span class="ident">EntityRef</span>,
     <span class="ident">V</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Default</span>,
 {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="ident">SecondaryMap::new</span>()
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::new</span>()
     }
 }
 
@@ -660,7 +660,7 @@
 
     <span class="kw">impl</span> <span class="ident">EntityRef</span> <span class="kw">for</span> <span class="ident">E</span> {
         <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">i</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-            <span class="ident">E</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u32</span>)
+            <span class="self">Self</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u32</span>)
         }
         <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span> {
             <span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>

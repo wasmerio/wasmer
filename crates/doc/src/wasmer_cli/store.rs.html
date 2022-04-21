@@ -485,11 +485,17 @@
 <span id="483">483</span>
 <span id="484">484</span>
 <span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::WasmFeatures</span>;
 <span class="kw">use</span> <span class="ident">anyhow::Result</span>;
+
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::WasmFeatures</span>;
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std::string::ToString</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>

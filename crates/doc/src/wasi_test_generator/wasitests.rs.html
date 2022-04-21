@@ -657,7 +657,7 @@
         <span class="ident">stdout</span>,
         <span class="ident">stderr</span>,
         <span class="ident">result</span>,
-    } <span class="op">=</span> <span class="ident">generate_native_output</span>(<span class="ident">temp_dir</span>, <span class="kw-2">&amp;</span><span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>)
+    } <span class="op">=</span> <span class="ident">generate_native_output</span>(<span class="ident">temp_dir</span>, <span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>.<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>)
         .<span class="ident">expect</span>(<span class="string">&quot;Generate native output&quot;</span>);
 
     <span class="kw">let</span> <span class="ident">test</span> <span class="op">=</span> <span class="ident">WasiTest</span> {
@@ -671,7 +671,7 @@
     <span class="macro">println!</span>(<span class="string">&quot;Generated test output: {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">test_serialized</span>);
 
     <span class="ident">wasi_versions</span>
-        .<span class="ident">into_iter</span>()
+        .<span class="ident">iter</span>()
         .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">version</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">out_dir</span> <span class="op">=</span> <span class="ident">base_dir</span>.<span class="ident">join</span>(<span class="string">&quot;..&quot;</span>).<span class="ident">join</span>(<span class="ident">version</span>.<span class="ident">get_directory_name</span>());
             <span class="kw">if</span> <span class="op">!</span><span class="ident">out_dir</span>.<span class="ident">exists</span>() {
@@ -687,7 +687,7 @@
 
             <span class="macro">println!</span>(<span class="string">&quot;Compiling wasm version {:?}&quot;</span>, <span class="ident">version</span>);
             <span class="ident">compile_wasm_for_version</span>(<span class="ident">temp_dir</span>, <span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">out_dir</span>, <span class="kw-2">&amp;</span><span class="ident">rs_mod_name</span>, <span class="ident">version</span>)
-                .<span class="ident">expect</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Could not compile Wasm to WASI version {:?}, perhaps you need to install the `{}` rust toolchain&quot;</span>, <span class="ident">version</span>, <span class="ident">version</span>.<span class="ident">get_compiler_toolchain</span>()));
+                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;Could not compile Wasm to WASI version {:?}, perhaps you need to install the `{}` rust toolchain&quot;</span>, <span class="ident">version</span>, <span class="ident">version</span>.<span class="ident">get_compiler_toolchain</span>()));
         }).<span class="ident">for_each</span>(<span class="ident">drop</span>); <span class="comment">// Do nothing with it, but let the iterator be consumed/iterated.</span>
 }
 
@@ -699,7 +699,7 @@
             <span class="prelude-val">Ok</span>(<span class="ident">path</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">test</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">specific_tests</span>.<span class="ident">is_empty</span>() {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">filename</span>) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">file_stem</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">to_str</span>()).<span class="ident">flatten</span>() {
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">filename</span>) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">file_stem</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">to_str</span>()) {
                         <span class="kw">if</span> <span class="ident">specific_tests</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>) {
                             <span class="ident">compile</span>(<span class="ident">temp_dir</span>.<span class="ident">path</span>(), <span class="ident">test</span>, <span class="ident">wasi_versions</span>);
                         }
@@ -730,7 +730,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">WasiTest</span> {
-    <span class="kw">fn</span> <span class="ident">into_wasi_wast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
+    <span class="kw">fn</span> <span class="ident">into_wasi_wast</span>(<span class="self">self</span>) -&gt; <span class="ident">String</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="macro">format!</span>(
             <span class="string">&quot;;; This file was generated by https://github.com/wasmerio/wasi-tests\n
 (wasi_test \&quot;{}\&quot;&quot;</span>,
@@ -842,14 +842,14 @@
             <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">value</span>.<span class="ident">strip_prefix</span>(<span class="string">&#39;:&#39;</span>).<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">value</span>.<span class="ident">trim</span>();
 
-            <span class="kw">match</span> <span class="ident">command_name</span>.<span class="ident">as_ref</span>() {
-                <span class="string">&quot;mapdir&quot;</span> =&gt; {
-                    <span class="comment">// We try first splitting by `::`</span>
+            <span class="kw">match</span> <span class="ident">command_name</span> {
+                <span class="string">&quot;mapdir&quot;</span> =&gt;
+                <span class="comment">// We try first splitting by `::`</span>
+                {
                     <span class="kw">if</span> <span class="kw">let</span> [<span class="ident">alias</span>, <span class="ident">real_dir</span>] <span class="op">=</span> <span class="ident">value</span>.<span class="ident">split</span>(<span class="string">&quot;::&quot;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>()[..] {
                         <span class="ident">args</span>.<span class="ident">mapdir</span>.<span class="ident">push</span>((<span class="ident">alias</span>.<span class="ident">to_string</span>(), <span class="ident">real_dir</span>.<span class="ident">to_string</span>()));
-                    } <span class="kw">else</span>
-                    <span class="comment">// And then we try splitting by `:` (for compatibility with previous API)</span>
-                    <span class="kw">if</span> <span class="kw">let</span> [<span class="ident">alias</span>, <span class="ident">real_dir</span>] <span class="op">=</span> <span class="ident">value</span>.<span class="ident">split</span>(<span class="string">&#39;:&#39;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>()[..] {
+                    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> [<span class="ident">alias</span>, <span class="ident">real_dir</span>] <span class="op">=</span> <span class="ident">value</span>.<span class="ident">split</span>(<span class="string">&#39;:&#39;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>()[..] {
+                        <span class="comment">// And then we try splitting by `:` (for compatibility with previous API)</span>
                         <span class="ident">args</span>.<span class="ident">mapdir</span>.<span class="ident">push</span>((<span class="ident">alias</span>.<span class="ident">to_string</span>(), <span class="ident">real_dir</span>.<span class="ident">to_string</span>()));
                     } <span class="kw">else</span> {
                         <span class="macro">eprintln!</span>(<span class="string">&quot;Parse error in mapdir {} not parsed correctly&quot;</span>, <span class="ident">value</span>);
@@ -877,7 +877,7 @@
                     <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">strip_prefix</span>(<span class="string">&#39;&quot;&#39;</span>).<span class="ident">expect</span>(<span class="string">&quot;expected leading &#39;\&quot;&#39; in stdin&quot;</span>);
                     <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">s</span>
                         .<span class="ident">trim_end</span>()
-                        .<span class="ident">strip_suffix</span>(<span class="string">&quot;\&quot;&quot;</span>)
+                        .<span class="ident">strip_suffix</span>(<span class="string">&#39;\&quot;&#39;</span>)
                         .<span class="ident">expect</span>(<span class="string">&quot;expected trailing &#39;\&quot;&#39; in stdin&quot;</span>);
                     <span class="ident">args</span>.<span class="ident">stdin</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>.<span class="ident">to_string</span>());
                 }

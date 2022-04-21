@@ -1132,10 +1132,10 @@
             }
         }
         <span class="macro">debug!</span>(<span class="string">&quot;=&gt; ptr: {}&quot;</span>, <span class="ident">ptr</span>);
-        <span class="kw">return</span> <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">i32</span>;
+        <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">i32</span>
     } <span class="kw">else</span> {
         <span class="comment">// return ENODEV</span>
-        <span class="kw">return</span> <span class="op">-</span><span class="number">19</span>;
+        <span class="op">-</span><span class="number">19</span>
     }
 }
 
@@ -1258,7 +1258,7 @@
     <span class="kw">let</span> <span class="ident">rlim</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">rlim_ptr</span>, <span class="number">16</span>) };
 
     <span class="comment">// set all to RLIM_INIFINTY</span>
-    <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rlim</span>[..], <span class="op">-</span><span class="number">1</span>);
+    <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">rlim</span>, <span class="op">-</span><span class="number">1</span>);
     <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rlim</span>[<span class="number">8</span>..], <span class="op">-</span><span class="number">1</span>);
 
     <span class="number">0</span>
@@ -1461,7 +1461,7 @@
         <span class="kw">let</span> <span class="ident">buf_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">old_limit</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
         <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">buf_ptr</span>, <span class="number">16</span>) };
 
-        <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>[..], <span class="ident">val</span>);
+        <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">buf</span>, <span class="ident">val</span>);
         <span class="ident">LittleEndian::write_i64</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>[<span class="number">8</span>..], <span class="ident">val</span>);
     }
 

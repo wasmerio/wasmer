@@ -449,8 +449,6 @@
 <span id="447">447</span>
 <span id="448">448</span>
 <span id="449">449</span>
-<span id="450">450</span>
-<span id="451">451</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -618,8 +616,8 @@
 <span class="kw">where</span>
     <span class="ident">K</span>: <span class="ident">EntityRef</span>,
 {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="ident">PrimaryMap::new</span>()
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::new</span>()
     }
 }
 
@@ -722,7 +720,7 @@
 
     <span class="kw">impl</span> <span class="ident">EntityRef</span> <span class="kw">for</span> <span class="ident">E</span> {
         <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">i</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-            <span class="ident">E</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u32</span>)
+            <span class="self">Self</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u32</span>)
         }
         <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span> {
             <span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>
@@ -817,10 +815,8 @@
         <span class="ident">m</span>.<span class="ident">push</span>(<span class="number">12</span>);
         <span class="ident">m</span>.<span class="ident">push</span>(<span class="number">33</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> <span class="ident">key</span> <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">keys</span>() {
+        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">key</span>) <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">keys</span>().<span class="ident">enumerate</span>() {
             <span class="macro">assert_eq!</span>(<span class="ident">key</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
-            <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
         }
     }
 

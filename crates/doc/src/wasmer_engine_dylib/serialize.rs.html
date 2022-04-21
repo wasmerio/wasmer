@@ -150,8 +150,6 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">loupe::MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
     <span class="ident">archived_value</span>, <span class="ident">de::deserializers::SharedDeserializeMap</span>, <span class="ident">ser::serializers::AllocSerializer</span>,
@@ -199,9 +197,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">ModuleMetadata</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">split</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="self">self</span>,
-    ) -&gt; (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">CompileModuleInfo</span>, <span class="ident">ModuleMetadataSymbolRegistry</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">split</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="self">self</span>) -&gt; (<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="ident">CompileModuleInfo</span>, <span class="ident">ModuleMetadataSymbolRegistry</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) {
         <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">compile_info</span>;
         <span class="kw">let</span> <span class="ident">symbol_registry</span> <span class="op">=</span> <span class="ident">ModuleMetadataSymbolRegistry</span> {
             <span class="ident">prefix</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">prefix</span>,
@@ -209,7 +205,7 @@
         (<span class="ident">compile_info</span>, <span class="ident">symbol_registry</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_symbol_registry</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>) -&gt; <span class="ident">ModuleMetadataSymbolRegistry</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_symbol_registry</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="self">self</span>) -&gt; <span class="ident">ModuleMetadataSymbolRegistry</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
         <span class="ident">ModuleMetadataSymbolRegistry</span> {
             <span class="ident">prefix</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">prefix</span>,
         }
@@ -228,13 +224,13 @@
         <span class="ident"><span class="self">Self</span>::deserialize_from_archive</span>(<span class="ident">archived</span>)
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">archive_from_slice</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">ArchivedModuleMetadata</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">archive_from_slice</span>(
+        <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ArchivedModuleMetadata</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pos</span>: [<span class="ident">u8</span>; <span class="number">8</span>] <span class="op">=</span> <span class="ident">Default::default</span>();
         <span class="ident">pos</span>.<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">metadata_slice</span>[<span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">8</span>..<span class="ident">metadata_slice</span>.<span class="ident">len</span>()]);
         <span class="kw">let</span> <span class="ident">pos</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">u64::from_le_bytes</span>(<span class="ident">pos</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">archived_value</span>::<span class="op">&lt;</span><span class="ident">ModuleMetadata</span><span class="op">&gt;</span>(
+        <span class="prelude-val">Ok</span>(<span class="ident">archived_value</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>(
             <span class="kw-2">&amp;</span><span class="ident">metadata_slice</span>[..<span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">8</span>],
             <span class="ident">pos</span> <span class="kw">as</span> <span class="ident">usize</span>,
         ))

@@ -604,7 +604,7 @@
 
                     <span class="kw">let</span> <span class="ident">guest_canonname_writer</span> <span class="op">=</span>
                         <span class="ident">guest_canonname</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">str_size</span> <span class="kw">as</span> <span class="kw">_</span>).<span class="ident">unwrap</span>();
-                    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">b</span>) <span class="kw">in</span> <span class="ident">canonname_bytes</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
+                    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">b</span>) <span class="kw">in</span> <span class="ident">canonname_bytes</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
                         <span class="ident">guest_canonname_writer</span>[<span class="ident">i</span>].<span class="ident">set</span>(<span class="kw-2">*</span><span class="ident">b</span> <span class="kw">as</span> <span class="kw">_</span>)
                     }
 
