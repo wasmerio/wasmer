@@ -365,7 +365,7 @@ impl DirEntry {
     pub fn file_name(&self) -> OsString {
         self.path
             .file_name()
-            .unwrap_or_else(|| self.path.as_os_str())
+            .unwrap_or(self.path.as_os_str())
             .to_owned()
     }
 }

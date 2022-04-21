@@ -214,7 +214,7 @@ impl DylibArtifact {
         let mut metadata = ModuleMetadata {
             compile_info,
             function_frame_info,
-            prefix: engine_inner.get_prefix(&data),
+            prefix: engine_inner.get_prefix(data),
             data_initializers,
             function_body_lengths,
             cpu_features: target.cpu_features().as_u64(),
@@ -229,8 +229,8 @@ impl DylibArtifact {
         let (compile_info, symbol_registry) = metadata.split();
 
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
-            &target,
-            &compile_info,
+            target,
+            compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -242,8 +242,7 @@ impl DylibArtifact {
             Some(obj_bytes) => {
                 extra_filepath = {
                     // Create a separate object file with the trampolines.
-                    let mut obj =
-                        get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                    let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
                     emit_trampolines(&mut obj, engine.target());
                     if obj.format() == BinaryFormat::Coff {
                         obj.add_coff_exports(CoffExportStyle::Gnu);
@@ -276,12 +275,12 @@ impl DylibArtifact {
             }
             None => {
                 let compilation = compiler.compile_module(
-                    &target,
-                    &compile_info,
+                    target,
+                    compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;
-                let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
                 emit_trampolines(&mut obj, engine.target());
                 emit_data(
                     &mut obj,
@@ -291,9 +290,9 @@ impl DylibArtifact {
                 )
                 .map_err(to_compile_error)?;
 
-                let frame_info = compilation.get_frame_info().clone();
+                let frame_info = compilation.get_frame_info();
 
-                emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
+                emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
                     .map_err(to_compile_error)?;
                 if obj.format() == BinaryFormat::Coff {
                     obj.add_coff_exports(CoffExportStyle::Gnu);
@@ -316,7 +315,7 @@ impl DylibArtifact {
         };
 
         let output_filepath = {
-            let suffix = format!(".{}", Self::get_default_extension(&target_triple));
+            let suffix = format!(".{}", Self::get_default_extension(target_triple));
             let shared_file = tempfile::Builder::new()
                 .prefix("wasmer_dylib_")
                 .suffix(&suffix)
@@ -600,7 +599,7 @@ impl DylibArtifact {
         engine: &DylibEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
-        if !Self::is_deserializable(&bytes) {
+        if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));
@@ -608,10 +607,10 @@ impl DylibArtifact {
         // Dump the bytes into a file, so we can read it with our `dlopen`
         let named_file = NamedTempFile::new()?;
         let (mut file, path) = named_file.keep().map_err(|e| e.error)?;
-        file.write_all(&bytes)?;
+        file.write_all(bytes)?;
         // We already checked for the header, so we don't need
         // to check again.
-        let mut artifact = Self::deserialize_from_file_unchecked(&engine, &path)?;
+        let mut artifact = Self::deserialize_from_file_unchecked(engine, &path)?;
         artifact.is_temporary = true;
 
         Ok(artifact)
@@ -635,7 +634,7 @@ impl DylibArtifact {
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));
         }
-        Self::deserialize_from_file_unchecked(&engine, &path)
+        Self::deserialize_from_file_unchecked(engine, path)
     }
 
     /// Deserialize a `DylibArtifact` from a file path (unchecked).

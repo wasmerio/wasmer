@@ -123,7 +123,7 @@ impl FrameBufferState {
         }
         let keys = self.window.get_keys_pressed(KeyRepeat::No)?;
         for key in keys {
-            self.keys_pressed.insert(key.clone());
+            self.keys_pressed.insert(key);
             self.push_input_event(InputEvent::KeyPress(key))?;
         }
 
@@ -266,7 +266,7 @@ impl Read for FrameBuffer {
                 }
 
                 FrameBufferFileType::Draw => {
-                    if buf.len() == 0 {
+                    if buf.is_empty() {
                         Ok(0)
                     } else {
                         buf[0] = fb_state.front_buffer as u8 + b'0';
@@ -341,8 +341,8 @@ impl Write for FrameBuffer {
                 FrameBufferFileType::Buffer => {
                     let mut bytes_copied = 0;
 
-                    for i in 0..buf.len() {
-                        if fb_state.set_byte(cursor + i, buf[i]).is_none() {
+                    for (i, byte) in buf.iter().enumerate() {
+                        if fb_state.set_byte(cursor + i, *byte).is_none() {
                             // TODO: check if we should return an error here
                             break;
                         }
@@ -357,9 +357,7 @@ impl Write for FrameBuffer {
                     let mut byte_vec: Vec<u8> = resolution_data.bytes().collect();
                     let upper_limit = std::cmp::min(buf.len(), byte_vec.len() - cursor as usize);
 
-                    for i in 0..upper_limit {
-                        byte_vec[i] = buf[i];
-                    }
+                    byte_vec[..upper_limit].clone_from_slice(&buf[..upper_limit]);
 
                     let mut parse_str = String::new();
                     for b in byte_vec.iter() {
@@ -381,7 +379,7 @@ impl Write for FrameBuffer {
                 }
 
                 FrameBufferFileType::Draw => {
-                    if buf.len() == 0 {
+                    if buf.is_empty() {
                         Ok(0)
                     } else {
                         fb_state.draw();

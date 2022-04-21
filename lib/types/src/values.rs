@@ -78,9 +78,7 @@ pub trait WasmValueType: std::fmt::Debug + 'static {
 impl WasmValueType for () {
     unsafe fn write_value_to(&self, _p: *mut i128) {}
 
-    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
-        ()
-    }
+    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {}
 }
 
 impl<T> Value<T>
@@ -349,39 +347,39 @@ mod tests {
     #[test]
     fn test_value_i32_from_u32() {
         let bytes = [0x00, 0x00, 0x00, 0x00];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
 
         let bytes = [0x00, 0x00, 0x00, 0x01];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
 
         let bytes = [0xAA, 0xBB, 0xCC, 0xDD];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
 
         let bytes = [0xFF, 0xFF, 0xFF, 0xFF];
-        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u32::from_be_bytes(bytes));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes)));
     }
 
     #[test]
     fn test_value_i64_from_u64() {
         let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
         let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
         let bytes = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
 
         let bytes = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
-        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
-        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+        let v = Value::<()>::from(u64::from_be_bytes(bytes));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes)));
     }
 
     #[test]
