@@ -2907,6 +2907,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-compiler-cli"
+version = "2.2.1"
+dependencies = [
+ "anyhow",
+ "atty",
+ "bytesize",
+ "cfg-if 1.0.0",
+ "colored 2.0.0",
+ "distance",
+ "fern",
+ "log",
+ "structopt",
+ "tempfile",
+ "unix_mode",
+ "wasmer-compiler",
+ "wasmer-compiler-singlepass",
+ "wasmer-engine-universal-artifact",
+ "wasmer-types",
+ "wasmer-vfs",
+]
+
+[[package]]
 name = "wasmer-compiler-cranelift"
 version = "2.2.1"
 dependencies = [
