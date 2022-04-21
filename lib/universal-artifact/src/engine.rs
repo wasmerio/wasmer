@@ -21,13 +21,24 @@ impl UniversalEngineBuilder {
     pub fn new(compiler: Option<Box<dyn Compiler>>, features: Features) -> Self {
         UniversalEngineBuilder { compiler, features }
     }
+
     /// Gets the compiler associated to this engine.
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
-            return Err(CompileError::Codegen("The UniversalEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
+            return Err(CompileError::Codegen(
+                "The UniversalEngine is not compiled in.".to_string(),
+            ));
         }
         Ok(&**self.compiler.as_ref().unwrap())
+    }
+
+    /// Gets the compiler associated to this engine.
+    #[cfg(not(feature = "compiler"))]
+    pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
+        return Err(CompileError::Codegen(
+            "The UniversalEngine is not compiled in.".to_string(),
+        ));
     }
 
     /// Validate the module
