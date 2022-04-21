@@ -192,32 +192,6 @@ impl Exports {
             iter: self.map.iter(),
         }
     }
-
-    /// safa
-    pub fn get_namespace_export(&self, name: &str) -> Option<Export> {
-        self.map.get(name).map(|is_export| is_export.to_export())
-    }
-
-    /// safa
-    pub fn get_namespace_externs(&self) -> Vec<(String, Extern)> {
-        self.map
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect()
-    }
-
-    /// safa
-    pub fn get_namespace_exports(&self) -> Vec<(String, Export)> {
-        self.map
-            .iter()
-            .map(|(k, v)| (k.clone(), v.to_export()))
-            .collect()
-    }
-
-    /// safa
-    pub fn as_exports(&self) -> Option<Exports> {
-        Some(self.clone())
-    }
 }
 
 impl fmt::Debug for Exports {
@@ -300,20 +274,20 @@ impl FromIterator<(String, Extern)> for Exports {
 }
 
 impl IntoIterator for Exports {
-    type IntoIter = std::vec::IntoIter<(String, Extern)>;
+    type IntoIter = indexmap::map::IntoIter<String, Extern>;
     type Item = (String, Extern);
 
     fn into_iter(self) -> Self::IntoIter {
-        self.get_namespace_externs().into_iter()
+        self.map.clone().into_iter()
     }
 }
 
-impl IntoIterator for &Exports {
-    type IntoIter = std::vec::IntoIter<(String, Extern)>;
-    type Item = (String, Extern);
+impl<'a> IntoIterator for &'a Exports {
+    type IntoIter = indexmap::map::Iter<'a, String, Extern>;
+    type Item = (&'a String, &'a Extern);
 
     fn into_iter(self) -> Self::IntoIter {
-        self.get_namespace_externs().into_iter()
+        self.map.iter()
     }
 }
 

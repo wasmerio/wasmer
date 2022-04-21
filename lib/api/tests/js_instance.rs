@@ -103,7 +103,7 @@ mod js {
             .unwrap();
 
         let imported_signature = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-        let imported = Function::new(&store, &imported_signature, |args| {
+        let imported = Function::new(&store, imported_signature, |args| {
             println!("Calling `imported`...");
             let result = args[0].unwrap_i32() * 2;
             println!("Result of `imported`: {:?}", result);
