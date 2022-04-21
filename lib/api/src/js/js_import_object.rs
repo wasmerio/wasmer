@@ -1,4 +1,4 @@
-use crate::js::{Export, ExternType, Module, NamedResolver};
+use crate::js::{Export, ExternType, Module};
 use std::collections::HashMap;
 
 /// This struct is used in case you want to create an `Instance`
@@ -65,11 +65,5 @@ impl JsImportObject {
 impl Into<js_sys::Object> for JsImportObject {
     fn into(self) -> js_sys::Object {
         self.object
-    }
-}
-
-impl NamedResolver for JsImportObject {
-    fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
-        self.get_export(module, name)
     }
 }
