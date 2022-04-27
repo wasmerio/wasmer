@@ -76,13 +76,6 @@ jobs:
             use_sccache: true
             run_test: true
             run_test_capi: false # We can't run yet the capi tests on Windows
-          #- build: linux-aarch64
-          #  os: [self-hosted, linux, ARM64]
-          #  random_sccache_port: true
-          #  use_sccache: true
-          #  llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/linux-aarch64.tar.gz'
-          #  artifact_name: 'wasmer-linux-aarch64'
-          #  run_integration_tests: false
           - build: linux-musl-x64
             os: ubuntu-latest
             container: alpine:latest
@@ -247,8 +240,16 @@ jobs:
           echo "rpath = false" >> Cargo.toml
           make build-wasmer-headless-minimal
       - name: Dist
+        if: matrix.build != 'macos-arm64'
         run: |
           make distribution
+      - name: Dist macos-arm64
+        if: matrix.build == 'macos-arm64'
+        run: |
+          make distribution
+        env:
+          TARGET: aarch64-apple-darwin
+          TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
@@ -438,15 +439,6 @@ jobs:
           asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
-      #- name: Upload Release Asset Linux aarch64
-      #  uses: actions/upload-release-asset@v1
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #  with:
-      #    upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #    asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-      #    asset_name: wasmer-linux-aarch64.tar.gz
-      #    asset_content_type: application/gzip
 
   audit:
     name: Audit
