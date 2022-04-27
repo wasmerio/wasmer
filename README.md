@@ -95,7 +95,7 @@ curl https://get.wasmer.io -sSfL | sh
 ### Quickstart
 
 You can start by running
-[QuickJS](https://github.com/bellard/quickjs/), a small and
+[QuickJS](https://wapm.io/saghul/quickjs), a small and
 embeddable Javascript engine compiled as a WebAssembly module ([`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)):
 
 ```bash
@@ -120,7 +120,8 @@ languages**, so you can use WebAssembly _anywhere_.
 | | Language | Package | Documentation |
 |-|-|-|-|
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Learn][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` header] | [Learn][c docs] |
+| ![C logo] | [**C**][C integration] | [`wasm.h` header] | [Learn][c docs] |
+| ![C++ logo] | [**C++**][C integration] | [`wasm.hh` header] | [Learn][c docs] |
 | ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Learn][c# docs] |
 | ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Learn][d docs] |
 | ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Learn][python docs] |
@@ -136,7 +137,9 @@ languages**, so you can use WebAssembly _anywhere_.
 | ![Zig logo] | [**Zig**][Zig integration] | *no published package* | |
 | ![Dart logo] | [**Dart**][Dart integration] | [`wasm` pub package] | |
 | ![Crystal logo] | [**Crystal**][Crystal integration] | *no published package* | [Learn][crystal docs] |
-| ![Lisp logo] | [**Lisp**][Lisp integration] | *under heavy development - no published package* | |
+| ![Lisp logo] | [**Lisp**][Lisp integration] | *no published package* | |
+| ![Julia logo] | [**Julia**][Julia integration] | *no published package* | |
+| ![VLang logo] | [**V**][vlang integration] | *no published package* | |
 
 [👋&nbsp;&nbsp;Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -147,8 +150,11 @@ languages**, so you can use WebAssembly _anywhere_.
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
-[`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/wasmer.h
-[c docs]: https://docs.rs/wasmer-c-api/*/wasmer_c_api/wasm_c_api/index.html
+[`wasm.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/tests/wasm-c-api/include/wasm.h
+[c docs]: https://docs.rs/wasmer-c-api/*/wasmer/wasm_c_api/index.html
+
+[c++ logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/cpp.svg
+[`wasm.hh` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/tests/wasm-c-api/include/wasm.hh
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
@@ -163,7 +169,7 @@ languages**, so you can use WebAssembly _anywhere_.
 [python logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/python.svg
 [python integration]: https://github.com/wasmerio/wasmer-python
 [`wasmer` pypi package]: https://pypi.org/project/wasmer/
-[python docs]: https://wasmerio.github.io/wasmer-python/api/wasmer/
+[python docs]: https://wasmerio.github.io/wasmer-python/api/wasmer
 
 [go logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/go.svg
 [go integration]: https://github.com/wasmerio/wasmer-go
@@ -220,9 +226,18 @@ languages**, so you can use WebAssembly _anywhere_.
 [crystal integration]: https://github.com/naqvis/wasmer-crystal
 [crystal docs]: https://naqvis.github.io/wasmer-crystal/
 
+[julia logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/julia.svg
+[julia integration]: https://github.com/Pangoraw/Wasmer.jl
+
+[vlang logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/vlang.svg
+[vlang integration]: https://github.com/vlang/wasmer
+
 ## Contribute
 
 We appreciate your help! 💜
+
+We recommend reading the following guide on how to contribute into a complex project successfully: 
+https://mitchellh.com/writing/contributing-to-complex-projects
 
 Check our docs on how to [build Wasmer from
 source](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) or [test your changes](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).

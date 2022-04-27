@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "filesystem"), allow(unused))]
 use crate::cache::Cache;
 use crate::hash::Hash;
 use std::fs::{create_dir_all, File};
@@ -35,6 +36,7 @@ pub struct FileSystemCache {
     ext: Option<String>,
 }
 
+#[cfg(feature = "filesystem")]
 impl FileSystemCache {
     /// Construct a new `FileSystemCache` around the specified directory.
     pub fn new<P: Into<PathBuf>>(path: P) -> io::Result<Self> {
@@ -84,6 +86,7 @@ impl FileSystemCache {
     }
 }
 
+#[cfg(feature = "filesystem")]
 impl Cache for FileSystemCache {
     type DeserializeError = DeserializeError;
     type SerializeError = SerializeError;

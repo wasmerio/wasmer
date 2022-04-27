@@ -67,7 +67,7 @@ jobs:
             run_test: false
             run_test_capi: false
           - build: windows-x64
-            os: windows-latest
+            os: windows-2019
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
             artifact_name: 'wasmer-windows-amd64'
@@ -104,10 +104,15 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
+      - name: Install dependencies on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libwayland-cursor0 libxkbcommon-dev libwayland-dev
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++ libxkbcommon-dev wayland-dev
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -166,6 +171,7 @@ jobs:
         shell: bash
       - name: Setup Rust target
         run: |
+          mkdir -p .cargo
           cat << EOF > .cargo/config.toml
           [build]
           target = "${{ matrix.target }}"
@@ -220,7 +226,7 @@ jobs:
       - name: Install Nightly Rust for Headless
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 'nightly-2021-11-01'
+          toolchain: 'nightly-2022-02-08'
           target: ${{ matrix.target }}
           override: true
           components: "rust-src"
@@ -249,12 +255,12 @@ jobs:
           call refreshenv
           set WASMER_DIR=%CD%\package
           make test-integration
-        if: matrix.run_integration_tests && matrix.os == 'windows-latest'
+        if: matrix.run_integration_tests && matrix.os == 'windows-2019'
       - name: Run integration tests (Unix)
         run: |
           export WASMER_DIR=`pwd`/package
           make test-integration
-        if: matrix.run_integration_tests && matrix.os != 'windows-latest'
+        if: matrix.run_integration_tests && matrix.os != 'windows-2019'
       - name: Run iOS integration tests
         run: |
           rustup target add aarch64-apple-ios x86_64-apple-ios
@@ -286,7 +292,7 @@ jobs:
           #cp qjs_win_from_mac.wjit cross
           cp target/release/wasmer cross
       #- name: Cross compile from Windows
-      #  if: matrix.os == 'windows-latest'
+      #  if: matrix.os == 'windows-2019'
       #  shell: bash
       #  run: |
       #    alias wasmer=target/release/wasmer
@@ -345,7 +351,7 @@ jobs:
           
   #test-cross-compile-on-win:
   #  needs: [setup, test]
-  #  runs-on: windows-latest
+  #  runs-on: windows-2019
   #  steps:
   #    - name: Download Wasmer
   #      uses: actions/download-artifact@v2
@@ -445,7 +451,7 @@ jobs:
   audit:
     name: Audit
     env:
-      CARGO_AUDIT_VERSION: 0.12.0
+      CARGO_AUDIT_VERSION: 0.16.0
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

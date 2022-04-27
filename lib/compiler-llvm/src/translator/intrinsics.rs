@@ -703,7 +703,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
-            stack_probe: context.create_string_attribute("probe-stack", "wasmer_vm_probestack"),
+            stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
 
             void_ty,
             i1_ty,

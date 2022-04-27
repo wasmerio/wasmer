@@ -1,14 +1,16 @@
 use crate::common_decl::*;
 use crate::location::{Location, Reg};
+use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
+use crate::unwind::UnwindInstructions;
 use dynasmrt::{AssemblyOffset, DynamicLabel};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    Architecture, CallingConvention, CustomSection, FunctionBody, InstructionAddressMap,
-    Relocation, RelocationTarget, Target, TrapInformation,
+    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody,
+    InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation,
 };
 use wasmer_types::{FunctionIndex, FunctionType};
 use wasmer_vm::{TrapCode, VMOffsets};
@@ -81,10 +83,10 @@ pub trait Machine {
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR;
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
-    /// Push used gpr to the stack
-    fn push_used_gpr(&mut self);
+    /// Push used gpr to the stack. Return the bytes taken on the stack
+    fn push_used_gpr(&mut self, grps: &Vec<Self::GPR>) -> usize;
     /// Pop used gpr to the stack
-    fn pop_used_gpr(&mut self);
+    fn pop_used_gpr(&mut self, grps: &Vec<Self::GPR>);
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used
@@ -99,10 +101,12 @@ pub trait Machine {
     fn reserve_simd(&mut self, simd: Self::SIMD);
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: Self::SIMD);
-    /// Push used simd regs to the stack
-    fn push_used_simd(&mut self);
+    /// Push used simd regs to the stack. Return bytes taken on the stack
+    fn push_used_simd(&mut self, simds: &Vec<Self::SIMD>) -> usize;
     /// Pop used simd regs to the stack
-    fn pop_used_simd(&mut self);
+    fn pop_used_simd(&mut self, simds: &Vec<Self::SIMD>);
+    /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
+    fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32);
     /// Marks each address in the code range emitted by `f` with the trap code `code`.
@@ -129,10 +133,6 @@ pub trait Machine {
     /// restore stack
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn restore_stack(&mut self, delta_stack_offset: u32);
-    /// push callee saved register to the stack
-    fn push_callee_saved(&mut self);
-    /// pop callee saved register from the stack
-    fn pop_callee_saved(&mut self);
     /// Pop stack of locals
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
     fn pop_stack_locals(&mut self, delta_stack_offset: u32);
@@ -141,7 +141,12 @@ pub trait Machine {
     /// GPR Reg used for local pointer on the stack
     fn local_pointer(&self) -> Self::GPR;
     /// push a value on the stack for a native call
-    fn push_location_for_native(&mut self, loc: Location<Self::GPR, Self::SIMD>);
+    fn move_location_for_native(
+        &mut self,
+        size: Size,
+        loc: Location<Self::GPR, Self::SIMD>,
+        dest: Location<Self::GPR, Self::SIMD>,
+    );
     /// Determine whether a local should be allocated on the stack.
     fn is_local_on_stack(&self, idx: usize) -> bool;
     /// Determine a local's location.
@@ -158,8 +163,24 @@ pub trait Machine {
         &self,
         calling_convention: CallingConvention,
     ) -> Vec<Location<Self::GPR, Self::SIMD>>;
-    /// Get param location
+    /// Get param location (to build a call, using SP for stack args)
     fn get_param_location(
+        &self,
+        idx: usize,
+        sz: Size,
+        stack_offset: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get call param location (from a call, using FP for stack args)
+    fn get_call_param_location(
+        &self,
+        idx: usize,
+        sz: Size,
+        stack_offset: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get simple param location
+    fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
@@ -259,6 +280,10 @@ pub trait Machine {
     fn get_gpr_for_ret(&self) -> Self::GPR;
     /// get the simd for the return of float/double values
     fn get_simd_for_ret(&self) -> Self::SIMD;
+
+    /// Emit a debug breakpoint
+    fn emit_debug_breakpoint(&mut self);
+
     /// load the address of a memory location (will panic if src is not a memory)
     /// like LEA opcode on x86_64
     fn location_address(
@@ -430,6 +455,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv32(
@@ -438,6 +464,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_urem32(
@@ -446,6 +473,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem32(
@@ -454,6 +482,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// And with location directly from the stack
     fn emit_binop_and32(
@@ -1010,11 +1039,11 @@ pub trait Machine {
     );
 
     /// emit a move function address to GPR ready for call, using appropriate relocation
-    fn move_with_reloc(
+    fn emit_call_with_reloc(
         &mut self,
+        calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
-        relocations: &mut Vec<Relocation>,
-    );
+    ) -> Vec<Relocation>;
     /// Add with location directly from the stack
     fn emit_binop_add64(
         &mut self,
@@ -1043,6 +1072,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv64(
@@ -1051,6 +1081,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_urem64(
@@ -1059,6 +1090,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem64(
@@ -1067,6 +1099,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
+        integer_overflow: Label,
     ) -> usize;
     /// And with location directly from the stack
     fn emit_binop_and64(
@@ -2158,6 +2191,10 @@ pub trait Machine {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> CustomSection;
+    /// generate eh_frame instruction (or None if not possible / supported)
+    fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
+    /// generate Windows unwind instructions (or None if not possible / supported)
+    fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>>;
 }
 
 /// Standard entry trampoline generation
@@ -2166,12 +2203,25 @@ pub fn gen_std_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let machine = match target.triple().architecture {
-        Architecture::X86_64 => MachineX86_64::new(),
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
+            machine.gen_std_trampoline(sig, calling_convention)
+        }
+        Architecture::Aarch64(_) => {
+            let machine = MachineARM64::new();
+            machine.gen_std_trampoline(sig, calling_convention)
+        }
         _ => unimplemented!(),
-    };
-    machine.gen_std_trampoline(sig, calling_convention)
+    }
 }
+
 /// Generates dynamic import function call trampoline for a function type.
 pub fn gen_std_dynamic_import_trampoline(
     vmoffsets: &VMOffsets,
@@ -2179,11 +2229,23 @@ pub fn gen_std_dynamic_import_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> FunctionBody {
-    let machine = match target.triple().architecture {
-        Architecture::X86_64 => MachineX86_64::new(),
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
+            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+        }
+        Architecture::Aarch64(_) => {
+            let machine = MachineARM64::new();
+            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+        }
         _ => unimplemented!(),
-    };
-    machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+    }
 }
 /// Singlepass calls import functions through a trampoline.
 pub fn gen_import_call_trampoline(
@@ -2193,9 +2255,60 @@ pub fn gen_import_call_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
 ) -> CustomSection {
-    let machine = match target.triple().architecture {
-        Architecture::X86_64 => MachineX86_64::new(),
+    match target.triple().architecture {
+        Architecture::X86_64 => {
+            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
+                MachineX86_64::new(Some(CpuFeature::AVX))
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                MachineX86_64::new(Some(CpuFeature::SSE42))
+            } else {
+                unimplemented!()
+            };
+            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+        }
+        Architecture::Aarch64(_) => {
+            let machine = MachineARM64::new();
+            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+        }
         _ => unimplemented!(),
-    };
-    machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+    }
 }
+
+// Constants for the bounds of truncation operations. These are the least or
+// greatest exact floats in either f32 or f64 representation less-than (for
+// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
+// min (for least) or max (for greatest), when rounding towards zero.
+
+/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
+pub const GEF32_LT_I32_MIN: f32 = -2147483904.0;
+/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
+pub const LEF32_GT_I32_MAX: f32 = 2147483648.0;
+/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
+pub const GEF32_LT_I64_MIN: f32 = -9223373136366403584.0;
+/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
+pub const LEF32_GT_I64_MAX: f32 = 9223372036854775808.0;
+/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
+pub const GEF32_LT_U32_MIN: f32 = -1.0;
+/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
+pub const LEF32_GT_U32_MAX: f32 = 4294967296.0;
+/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
+pub const GEF32_LT_U64_MIN: f32 = -1.0;
+/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
+pub const LEF32_GT_U64_MAX: f32 = 18446744073709551616.0;
+
+/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
+pub const GEF64_LT_I32_MIN: f64 = -2147483649.0;
+/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
+pub const LEF64_GT_I32_MAX: f64 = 2147483648.0;
+/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
+pub const GEF64_LT_I64_MIN: f64 = -9223372036854777856.0;
+/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
+pub const LEF64_GT_I64_MAX: f64 = 9223372036854775808.0;
+/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
+pub const GEF64_LT_U32_MIN: f64 = -1.0;
+/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
+pub const LEF64_GT_U32_MAX: f64 = 4294967296.0;
+/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
+pub const GEF64_LT_U64_MIN: f64 = -1.0;
+/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
+pub const LEF64_GT_U64_MAX: f64 = 18446744073709551616.0;

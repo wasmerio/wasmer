@@ -8,7 +8,7 @@ use std::mem::size_of;
 use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::slice;
-use wasmer::{GlobalInit, Memory, Module, Pages};
+use wasmer::{GlobalInit, Memory, Module, Pages, WasmPtr};
 
 /// We check if a provided module is an Emscripten generated one
 pub fn is_emscripten_module(module: &Module) -> bool {
@@ -214,12 +214,9 @@ pub unsafe fn copy_stat_into_wasm(ctx: &EmEnv, buf: u32, stat: &stat) {
 
 #[allow(dead_code)] // it's used in `env/windows/mod.rs`.
 pub fn read_string_from_wasm(memory: &Memory, offset: u32) -> String {
-    let v: Vec<u8> = memory.view()[(offset as usize)..]
-        .iter()
-        .map(|cell| cell.get())
-        .take_while(|&byte| byte != 0)
-        .collect();
-    String::from_utf8_lossy(&v).to_owned().to_string()
+    WasmPtr::<u8>::new(offset)
+        .read_utf8_string_with_nul(memory)
+        .unwrap()
 }
 
 /// This function trys to find an entry in mapdir

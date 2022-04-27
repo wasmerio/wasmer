@@ -1,14 +1,14 @@
 use crate::syscalls::types::*;
 use chrono::prelude::*;
 use std::mem;
-use wasmer::WasmCell;
+use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
     clock_id: __wasi_clockid_t,
-    resolution: WasmCell<__wasi_timestamp_t>,
+    resolution: WasmRef<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let t_out = 1 * 1_000_000_000;
-    resolution.set(t_out as __wasi_timestamp_t);
+    wasi_try_mem!(resolution.write(t_out as __wasi_timestamp_t));
 
     // TODO: map output of clock_getres to __wasi_errno_t
     __WASI_ESUCCESS
@@ -17,10 +17,10 @@ pub fn platform_clock_res_get(
 pub fn platform_clock_time_get(
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
-    time: WasmCell<__wasi_timestamp_t>,
+    time: WasmRef<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     let new_time: DateTime<Local> = Local::now();
-    time.set(new_time.timestamp_nanos() as __wasi_timestamp_t);
+    wasi_try_mem!(time.write(new_time.timestamp_nanos() as __wasi_timestamp_t));
 
     __WASI_ESUCCESS
 }

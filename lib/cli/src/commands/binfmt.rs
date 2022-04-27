@@ -43,8 +43,9 @@ fn seccheck(path: &Path) -> Result<()> {
     }
     let m = std::fs::metadata(path)
         .with_context(|| format!("Can't check permissions of {}", path.to_string_lossy()))?;
+    use unix_mode::*;
     anyhow::ensure!(
-        m.mode() & 0o2 == 0 || m.mode() & 0o1000 != 0,
+        !is_allowed(Accessor::Other, Access::Write, m.mode()) || is_sticky(m.mode()),
         "{} is world writeable and not sticky",
         path.to_string_lossy()
     );
@@ -62,10 +63,8 @@ impl Binfmt {
             Register | Reregister => {
                 temp_dir = tempfile::tempdir().context("Make temporary directory")?;
                 seccheck(temp_dir.path())?;
-                let bin_path_orig: PathBuf = env::args_os()
-                    .nth(0)
-                    .map(Into::into)
-                    .filter(|p: &PathBuf| p.exists())
+                let bin_path_orig: PathBuf = env::current_exe()
+                    .and_then(|p| p.canonicalize())
                     .context("Cannot get path to wasmer executable")?;
                 let bin_path = temp_dir.path().join("wasmer-binfmt-interpreter");
                 fs::copy(&bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;

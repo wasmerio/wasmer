@@ -5,38 +5,35 @@ use crate::config::Cranelift;
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 use crate::func_environ::{get_function_name, FuncEnvironment};
-use crate::sink::{RelocSink, TrapSink};
 use crate::trampoline::{
     make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
 };
 use crate::translator::{
-    compiled_function_unwind_info, signature_to_cranelift_ir, transform_jump_table,
-    CraneliftUnwindInfo, FuncTranslator,
+    compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
+    signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
 };
-use cranelift_codegen::ir;
+use cranelift_codegen::ir::ExternalName;
 use cranelift_codegen::print_errors::pretty_error;
-use cranelift_codegen::{binemit, Context};
+use cranelift_codegen::{ir, MachReloc};
+use cranelift_codegen::{Context, MachTrap};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
 use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
-use target_lexicon::{Architecture, OperatingSystem};
-use wasmer_compiler::CompileError;
-use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
+use wasmer_compiler::{
+    CallingConvention, ModuleTranslationState, RelocationTarget, Target, TrapInformation,
+};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
     CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBinaryReader, FunctionBody,
     FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
     SectionIndex,
 };
-use wasmer_compiler::{
-    CustomSection, CustomSectionProtection, Relocation, RelocationKind, RelocationTarget,
-    SectionBody,
-};
+use wasmer_compiler::{CompileError, Relocation};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
-use wasmer_vm::libcalls::LibCall;
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex};
+use wasmer_vm::TrapCode;
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
@@ -72,7 +69,10 @@ impl Compiler for CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        let isa = self.config().isa(target);
+        let isa = self
+            .config()
+            .isa(target)
+            .map_err(|error| CompileError::Codegen(error.to_string()))?;
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
@@ -108,35 +108,6 @@ impl Compiler for CraneliftCompiler {
         };
 
         let mut custom_sections = PrimaryMap::new();
-
-        let probestack_trampoline_relocation_target = if target.triple().operating_system
-            == OperatingSystem::Linux
-            && target.triple().architecture == Architecture::X86_64
-        {
-            let probestack_trampoline = CustomSection {
-                protection: CustomSectionProtection::ReadExecute,
-                // We create a jump to an absolute 64bits address
-                // with an indrect jump immediatly followed but the absolute address
-                // JMP [IP+0]   FF 25 00 00 00 00
-                // 64bits ADDR  00 00 00 00 00 00 00 00 preset to 0 until the relocation takes place
-                bytes: SectionBody::new_with_vec(vec![
-                    0xff, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00,
-                ]),
-                relocations: vec![Relocation {
-                    kind: RelocationKind::Abs8,
-                    reloc_target: RelocationTarget::LibCall(LibCall::Probestack),
-                    // 6 is the size of the jmp instruction. The relocated address must follow
-                    offset: 6,
-                    addend: 0,
-                }],
-            };
-            custom_sections.push(probestack_trampoline);
-
-            Some(SectionIndex::new(custom_sections.len() - 1))
-        } else {
-            None
-        };
 
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
@@ -174,21 +145,24 @@ impl Compiler for CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink =
-                    RelocSink::new(&module, func_index, probestack_trampoline_relocation_target);
-                let mut trap_sink = TrapSink::new();
-                let mut stackmap_sink = binemit::NullStackMapSink {};
                 context
-                    .compile_and_emit(
-                        &*isa,
-                        &mut code_buf,
-                        &mut reloc_sink,
-                        &mut trap_sink,
-                        &mut stackmap_sink,
-                    )
-                    .map_err(|error| {
-                        CompileError::Codegen(pretty_error(&context.func, Some(&*isa), error))
-                    })?;
+                    .compile_and_emit(&*isa, &mut code_buf)
+                    .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
+
+                let result = context.mach_compile_result.as_ref().unwrap();
+                let func_relocs = result
+                    .buffer
+                    .relocs()
+                    .into_iter()
+                    .map(|r| mach_reloc_to_reloc(module, r))
+                    .collect::<Vec<_>>();
+
+                let traps = result
+                    .buffer
+                    .traps()
+                    .into_iter()
+                    .map(mach_trap_to_trap)
+                    .collect::<Vec<_>>();
 
                 let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
                     #[cfg(feature = "unwind")]
@@ -218,10 +192,7 @@ impl Compiler for CraneliftCompiler {
                 };
 
                 let range = reader.range();
-                let address_map = get_function_address_map(&context, range, code_buf.len(), &*isa);
-
-                // We transform the Cranelift JumpTable's into compiler JumpTables
-                let func_jt_offsets = transform_jump_table(context.func.jt_offsets);
+                let address_map = get_function_address_map(&context, range, code_buf.len());
 
                 Ok((
                     CompiledFunction {
@@ -229,12 +200,8 @@ impl Compiler for CraneliftCompiler {
                             body: code_buf,
                             unwind_info,
                         },
-                        jt_offsets: func_jt_offsets,
-                        relocations: reloc_sink.func_relocs,
-                        frame_info: CompiledFunctionFrameInfo {
-                            address_map,
-                            traps: trap_sink.traps,
-                        },
+                        relocations: func_relocs,
+                        frame_info: CompiledFunctionFrameInfo { address_map, traps },
                     },
                     fde,
                 ))
@@ -295,7 +262,66 @@ impl Compiler for CraneliftCompiler {
             function_call_trampolines,
             dynamic_function_trampolines,
             dwarf,
-            None,
         ))
+    }
+}
+
+fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &MachReloc) -> Relocation {
+    let &MachReloc {
+        offset,
+        srcloc: _,
+        kind,
+        ref name,
+        addend,
+    } = reloc;
+    let reloc_target = if let ExternalName::User { namespace, index } = *name {
+        debug_assert_eq!(namespace, 0);
+        RelocationTarget::LocalFunc(
+            module
+                .local_func_index(FunctionIndex::from_u32(index))
+                .expect("The provided function should be local"),
+        )
+    } else if let ExternalName::LibCall(libcall) = *name {
+        RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
+    } else {
+        panic!("unrecognized external name")
+    };
+    Relocation {
+        kind: irreloc_to_relocationkind(kind),
+        reloc_target,
+        offset,
+        addend,
+    }
+}
+
+fn mach_trap_to_trap(trap: &MachTrap) -> TrapInformation {
+    let &MachTrap {
+        offset,
+        srcloc: _,
+        code,
+    } = trap;
+    TrapInformation {
+        code_offset: offset,
+        trap_code: translate_ir_trapcode(code),
+    }
+}
+
+/// Translates the Cranelift IR TrapCode into generic Trap Code
+fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
+    match trap {
+        ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
+        ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
+        ir::TrapCode::HeapMisaligned => TrapCode::HeapMisaligned,
+        ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
+        ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
+        ir::TrapCode::BadSignature => TrapCode::BadSignature,
+        ir::TrapCode::IntegerOverflow => TrapCode::IntegerOverflow,
+        ir::TrapCode::IntegerDivisionByZero => TrapCode::IntegerDivisionByZero,
+        ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
+        ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
+        ir::TrapCode::Interrupt => unimplemented!("Interrupts not supported"),
+        ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
+        // ir::TrapCode::Interrupt => TrapCode::Interrupt,
+        // ir::TrapCode::User(user_code) => TrapCode::User(user_code),
     }
 }

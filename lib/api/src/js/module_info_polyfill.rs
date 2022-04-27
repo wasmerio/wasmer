@@ -368,27 +368,30 @@ pub fn parse_import_section<'data>(
                     field_name.unwrap_or_default(),
                 )?;
             }
-            ImportSectionEntryType::Module(_)
-            | ImportSectionEntryType::Instance(_)
-            | ImportSectionEntryType::Event(_) => {
+            ImportSectionEntryType::Module(_) | ImportSectionEntryType::Instance(_) => {
                 unimplemented!("module linking not implemented yet")
             }
-            ImportSectionEntryType::Memory(WPMemoryType::M32 {
-                limits: ref memlimits,
+            ImportSectionEntryType::Tag(_) => {
+                unimplemented!("exception handling not implemented yet")
+            }
+            ImportSectionEntryType::Memory(WPMemoryType {
                 shared,
+                memory64,
+                initial,
+                maximum,
             }) => {
+                if memory64 {
+                    unimplemented!("64bit memory not implemented yet");
+                }
                 module_info.declare_memory_import(
                     MemoryType {
-                        minimum: Pages(memlimits.initial),
-                        maximum: memlimits.maximum.map(Pages),
+                        minimum: Pages(initial as u32),
+                        maximum: maximum.map(|p| Pages(p as u32)),
                         shared,
                     },
                     module_name,
                     field_name.unwrap_or_default(),
                 )?;
-            }
-            ImportSectionEntryType::Memory(WPMemoryType::M64 { .. }) => {
-                unimplemented!("64bit memory not implemented yet")
             }
             ImportSectionEntryType::Global(ref ty) => {
                 module_info.declare_global_import(
@@ -404,8 +407,8 @@ pub fn parse_import_section<'data>(
                 module_info.declare_table_import(
                     TableType {
                         ty: wptype_to_type(tab.element_type).unwrap(),
-                        minimum: tab.limits.initial,
-                        maximum: tab.limits.maximum,
+                        minimum: tab.initial,
+                        maximum: tab.maximum,
                     },
                     module_name,
                     field_name.unwrap_or_default(),
@@ -443,8 +446,8 @@ pub fn parse_table_section(
         let table = entry.map_err(transform_err)?;
         module_info.declare_table(TableType {
             ty: wptype_to_type(table.element_type).unwrap(),
-            minimum: table.limits.initial,
-            maximum: table.limits.maximum,
+            minimum: table.initial,
+            maximum: table.maximum,
         })?;
     }
 
@@ -459,17 +462,20 @@ pub fn parse_memory_section(
     module_info.reserve_memories(memories.get_count())?;
 
     for entry in memories {
-        let memory = entry.map_err(transform_err)?;
-        match memory {
-            WPMemoryType::M32 { limits, shared } => {
-                module_info.declare_memory(MemoryType {
-                    minimum: Pages(limits.initial),
-                    maximum: limits.maximum.map(Pages),
-                    shared,
-                })?;
-            }
-            WPMemoryType::M64 { .. } => unimplemented!("64bit memory not implemented yet"),
+        let WPMemoryType {
+            shared,
+            memory64,
+            initial,
+            maximum,
+        } = entry.map_err(transform_err)?;
+        if memory64 {
+            unimplemented!("64bit memory not implemented yet");
         }
+        module_info.declare_memory(MemoryType {
+            minimum: Pages(initial as u32),
+            maximum: maximum.map(|p| Pages(p as u32)),
+            shared,
+        })?;
     }
 
     Ok(())
@@ -528,11 +534,11 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 module_info.declare_global_export(GlobalIndex::new(index), field)?
             }
-            ExternalKind::Type
-            | ExternalKind::Module
-            | ExternalKind::Instance
-            | ExternalKind::Event => {
+            ExternalKind::Type | ExternalKind::Module | ExternalKind::Instance => {
                 unimplemented!("module linking not implemented yet")
+            }
+            ExternalKind::Tag => {
+                unimplemented!("exception handling not implemented yet")
             }
         }
     }
@@ -569,7 +575,14 @@ pub fn parse_name_section<'data>(
                 }
             }
             wasmparser::Name::Local(_) => {}
-            wasmparser::Name::Unknown { .. } => {}
+            wasmparser::Name::Label(_)
+            | wasmparser::Name::Type(_)
+            | wasmparser::Name::Table(_)
+            | wasmparser::Name::Memory(_)
+            | wasmparser::Name::Global(_)
+            | wasmparser::Name::Element(_)
+            | wasmparser::Name::Data(_)
+            | wasmparser::Name::Unknown { .. } => {}
         };
     }
     Ok(())

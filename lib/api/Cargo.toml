@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "2.1.1"
+version = "2.2.1"
 description = "High-performance WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
@@ -32,19 +32,19 @@ wat = { version = "1.0", optional = true }
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "2.1.1" }
-wasmer-compiler = { path = "../compiler", version = "2.1.1" }
-wasmer-derive = { path = "../derive", version = "2.1.1" }
-wasmer-engine = { path = "../engine", version = "2.1.1" }
-wasmer-types = { path = "../types", version = "2.1.1" }
+wasmer-vm = { path = "../vm", version = "=2.2.1" }
+wasmer-compiler = { path = "../compiler", version = "=2.2.1" }
+wasmer-derive = { path = "../derive", version = "=2.2.1" }
+wasmer-engine = { path = "../engine", version = "=2.2.1" }
+wasmer-types = { path = "../types", version = "=2.2.1" }
 target-lexicon = { version = "0.12.2", default-features = false }
 loupe = "0.1"
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "2.1.1", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "2.1.1", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "2.1.1", optional = true }
-wasmer-engine-universal = { path = "../engine-universal", version = "2.1.1", optional = true }
-wasmer-engine-dylib = { path = "../engine-dylib", version = "2.1.1", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=2.2.1", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=2.2.1", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=2.2.1", optional = true }
+wasmer-engine-universal = { path = "../engine-universal", version = "=2.2.1", optional = true }
+wasmer-engine-dylib = { path = "../engine-dylib", version = "=2.2.1", optional = true }
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
 winapi = "0.3"
@@ -57,12 +57,12 @@ anyhow = "1.0"
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "2.1.1", default-features = false, features = ["std"] }
+wasmer-types = { path = "../types", version = "=2.2.1", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
 js-sys = "0.3.51"
-wasmer-derive = { path = "../derive", version = "2.1.1" }
+wasmer-derive = { path = "../derive", version = "=2.2.1" }
 # - Optional dependencies for `js`.
-wasmparser = { version = "0.78", default-features = false, optional = true }
+wasmparser = { version = "0.83", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
 # - Development Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -154,5 +154,7 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["js", "wasmparser"]
 
+js-serializable-module = []
+
 [package.metadata.docs.rs]
-features = ["compiler", "core", "cranelift", "default-compiler", "default-dylib", "default-engine", "dylib", "engine", "jit", "llvm", "native", "singlepass", "sys", "sys-default", "universal"]
+features = ["compiler", "core", "cranelift", "default-compiler", "default-dylib", "default-engine", "dylib", "engine", "jit", "native", "singlepass", "sys", "sys-default", "universal"]

@@ -7,7 +7,7 @@
 use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
-use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
+use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, Relocation};
 use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -70,9 +70,6 @@ pub struct CompiledFunction {
     /// The relocations (in the body)
     pub relocations: Vec<Relocation>,
 
-    /// The jump tables offsets (in the body).
-    pub jt_offsets: JumpTableOffsets,
-
     /// The frame information.
     pub frame_info: CompiledFunctionFrameInfo,
 }
@@ -106,33 +103,6 @@ impl Dwarf {
     /// Creates a `Dwarf` struct with the corresponding indices for its sections
     pub fn new(eh_frame: SectionIndex) -> Self {
         Self { eh_frame }
-    }
-}
-
-/// Trampolines section used by ARM short jump (26bits)
-#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
-#[derive(Debug, PartialEq, Eq, Clone, MemoryUsage)]
-pub struct TrampolinesSection {
-    /// SectionIndex for the actual Trampolines code
-    pub section_index: SectionIndex,
-    /// Number of jump slots in the section
-    pub slots: usize,
-    /// Slot size
-    pub size: usize,
-}
-
-impl TrampolinesSection {
-    /// Creates a `Trampolines` struct with the indice for its section, and number of slots and size of slot
-    pub fn new(section_index: SectionIndex, slots: usize, size: usize) -> Self {
-        Self {
-            section_index,
-            slots,
-            size,
-        }
     }
 }
 
@@ -182,9 +152,6 @@ pub struct Compilation {
 
     /// Section ids corresponding to the Dwarf debug info
     debug: Option<Dwarf>,
-
-    /// Trampolines for the arch that needs it
-    trampolines: Option<TrampolinesSection>,
 }
 
 impl Compilation {
@@ -195,7 +162,6 @@ impl Compilation {
         function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
         debug: Option<Dwarf>,
-        trampolines: Option<TrampolinesSection>,
     ) -> Self {
         Self {
             functions,
@@ -203,7 +169,6 @@ impl Compilation {
             function_call_trampolines,
             dynamic_function_trampolines,
             debug,
-            trampolines,
         }
     }
 
@@ -235,14 +200,6 @@ impl Compilation {
         self.functions
             .iter()
             .map(|(_, func)| func.body.clone())
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-    }
-
-    /// Gets functions jump table offsets.
-    pub fn get_jt_offsets(&self) -> PrimaryMap<LocalFunctionIndex, JumpTableOffsets> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.jt_offsets.clone())
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
     }
 
@@ -280,11 +237,6 @@ impl Compilation {
     /// Returns the Dwarf info.
     pub fn get_debug(&self) -> Option<Dwarf> {
         self.debug.clone()
-    }
-
-    /// Returns the Trampilines info.
-    pub fn get_trampolines(&self) -> Option<TrampolinesSection> {
-        self.trampolines.clone()
     }
 }
 

@@ -9,14 +9,22 @@
 //! runtime performance.
 
 mod address_map;
+mod arm64_decl;
 mod codegen;
 mod common_decl;
 mod compiler;
 mod config;
+#[cfg(feature = "unwind")]
+mod dwarf;
+mod emitter_arm64;
 mod emitter_x64;
 mod location;
 mod machine;
+mod machine_arm64;
 mod machine_x64;
+mod unwind;
+#[cfg(feature = "unwind")]
+mod unwind_winx64;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;

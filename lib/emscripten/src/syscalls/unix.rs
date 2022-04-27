@@ -1,4 +1,4 @@
-use crate::{ptr::WasmPtr, varargs::VarArgs, LibcDirWrapper};
+use crate::{varargs::VarArgs, LibcDirWrapper};
 #[cfg(target_vendor = "apple")]
 use libc::size_t;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
@@ -81,6 +81,7 @@ use libc::{
     // TCGETS,
     // TCSETSW,
 };
+use wasmer::{ValueType, WasmPtr};
 
 // They are not exposed in in Rust libc in macOS
 const TCGETS: u64 = 0x5401;
@@ -630,10 +631,10 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
             debug!(
                 "=> socket: {}, address: {:?}, address_len: {}",
                 socket,
-                address.deref(&memory).unwrap().get(),
-                address_len.deref(&memory).unwrap().get()
+                address.deref(&memory).read().unwrap(),
+                address_len.deref(&memory).read().unwrap()
             );
-            let mut address_len_addr = address_len.deref(&memory).unwrap().get();
+            let mut address_len_addr = address_len.deref(&memory).read().unwrap();
             // let mut address_len_addr: socklen_t = 0;
 
             let mut host_address: sockaddr = sockaddr {
@@ -643,7 +644,7 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
                 sa_len: Default::default(),
             };
             let fd = unsafe { accept(socket, &mut host_address, &mut address_len_addr) };
-            let mut address_addr = address.deref(&memory).unwrap().get();
+            let mut address_addr = address.deref(&memory).read().unwrap();
 
             address_addr.sa_family = host_address.sa_family as _;
             address_addr.sa_data = host_address.sa_data;
@@ -667,7 +668,7 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
             let socket: i32 = socket_varargs.get(ctx);
             let address: WasmPtr<EmSockAddr> = socket_varargs.get(ctx);
             let address_len: WasmPtr<u32> = socket_varargs.get(ctx);
-            let address_len_addr = address_len.deref(&memory).unwrap().get();
+            let address_len_addr = address_len.deref(&memory).read().unwrap();
 
             let mut sock_addr_host: sockaddr = sockaddr {
                 sa_family: Default::default(),
@@ -683,7 +684,7 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
                 )
             };
             // translate from host data into emscripten data
-            let mut address_mut = address.deref(&memory).unwrap().get();
+            let mut address_mut = address.deref(&memory).read().unwrap();
             address_mut.sa_family = sock_addr_host.sa_family as _;
             address_mut.sa_data = sock_addr_host.sa_data;
 
@@ -839,15 +840,13 @@ pub fn ___syscall132(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
     ret
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, ValueType)]
 #[repr(C)]
 pub struct EmPollFd {
     pub fd: i32,
     pub events: i16,
     pub revents: i16,
 }
-
-unsafe impl wasmer::ValueType for EmPollFd {}
 
 /// poll
 pub fn ___syscall168(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
@@ -857,7 +856,7 @@ pub fn ___syscall168(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     let timeout: i32 = varargs.get(ctx);
     let memory = ctx.memory(0);
 
-    let mut fds_mut = fds.deref(&memory).unwrap().get();
+    let mut fds_mut = fds.deref(&memory).read().unwrap();
 
     let ret = unsafe {
         libc::poll(

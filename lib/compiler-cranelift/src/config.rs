@@ -1,6 +1,7 @@
 use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
+use cranelift_codegen::CodegenResult;
 use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{
@@ -67,7 +68,7 @@ impl Cranelift {
     }
 
     /// Generates the ISA for the provided target
-    pub fn isa(&self, target: &Target) -> Box<dyn TargetIsa> {
+    pub fn isa(&self, target: &Target) -> CodegenResult<Box<dyn TargetIsa>> {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features
@@ -134,6 +135,12 @@ impl Cranelift {
         if self.enable_pic {
             flags.enable("is_pic").expect("should be a valid flag");
         }
+
+        // We set up libcall trampolines in engine-dylib and engine-universal.
+        // These trampolines are always reachable through short jumps.
+        flags
+            .enable("use_colocated_libcalls")
+            .expect("should be a valid flag");
 
         // Invert cranelift's default-on verification to instead default off.
         let enable_verifier = if self.enable_verifier {

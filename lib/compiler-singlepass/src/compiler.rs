@@ -4,19 +4,28 @@
 
 use crate::codegen::FuncGen;
 use crate::config::Singlepass;
+#[cfg(feature = "unwind")]
+use crate::dwarf::WriterRelocate;
+use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline, CodegenError,
 };
+use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
+#[cfg(feature = "unwind")]
+use crate::unwind::{create_systemv_cie, UnwindFrame};
+#[cfg(feature = "unwind")]
+use gimli::write::{EhFrame, FrameTable};
 use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     Architecture, CallingConvention, Compilation, CompileError, CompileModuleInfo,
-    CompiledFunction, Compiler, CompilerConfig, CpuFeature, FunctionBinaryReader, FunctionBody,
-    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
-    ModuleTranslationState, OperatingSystem, SectionIndex, Target, TrapInformation,
+    CompiledFunction, Compiler, CompilerConfig, CpuFeature, Dwarf, FunctionBinaryReader,
+    FunctionBody, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
+    ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, SectionIndex, Target,
+    TrapInformation,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -58,36 +67,68 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        /*if target.triple().operating_system == OperatingSystem::Windows {
-            return Err(CompileError::UnsupportedTarget(
-                OperatingSystem::Windows.to_string(),
-            ));
-        }*/
-        if target.triple().architecture != Architecture::X86_64 {
-            return Err(CompileError::UnsupportedTarget(
-                target.triple().architecture.to_string(),
-            ));
+        match target.triple().architecture {
+            Architecture::X86_64 => {}
+            Architecture::Aarch64(_) => {}
+            _ => {
+                return Err(CompileError::UnsupportedTarget(
+                    target.triple().architecture.to_string(),
+                ))
+            }
         }
-        if !target.cpu_features().contains(CpuFeature::AVX) {
-            return Err(CompileError::UnsupportedTarget(
-                "x86_64 without AVX".to_string(),
-            ));
-        }
+
+        let simd_arch = match target.triple().architecture {
+            Architecture::X86_64 => {
+                if target.cpu_features().contains(CpuFeature::AVX) {
+                    Some(CpuFeature::AVX)
+                } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                    Some(CpuFeature::SSE42)
+                } else {
+                    return Err(CompileError::UnsupportedTarget(
+                        "x86_64 without AVX or SSE 4.2".to_string(),
+                    ));
+                }
+            }
+            _ => None,
+        };
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
         let calling_convention = match target.triple().default_calling_convention() {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
-            //Ok(CallingConvention::AppleAarch64) => AppleAarch64,
+            Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
             _ => panic!("Unsupported Calling convention for Singlepass compiler"),
+        };
+
+        // Generate the frametable
+        #[cfg(feature = "unwind")]
+        let dwarf_frametable = if function_body_inputs.is_empty() {
+            // If we have no function body inputs, we don't need to
+            // construct the `FrameTable`. Constructing it, with empty
+            // FDEs will cause some issues in Linux.
+            None
+        } else {
+            match target.triple().default_calling_convention() {
+                Ok(CallingConvention::SystemV) => {
+                    match create_systemv_cie(target.triple().architecture) {
+                        Some(cie) => {
+                            let mut dwarf_frametable = FrameTable::default();
+                            let cie_id = dwarf_frametable.add_cie(cie);
+                            Some((dwarf_frametable, cie_id))
+                        }
+                        None => None,
+                    }
+                }
+                _ => None,
+            }
         };
 
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
-        let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
+        let mut custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
@@ -103,7 +144,7 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_iter()
             .collect();
-        let functions = function_body_inputs
+        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .into_par_iter_if_rayon()
@@ -126,34 +167,57 @@ impl Compiler for SinglepassCompiler {
                     }
                 }
 
-                let machine = match target.triple().architecture {
-                    Architecture::X86_64 => MachineX86_64::new(),
+                match target.triple().architecture {
+                    Architecture::X86_64 => {
+                        let machine = MachineX86_64::new(simd_arch);
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            &memory_styles,
+                            &table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )
+                        .map_err(to_compile_error)?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op).map_err(to_compile_error)?;
+                        }
+
+                        Ok(generator.finalize(&input))
+                    }
+                    Architecture::Aarch64(_) => {
+                        let machine = MachineARM64::new();
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            &memory_styles,
+                            &table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )
+                        .map_err(to_compile_error)?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op).map_err(to_compile_error)?;
+                        }
+
+                        Ok(generator.finalize(&input))
+                    }
                     _ => unimplemented!(),
-                };
-                let mut generator = FuncGen::new(
-                    module,
-                    &self.config,
-                    &vmoffsets,
-                    &memory_styles,
-                    &table_styles,
-                    i,
-                    &locals,
-                    machine,
-                    calling_convention,
-                )
-                .map_err(to_compile_error)?;
-
-                while generator.has_control_frames() {
-                    generator.set_srcloc(reader.original_position() as u32);
-                    let op = reader.read_operator()?;
-                    generator.feed_operator(op).map_err(to_compile_error)?;
                 }
-
-                Ok(generator.finalize(&input))
             })
-            .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
+            .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunction>>();
+            .unzip();
 
         let function_call_trampolines = module
             .signatures
@@ -181,13 +245,33 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
+        #[cfg(feature = "unwind")]
+        let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
+            for fde in fdes {
+                if let Some(fde) = fde {
+                    match fde {
+                        UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
+                    }
+                }
+            }
+            let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+            dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
+
+            let eh_frame_section = eh_frame.0.into_section();
+            custom_sections.push(eh_frame_section);
+            Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
+        } else {
+            None
+        };
+        #[cfg(not(feature = "unwind"))]
+        let dwarf = None;
+
         Ok(Compilation::new(
-            functions,
-            import_trampolines,
+            functions.into_iter().collect(),
+            custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            None,
-            None,
+            dwarf,
         ))
     }
 }
@@ -252,15 +336,6 @@ mod tests {
     #[test]
     fn errors_for_unsupported_targets() {
         let compiler = SinglepassCompiler::new(Singlepass::default());
-
-        // Compile for win64
-        /*let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
-        let (mut info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win64, &mut info, &translation, inputs);
-        match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"),
-            error => panic!("Unexpected error: {:?}", error),
-        };*/
 
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());

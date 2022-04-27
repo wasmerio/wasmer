@@ -6,15 +6,17 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
+use crate::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use enumset::EnumSet;
 use loupe::MemoryUsage;
+use std::mem;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, CpuFeature, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment, ModuleMiddlewareChain};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
-    SerializeError,
+    MetadataHeader, SerializeError,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
@@ -27,9 +29,6 @@ use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex,
     VMTrampoline,
 };
-
-const SERIALIZED_METADATA_LENGTH_OFFSET: usize = 22;
-const SERIALIZED_METADATA_CONTENT_OFFSET: usize = 32;
 
 /// A compiled wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
@@ -46,7 +45,7 @@ pub struct UniversalArtifact {
 }
 
 impl UniversalArtifact {
-    const MAGIC_HEADER: &'static [u8; 22] = b"\0wasmer-universal\0\0\0\0\0";
+    const MAGIC_HEADER: &'static [u8; 16] = b"wasmer-universal";
 
     /// Check if the provided bytes look like a serialized `UniversalArtifact`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
@@ -113,17 +112,25 @@ impl UniversalArtifact {
 
         let frame_infos = compilation.get_frame_info();
 
+        // Synthesize a custom section to hold the libcall trampolines.
+        let mut custom_sections = compilation.get_custom_sections();
+        let mut custom_section_relocations = compilation.get_custom_section_relocations();
+        let libcall_trampolines_section = make_libcall_trampolines(engine.target());
+        custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
+        let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
+        let libcall_trampoline_len = libcall_trampoline_len(engine.target()) as u32;
+
         let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),
             function_relocations: compilation.get_relocations(),
-            function_jt_offsets: compilation.get_jt_offsets(),
             function_frame_info: frame_infos,
             function_call_trampolines,
             dynamic_function_trampolines,
-            custom_sections: compilation.get_custom_sections(),
-            custom_section_relocations: compilation.get_custom_section_relocations(),
+            custom_sections,
+            custom_section_relocations,
             debug: compilation.get_debug(),
-            trampolines: compilation.get_trampolines(),
+            libcall_trampolines,
+            libcall_trampoline_len,
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -156,17 +163,9 @@ impl UniversalArtifact {
                 "The provided bytes are not wasmer-universal".to_string(),
             ));
         }
-
-        let mut inner_bytes = &bytes[SERIALIZED_METADATA_LENGTH_OFFSET..];
-
-        let metadata_len = leb128::read::unsigned(&mut inner_bytes).map_err(|_e| {
-            DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
-        })?;
-        let metadata_slice: &[u8] = std::slice::from_raw_parts(
-            &bytes[SERIALIZED_METADATA_CONTENT_OFFSET] as *const u8,
-            metadata_len as usize,
-        );
-
+        let bytes = &bytes[Self::MAGIC_HEADER.len()..];
+        let metadata_len = MetadataHeader::parse(bytes)?;
+        let metadata_slice: &[u8] = &bytes[MetadataHeader::LEN..][..metadata_len];
         let serializable = SerializableModule::deserialize(metadata_slice)?;
         Self::from_parts(&mut universal.inner_mut(), serializable)
             .map_err(DeserializeError::Compiler)
@@ -193,11 +192,11 @@ impl UniversalArtifact {
         link_module(
             &serializable.compile_info.module,
             &finished_functions,
-            &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
             &custom_sections,
             &serializable.compilation.custom_section_relocations,
-            &serializable.compilation.trampolines,
+            serializable.compilation.libcall_trampolines,
+            serializable.compilation.libcall_trampoline_len as usize,
         );
 
         // Compute indices into the shared signature table.
@@ -345,51 +344,13 @@ impl Artifact for UniversalArtifact {
         &self.func_data_registry
     }
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        // Prepend the header.
-        let mut serialized = Self::MAGIC_HEADER.to_vec();
-
-        serialized.resize(SERIALIZED_METADATA_CONTENT_OFFSET, 0);
-        let mut writable_leb = &mut serialized[SERIALIZED_METADATA_LENGTH_OFFSET..];
         let serialized_data = self.serializable.serialize()?;
-        let length = serialized_data.len();
-        leb128::write::unsigned(&mut writable_leb, length as u64).expect("Should write number");
+        assert!(mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
 
-        let offset = pad_and_extend::<SerializableModule>(&mut serialized, &serialized_data);
-        assert_eq!(offset, SERIALIZED_METADATA_CONTENT_OFFSET);
-
-        Ok(serialized)
-    }
-}
-
-/// It pads the data with the desired alignment
-pub fn pad_and_extend<T>(prev_data: &mut Vec<u8>, data: &[u8]) -> usize {
-    let align = std::mem::align_of::<T>();
-
-    let mut offset = prev_data.len();
-    if offset & (align - 1) != 0 {
-        offset += align - (offset & (align - 1));
-        prev_data.resize(offset, 0);
-    }
-    prev_data.extend(data);
-    offset
-}
-
-#[cfg(test)]
-mod tests {
-    use super::pad_and_extend;
-
-    #[test]
-    fn test_pad_and_extend() {
-        let mut data: Vec<u8> = vec![];
-        let offset = pad_and_extend::<i64>(&mut data, &[1, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(offset, 0);
-        let offset = pad_and_extend::<i32>(&mut data, &[2, 0, 0, 0]);
-        assert_eq!(offset, 8);
-        let offset = pad_and_extend::<i64>(&mut data, &[3, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(offset, 16);
-        assert_eq!(
-            data,
-            &[1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0]
-        );
+        let mut metadata_binary = vec![];
+        metadata_binary.extend(Self::MAGIC_HEADER);
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()));
+        metadata_binary.extend(serialized_data);
+        Ok(metadata_binary)
     }
 }

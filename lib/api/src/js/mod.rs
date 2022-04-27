@@ -23,7 +23,6 @@ mod lib {
     }
 }
 
-mod cell;
 mod env;
 mod error;
 mod export;
@@ -32,6 +31,7 @@ mod externals;
 mod import_object;
 mod instance;
 mod js_import_object;
+mod mem_access;
 mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
@@ -49,8 +49,8 @@ mod wasm_bindgen_polyfill;
 /// See the [`WasmerEnv`] trait for more information.
 pub use wasmer_derive::WasmerEnv;
 
-pub use crate::js::cell::WasmCell;
 pub use crate::js::env::{HostEnvInitError, LazyInit, WasmerEnv};
+pub use crate::js::error::{DeserializeError, SerializeError};
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
@@ -60,9 +60,10 @@ pub use crate::js::externals::{
 pub use crate::js::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::js::instance::{Instance, InstantiationError};
 pub use crate::js::js_import_object::JsImportObject;
+pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::NativeFunc;
-pub use crate::js::ptr::{Array, Item, WasmPtr};
+pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::js::resolver::{
     ChainableNamedResolver, NamedResolver, NamedResolverChain, Resolver,
 };
@@ -77,8 +78,8 @@ pub use crate::js::types::{Val as Value, ValType as Type};
 pub use crate::js::utils::is_wasm;
 
 pub use wasmer_types::{
-    Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
+    WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 #[cfg(feature = "wat")]

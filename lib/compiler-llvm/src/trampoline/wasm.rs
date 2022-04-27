@@ -155,11 +155,6 @@ impl FuncTrampoline {
                 "trampoline generation produced relocations".into(),
             ));
         }
-        if !compiled_function.jt_offsets.is_empty() {
-            return Err(CompileError::Codegen(
-                "trampoline generation produced jump tables".into(),
-            ));
-        }
         // Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.
 
         Ok(FunctionBody {
@@ -278,11 +273,6 @@ impl FuncTrampoline {
         if !compiled_function.relocations.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced relocations".into(),
-            ));
-        }
-        if !compiled_function.jt_offsets.is_empty() {
-            return Err(CompileError::Codegen(
-                "trampoline generation produced jump tables".into(),
             ));
         }
         // Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.

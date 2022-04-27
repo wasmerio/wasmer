@@ -1,27 +1,114 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
 use crate::location::Location as AbstractLocation;
-use crate::machine::Machine;
-use crate::machine::{MemoryImmediate, TrapTable};
+use crate::location::Reg;
+use crate::machine::*;
+use crate::unwind::{UnwindInstructions, UnwindOps};
+#[cfg(feature = "unwind")]
+use crate::unwind_winx64::create_unwind_info_from_insts;
 use crate::x64_decl::new_machine_state;
 use crate::x64_decl::{ArgumentRegisterAllocator, X64Register, GPR, XMM};
-use dynasmrt::{x64::X64Relocation, VecAssembler};
-use std::collections::HashSet;
+use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
+#[cfg(feature = "unwind")]
+use gimli::{write::CallFrameInstruction, X86_64};
+use std::ops::{Deref, DerefMut};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    CallingConvention, CustomSection, CustomSectionProtection, FunctionBody, InstructionAddressMap,
-    Relocation, RelocationKind, RelocationTarget, SectionBody, SourceLoc, TrapInformation,
+    CallingConvention, CpuFeature, CustomSection, CustomSectionProtection, FunctionBody,
+    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SectionBody, SourceLoc,
+    TrapInformation,
 };
 use wasmer_types::{FunctionIndex, FunctionType, Type};
 use wasmer_vm::{TrapCode, VMOffsets};
 
 type Assembler = VecAssembler<X64Relocation>;
+
+pub struct AssemblerX64 {
+    /// the actual inner
+    pub inner: Assembler,
+    /// the simd instructions set on the target.
+    /// Currently only supports SSE 4.2 and AVX
+    pub simd_arch: Option<CpuFeature>,
+}
+
+impl AssemblerX64 {
+    fn new(baseaddr: usize, simd_arch: Option<CpuFeature>) -> Self {
+        Self {
+            inner: Assembler::new(baseaddr),
+            simd_arch,
+        }
+    }
+
+    fn finalize(self) -> Result<Vec<u8>, DynasmError> {
+        self.inner.finalize()
+    }
+}
+
+impl Deref for AssemblerX64 {
+    type Target = Assembler;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for AssemblerX64 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
 type Location = AbstractLocation<GPR, XMM>;
 
+#[cfg(feature = "unwind")]
+fn dwarf_index(reg: u16) -> gimli::Register {
+    static DWARF_GPR: [gimli::Register; 16] = [
+        X86_64::RAX,
+        X86_64::RDX,
+        X86_64::RCX,
+        X86_64::RBX,
+        X86_64::RSI,
+        X86_64::RDI,
+        X86_64::RBP,
+        X86_64::RSP,
+        X86_64::R8,
+        X86_64::R9,
+        X86_64::R10,
+        X86_64::R11,
+        X86_64::R12,
+        X86_64::R13,
+        X86_64::R14,
+        X86_64::R15,
+    ];
+    static DWARF_XMM: [gimli::Register; 16] = [
+        X86_64::XMM0,
+        X86_64::XMM1,
+        X86_64::XMM2,
+        X86_64::XMM3,
+        X86_64::XMM4,
+        X86_64::XMM5,
+        X86_64::XMM6,
+        X86_64::XMM7,
+        X86_64::XMM8,
+        X86_64::XMM9,
+        X86_64::XMM10,
+        X86_64::XMM11,
+        X86_64::XMM12,
+        X86_64::XMM13,
+        X86_64::XMM14,
+        X86_64::XMM15,
+    ];
+    match reg {
+        0..=15 => DWARF_GPR[reg as usize],
+        17..=24 => DWARF_XMM[reg as usize - 17],
+        _ => panic!("Unknown register index {}", reg),
+    }
+}
+
 pub struct MachineX86_64 {
-    assembler: Assembler,
-    used_gprs: HashSet<GPR>,
-    used_simd: HashSet<XMM>,
+    assembler: AssemblerX64,
+    used_gprs: u32,
+    used_simd: u32,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     ///
@@ -29,22 +116,25 @@ pub struct MachineX86_64 {
     instructions_address_map: Vec<InstructionAddressMap>,
     /// The source location for the current operator.
     src_loc: u32,
+    /// Vector of unwind operations with offset
+    unwind_ops: Vec<(usize, UnwindOps)>,
 }
 
 impl MachineX86_64 {
-    pub fn new() -> Self {
+    pub fn new(simd_arch: Option<CpuFeature>) -> Self {
         MachineX86_64 {
-            assembler: Assembler::new(0),
-            used_gprs: HashSet::new(),
-            used_simd: HashSet::new(),
+            assembler: AssemblerX64::new(0, simd_arch),
+            used_gprs: 0,
+            used_simd: 0,
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
+            unwind_ops: vec![],
         }
     }
     pub fn emit_relaxed_binop(
         &mut self,
-        op: fn(&mut Assembler, Size, Location, Location),
+        op: fn(&mut AssemblerX64, Size, Location, Location),
         sz: Size,
         src: Location,
         dst: Location,
@@ -57,11 +147,11 @@ impl MachineX86_64 {
         }
         let mode = match (src, dst) {
             (Location::GPR(_), Location::GPR(_))
-                if (op as *const u8 == Assembler::emit_imul as *const u8) =>
+                if (op as *const u8 == AssemblerX64::emit_imul as *const u8) =>
             {
                 RelaxMode::Direct
             }
-            _ if (op as *const u8 == Assembler::emit_imul as *const u8) => RelaxMode::BothToGPR,
+            _ if (op as *const u8 == AssemblerX64::emit_imul as *const u8) => RelaxMode::BothToGPR,
 
             (Location::Memory(_, _), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
             (Location::Imm64(_), Location::Imm64(_)) | (Location::Imm64(_), Location::Imm32(_)) => {
@@ -70,7 +160,7 @@ impl MachineX86_64 {
             (_, Location::Imm32(_)) | (_, Location::Imm64(_)) => RelaxMode::DstToGPR,
             (Location::Imm64(_), Location::Memory(_, _)) => RelaxMode::SrcToGPR,
             (Location::Imm64(_), Location::GPR(_))
-                if (op as *const u8 != Assembler::emit_mov as *const u8) =>
+                if (op as *const u8 != AssemblerX64::emit_mov as *const u8) =>
             {
                 RelaxMode::SrcToGPR
             }
@@ -118,7 +208,7 @@ impl MachineX86_64 {
     }
     pub fn emit_relaxed_zx_sx(
         &mut self,
-        op: fn(&mut Assembler, Size, Location, Size, Location),
+        op: fn(&mut AssemblerX64, Size, Location, Size, Location),
         sz_src: Size,
         src: Location,
         sz_dst: Size,
@@ -188,7 +278,7 @@ impl MachineX86_64 {
     /// I32 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i32(
         &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
+        f: fn(&mut AssemblerX64, Size, Location, Location),
         loc_a: Location,
         loc_b: Location,
         ret: Location,
@@ -206,7 +296,7 @@ impl MachineX86_64 {
     /// I64 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i64(
         &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
+        f: fn(&mut AssemblerX64, Size, Location, Location),
         loc_a: Location,
         loc_b: Location,
         ret: Location,
@@ -253,7 +343,7 @@ impl MachineX86_64 {
     /// I64 shift with both operands popped from the virtual stack.
     fn emit_shift_i64(
         &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
+        f: fn(&mut AssemblerX64, Size, Location, Location),
         loc_a: Location,
         loc_b: Location,
         ret: Location,
@@ -270,7 +360,7 @@ impl MachineX86_64 {
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         &mut self,
-        op: fn(&mut Assembler, Size, Location),
+        op: fn(&mut AssemblerX64, Size, Location),
         sz: Size,
         loc: Location,
         integer_division_by_zero: Label,
@@ -327,7 +417,7 @@ impl MachineX86_64 {
     /// I32 shift with both operands popped from the virtual stack.
     fn emit_shift_i32(
         &mut self,
-        f: fn(&mut Assembler, Size, Location, Location),
+        f: fn(&mut AssemblerX64, Size, Location, Location),
         loc_a: Location,
         loc_b: Location,
         ret: Location,
@@ -360,7 +450,7 @@ impl MachineX86_64 {
         let (base_loc, bound_loc) = if imported_memories {
             // Imported memories require one level of indirection.
             self.emit_relaxed_binop(
-                Assembler::emit_mov,
+                AssemblerX64::emit_mov,
                 Size::S64,
                 Location::Memory(self.get_vmctx_reg(), offset),
                 Location::GPR(tmp_addr),
@@ -410,7 +500,7 @@ impl MachineX86_64 {
         if memarg.offset != 0 {
             self.assembler.emit_add(
                 Size::S32,
-                Location::Imm32(memarg.offset),
+                Location::Imm32(memarg.offset as u32),
                 Location::GPR(tmp_addr),
             );
 
@@ -807,7 +897,7 @@ impl MachineX86_64 {
     /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
     fn emit_relaxed_avx(
         &mut self,
-        op: fn(&mut Assembler, XMM, XMMOrMemory, XMM),
+        op: fn(&mut AssemblerX64, XMM, XMMOrMemory, XMM),
         src1: Location,
         src2: Location,
         dst: Location,
@@ -1553,7 +1643,33 @@ impl MachineX86_64 {
     }
 
     fn emit_relaxed_atomic_xchg(&mut self, sz: Size, src: Location, dst: Location) {
-        self.emit_relaxed_binop(Assembler::emit_xchg, sz, src, dst);
+        self.emit_relaxed_binop(AssemblerX64::emit_xchg, sz, src, dst);
+    }
+
+    fn used_gprs_contains(&self, r: &GPR) -> bool {
+        self.used_gprs & (1 << r.into_index()) != 0
+    }
+    fn used_simd_contains(&self, r: &XMM) -> bool {
+        self.used_simd & (1 << r.into_index()) != 0
+    }
+    fn used_gprs_insert(&mut self, r: GPR) {
+        self.used_gprs |= 1 << r.into_index();
+    }
+    fn used_simd_insert(&mut self, r: XMM) {
+        self.used_simd |= 1 << r.into_index();
+    }
+    fn used_gprs_remove(&mut self, r: &GPR) -> bool {
+        let ret = self.used_gprs_contains(r);
+        self.used_gprs &= !(1 << r.into_index());
+        ret
+    }
+    fn used_simd_remove(&mut self, r: &XMM) -> bool {
+        let ret = self.used_simd_contains(r);
+        self.used_simd &= !(1 << r.into_index());
+        ret
+    }
+    fn emit_unwind_op(&mut self, op: UnwindOps) {
+        self.unwind_ops.push((self.get_offset().0, op));
     }
 }
 
@@ -1575,18 +1691,36 @@ impl Machine for MachineX86_64 {
     }
 
     fn get_used_gprs(&self) -> Vec<GPR> {
-        self.used_gprs.iter().cloned().collect()
+        GPR::iterator()
+            .filter_map(|x| {
+                if self.used_gprs & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn get_used_simd(&self) -> Vec<XMM> {
-        self.used_simd.iter().cloned().collect()
+        XMM::iterator()
+            .filter_map(|x| {
+                if self.used_simd & (1 << x.into_index()) != 0 {
+                    Some(x)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect()
     }
 
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[RSI, RDI, R8, R9, R10, R11];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1598,7 +1732,7 @@ impl Machine for MachineX86_64 {
         use GPR::*;
         static REGS: &[GPR] = &[RAX, RCX, RDX];
         for r in REGS {
-            if !self.used_gprs.contains(r) {
+            if !self.used_gprs_contains(r) {
                 return Some(*r);
             }
         }
@@ -1608,33 +1742,32 @@ impl Machine for MachineX86_64 {
     fn acquire_temp_gpr(&mut self) -> Option<GPR> {
         let gpr = self.pick_temp_gpr();
         if let Some(x) = gpr {
-            self.used_gprs.insert(x);
+            self.used_gprs_insert(x);
         }
         gpr
     }
 
     fn release_gpr(&mut self, gpr: GPR) {
-        assert!(self.used_gprs.remove(&gpr));
+        assert!(self.used_gprs_remove(&gpr));
     }
 
     fn reserve_unused_temp_gpr(&mut self, gpr: GPR) -> GPR {
-        assert!(!self.used_gprs.contains(&gpr));
-        self.used_gprs.insert(gpr);
+        assert!(!self.used_gprs_contains(&gpr));
+        self.used_gprs_insert(gpr);
         gpr
     }
 
     fn reserve_gpr(&mut self, gpr: GPR) {
-        self.used_gprs.insert(gpr);
+        self.used_gprs_insert(gpr);
     }
 
-    fn push_used_gpr(&mut self) {
-        let used_gprs = self.get_used_gprs();
+    fn push_used_gpr(&mut self, used_gprs: &Vec<GPR>) -> usize {
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r));
         }
+        used_gprs.len() * 8
     }
-    fn pop_used_gpr(&mut self) {
-        let used_gprs = self.get_used_gprs();
+    fn pop_used_gpr(&mut self, used_gprs: &Vec<GPR>) {
         for r in used_gprs.iter().rev() {
             self.assembler.emit_pop(Size::S64, Location::GPR(*r));
         }
@@ -1645,7 +1778,7 @@ impl Machine for MachineX86_64 {
         use XMM::*;
         static REGS: &[XMM] = &[XMM3, XMM4, XMM5, XMM6, XMM7];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1657,7 +1790,7 @@ impl Machine for MachineX86_64 {
         use XMM::*;
         static REGS: &[XMM] = &[XMM0, XMM1, XMM2];
         for r in REGS {
-            if !self.used_simd.contains(r) {
+            if !self.used_simd_contains(r) {
                 return Some(*r);
             }
         }
@@ -1668,22 +1801,21 @@ impl Machine for MachineX86_64 {
     fn acquire_temp_simd(&mut self) -> Option<XMM> {
         let simd = self.pick_temp_simd();
         if let Some(x) = simd {
-            self.used_simd.insert(x);
+            self.used_simd_insert(x);
         }
         simd
     }
 
     fn reserve_simd(&mut self, simd: XMM) {
-        self.used_simd.insert(simd);
+        self.used_simd_insert(simd);
     }
 
     // Releases a temporary XMM register.
     fn release_simd(&mut self, simd: XMM) {
-        assert_eq!(self.used_simd.remove(&simd), true);
+        assert_eq!(self.used_simd_remove(&simd), true);
     }
 
-    fn push_used_simd(&mut self) {
-        let used_xmms = self.get_used_simd();
+    fn push_used_simd(&mut self, used_xmms: &Vec<XMM>) -> usize {
         self.adjust_stack((used_xmms.len() * 8) as u32);
 
         for (i, r) in used_xmms.iter().enumerate() {
@@ -1693,9 +1825,10 @@ impl Machine for MachineX86_64 {
                 Location::Memory(GPR::RSP, (i * 8) as i32),
             );
         }
+
+        used_xmms.len() * 8
     }
-    fn pop_used_simd(&mut self) {
-        let used_xmms = self.get_used_simd();
+    fn pop_used_simd(&mut self, used_xmms: &Vec<XMM>) {
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
                 Size::S64,
@@ -1775,6 +1908,11 @@ impl Machine for MachineX86_64 {
         Location::Memory(GPR::RBP, -stack_offset)
     }
 
+    // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
+    fn round_stack_adjust(&self, value: usize) -> usize {
+        value
+    }
+
     // Adjust stack for locals
     fn adjust_stack(&mut self, delta_stack_offset: u32) {
         self.assembler.emit_sub(
@@ -1791,11 +1929,6 @@ impl Machine for MachineX86_64 {
             Location::GPR(GPR::RSP),
         );
     }
-    fn push_callee_saved(&mut self) {}
-    fn pop_callee_saved(&mut self) {
-        self.assembler.emit_pop(Size::S64, Location::GPR(GPR::R14));
-        self.assembler.emit_pop(Size::S64, Location::GPR(GPR::R15));
-    }
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) {
         self.assembler.emit_add(
             Size::S64,
@@ -1804,28 +1937,23 @@ impl Machine for MachineX86_64 {
         );
     }
     // push a value on the stack for a native call
-    fn push_location_for_native(&mut self, loc: Location) {
+    fn move_location_for_native(&mut self, _size: Size, loc: Location, dest: Location) {
         match loc {
-            Location::Imm64(_) => {
-                // Push R9 value slot to be exchange with `mov`.
-                self.assembler.emit_push(Size::S64, Location::GPR(GPR::R9));
-                self.reserve_unused_temp_gpr(GPR::R9);
-                self.move_location(Size::S64, loc, Location::GPR(GPR::R9));
-                self.assembler.emit_xchg(
-                    Size::S64,
-                    Location::GPR(GPR::R9),
-                    Location::Memory(GPR::RSP, 0),
-                );
-                self.release_gpr(GPR::R9);
+            Location::Imm64(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                let tmp = self.pick_temp_gpr();
+                if let Some(x) = tmp {
+                    self.assembler.emit_mov(Size::S64, loc, Location::GPR(x));
+                    self.assembler.emit_mov(Size::S64, Location::GPR(x), dest);
+                } else {
+                    self.assembler
+                        .emit_mov(Size::S64, Location::GPR(GPR::RAX), dest);
+                    self.assembler
+                        .emit_mov(Size::S64, loc, Location::GPR(GPR::RAX));
+                    self.assembler
+                        .emit_xchg(Size::S64, Location::GPR(GPR::RAX), dest);
+                }
             }
-            Location::SIMD(_) => {
-                // Dummy value slot to be filled with `mov`.
-                self.assembler.emit_push(Size::S64, Location::GPR(GPR::RAX));
-
-                // XMM registers can be directly stored to memory.
-                self.move_location(Size::S64, loc, Location::Memory(GPR::RSP, 0));
-            }
-            _ => self.assembler.emit_push(Size::S64, loc),
+            _ => self.assembler.emit_mov(Size::S64, loc, dest),
         }
     }
 
@@ -1862,6 +1990,21 @@ impl Machine for MachineX86_64 {
             location,
             Location::Memory(GPR::RBP, -stack_offset),
         );
+        match location {
+            Location::GPR(x) => {
+                self.emit_unwind_op(UnwindOps::SaveRegister {
+                    reg: x.to_dwarf(),
+                    bp_neg_offset: stack_offset,
+                });
+            }
+            Location::SIMD(x) => {
+                self.emit_unwind_op(UnwindOps::SaveRegister {
+                    reg: x.to_dwarf(),
+                    bp_neg_offset: stack_offset,
+                });
+            }
+            _ => (),
+        }
     }
 
     // List of register to save, depending on the CallingConvention
@@ -1875,14 +2018,80 @@ impl Machine for MachineX86_64 {
     }
 
     // Get param location
-    fn get_param_location(&self, idx: usize, calling_convention: CallingConvention) -> Location {
+    fn get_param_location(
+        &self,
+        idx: usize,
+        _sz: Size,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
         match calling_convention {
             CallingConvention::WindowsFastcall => match idx {
                 0 => Location::GPR(GPR::RCX),
                 1 => Location::GPR(GPR::RDX),
                 2 => Location::GPR(GPR::R8),
                 3 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (16 + 32 + (idx - 4) * 8) as i32),
+                _ => {
+                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                    *stack_location += 8;
+                    loc
+                }
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::RDI),
+                1 => Location::GPR(GPR::RSI),
+                2 => Location::GPR(GPR::RDX),
+                3 => Location::GPR(GPR::RCX),
+                4 => Location::GPR(GPR::R8),
+                5 => Location::GPR(GPR::R9),
+                _ => {
+                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                    *stack_location += 8;
+                    loc
+                }
+            },
+        }
+    }
+    // Get call param location
+    fn get_call_param_location(
+        &self,
+        idx: usize,
+        _sz: Size,
+        _stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => match idx {
+                0 => Location::GPR(GPR::RCX),
+                1 => Location::GPR(GPR::RDX),
+                2 => Location::GPR(GPR::R8),
+                3 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
+            },
+            _ => match idx {
+                0 => Location::GPR(GPR::RDI),
+                1 => Location::GPR(GPR::RSI),
+                2 => Location::GPR(GPR::RDX),
+                3 => Location::GPR(GPR::RCX),
+                4 => Location::GPR(GPR::R8),
+                5 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
+            },
+        }
+    }
+    // Get simple param location
+    fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => match idx {
+                0 => Location::GPR(GPR::RCX),
+                1 => Location::GPR(GPR::RDX),
+                2 => Location::GPR(GPR::R8),
+                3 => Location::GPR(GPR::R9),
+                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
             },
             _ => match idx {
                 0 => Location::GPR(GPR::RDI),
@@ -1906,9 +2115,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1917,9 +2126,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1928,9 +2137,9 @@ impl Machine for MachineX86_64 {
                     self.assembler.emit_mov(size, source, dest);
                 }
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    self.assembler
-                        .emit_mov(size, source, Location::GPR(GPR::RAX));
-                    self.assembler.emit_mov(size, Location::GPR(GPR::RAX), dest);
+                    let tmp = self.pick_temp_gpr().unwrap();
+                    self.assembler.emit_mov(size, source, Location::GPR(tmp));
+                    self.assembler.emit_mov(size, Location::GPR(tmp), dest);
                 }
                 _ => unreachable!(),
             },
@@ -1949,20 +2158,34 @@ impl Machine for MachineX86_64 {
         size_op: Size,
         dest: Location,
     ) {
+        let dst = match dest {
+            Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                Location::GPR(self.acquire_temp_gpr().unwrap())
+            }
+            Location::GPR(_) | Location::SIMD(_) => dest,
+            _ => unreachable!(),
+        };
         match source {
             Location::GPR(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
                 match size_val {
-                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dest),
+                    Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dst),
                     Size::S16 | Size::S8 => {
                         if signed {
-                            self.assembler.emit_movsx(size_val, source, size_op, dest)
+                            self.assembler.emit_movsx(size_val, source, size_op, dst)
                         } else {
-                            self.assembler.emit_movzx(size_val, source, size_op, dest)
+                            self.assembler.emit_movzx(size_val, source, size_op, dst)
                         }
                     }
                 }
             }
             _ => unreachable!(),
+        }
+        if dst != dest {
+            self.assembler.emit_mov(size_op, dst, dest);
+            match dst {
+                Location::GPR(x) => self.release_gpr(x),
+                _ => unreachable!(),
+            };
         }
     }
     fn load_address(&mut self, size: Size, reg: Location, mem: Location) {
@@ -2028,7 +2251,9 @@ impl Machine for MachineX86_64 {
 
     fn emit_function_prolog(&mut self) {
         self.emit_push(Size::S64, Location::GPR(GPR::RBP));
+        self.emit_unwind_op(UnwindOps::PushFP { up_to_sp: 16 });
         self.move_location(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP));
+        self.emit_unwind_op(UnwindOps::DefineNewFrame);
     }
 
     fn emit_function_epilog(&mut self) {
@@ -2139,6 +2364,10 @@ impl Machine for MachineX86_64 {
     fn arch_emit_indirect_call_with_trampoline(&mut self, location: Location) {
         self.assembler
             .arch_emit_indirect_call_with_trampoline(location);
+    }
+
+    fn emit_debug_breakpoint(&mut self) {
+        self.assembler.emit_bkpt();
     }
 
     fn emit_call_location(&mut self, location: Location) {
@@ -2267,10 +2496,10 @@ impl Machine for MachineX86_64 {
 
     // relaxed binop based...
     fn emit_relaxed_mov(&mut self, sz: Size, src: Location, dst: Location) {
-        self.emit_relaxed_binop(Assembler::emit_mov, sz, src, dst);
+        self.emit_relaxed_binop(AssemblerX64::emit_mov, sz, src, dst);
     }
     fn emit_relaxed_cmp(&mut self, sz: Size, src: Location, dst: Location) {
-        self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst);
+        self.emit_relaxed_binop(AssemblerX64::emit_cmp, sz, src, dst);
     }
     fn emit_relaxed_zero_extension(
         &mut self,
@@ -2280,9 +2509,9 @@ impl Machine for MachineX86_64 {
         dst: Location,
     ) {
         if (sz_src == Size::S32 || sz_src == Size::S64) && sz_dst == Size::S64 {
-            self.emit_relaxed_binop(Assembler::emit_mov, sz_src, src, dst);
+            self.emit_relaxed_binop(AssemblerX64::emit_mov, sz_src, src, dst);
         } else {
-            self.emit_relaxed_zx_sx(Assembler::emit_movzx, sz_src, src, sz_dst, dst);
+            self.emit_relaxed_zx_sx(AssemblerX64::emit_movzx, sz_src, src, sz_dst, dst);
         }
     }
     fn emit_relaxed_sign_extension(
@@ -2292,17 +2521,17 @@ impl Machine for MachineX86_64 {
         sz_dst: Size,
         dst: Location,
     ) {
-        self.emit_relaxed_zx_sx(Assembler::emit_movsx, sz_src, src, sz_dst, dst);
+        self.emit_relaxed_zx_sx(AssemblerX64::emit_movsx, sz_src, src, sz_dst, dst);
     }
 
     fn emit_binop_add32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i32(Assembler::emit_add, loc_a, loc_b, ret);
+        self.emit_binop_i32(AssemblerX64::emit_add, loc_a, loc_b, ret);
     }
     fn emit_binop_sub32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i32(Assembler::emit_sub, loc_a, loc_b, ret);
+        self.emit_binop_i32(AssemblerX64::emit_sub, loc_a, loc_b, ret);
     }
     fn emit_binop_mul32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i32(Assembler::emit_imul, loc_a, loc_b, ret);
+        self.emit_binop_i32(AssemblerX64::emit_imul, loc_a, loc_b, ret);
     }
     fn emit_binop_udiv32(
         &mut self,
@@ -2310,6 +2539,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2317,7 +2547,7 @@ impl Machine for MachineX86_64 {
         self.assembler
             .emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_div,
+            AssemblerX64::emit_div,
             Size::S32,
             loc_b,
             integer_division_by_zero,
@@ -2332,13 +2562,14 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
         self.assembler.emit_cdq();
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_idiv,
+            AssemblerX64::emit_idiv,
             Size::S32,
             loc_b,
             integer_division_by_zero,
@@ -2353,6 +2584,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2360,7 +2592,7 @@ impl Machine for MachineX86_64 {
         self.assembler
             .emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_div,
+            AssemblerX64::emit_div,
             Size::S32,
             loc_b,
             integer_division_by_zero,
@@ -2375,6 +2607,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
@@ -2392,7 +2625,7 @@ impl Machine for MachineX86_64 {
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX));
         self.assembler.emit_cdq();
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_idiv,
+            AssemblerX64::emit_idiv,
             Size::S32,
             loc_b,
             integer_division_by_zero,
@@ -2404,13 +2637,13 @@ impl Machine for MachineX86_64 {
         offset
     }
     fn emit_binop_and32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i32(Assembler::emit_and, loc_a, loc_b, ret);
+        self.emit_binop_i32(AssemblerX64::emit_and, loc_a, loc_b, ret);
     }
     fn emit_binop_or32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i32(Assembler::emit_or, loc_a, loc_b, ret);
+        self.emit_binop_i32(AssemblerX64::emit_or, loc_a, loc_b, ret);
     }
     fn emit_binop_xor32(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i32(Assembler::emit_xor, loc_a, loc_b, ret);
+        self.emit_binop_i32(AssemblerX64::emit_xor, loc_a, loc_b, ret);
     }
     fn i32_cmp_ge_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_cmpop_i32_dynamic_b(Condition::GreaterEqual, loc_a, loc_b, ret);
@@ -2576,19 +2809,19 @@ impl Machine for MachineX86_64 {
         }
     }
     fn i32_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i32(Assembler::emit_shl, loc_a, loc_b, ret);
+        self.emit_shift_i32(AssemblerX64::emit_shl, loc_a, loc_b, ret);
     }
     fn i32_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i32(Assembler::emit_shr, loc_a, loc_b, ret);
+        self.emit_shift_i32(AssemblerX64::emit_shr, loc_a, loc_b, ret);
     }
     fn i32_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i32(Assembler::emit_sar, loc_a, loc_b, ret);
+        self.emit_shift_i32(AssemblerX64::emit_sar, loc_a, loc_b, ret);
     }
     fn i32_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i32(Assembler::emit_rol, loc_a, loc_b, ret);
+        self.emit_shift_i32(AssemblerX64::emit_rol, loc_a, loc_b, ret);
     }
     fn i32_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i32(Assembler::emit_ror, loc_a, loc_b, ret);
+        self.emit_shift_i32(AssemblerX64::emit_ror, loc_a, loc_b, ret);
     }
     fn i32_load(
         &mut self,
@@ -2611,7 +2844,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S32,
                     Location::Memory(addr, 0),
                     ret,
@@ -2640,7 +2873,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movzx,
+                    AssemblerX64::emit_movzx,
                     Size::S8,
                     Location::Memory(addr, 0),
                     Size::S32,
@@ -2670,7 +2903,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movsx,
+                    AssemblerX64::emit_movsx,
                     Size::S8,
                     Location::Memory(addr, 0),
                     Size::S32,
@@ -2700,7 +2933,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movzx,
+                    AssemblerX64::emit_movzx,
                     Size::S16,
                     Location::Memory(addr, 0),
                     Size::S32,
@@ -2730,7 +2963,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movsx,
+                    AssemblerX64::emit_movsx,
                     Size::S16,
                     Location::Memory(addr, 0),
                     Size::S32,
@@ -2842,7 +3075,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S32,
                     target_value,
                     Location::Memory(addr, 0),
@@ -2871,7 +3104,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S8,
                     target_value,
                     Location::Memory(addr, 0),
@@ -2900,7 +3133,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S16,
                     target_value,
                     Location::Memory(addr, 0),
@@ -3709,37 +3942,33 @@ impl Machine for MachineX86_64 {
         self.release_gpr(compare);
     }
 
-    fn move_with_reloc(
+    fn emit_call_with_reloc(
         &mut self,
+        _calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
-        relocations: &mut Vec<Relocation>,
-    ) {
-        let reloc_at = self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
-
+    ) -> Vec<Relocation> {
+        let mut relocations = vec![];
+        let next = self.get_label();
+        let reloc_at = self.assembler.get_offset().0 + 1; // skip E8
+        self.assembler.emit_call_label(next);
+        self.emit_label(next);
         relocations.push(Relocation {
-            kind: RelocationKind::Abs8,
+            kind: RelocationKind::X86CallPCRel4,
             reloc_target,
             offset: reloc_at as u32,
-            addend: 0,
+            addend: -4,
         });
-
-        // RAX is preserved on entry to `emit_call_native` callback.
-        // The Imm64 value is relocated by the JIT linker.
-        self.assembler.emit_mov(
-            Size::S64,
-            Location::Imm64(std::u64::MAX),
-            Location::GPR(GPR::RAX),
-        );
+        relocations
     }
 
     fn emit_binop_add64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i64(Assembler::emit_add, loc_a, loc_b, ret);
+        self.emit_binop_i64(AssemblerX64::emit_add, loc_a, loc_b, ret);
     }
     fn emit_binop_sub64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i64(Assembler::emit_sub, loc_a, loc_b, ret);
+        self.emit_binop_i64(AssemblerX64::emit_sub, loc_a, loc_b, ret);
     }
     fn emit_binop_mul64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i64(Assembler::emit_imul, loc_a, loc_b, ret);
+        self.emit_binop_i64(AssemblerX64::emit_imul, loc_a, loc_b, ret);
     }
     fn emit_binop_udiv64(
         &mut self,
@@ -3747,6 +3976,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3754,7 +3984,7 @@ impl Machine for MachineX86_64 {
         self.assembler
             .emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_div,
+            AssemblerX64::emit_div,
             Size::S64,
             loc_b,
             integer_division_by_zero,
@@ -3769,13 +3999,14 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
         self.assembler.emit_cqo();
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_idiv,
+            AssemblerX64::emit_idiv,
             Size::S64,
             loc_b,
             integer_division_by_zero,
@@ -3790,6 +4021,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -3797,7 +4029,7 @@ impl Machine for MachineX86_64 {
         self.assembler
             .emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX));
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_div,
+            AssemblerX64::emit_div,
             Size::S64,
             loc_b,
             integer_division_by_zero,
@@ -3812,6 +4044,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
+        _integer_overflow: Label,
     ) -> usize {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
@@ -3829,7 +4062,7 @@ impl Machine for MachineX86_64 {
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX));
         self.assembler.emit_cqo();
         let offset = self.emit_relaxed_xdiv(
-            Assembler::emit_idiv,
+            AssemblerX64::emit_idiv,
             Size::S64,
             loc_b,
             integer_division_by_zero,
@@ -3841,13 +4074,13 @@ impl Machine for MachineX86_64 {
         offset
     }
     fn emit_binop_and64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i64(Assembler::emit_and, loc_a, loc_b, ret);
+        self.emit_binop_i64(AssemblerX64::emit_and, loc_a, loc_b, ret);
     }
     fn emit_binop_or64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i64(Assembler::emit_or, loc_a, loc_b, ret);
+        self.emit_binop_i64(AssemblerX64::emit_or, loc_a, loc_b, ret);
     }
     fn emit_binop_xor64(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_binop_i64(Assembler::emit_xor, loc_a, loc_b, ret);
+        self.emit_binop_i64(AssemblerX64::emit_xor, loc_a, loc_b, ret);
     }
     fn i64_cmp_ge_s(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         self.emit_cmpop_i64_dynamic_b(Condition::GreaterEqual, loc_a, loc_b, ret);
@@ -4013,19 +4246,19 @@ impl Machine for MachineX86_64 {
         }
     }
     fn i64_shl(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i64(Assembler::emit_shl, loc_a, loc_b, ret);
+        self.emit_shift_i64(AssemblerX64::emit_shl, loc_a, loc_b, ret);
     }
     fn i64_shr(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i64(Assembler::emit_shr, loc_a, loc_b, ret);
+        self.emit_shift_i64(AssemblerX64::emit_shr, loc_a, loc_b, ret);
     }
     fn i64_sar(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i64(Assembler::emit_sar, loc_a, loc_b, ret);
+        self.emit_shift_i64(AssemblerX64::emit_sar, loc_a, loc_b, ret);
     }
     fn i64_rol(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i64(Assembler::emit_rol, loc_a, loc_b, ret);
+        self.emit_shift_i64(AssemblerX64::emit_rol, loc_a, loc_b, ret);
     }
     fn i64_ror(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_shift_i64(Assembler::emit_ror, loc_a, loc_b, ret);
+        self.emit_shift_i64(AssemblerX64::emit_ror, loc_a, loc_b, ret);
     }
     fn i64_load(
         &mut self,
@@ -4048,7 +4281,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S64,
                     Location::Memory(addr, 0),
                     ret,
@@ -4077,7 +4310,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movzx,
+                    AssemblerX64::emit_movzx,
                     Size::S8,
                     Location::Memory(addr, 0),
                     Size::S64,
@@ -4107,7 +4340,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movsx,
+                    AssemblerX64::emit_movsx,
                     Size::S8,
                     Location::Memory(addr, 0),
                     Size::S64,
@@ -4137,7 +4370,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movzx,
+                    AssemblerX64::emit_movzx,
                     Size::S16,
                     Location::Memory(addr, 0),
                     Size::S64,
@@ -4167,7 +4400,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movsx,
+                    AssemblerX64::emit_movsx,
                     Size::S16,
                     Location::Memory(addr, 0),
                     Size::S64,
@@ -4210,7 +4443,7 @@ impl Machine for MachineX86_64 {
                     }
                 }
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S32,
                     Location::Memory(addr, 0),
                     ret,
@@ -4239,7 +4472,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
-                    Assembler::emit_movsx,
+                    AssemblerX64::emit_movsx,
                     Size::S32,
                     Location::Memory(addr, 0),
                     Size::S64,
@@ -4393,7 +4626,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S64,
                     target_value,
                     Location::Memory(addr, 0),
@@ -4422,7 +4655,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S8,
                     target_value,
                     Location::Memory(addr, 0),
@@ -4451,7 +4684,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S16,
                     target_value,
                     Location::Memory(addr, 0),
@@ -4480,7 +4713,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S32,
                     target_value,
                     Location::Memory(addr, 0),
@@ -5570,7 +5803,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S32,
                     Location::Memory(addr, 0),
                     ret,
@@ -5602,7 +5835,7 @@ impl Machine for MachineX86_64 {
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_binop(
-                        Assembler::emit_mov,
+                        AssemblerX64::emit_mov,
                         Size::S32,
                         target_value,
                         Location::Memory(addr, 0),
@@ -5634,7 +5867,7 @@ impl Machine for MachineX86_64 {
             heap_access_oob,
             |this, addr| {
                 this.emit_relaxed_binop(
-                    Assembler::emit_mov,
+                    AssemblerX64::emit_mov,
                     Size::S64,
                     Location::Memory(addr, 0),
                     ret,
@@ -5666,7 +5899,7 @@ impl Machine for MachineX86_64 {
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_binop(
-                        Assembler::emit_mov,
+                        AssemblerX64::emit_mov,
                         Size::S64,
                         target_value,
                         Location::Memory(addr, 0),
@@ -5888,10 +6121,10 @@ impl Machine for MachineX86_64 {
         }
     }
     fn convert_f64_f32(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcvtss2sd, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcvtss2sd, loc, loc, ret);
     }
     fn convert_f32_f64(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcvtsd2ss, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcvtsd2ss, loc, loc, ret);
     }
     fn f64_neg(&mut self, loc: Location, ret: Location) {
         if self.assembler.arch_has_fneg() {
@@ -5950,47 +6183,47 @@ impl Machine for MachineX86_64 {
         self.release_gpr(c);
     }
     fn f64_sqrt(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vsqrtsd, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vsqrtsd, loc, loc, ret);
     }
     fn f64_trunc(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundsd_trunc, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_trunc, loc, loc, ret);
     }
     fn f64_ceil(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundsd_ceil, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_ceil, loc, loc, ret);
     }
     fn f64_floor(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundsd_floor, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_floor, loc, loc, ret);
     }
     fn f64_nearest(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundsd_nearest, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_nearest, loc, loc, ret);
     }
     fn f64_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpgesd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpgesd, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f64_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpgtsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpgtsd, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f64_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmplesd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmplesd, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f64_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpltsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpltsd, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f64_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpneqsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpneqsd, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f64_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpeqsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpeqsd, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f64_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(Assembler::emit_vminsd, loc_a, loc_b, ret);
+            self.emit_relaxed_avx(AssemblerX64::emit_vminsd, loc_a, loc_b, ret);
         } else {
             let tmp1 = self.acquire_temp_simd().unwrap();
             let tmp2 = self.acquire_temp_simd().unwrap();
@@ -6099,7 +6332,7 @@ impl Machine for MachineX86_64 {
     }
     fn f64_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(Assembler::emit_vmaxsd, loc_a, loc_b, ret);
+            self.emit_relaxed_avx(AssemblerX64::emit_vmaxsd, loc_a, loc_b, ret);
         } else {
             let tmp1 = self.acquire_temp_simd().unwrap();
             let tmp2 = self.acquire_temp_simd().unwrap();
@@ -6202,16 +6435,16 @@ impl Machine for MachineX86_64 {
         }
     }
     fn f64_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vaddsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vaddsd, loc_a, loc_b, ret);
     }
     fn f64_sub(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vsubsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vsubsd, loc_a, loc_b, ret);
     }
     fn f64_mul(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vmulsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vmulsd, loc_a, loc_b, ret);
     }
     fn f64_div(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vdivsd, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vdivsd, loc_a, loc_b, ret);
     }
     fn f32_neg(&mut self, loc: Location, ret: Location) {
         if self.assembler.arch_has_fneg() {
@@ -6254,47 +6487,47 @@ impl Machine for MachineX86_64 {
             .emit_or(Size::S32, Location::GPR(tmp2), Location::GPR(tmp1));
     }
     fn f32_sqrt(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vsqrtss, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vsqrtss, loc, loc, ret);
     }
     fn f32_trunc(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundss_trunc, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundss_trunc, loc, loc, ret);
     }
     fn f32_ceil(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundss_ceil, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundss_ceil, loc, loc, ret);
     }
     fn f32_floor(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundss_floor, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundss_floor, loc, loc, ret);
     }
     fn f32_nearest(&mut self, loc: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vroundss_nearest, loc, loc, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vroundss_nearest, loc, loc, ret);
     }
     fn f32_cmp_ge(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpgess, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpgess, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f32_cmp_gt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpgtss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpgtss, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f32_cmp_le(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpless, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpless, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f32_cmp_lt(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpltss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpltss, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f32_cmp_ne(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpneqss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpneqss, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f32_cmp_eq(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vcmpeqss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vcmpeqss, loc_a, loc_b, ret);
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret);
     }
     fn f32_min(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(Assembler::emit_vminss, loc_a, loc_b, ret);
+            self.emit_relaxed_avx(AssemblerX64::emit_vminss, loc_a, loc_b, ret);
         } else {
             let tmp1 = self.acquire_temp_simd().unwrap();
             let tmp2 = self.acquire_temp_simd().unwrap();
@@ -6403,7 +6636,7 @@ impl Machine for MachineX86_64 {
     }
     fn f32_max(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
         if !self.arch_supports_canonicalize_nan() {
-            self.emit_relaxed_avx(Assembler::emit_vmaxss, loc_a, loc_b, ret);
+            self.emit_relaxed_avx(AssemblerX64::emit_vmaxss, loc_a, loc_b, ret);
         } else {
             let tmp1 = self.acquire_temp_simd().unwrap();
             let tmp2 = self.acquire_temp_simd().unwrap();
@@ -6506,16 +6739,16 @@ impl Machine for MachineX86_64 {
         }
     }
     fn f32_add(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vaddss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vaddss, loc_a, loc_b, ret);
     }
     fn f32_sub(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vsubss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vsubss, loc_a, loc_b, ret);
     }
     fn f32_mul(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vmulss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vmulss, loc_a, loc_b, ret);
     }
     fn f32_div(&mut self, loc_a: Location, loc_b: Location, ret: Location) {
-        self.emit_relaxed_avx(Assembler::emit_vdivss, loc_a, loc_b, ret);
+        self.emit_relaxed_avx(AssemblerX64::emit_vdivss, loc_a, loc_b, ret);
     }
 
     fn gen_std_trampoline(
@@ -6523,12 +6756,15 @@ impl Machine for MachineX86_64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> FunctionBody {
-        let mut a = Assembler::new(0);
+        // the cpu feature here is irrelevant
+        let mut a = AssemblerX64::new(0, None);
 
         // Calculate stack offset.
         let mut stack_offset: u32 = 0;
         for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) = self.get_param_location(1 + i, calling_convention) {
+            if let Location::Memory(_, _) =
+                self.get_simple_param_location(1 + i, calling_convention)
+            {
                 stack_offset += 8;
             }
         }
@@ -6556,12 +6792,12 @@ impl Machine for MachineX86_64 {
         // Arguments
         a.emit_mov(
             Size::S64,
-            self.get_param_location(1, calling_convention),
+            self.get_simple_param_location(1, calling_convention),
             Location::GPR(GPR::R15),
         ); // func_ptr
         a.emit_mov(
             Size::S64,
-            self.get_param_location(2, calling_convention),
+            self.get_simple_param_location(2, calling_convention),
             Location::GPR(GPR::R14),
         ); // args_rets
 
@@ -6571,7 +6807,7 @@ impl Machine for MachineX86_64 {
             let mut n_stack_args: usize = 0;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = self.get_param_location(1 + i, calling_convention);
+                let dst_loc = self.get_simple_param_location(1 + i, calling_convention);
 
                 match dst_loc {
                     Location::GPR(_) => {
@@ -6633,7 +6869,8 @@ impl Machine for MachineX86_64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> FunctionBody {
-        let mut a = Assembler::new(0);
+        // the cpu feature here is irrelevant
+        let mut a = AssemblerX64::new(0, None);
 
         // Allocate argument array.
         let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
@@ -6755,7 +6992,8 @@ impl Machine for MachineX86_64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> CustomSection {
-        let mut a = Assembler::new(0);
+        // the cpu feature here is irrelevant
+        let mut a = AssemblerX64::new(0, None);
 
         // TODO: ARM entry trampoline is not emitted.
 
@@ -6915,43 +7153,60 @@ impl Machine for MachineX86_64 {
             relocations: vec![],
         }
     }
+    #[cfg(feature = "unwind")]
+    fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
+        let mut instructions = vec![];
+        for &(instruction_offset, ref inst) in &self.unwind_ops {
+            let instruction_offset = instruction_offset as u32;
+            match inst {
+                &UnwindOps::PushFP { up_to_sp } => {
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::CfaOffset(up_to_sp as i32),
+                    ));
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::Offset(X86_64::RBP, -(up_to_sp as i32)),
+                    ));
+                }
+                &UnwindOps::DefineNewFrame => {
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::CfaRegister(X86_64::RBP),
+                    ));
+                }
+                &UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
+                    instruction_offset,
+                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                )),
+                &UnwindOps::Push2Regs { .. } => unimplemented!(),
+            }
+        }
+        Some(UnwindInstructions {
+            instructions,
+            len: code_len as u32,
+        })
+    }
+    #[cfg(not(feature = "unwind"))]
+    fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
+        None
+    }
+
+    #[cfg(feature = "unwind")]
+    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
+        let unwind_info = create_unwind_info_from_insts(&self.unwind_ops);
+        if let Some(unwind) = unwind_info {
+            let sz = unwind.emit_size();
+            let mut tbl = vec![0; sz];
+            unwind.emit(&mut tbl);
+            Some(tbl)
+        } else {
+            None
+        }
+    }
+
+    #[cfg(not(feature = "unwind"))]
+    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
+        None
+    }
 }
-
-// Constants for the bounds of truncation operations. These are the least or
-// greatest exact floats in either f32 or f64 representation less-than (for
-// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
-// min (for least) or max (for greatest), when rounding towards zero.
-
-/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
-const GEF32_LT_I32_MIN: f32 = -2147483904.0;
-/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
-const LEF32_GT_I32_MAX: f32 = 2147483648.0;
-/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
-const GEF32_LT_I64_MIN: f32 = -9223373136366403584.0;
-/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
-const LEF32_GT_I64_MAX: f32 = 9223372036854775808.0;
-/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
-const GEF32_LT_U32_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
-const LEF32_GT_U32_MAX: f32 = 4294967296.0;
-/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
-const GEF32_LT_U64_MIN: f32 = -1.0;
-/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
-const LEF32_GT_U64_MAX: f32 = 18446744073709551616.0;
-
-/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
-const GEF64_LT_I32_MIN: f64 = -2147483649.0;
-/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
-const LEF64_GT_I32_MAX: f64 = 2147483648.0;
-/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
-const GEF64_LT_I64_MIN: f64 = -9223372036854777856.0;
-/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
-const LEF64_GT_I64_MAX: f64 = 9223372036854775808.0;
-/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
-const GEF64_LT_U32_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
-const LEF64_GT_U32_MAX: f64 = 4294967296.0;
-/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
-const GEF64_LT_U64_MIN: f64 = -1.0;
-/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
-const LEF64_GT_U64_MAX: f64 = 18446744073709551616.0;

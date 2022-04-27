@@ -43,7 +43,7 @@
 
 ## Empezamos?
 
-Wasmer no requiere ninguna dependencia. Puedes instalarlo con uno de éstos instaladores:
+Wasmer no requiere ninguna dependencia. Puedes instalarlo con uno de estos instaladores:
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
@@ -83,7 +83,7 @@ qjs >
 
 ## Integraciones en diferentes Lenguajes
 
-📦 Wasmer puede ser usado como una librería **integrado en diferentes lenguajes de programación**, para que puedas ejecutar WebAssembly _en cualquier sitio_.
+📦 Wasmer puede ser usado como una librería **integrada en diferentes lenguajes de programación**, para que puedas ejecutar WebAssembly _en cualquier sitio_.
 
 | &nbsp; | Lenguaje | Librería | Documentación |
 |-|-|-|-|
@@ -181,7 +181,7 @@ qjs >
 
 ### Tests
 
-Testear quieres? Los [documentos de Wasmer te enseñarán cómo](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
+¿Quieres testear? Los [documentos de Wasmer te enseñarán cómo](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 
 ## Comunidad
 

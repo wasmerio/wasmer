@@ -1,17 +1,24 @@
 use crate::address_map::get_function_address_map;
+#[cfg(feature = "unwind")]
+use crate::dwarf::WriterRelocate;
 use crate::location::{Location, Reg};
 use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
+use crate::unwind::UnwindFrame;
 use crate::{common_decl::*, config::Singlepass};
+#[cfg(feature = "unwind")]
+use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
 use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
+#[cfg(feature = "unwind")]
+use wasmer_compiler::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, FunctionBodyData,
     Relocation, RelocationTarget, SectionIndex,
 };
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    entity::{EntityRef, PrimaryMap},
     FunctionType,
 };
 use wasmer_types::{
@@ -85,6 +92,7 @@ pub struct FuncGen<'a, M: Machine> {
 
 struct SpecialLabelSet {
     integer_division_by_zero: Label,
+    integer_overflow: Label,
     heap_access_oob: Label,
     table_access_oob: Label,
     indirect_call_null: Label,
@@ -290,6 +298,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             ret.push(loc);
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.adjust_stack(delta_stack_offset as u32);
         }
@@ -335,7 +344,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             self.state.wasm_stack.pop().unwrap();
         }
-
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.restore_stack(delta_stack_offset as u32);
         }
@@ -376,6 +385,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.state.wasm_stack.pop().unwrap();
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.adjust_stack(delta_stack_offset as u32);
         }
@@ -421,6 +431,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.pop_stack_locals(delta_stack_offset as u32);
         }
@@ -457,6 +468,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
+        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.pop_stack_locals(delta_stack_offset as u32);
         }
@@ -465,7 +477,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn init_locals(
         &mut self,
         n: usize,
-        n_params: usize,
+        sig: FunctionType,
         calling_convention: CallingConvention,
     ) -> Vec<Location<M::GPR, M::SIMD>> {
         // How many machine stack slots will all the locals use?
@@ -486,7 +498,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Callee-saved R15 for vmctx.
+        // Callee-saved vmctx.
         static_area_size += 8;
 
         // Some ABI (like Windows) needs extrat reg save
@@ -504,6 +516,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         static_area_size += num_mem_slots * 8;
 
         // Allocate save area, without actually writing to it.
+        static_area_size = self.machine.round_stack_adjust(static_area_size);
+
+        // Stack probe.
+        //
+        // `rep stosq` writes data from low address to high address and may skip the stack guard page.
+        // so here we probe it explicitly when needed.
+        for i in (sig.params().len()..n)
+            .step_by(NATIVE_PAGE_SIZE / 8)
+            .skip(1)
+        {
+            self.machine.zero_location(Size::S64, locations[i]);
+        }
+
         self.machine.adjust_stack(static_area_size as _);
 
         // Save callee-saved registers.
@@ -517,7 +542,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Save R15 for vmctx use.
+        // Save the Reg use for vmctx.
         self.stack_offset.0 += 8;
         self.machine.move_local(
             self.stack_offset.0 as i32,
@@ -554,30 +579,36 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Load in-register parameters into the allocated locations.
         // Locals are allocated on the stack from higher address to lower address,
         // so we won't skip the stack guard page here.
-        for i in 0..n_params {
-            let loc = self.machine.get_param_location(i + 1, calling_convention);
-            self.machine.move_location(Size::S64, loc, locations[i]);
+        let mut stack_offset: usize = 0;
+        for (i, param) in sig.params().iter().enumerate() {
+            let sz = match *param {
+                Type::I32 | Type::F32 => Size::S32,
+                Type::I64 | Type::F64 => Size::S64,
+                Type::ExternRef | Type::FuncRef => Size::S64,
+                _ => unimplemented!(),
+            };
+            let loc = self.machine.get_call_param_location(
+                i + 1,
+                sz,
+                &mut stack_offset,
+                calling_convention,
+            );
+            self.machine
+                .move_location_extend(sz, false, loc, Size::S64, locations[i]);
         }
 
-        // Load vmctx into R15.
+        // Load vmctx into it's GPR.
         self.machine.move_location(
             Size::S64,
-            self.machine.get_param_location(0, calling_convention),
+            self.machine
+                .get_simple_param_location(0, calling_convention),
             Location::GPR(self.machine.get_vmctx_reg()),
         );
-
-        // Stack probe.
-        //
-        // `rep stosq` writes data from low address to high address and may skip the stack guard page.
-        // so here we probe it explicitly when needed.
-        for i in (n_params..n).step_by(NATIVE_PAGE_SIZE / 8).skip(1) {
-            self.machine.zero_location(Size::S64, locations[i]);
-        }
 
         // Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
         let mut last_stack_loc = Location::Memory(self.machine.local_pointer(), i32::MAX);
-        for i in n_params..n {
+        for i in sig.params().len()..n {
             match locations[i] {
                 Location::Memory(_, _) => {
                     init_stack_loc_cnt += 1;
@@ -687,25 +718,35 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         );
     }
 
-    /// Emits a System V / Windows call sequence.
-    ///
-    /// This function will not use RAX before `cb` is called.
+    /// Emits a Native ABI call sequence.
     ///
     /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
     /// this function.
-    fn emit_call_native<I: Iterator<Item = Location<M::GPR, M::SIMD>>, F: FnOnce(&mut Self)>(
+    fn emit_call_native<
+        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
+        J: Iterator<Item = WpType>,
+        F: FnOnce(&mut Self),
+    >(
         &mut self,
         cb: F,
         params: I,
+        params_type: J,
     ) -> Result<(), CodegenError> {
         // Values pushed in this function are above the shadow region.
         self.state.stack_values.push(MachineValue::ExplicitShadow);
 
         let params: Vec<_> = params.collect();
+        let params_size: Vec<_> = params_type
+            .map(|x| match x {
+                WpType::F32 | WpType::I32 => Size::S32,
+                WpType::V128 => unimplemented!(),
+                _ => Size::S64,
+            })
+            .collect();
 
-        // Save used GPRs.
-        self.machine.push_used_gpr();
+        // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
+        let mut used_stack = self.machine.push_used_gpr(&used_gprs);
         for r in used_gprs.iter() {
             let content = self.state.register_values[self.machine.index_from_gpr(*r).0].clone();
             if content == MachineValue::Undefined {
@@ -716,10 +757,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.state.stack_values.push(content);
         }
 
-        // Save used XMM registers.
+        // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
         if used_simds.len() > 0 {
-            self.machine.push_used_simd();
+            used_stack += self.machine.push_used_simd(&used_simds);
 
             for r in used_simds.iter().rev() {
                 let content =
@@ -732,6 +773,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.state.stack_values.push(content);
             }
         }
+        // mark the GPR used for Call as used
+        self.machine
+            .reserve_unused_temp_gpr(self.machine.get_grp_for_call());
+
         let calling_convention = self.calling_convention;
 
         let stack_padding: usize = match calling_convention {
@@ -740,35 +785,37 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let mut stack_offset: usize = 0;
-
+        let mut args: Vec<Location<M::GPR, M::SIMD>> = vec![];
+        let mut pushed_args: usize = 0;
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
-            if let Location::Memory(_, _) =
-                self.machine.get_param_location(1 + i, calling_convention)
-            {
-                stack_offset += 8;
-            }
+            args.push(self.machine.get_param_location(
+                1 + i,
+                params_size[i],
+                &mut stack_offset,
+                calling_convention,
+            ));
         }
 
         // Align stack to 16 bytes.
-        if (self.get_stack_offset() + used_gprs.len() * 8 + used_simds.len() * 8 + stack_offset)
-            % 16
-            != 0
-        {
-            self.machine.adjust_stack(8);
-            stack_offset += 8;
-            self.state.stack_values.push(MachineValue::Undefined);
+        let stack_unaligned =
+            (self.machine.round_stack_adjust(self.get_stack_offset()) + used_stack + stack_offset)
+                % 16;
+        if stack_unaligned != 0 {
+            stack_offset += 16 - stack_unaligned;
         }
+        self.machine.adjust_stack(stack_offset as u32);
 
         let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
         // Prepare register & stack parameters.
         for (i, param) in params.iter().enumerate().rev() {
-            let loc = self.machine.get_param_location(1 + i, calling_convention);
+            let loc = args[i];
             match loc {
                 Location::GPR(x) => {
                     call_movs.push((*param, x));
                 }
                 Location::Memory(_, _) => {
+                    pushed_args += 1;
                     match *param {
                         Location::GPR(x) => {
                             let content = self.state.register_values
@@ -803,7 +850,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             self.state.stack_values.push(MachineValue::Undefined);
                         }
                     }
-                    self.machine.push_location_for_native(*param);
+                    self.machine
+                        .move_location_for_native(params_size[i], *param, loc);
                 }
                 _ => {
                     return Err(CodegenError {
@@ -828,19 +876,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.move_location(
             Size::S64,
             Location::GPR(self.machine.get_vmctx_reg()),
-            self.machine.get_param_location(0, calling_convention),
+            self.machine
+                .get_simple_param_location(0, calling_convention),
         ); // vmctx
-
-        if (self.state.stack_values.len() % 2) != 1 {
-            return Err(CodegenError {
-                message: "emit_call_native: explicit shadow takes one slot".to_string(),
-            });
-        }
 
         if stack_padding > 0 {
             self.machine.adjust_stack(stack_padding as u32);
         }
-
+        // release the GPR used for call
+        self.machine.release_gpr(self.machine.get_grp_for_call());
         cb(self);
 
         // Offset needs to be after the 'call' instruction.
@@ -863,28 +907,30 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
-            self.machine
-                .restore_stack((stack_offset + stack_padding) as u32);
+            self.machine.restore_stack(
+                self.machine
+                    .round_stack_adjust(stack_offset + stack_padding) as u32,
+            );
             if (stack_offset % 8) != 0 {
                 return Err(CodegenError {
                     message: "emit_call_native: Bad restoring stack alignement".to_string(),
                 });
             }
-            for _ in 0..stack_offset / 8 {
+            for _ in 0..pushed_args {
                 self.state.stack_values.pop().unwrap();
             }
         }
 
-        // Restore XMMs.
+        // Restore SIMDs.
         if !used_simds.is_empty() {
-            self.machine.pop_used_simd();
+            self.machine.pop_used_simd(&used_simds);
             for _ in 0..used_simds.len() {
                 self.state.stack_values.pop().unwrap();
             }
         }
 
         // Restore GPRs.
-        self.machine.pop_used_gpr();
+        self.machine.pop_used_gpr(&used_gprs);
         for _ in used_gprs.iter().rev() {
             self.state.stack_values.pop().unwrap();
         }
@@ -897,13 +943,21 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    /// Emits a System V call sequence, specialized for labels as the call target.
-    fn _emit_call_native_label<I: Iterator<Item = Location<M::GPR, M::SIMD>>>(
+    /// Emits a Native ABI call sequence, specialized for labels as the call target.
+    fn _emit_call_native_label<
+        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
+        J: Iterator<Item = WpType>,
+    >(
         &mut self,
         label: Label,
         params: I,
+        params_type: J,
     ) -> Result<(), CodegenError> {
-        self.emit_call_native(|this| this.machine.emit_call_label(label), params)?;
+        self.emit_call_native(
+            |this| this.machine.emit_call_label(label),
+            params,
+            params_type,
+        )?;
         Ok(())
     }
 
@@ -945,15 +999,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn emit_head(&mut self) -> Result<(), CodegenError> {
-        // TODO: Patchpoint is not emitted for now, and ARM trampoline is not prepended.
-
-        // Normal x86 entry prologue.
         self.machine.emit_function_prolog();
 
         // Initialize locals.
         self.locals = self.init_locals(
             self.local_types.len(),
-            self.signature.params().len(),
+            self.signature.clone(),
             self.calling_convention,
         );
 
@@ -1024,6 +1075,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let mut machine = machine;
         let special_labels = SpecialLabelSet {
             integer_division_by_zero: machine.get_label(),
+            integer_overflow: machine.get_label(),
             heap_access_oob: machine.get_label(),
             table_access_oob: machine.get_label(),
             indirect_call_null: machine.get_label(),
@@ -1295,6 +1347,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1305,6 +1358,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1315,6 +1369,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1325,6 +1380,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -1454,46 +1510,46 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_binop_mul64(loc_a, loc_b, ret);
             }
             Operator::I64DivU => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_udiv64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
             Operator::I64DivS => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_sdiv64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
             Operator::I64RemU => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_urem64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
             Operator::I64RemS => {
-                // We assume that RAX and RDX are temporary registers here.
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64);
                 let offset = self.machine.emit_binop_srem64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
+                    self.special_labels.integer_overflow,
                 );
                 self.mark_offset_trappable(offset);
             }
@@ -2550,19 +2606,21 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         function_index - self.module.num_imported_functions,
                     ))
                 };
-                self.machine
-                    .move_with_reloc(reloc_target, &mut self.relocations);
+                let calling_convention = self.calling_convention;
 
                 self.emit_call_native(
                     |this| {
                         let offset = this
                             .machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
-                        this.machine
-                            .emit_call_register(this.machine.get_grp_for_call());
+                        let mut relocations = this
+                            .machine
+                            .emit_call_with_reloc(calling_convention, reloc_target);
                         this.machine.mark_instruction_address_end(offset);
+                        this.relocations.append(&mut relocations);
                     },
                     params.iter().copied(),
+                    param_types.iter().copied(),
                 )?;
 
                 self.release_locations_only_stack(&params);
@@ -2774,7 +2832,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                                     gpr_for_call,
                                     vmcaller_checked_anyfunc_vmctx as i32,
                                 ),
-                                this.machine.get_param_location(0, calling_convention),
+                                this.machine
+                                    .get_simple_param_location(0, calling_convention),
                             );
 
                             this.machine.emit_call_location(Location::Memory(
@@ -2785,6 +2844,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                     },
                     params.iter().copied(),
+                    param_types.iter().copied(),
                 )?;
 
                 self.release_locations_only_stack(&params);
@@ -3018,6 +3078,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, memory_index]
                     iter::once(Location::Imm32(memory_index.index() as u32)),
+                    iter::once(WpType::I64),
                 )?;
                 let ret = self.acquire_locations(
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3065,6 +3126,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    [
+                        WpType::I64,
+                        WpType::I64,
+                        WpType::I64,
+                        WpType::I64,
+                        WpType::I64,
+                    ]
+                    .iter()
+                    .cloned(),
                 )?;
                 self.release_locations_only_stack(&[dst, src, len]);
             }
@@ -3087,6 +3157,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, segment_index]
                     iter::once(Location::Imm32(segment)),
+                    iter::once(WpType::I64),
                 )?;
             }
             Operator::MemoryCopy { src, dst } => {
@@ -3137,6 +3208,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                        .iter()
+                        .cloned(),
                 )?;
                 self.release_locations_only_stack(&[dst_pos, src_pos, len]);
             }
@@ -3181,6 +3255,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [Location::Imm32(memory_index.index() as u32), dst, val, len]
                         .iter()
                         .cloned(),
+                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                        .iter()
+                        .cloned(),
                 )?;
                 self.release_locations_only_stack(&[dst, val, len]);
             }
@@ -3215,6 +3292,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, val, memory_index]
                     iter::once(param_pages)
                         .chain(iter::once(Location::Imm32(memory_index.index() as u32))),
+                    [WpType::I64, WpType::I64].iter().cloned(),
                 )?;
 
                 self.release_locations_only_stack(&[param_pages]);
@@ -3795,13 +3873,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_label(after);
             }
             Operator::BrTable { ref table } => {
-                let mut targets = table
+                let targets = table
                     .targets()
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|e| CodegenError {
                         message: format!("BrTable read_table: {:?}", e),
                     })?;
-                let default_target = targets.pop().unwrap().0;
+                let default_target = table.default();
                 let cond = self.pop_value_released();
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
@@ -3815,7 +3893,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.machine.emit_jmp_to_jumptable(table_label, cond);
 
-                for (target, _) in targets.iter() {
+                for target in targets.iter() {
                     let label = self.machine.get_label();
                     self.machine.emit_label(label);
                     table.push(label);
@@ -5412,6 +5490,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, func_index] -> funcref
                     iter::once(Location::Imm32(function_index as u32)),
+                    iter::once(WpType::I64),
                 )?;
 
                 let ret = self.acquire_locations(
@@ -5470,6 +5549,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [Location::Imm32(table_index.index() as u32), index, value]
                         .iter()
                         .cloned(),
+                    [WpType::I32, WpType::I64, WpType::I64].iter().cloned(),
                 )?;
 
                 self.release_locations_only_stack(&[index, value]);
@@ -5504,6 +5584,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [Location::Imm32(table_index.index() as u32), index]
                         .iter()
                         .cloned(),
+                    [WpType::I32, WpType::I64].iter().cloned(),
                 )?;
 
                 self.release_locations_only_stack(&[index]);
@@ -5547,6 +5628,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, table_index] -> i32
                     iter::once(Location::Imm32(table_index.index() as u32)),
+                    iter::once(WpType::I32),
                 )?;
 
                 let ret = self.acquire_locations(
@@ -5596,6 +5678,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    [WpType::I64, WpType::I64, WpType::I64].iter().cloned(),
                 )?;
 
                 self.release_locations_only_stack(&[init_value, delta]);
@@ -5648,6 +5731,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    [
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I64,
+                        WpType::I64,
+                        WpType::I64,
+                    ]
+                    .iter()
+                    .cloned(),
                 )?;
 
                 self.release_locations_only_stack(&[dest, src, len]);
@@ -5679,6 +5771,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, table_index, start_idx, item, len]
                     [Location::Imm32(table), dest, val, len].iter().cloned(),
+                    [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
+                        .iter()
+                        .cloned(),
                 )?;
 
                 self.release_locations_only_stack(&[dest, val, len]);
@@ -5717,6 +5812,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    [
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I64,
+                        WpType::I64,
+                        WpType::I64,
+                    ]
+                    .iter()
+                    .cloned(),
                 )?;
 
                 self.release_locations_only_stack(&[dest, src, len]);
@@ -5742,6 +5846,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, elem_index]
                     [Location::Imm32(segment)].iter().cloned(),
+                    [WpType::I32].iter().cloned(),
                 )?;
             }
             _ => {
@@ -5754,12 +5859,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    pub fn finalize(mut self, data: &FunctionBodyData) -> CompiledFunction {
+    pub fn finalize(mut self, data: &FunctionBodyData) -> (CompiledFunction, Option<UnwindFrame>) {
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero);
         self.machine
             .mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
+        self.machine.emit_illegal_op();
+
+        self.machine
+            .emit_label(self.special_labels.integer_overflow);
+        self.machine
+            .mark_address_with_trap_code(TrapCode::IntegerOverflow);
         self.machine.emit_illegal_op();
 
         self.machine.emit_label(self.special_labels.heap_access_oob);
@@ -5788,23 +5899,49 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.finalize_function();
 
         let body_len = self.machine.assembler_get_offset().0;
+
+        let mut unwind_info = None;
+        let mut fde = None;
+        #[cfg(feature = "unwind")]
+        match self.calling_convention {
+            CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
+                let unwind = self.machine.gen_dwarf_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    fde = Some(unwind.to_fde(Address::Symbol {
+                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                        addend: self.fsm.local_function_id as _,
+                    }));
+                    unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
+                }
+            }
+            CallingConvention::WindowsFastcall => {
+                let unwind = self.machine.gen_windows_unwind_info(body_len);
+                if let Some(unwind) = unwind {
+                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+                }
+            }
+            _ => (),
+        };
+
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
         let body = self.machine.assembler_finalize();
 
-        CompiledFunction {
-            body: FunctionBody {
-                body: body,
-                unwind_info: None,
+        (
+            CompiledFunction {
+                body: FunctionBody {
+                    body: body,
+                    unwind_info,
+                },
+                relocations: self.relocations.clone(),
+                frame_info: CompiledFunctionFrameInfo {
+                    traps: traps,
+                    address_map,
+                },
             },
-            relocations: self.relocations.clone(),
-            jt_offsets: SecondaryMap::new(),
-            frame_info: CompiledFunctionFrameInfo {
-                traps: traps,
-                address_map,
-            },
-        }
+            fde,
+        )
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

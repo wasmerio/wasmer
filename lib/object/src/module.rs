@@ -3,7 +3,8 @@ use object::write::{
     Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
 };
 use object::{
-    elf, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
+    elf, macho, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
+    SymbolScope,
 };
 use wasmer_compiler::{
     Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
@@ -274,6 +275,8 @@ pub fn emit_compilation(
         let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
 
         for r in relocations {
+            let relocation_address = section_offset + r.offset as u64;
+
             let (relocation_kind, relocation_encoding, relocation_size) = match r.kind {
                 Reloc::Abs4 => (RelocationKind::Absolute, RelocationEncoding::Generic, 32),
                 Reloc::Abs8 => (RelocationKind::Absolute, RelocationEncoding::Generic, 64),
@@ -289,10 +292,15 @@ pub fn emit_compilation(
                 Reloc::X86GOTPCRel4 => {
                     (RelocationKind::GotRelative, RelocationEncoding::Generic, 32)
                 }
-                // Reloc::X86PCRelRodata4 => {
-                // }
                 Reloc::Arm64Call => (
-                    RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                    match obj.format() {
+                        object::BinaryFormat::Elf => RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                        object::BinaryFormat::MachO => RelocationKind::MachO {
+                            value: macho::ARM64_RELOC_BRANCH26,
+                            relative: true,
+                        },
+                        fmt => panic!("unsupported binary format {:?}", fmt),
+                    },
                     RelocationEncoding::Generic,
                     32,
                 ),
@@ -308,8 +316,6 @@ pub fn emit_compilation(
                     )))
                 }
             };
-
-            let relocation_address = section_offset + r.offset as u64;
 
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {
@@ -369,9 +375,6 @@ pub fn emit_compilation(
                         },
                     )
                     .map_err(ObjectError::Write)?;
-                }
-                RelocationTarget::JumpTable(_func_index, _jt) => {
-                    // do nothing
                 }
             };
         }

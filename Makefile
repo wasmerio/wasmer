@@ -179,6 +179,11 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
+		ifeq ($(IS_AARCH64), 1)
+			ifneq ($(IS_WINDOWS), 1)
+				compilers += singlepass
+			endif
+		endif
 	endif
 endif
 
@@ -211,14 +216,13 @@ compilers_engines :=
 ifeq ($(ENABLE_CRANELIFT), 1)
 	compilers_engines += cranelift-universal
 
-	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			ifneq ($(LIBC), musl)
 				compilers_engines += cranelift-dylib
 			endif
 		else ifeq ($(IS_AARCH64), 1)
-			# The object crate doesn't support yet Darwin + Aarch64 relocations
-			ifneq ($(IS_DARWIN), 1)
+			ifneq ($(LIBC), musl)
 				compilers_engines += cranelift-dylib
 			endif
 		endif
@@ -230,7 +234,7 @@ endif
 ##
 
 ifeq ($(ENABLE_LLVM), 1)
-	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-universal
 			compilers_engines += llvm-dylib
@@ -246,8 +250,11 @@ endif
 ##
 
 ifeq ($(ENABLE_SINGLEPASS), 1)
-	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
+			compilers_engines += singlepass-universal
+		endif
+		ifeq ($(IS_AARCH64), 1)
 			compilers_engines += singlepass-universal
 		endif
 	endif
@@ -395,14 +402,14 @@ else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 
-WAPM_VERSION = v0.5.1
+WAPM_VERSION = v0.5.3
 get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
 build-wapm: get-wapm
 ifeq ($(IS_DARWIN), 1)
 	# We build it without bundling sqlite, as is included by default in macos
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "full packagesigning telemetry update-notifications"
 else
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
 endif
@@ -575,6 +582,7 @@ test-wasi:
 	cargo test --release --tests $(compiler_features) -- wasi::wasitests
 
 test-examples:
+	cargo test $(compiler_features) --features wasi --examples
 	cargo test --release $(compiler_features) --features wasi --examples
 
 test-integration:
@@ -713,7 +721,7 @@ install-misc:
 install-pkgconfig:
 	# Make sure WASMER_INSTALL_PREFIX is set during build
 	unset WASMER_DIR; \
-	if pc="$$(target/release/wasmer config --pkg-config 1>/dev/null 2>/dev/null)"; then \
+	if pc="$$(target/release/wasmer config --pkg-config 2>/dev/null)"; then \
 		echo "$$pc" | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc; \
 	else \
 		echo 1>&2 "WASMER_INSTALL_PREFIX was not set during build, not installing wasmer.pc"; \

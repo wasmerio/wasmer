@@ -54,3 +54,8 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_features() -> anyhow::Result<()> {
+    main()
+}

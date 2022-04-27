@@ -6,7 +6,51 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
-## **[Unreleased]**
+## **Unreleased**
+
+### Fixed
+- [#2829](https://github.com/wasmerio/wasmer/pull/2829) Improve error message oriented from JS object.
+- [#2828](https://github.com/wasmerio/wasmer/pull/2828) Fix JsImportObject resolver.
+
+## 2.2.1 - 2022/03/15
+
+### Fixed
+- [#2812](https://github.com/wasmerio/wasmer/pull/2812) Fixed another panic due to incorrect drop ordering.
+
+## 2.2.0 - 2022/02/28
+
+### Added
+- [#2775](https://github.com/wasmerio/wasmer/pull/2775) Added support for SSE 4.2 in the Singlepass compiler as an alternative to AVX.
+- [#2805](https://github.com/wasmerio/wasmer/pull/2805) Enabled WASI experimental I/O devices by default in releases.
+
+### Fixed
+- [#2795](https://github.com/wasmerio/wasmer/pull/2795) Fixed a bug in the Singlepass compiler introduced in #2775.
+- [#2806](https://github.com/wasmerio/wasmer/pull/2806) Fixed a panic due to incorrect drop ordering of `Module` fields.
+
+## 2.2.0-rc2 - 2022/02/15
+
+### Fixed
+- [#2778](https://github.com/wasmerio/wasmer/pull/2778) Fixed f32_load/f64_load in Singlepass. Also fixed issues with out-of-range conditional branches.
+- [#2786](https://github.com/wasmerio/wasmer/pull/2786) Fixed a potential integer overflow in WasmPtr memory access methods.
+- [#2787](https://github.com/wasmerio/wasmer/pull/2787) Fixed a codegen regression in the Singlepass compiler due to non-determinism of `HashSet` iteration.
+
+## 2.2.0-rc1 - 2022/01/28
+
+### Added
+- [#2750](https://github.com/wasmerio/wasmer/pull/2750) Added Aarch64 support to Singlepass (both Linux and macOS).
+- [#2753](https://github.com/wasmerio/wasmer/pull/2753) Re-add "dylib" to the list of default features.
+
+### Changed
+- [#2747](https://github.com/wasmerio/wasmer/pull/2747) Use a standard header for metadata in all serialized modules.
+- [#2759](https://github.com/wasmerio/wasmer/pull/2759) Use exact version for Wasmer crate dependencies.
+
+### Fixed
+- [#2769](https://github.com/wasmerio/wasmer/pull/2769) Fixed deadlock in emscripten dynamic calls.
+- [#2742](https://github.com/wasmerio/wasmer/pull/2742) Fixed WASMER_METADATA alignment in the dylib engine.
+- [#2746](https://github.com/wasmerio/wasmer/pull/2746) Fixed invoking `wasmer binfmt register` from `$PATH`.
+- [#2748](https://github.com/wasmerio/wasmer/pull/2748) Use trampolines for all libcalls in engine-universal and engine-dylib.
+- [#2766](https://github.com/wasmerio/wasmer/pull/2766) Remove an attempt to reserve a GPR when no GPR clobbering is occurring.
+- [#2768](https://github.com/wasmerio/wasmer/pull/2768) Fixed serialization of FrameInfo on Dylib engine.
 
 ## 2.1.1 - 2021/12/20
 
@@ -21,6 +65,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2717](https://github.com/wasmerio/wasmer/pull/2717) Allow `Exports` to be modified after being cloned.
 - [#2719](https://github.com/wasmerio/wasmer/pull/2719) Fixed `wasm_importtype_new`'s Rust signature to not assume boxed vectors.
 - [#2723](https://github.com/wasmerio/wasmer/pull/2723) Fixed a bug in parameter passing in the Singlepass compiler.
+- [#2768](https://github.com/wasmerio/wasmer/pull/2768) Fixed issue with Frame Info on dylib engine.
 
 ## 2.1.0 - 2021/11/30
 
@@ -41,7 +86,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ### Changed
 - [#2460](https://github.com/wasmerio/wasmer/pull/2460) **breaking change** `wasmer` API usage with `no-default-features` requires now the `sys` feature to preserve old behavior.
 - [#2476](https://github.com/wasmerio/wasmer/pull/2476) Removed unncessary abstraction `ModuleInfoTranslate` from `wasmer-compiler`.
-- [#2442](https://github.com/wasmerio/wasmer/pull/2442) Improved `WasmPtr`, added `WasmCell` for host/guest interaction.
+- [#2442](https://github.com/wasmerio/wasmer/pull/2442) **breaking change** Improved `WasmPtr`, added `WasmCell` for host/guest interaction. `WasmPtr::deref` will now return `WasmCell<'a, T>` instead of `&'a Cell<T>`, `WasmPtr::deref_mut` is now deleted from the API.
 - [#2427](https://github.com/wasmerio/wasmer/pull/2427) Update `loupe` to 0.1.3.
 - [#2685](https://github.com/wasmerio/wasmer/pull/2685) The minimum LLVM version for the LLVM compiler is now 12. LLVM 13 is used by default.
 - [#2569](https://github.com/wasmerio/wasmer/pull/2569) Add `Send` and `Sync` to uses of the `LikeNamespace` trait object.

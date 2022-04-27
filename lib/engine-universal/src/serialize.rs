@@ -5,8 +5,8 @@ use rkyv::{
     Serialize as RkyvSerialize,
 };
 use wasmer_compiler::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody,
-    JumpTableOffsets, Relocation, SectionIndex, TrampolinesSection,
+    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody, Relocation,
+    SectionIndex,
 };
 use wasmer_engine::{DeserializeError, SerializeError};
 use wasmer_types::entity::PrimaryMap;
@@ -17,7 +17,6 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, Sign
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
-    pub function_jt_offsets: PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
     pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
@@ -25,8 +24,10 @@ pub struct SerializableCompilation {
     pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
     // The section indices corresponding to the Dwarf debug info
     pub debug: Option<Dwarf>,
-    // the Trampoline for Arm arch
-    pub trampolines: Option<TrampolinesSection>,
+    // Custom section containing libcall trampolines.
+    pub libcall_trampolines: SectionIndex,
+    // Length of each libcall trampoline.
+    pub libcall_trampoline_len: u32,
 }
 
 /// Serializable struct that is able to serialize from and to

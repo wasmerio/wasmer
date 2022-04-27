@@ -3,7 +3,7 @@ use super::process::abort_with_message;
 use crate::EmEnv;
 use libc::{c_int, c_void, memcpy, size_t};
 // TODO: investigate max pages etc. probably in Wasm Common, maybe reexport
-use wasmer::{Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
+use wasmer::{Pages, WasmPtr, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
 
 /// emscripten: _emscripten_memcpy_big
 pub fn _emscripten_memcpy_big(ctx: &EmEnv, dest: u32, src: u32, len: u32) -> u32 {
@@ -73,16 +73,21 @@ pub fn sbrk(ctx: &EmEnv, increment: i32) -> i32 {
     debug!("emscripten::sbrk");
     // let old_dynamic_top = 0;
     // let new_dynamic_top = 0;
+    let memory = ctx.memory(0);
     let dynamictop_ptr = {
         let globals = &get_emscripten_data(ctx).globals;
-        (globals.dynamictop_ptr) as usize
+        WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&memory)
     };
-    let old_dynamic_top = ctx.memory(0).view::<u32>()[dynamictop_ptr].get() as i32;
+    let old_dynamic_top = dynamictop_ptr.read().unwrap();
     let new_dynamic_top: i32 = old_dynamic_top + increment;
     let total_memory = _emscripten_get_heap_size(ctx) as i32;
     debug!(
         " => PTR {}, old: {}, new: {}, increment: {}, total: {}",
-        dynamictop_ptr, old_dynamic_top, new_dynamic_top, increment, total_memory
+        dynamictop_ptr.offset(),
+        old_dynamic_top,
+        new_dynamic_top,
+        increment,
+        total_memory
     );
     if increment > 0 && new_dynamic_top < old_dynamic_top || new_dynamic_top < 0 {
         abort_on_cannot_grow_memory_old(ctx);
@@ -94,7 +99,7 @@ pub fn sbrk(ctx: &EmEnv, increment: i32) -> i32 {
             return -1;
         }
     }
-    ctx.memory(0).view::<u32>()[dynamictop_ptr].set(new_dynamic_top as u32);
+    dynamictop_ptr.write(new_dynamic_top).unwrap();
     old_dynamic_top as _
 }
 

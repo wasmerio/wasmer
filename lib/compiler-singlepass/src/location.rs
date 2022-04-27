@@ -2,6 +2,7 @@ use crate::common_decl::RegisterIndex;
 use crate::machine::*;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::slice::Iter;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -42,6 +43,8 @@ pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
     fn is_reserved(self) -> bool;
     fn into_index(self) -> usize;
     fn from_index(i: usize) -> Result<Self, ()>;
+    fn iterator() -> Iter<'static, Self>;
+    fn to_dwarf(self) -> u16;
 }
 
 pub trait Descriptor<R: Reg, S: Reg> {
@@ -71,9 +74,4 @@ pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
     fn from_gpr(x: u16) -> Self;
     /// Convert from an SIMD register
     fn from_simd(x: u16) -> Self;
-    /// Returns the instruction prefix for move to stack
-    /// for example `movq %this_reg, ?(%rsp)` on x86_64
-    /// To build an instruction, append the memory location as a 32-bit
-    /// offset to the stack pointer to this prefix.
-    fn _prefix_mov_to_stack(&self) -> Option<&'static [u8]>;
 }

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-vm"
-version = "2.1.1"
+version = "2.2.1"
 description = "Runtime library support for Wasmer"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "2.1.1" }
+wasmer-types = { path = "../types", version = "=2.2.1" }
 region = "3.0"
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"
@@ -23,6 +23,13 @@ backtrace = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
 rkyv = { version = "0.7.20", optional = true }
 loupe = { version = "0.1", features = ["enable-indexmap"] }
+enum-iterator = "0.7.0"
+corosensei = { version = "0.1.2" }
+scopeguard = "1.1.0"
+lazy_static = "1.4.0"
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+mach = "0.3.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winbase", "memoryapi", "errhandlingapi"] }
