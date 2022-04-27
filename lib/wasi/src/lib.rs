@@ -86,7 +86,7 @@ pub struct WasiThread {
     memory: LazyInit<Memory>,
 }
 
-/// The wasi thread dereferences into the wasi environment
+/// The WASI thread dereferences into the WASI environment
 impl Deref for WasiThread {
     type Target = WasiEnv;
 
@@ -96,12 +96,12 @@ impl Deref for WasiThread {
 }
 
 impl WasiThread {
-    // Returns the unique ID of this thread
+    /// Returns the unique ID of this thread
     pub fn thread_id(&self) -> u32 {
         self.id
     }
 
-    // Yields execution
+    /// Yields execution
     pub fn yield_now(&self) {
         if let Some(callback) = self.on_yield.as_ref() {
             callback(self);
@@ -109,7 +109,7 @@ impl WasiThread {
         std::thread::yield_now();
     }
 
-    // Sleeps for a period of time
+    /// Sleeps for a period of time
     pub fn sleep(&self, duration: std::time::Duration) {
         let start = std::time::Instant::now();
         loop {
@@ -236,8 +236,8 @@ impl WasiEnv {
             .expect("Memory should be set on `WasiEnv` first")
     }
 
-    // Copy the lazy reference so that when its initialized during the
-    // export phase that all the other references get a copy of it
+    /// Copy the lazy reference so that when it's initialized during the
+    /// export phase, all the other references get a copy of it
     pub fn memory_clone(&self) -> LazyInit<Memory> {
         self.memory.clone()
     }

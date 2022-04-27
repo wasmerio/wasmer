@@ -240,9 +240,9 @@ impl Memory {
         js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
     }
 
-    /// A theoretical alais to `Self::view::<u8>` but it returns a `js::Uint8Array` in this case.
+    /// A theoretical alias to `Self::view::<u8>` but it returns a `js::Uint8Array` in this case.
     ///
-    /// This code is going to be refactored. Use it as your own risks.
+    /// This code is going to be refactored. Use it as your own risk.
     #[doc(hidden)]
     pub fn uint8view_with_byte_offset_and_length(
         &self,
