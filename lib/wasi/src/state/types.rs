@@ -8,6 +8,7 @@ use std::{
     collections::VecDeque,
     io::{self, Read, Seek, Write},
 };
+use tracing::debug;
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
@@ -226,6 +227,7 @@ pub(crate) fn poll(
     seen_events: &mut [PollEventSet],
 ) -> Result<u32, FsError> {
     if !(files.len() == events.len() && events.len() == seen_events.len()) {
+        debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
         return Err(FsError::InvalidInput);
     }
 
