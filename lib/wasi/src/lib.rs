@@ -61,6 +61,7 @@ use wasmer::{
     Module, NamedResolver, Store, WasmerEnv,
 };
 
+use std::time::{Instant, Duration};
 use std::sync::{atomic::AtomicU32, atomic::Ordering, Arc, Mutex, MutexGuard};
 
 /// This is returned in `RuntimeError`.
@@ -110,19 +111,23 @@ impl WasiThread {
     }
 
     /// Sleeps for a period of time
-    pub fn sleep(&self, duration: std::time::Duration) {
-        let start = std::time::Instant::now();
+    pub fn sleep(&self, duration: Duration) {
+        let start = Instant::now();
+        self.yield_now();
         loop {
-            self.yield_now();
-            let delta = std::time::Instant::now() - start;
+            let delta = match Instant::now().checked_duration_since(start) {
+                Some(a) => a,
+                None => { break; }
+            };            
             if delta > duration {
                 break;
             }
-            let remaining = duration - delta;
-            std::thread::sleep(remaining.min(std::time::Duration::from_millis(10)));
-            if std::time::Instant::now() - start >= duration {
-                break;
-            }
+            let remaining = match duration.checked_sub(delta) {
+                Some(a) => a.min(Duration::from_millis(10)),
+                None => { break; }
+            };
+            self.yield_now();
+            std::thread::sleep(remaining);
         }
     }
 
