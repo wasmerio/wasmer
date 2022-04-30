@@ -8,6 +8,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+### Changed
+- #2864 wasmer-cli: remove wasi-experimental-io-devices from default builds
+
 ### Fixed
 - [#2829](https://github.com/wasmerio/wasmer/pull/2829) Improve error message oriented from JS object.
 - [#2828](https://github.com/wasmerio/wasmer/pull/2828) Fix JsImportObject resolver.
