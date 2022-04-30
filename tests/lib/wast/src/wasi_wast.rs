@@ -2,7 +2,7 @@ use anyhow::Context;
 use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
-use wasmer::{ImportObject, Instance, Module, Store};
+use wasmer::{Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
@@ -236,12 +236,7 @@ impl<'a> WasiTest<'a> {
 
     /// Get the correct WASI import object for the given module and set it up with the
     /// [`WasiEnv`].
-    fn get_imports(
-        &self,
-        store: &Store,
-        module: &Module,
-        env: WasiEnv,
-    ) -> anyhow::Result<ImportObject> {
+    fn get_imports(&self, store: &Store, module: &Module, env: WasiEnv) -> anyhow::Result<Imports> {
         let thread = env.new_thread();
         let version = self.get_version(module)?;
         Ok(generate_import_object_from_thread(store, thread, version))

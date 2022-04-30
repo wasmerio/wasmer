@@ -12,8 +12,7 @@
         clippy::float_arithmetic,
         clippy::mut_mut,
         clippy::nonminimal_bool,
-        clippy::option_map_unwrap_or,
-        clippy::option_map_unwrap_or_else,
+        clippy::map_unwrap_or,
         clippy::print_stdout,
         clippy::unicode_not_nfc,
         clippy::use_self
@@ -34,10 +33,7 @@ pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
 pub use crate::export::{Export, ExportFunction, ExportFunctionMetadata};
-pub use crate::resolver::{
-    resolve_imports, ChainableNamedResolver, NamedResolver, NamedResolverChain, NullResolver,
-    Resolver,
-};
+pub use crate::resolver::resolve_imports;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
 

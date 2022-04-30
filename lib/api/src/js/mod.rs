@@ -28,7 +28,7 @@ mod error;
 mod export;
 mod exports;
 mod externals;
-mod import_object;
+mod imports;
 mod instance;
 mod js_import_object;
 mod mem_access;
@@ -37,7 +37,6 @@ mod module;
 mod module_info_polyfill;
 mod native;
 mod ptr;
-mod resolver;
 mod store;
 mod trap;
 mod types;
@@ -57,16 +56,13 @@ pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, Table,
     WasmTypeList,
 };
-pub use crate::js::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
+pub use crate::js::imports::Imports;
 pub use crate::js::instance::{Instance, InstantiationError};
 pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::NativeFunc;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use crate::js::resolver::{
-    ChainableNamedResolver, NamedResolver, NamedResolverChain, Resolver,
-};
 pub use crate::js::trap::RuntimeError;
 
 pub use crate::js::store::{Store, StoreObject};

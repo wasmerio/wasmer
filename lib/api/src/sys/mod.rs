@@ -1,7 +1,7 @@
 mod env;
 mod exports;
 mod externals;
-mod import_object;
+mod imports;
 mod instance;
 mod mem_access;
 mod module;
@@ -32,7 +32,7 @@ pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator}
 pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
-pub use crate::sys::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
+pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::sys::module::Module;
@@ -57,8 +57,7 @@ pub use wasmer_compiler::{
 };
 pub use wasmer_derive::ValueType;
 pub use wasmer_engine::{
-    ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,
-    NamedResolverChain, Resolver, RuntimeError, SerializeError, Tunables,
+    DeserializeError, Engine, Export, FrameInfo, LinkError, RuntimeError, SerializeError, Tunables,
 };
 #[cfg(feature = "experimental-reference-types-extern-ref")]
 pub use wasmer_types::ExternRef;

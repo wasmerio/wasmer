@@ -1,5 +1,6 @@
-use crate::js::export::Export;
-use crate::js::resolver::Resolver;
+use crate::js::exports::Exportable;
+use crate::js::externals::Extern;
+use crate::js::imports::Imports;
 use crate::js::store::Store;
 use crate::js::types::{ExportType, ImportType};
 // use crate::js::InstantiationError;
@@ -217,28 +218,31 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
-        resolver: &dyn Resolver,
-    ) -> Result<(WebAssembly::Instance, Vec<Export>), RuntimeError> {
-        let imports = js_sys::Object::new();
-        let mut import_externs: Vec<Export> = vec![];
-        for (i, import_type) in self.imports().enumerate() {
-            let resolved_import =
-                resolver.resolve(i as u32, import_type.module(), import_type.name());
+        imports: &Imports,
+    ) -> Result<(WebAssembly::Instance, Vec<Extern>), RuntimeError> {
+        let imports_object = js_sys::Object::new();
+        let mut import_externs: Vec<Extern> = vec![];
+        for import_type in self.imports() {
+            let resolved_import = imports.get_export(import_type.module(), import_type.name());
             if let Some(import) = resolved_import {
-                let val = js_sys::Reflect::get(&imports, &import_type.module().into())?;
+                let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
                 if !val.is_undefined() {
                     // If the namespace is already set
-                    js_sys::Reflect::set(&val, &import_type.name().into(), import.as_jsvalue())?;
+                    js_sys::Reflect::set(
+                        &val,
+                        &import_type.name().into(),
+                        import.to_export().as_jsvalue(),
+                    )?;
                 } else {
                     // If the namespace doesn't exist
                     let import_namespace = js_sys::Object::new();
                     js_sys::Reflect::set(
                         &import_namespace,
                         &import_type.name().into(),
-                        import.as_jsvalue(),
+                        import.to_export().as_jsvalue(),
                     )?;
                     js_sys::Reflect::set(
-                        &imports,
+                        &imports_object,
                         &import_type.module().into(),
                         &import_namespace.into(),
                     )?;
@@ -249,7 +253,7 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         Ok((
-            WebAssembly::Instance::new(&self.module, &imports)
+            WebAssembly::Instance::new(&self.module, &imports_object)
                 .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
             import_externs,
         ))
