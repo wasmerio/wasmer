@@ -21,7 +21,6 @@ doc = false
 wasmer-engine-universal-artifact = { version = "=2.2.1", path = "../universal-artifact", features = ["compiler"] }
 wasmer-compiler = { version = "=2.2.1", path = "../compiler" }
 wasmer-types = { version = "=2.2.1", path = "../types" }
-wasmer-vfs  = { version = "=2.2.1", path = "../vfs", default-features = false, features = ["host-fs"] }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"

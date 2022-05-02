@@ -35,7 +35,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["std", "rayon", "unwind", "avx"]
-wasm = ["std", "avx"]
+wasm = ["std", "unwind", "avx"]
 std = ["wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 unwind = ["gimli"]

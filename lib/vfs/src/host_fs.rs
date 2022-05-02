@@ -9,8 +9,6 @@ use std::fs;
 use std::io::{self, Read, Seek, Write};
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, RawFd};
-#[cfg(target_arch = "wasm32")]
-use std::os::wasi::io::{AsRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, RawHandle};
 use std::path::{Path, PathBuf};
@@ -66,31 +64,6 @@ impl TryInto<RawHandle> for FileDescriptor {
 
     fn try_into(self) -> std::result::Result<RawHandle, Self::Error> {
         Ok(self.0 as RawHandle)
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-impl<T> TryIntoFileDescriptor for T
-where
-    T: AsRawFd,
-{
-    type Error = FsError;
-
-    fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error> {
-        Ok(FileDescriptor(
-            self.as_raw_fd()
-                .try_into()
-                .map_err(|_| FsError::InvalidFd)?,
-        ))
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-impl TryInto<RawFd> for FileDescriptor {
-    type Error = FsError;
-
-    fn try_into(self) -> std::result::Result<RawFd, Self::Error> {
-        self.0.try_into().map_err(|_| FsError::InvalidFd)
     }
 }
 

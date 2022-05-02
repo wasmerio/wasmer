@@ -7,6 +7,7 @@
 
 use crate::func_data_registry::VMFuncRef;
 use crate::vmcontext::VMTableDefinition;
+use crate::Trap;
 use crate::VMExternRef;
 use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::borrow::{Borrow, BorrowMut};
@@ -15,7 +16,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasmer_types::{ExternRef, TableStyle, TableType, Trap, TrapCode, Type as ValType};
+use wasmer_types::{ExternRef, TableStyle, TableType, TrapCode, Type as ValType};
 
 /// Trait for implementing the interface of a Wasm table.
 pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {

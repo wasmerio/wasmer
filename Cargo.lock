@@ -2870,7 +2870,6 @@ dependencies = [
  "tempfile",
  "unix_mode",
  "wasmer",
- "wasmer-artifact",
  "wasmer-cache",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
@@ -2925,7 +2924,6 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-engine-universal-artifact",
  "wasmer-types",
- "wasmer-vfs",
 ]
 
 [[package]]

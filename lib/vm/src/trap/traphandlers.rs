@@ -5,6 +5,7 @@
 //! signalhandling mechanisms.
 
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
+use crate::Trap;
 use backtrace::Backtrace;
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
@@ -20,7 +21,7 @@ use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
 use std::sync::{Mutex, Once};
-use wasmer_types::{Trap, TrapCode};
+use wasmer_types::TrapCode;
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
