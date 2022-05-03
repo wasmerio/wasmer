@@ -151,7 +151,7 @@ ifneq ($(ENABLE_LLVM), 0)
 	endif
 endif
 
-exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-compiler-cli
 # Is failing to compile in Linux for some reason
 exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
@@ -378,6 +378,9 @@ build-wasmer-debug:
 
 bench:
 	cargo bench $(compiler_features)
+
+build-wasmer-wasm:
+	cargo build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,universal --bin wasmer-compiler
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:

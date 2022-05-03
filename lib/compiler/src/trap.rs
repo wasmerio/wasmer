@@ -4,7 +4,7 @@ use loupe::MemoryUsage;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_vm::TrapCode;
+use wasmer_types::TrapCode;
 
 /// Information about trap.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
