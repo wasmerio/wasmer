@@ -16,8 +16,7 @@
         clippy::float_arithmetic,
         clippy::mut_mut,
         clippy::nonminimal_bool,
-        clippy::option_map_unwrap_or,
-        clippy::option_map_unwrap_or_else,
+        clippy::map_unwrap_or,
         clippy::print_stdout,
         clippy::unicode_not_nfc,
         clippy::use_self
@@ -54,7 +53,6 @@ mod address_map;
 mod compiler;
 mod error;
 mod function;
-mod jump_table;
 mod module;
 mod relocation;
 mod target;
@@ -76,7 +74,6 @@ pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
     Functions,
 };
-pub use crate::jump_table::{JumpTable, JumpTableOffsets};
 pub use crate::module::CompileModuleInfo;
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};

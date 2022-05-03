@@ -500,7 +500,7 @@ impl MachineX86_64 {
         if memarg.offset != 0 {
             self.assembler.emit_add(
                 Size::S32,
-                Location::Imm32(memarg.offset),
+                Location::Imm32(memarg.offset as u32),
                 Location::GPR(tmp_addr),
             );
 

@@ -249,18 +249,18 @@ pub(crate) fn create_unwind_info_from_insts(insts: &Vec<(usize, UnwindOps)>) -> 
     let mut max_unwind_offset = 0;
     for &(instruction_offset, ref inst) in insts {
         let instruction_offset = ensure_unwind_offset(instruction_offset as u32)?;
-        match inst {
-            &UnwindOps::PushFP { .. } => {
+        match *inst {
+            UnwindOps::PushFP { .. } => {
                 unwind_codes.push(UnwindCode::PushRegister {
                     instruction_offset,
                     reg: UNWIND_RBP_REG,
                 });
             }
-            &UnwindOps::DefineNewFrame => {
+            UnwindOps::DefineNewFrame => {
                 frame_register_offset = ensure_unwind_offset(32)?;
                 unwind_codes.push(UnwindCode::SetFPReg { instruction_offset });
             }
-            &UnwindOps::SaveRegister { reg, bp_neg_offset } => match reg {
+            UnwindOps::SaveRegister { reg, bp_neg_offset } => match reg {
                 0..=15 => {
                     // GPR reg
                     static FROM_DWARF: [u8; 16] =
@@ -282,7 +282,7 @@ pub(crate) fn create_unwind_info_from_insts(insts: &Vec<(usize, UnwindOps)>) -> 
                     unreachable!("unknown register index {}", reg);
                 }
             },
-            &UnwindOps::Push2Regs { .. } => {
+            UnwindOps::Push2Regs { .. } => {
                 unreachable!("no aarch64 on x64");
             }
         }

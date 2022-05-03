@@ -43,7 +43,7 @@ pub(crate) fn compiled_function_unwind_info(
 ) -> Result<CraneliftUnwindInfo, CompileError> {
     let unwind_info = context
         .create_unwind_info(isa)
-        .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
+        .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
 
     match unwind_info {
         Some(UnwindInfo::WindowsX64(unwind)) => {

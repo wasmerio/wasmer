@@ -292,8 +292,6 @@ pub fn emit_compilation(
                 Reloc::X86GOTPCRel4 => {
                     (RelocationKind::GotRelative, RelocationEncoding::Generic, 32)
                 }
-                // Reloc::X86PCRelRodata4 => {
-                // }
                 Reloc::Arm64Call => (
                     match obj.format() {
                         object::BinaryFormat::Elf => RelocationKind::Elf(elf::R_AARCH64_CALL26),
@@ -377,9 +375,6 @@ pub fn emit_compilation(
                         },
                     )
                     .map_err(ObjectError::Write)?;
-                }
-                RelocationTarget::JumpTable(_func_index, _jt) => {
-                    // do nothing
                 }
             };
         }

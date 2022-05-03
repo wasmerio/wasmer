@@ -123,7 +123,7 @@ impl CreateExe {
                 .context("Failed to open C source code file")?;
             c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
         }
-        run_c_compile(&c_src_path, &c_src_obj, self.target_triple.clone())
+        run_c_compile(c_src_path, &c_src_obj, self.target_triple.clone())
             .context("Failed to compile C source code")?;
         LinkCode {
             object_paths: vec![c_src_obj, wasm_object_path],

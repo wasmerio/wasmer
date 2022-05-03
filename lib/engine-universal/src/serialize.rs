@@ -5,8 +5,8 @@ use rkyv::{
     Serialize as RkyvSerialize,
 };
 use wasmer_compiler::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody,
-    JumpTableOffsets, Relocation, SectionIndex,
+    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody, Relocation,
+    SectionIndex,
 };
 use wasmer_engine::{DeserializeError, SerializeError};
 use wasmer_types::entity::PrimaryMap;
@@ -17,7 +17,6 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, Sign
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
-    pub function_jt_offsets: PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
     pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,

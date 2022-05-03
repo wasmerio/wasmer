@@ -46,7 +46,7 @@ fuzz_target!(|module: WasmSmithModule| {
         Ok(m) => m,
         Err(e) => {
             let error_message = format!("{}", e);
-            if error_message.contains("Validation error: invalid result arity: func type returns multiple values") || error_message.contains("Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled") || error_message.contains("multi-value returns not yet implemented") {
+            if error_message.contains("Validation error: invalid result arity: func type returns multiple values") || error_message.contains("Validation error: blocks, loops, and ifs may only produce a resulttype when multi-value is not enabled") || error_message.contains("multi-value returns not yet implemented") {
                 return;
             }
             panic!("{}", e);

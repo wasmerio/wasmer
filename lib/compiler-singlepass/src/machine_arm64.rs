@@ -935,7 +935,7 @@ impl MachineARM64 {
             if self.compatible_imm(memarg.offset as _, ImmType::Bits12) {
                 self.assembler.emit_adds(
                     Size::S32,
-                    Location::Imm32(memarg.offset),
+                    Location::Imm32(memarg.offset as u32),
                     Location::GPR(tmp_addr),
                     Location::GPR(tmp_addr),
                 );

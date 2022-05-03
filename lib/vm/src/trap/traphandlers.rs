@@ -802,7 +802,7 @@ impl TrapHandlerContext {
         let ctx = TrapHandlerContext {
             inner: &inner as *const _ as *const u8,
             handle_trap: func::<T>,
-            custom_trap: custom_trap,
+            custom_trap,
         };
 
         compiler_fence(Ordering::Release);

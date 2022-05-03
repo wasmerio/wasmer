@@ -1592,12 +1592,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let mut label_depths = table.targets().collect::<Result<Vec<_>, _>>()?;
-                let default_depth = label_depths.pop().unwrap().0;
-
                 let index = self.state.pop1()?;
 
-                let default_frame = self.state.frame_at_depth(default_depth)?;
+                let default_frame = self.state.frame_at_depth(table.default())?;
 
                 let phis = if default_frame.is_loop() {
                     default_frame.loop_body_phis()
@@ -1610,10 +1607,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     phi.add_incoming(&[(value, current_block)]);
                 }
 
-                let cases: Vec<_> = label_depths
-                    .iter()
+                let cases: Vec<_> = table
+                    .targets()
                     .enumerate()
-                    .map(|(case_index, &(depth, _))| {
+                    .map(|(case_index, depth)| {
+                        let depth = depth?;
                         let frame_result: Result<&ControlFrame, CompileError> =
                             self.state.frame_at_depth(depth);
                         let frame = match frame_result {

@@ -63,10 +63,10 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
             compiler_name,
             engine_name
         )
-        .replace(" ", "");
-        let should_ignore = ignores.should_ignore_host(&engine_name, &compiler_name, &full_path);
+        .replace(' ', "");
+
         // println!("{} -> Should ignore: {}", full_path, should_ignore);
-        return should_ignore;
+        ignores.should_ignore_host(&engine_name, &compiler_name, &full_path)
     };
     let construct_engine_test = |func: &::syn::ItemFn,
                                  compiler_name: &str,

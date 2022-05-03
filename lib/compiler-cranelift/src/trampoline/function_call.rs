@@ -8,15 +8,12 @@
 //! let my_func = instance.exports.get("func");
 //! my_func.call([1, 2])
 //! ```
-use super::binemit::TrampolineRelocSink;
-use crate::translator::{
-    compiled_function_unwind_info, signature_to_cranelift_ir, /*transform_jump_table, */
-};
+use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
+use cranelift_codegen::ir;
 use cranelift_codegen::ir::InstBuilder;
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::Context;
-use cranelift_codegen::{binemit, ir};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;
 use wasmer_compiler::{CompileError, FunctionBody};
@@ -106,25 +103,15 @@ pub fn make_trampoline_function_call(
     }
 
     let mut code_buf = Vec::new();
-    let mut reloc_sink = TrampolineRelocSink {};
-    let mut trap_sink = binemit::NullTrapSink {};
-    let mut stackmap_sink = binemit::NullStackMapSink {};
 
     context
-        .compile_and_emit(
-            isa,
-            &mut code_buf,
-            &mut reloc_sink,
-            &mut trap_sink,
-            &mut stackmap_sink,
-        )
-        .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
+        .compile_and_emit(isa, &mut code_buf)
+        .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
 
     Ok(FunctionBody {
         body: code_buf,
         unwind_info,
-        // jt_offsets: transform_jump_table(context.func.jt_offsets),
     })
 }

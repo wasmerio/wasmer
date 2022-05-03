@@ -463,11 +463,11 @@ impl Read for FileHandle {
         // of the `Vec` will produce a valid UTF-8 string. In our
         // case, we use `str::from_utf8` to ensure that the UTF-8
         // constraint still hold before returning.
-        let mut bytes_buffer = unsafe { buf.as_mut_vec() };
+        let bytes_buffer = unsafe { buf.as_mut_vec() };
         bytes_buffer.clear();
-        let read = self.read_to_end(&mut bytes_buffer)?;
+        let read = self.read_to_end(bytes_buffer)?;
 
-        if str::from_utf8(&bytes_buffer).is_err() {
+        if str::from_utf8(bytes_buffer).is_err() {
             Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "buffer did not contain valid UTF-8",

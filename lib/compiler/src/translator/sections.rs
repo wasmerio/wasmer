@@ -105,27 +105,30 @@ pub fn parse_import_section<'data>(
                     field_name.unwrap_or_default(),
                 )?;
             }
-            ImportSectionEntryType::Module(_)
-            | ImportSectionEntryType::Instance(_)
-            | ImportSectionEntryType::Event(_) => {
+            ImportSectionEntryType::Module(_) | ImportSectionEntryType::Instance(_) => {
                 unimplemented!("module linking not implemented yet")
             }
-            ImportSectionEntryType::Memory(WPMemoryType::M32 {
-                limits: ref memlimits,
+            ImportSectionEntryType::Tag(_) => {
+                unimplemented!("exception handling not implemented yet")
+            }
+            ImportSectionEntryType::Memory(WPMemoryType {
                 shared,
+                memory64,
+                initial,
+                maximum,
             }) => {
+                if memory64 {
+                    unimplemented!("64bit memory not implemented yet");
+                }
                 environ.declare_memory_import(
                     MemoryType {
-                        minimum: Pages(memlimits.initial),
-                        maximum: memlimits.maximum.map(Pages),
+                        minimum: Pages(initial as u32),
+                        maximum: maximum.map(|p| Pages(p as u32)),
                         shared,
                     },
                     module_name,
                     field_name.unwrap_or_default(),
                 )?;
-            }
-            ImportSectionEntryType::Memory(WPMemoryType::M64 { .. }) => {
-                unimplemented!("64bit memory not implemented yet")
             }
             ImportSectionEntryType::Global(ref ty) => {
                 environ.declare_global_import(
@@ -141,8 +144,8 @@ pub fn parse_import_section<'data>(
                 environ.declare_table_import(
                     TableType {
                         ty: wptype_to_type(tab.element_type).unwrap(),
-                        minimum: tab.limits.initial,
-                        maximum: tab.limits.maximum,
+                        minimum: tab.initial,
+                        maximum: tab.maximum,
                     },
                     module_name,
                     field_name.unwrap_or_default(),
@@ -187,8 +190,8 @@ pub fn parse_table_section(
         let table = entry?;
         environ.declare_table(TableType {
             ty: wptype_to_type(table.element_type).unwrap(),
-            minimum: table.limits.initial,
-            maximum: table.limits.maximum,
+            minimum: table.initial,
+            maximum: table.maximum,
         })?;
     }
 
@@ -203,17 +206,20 @@ pub fn parse_memory_section(
     environ.reserve_memories(memories.get_count())?;
 
     for entry in memories {
-        let memory = entry?;
-        match memory {
-            WPMemoryType::M32 { limits, shared } => {
-                environ.declare_memory(MemoryType {
-                    minimum: Pages(limits.initial),
-                    maximum: limits.maximum.map(Pages),
-                    shared,
-                })?;
-            }
-            WPMemoryType::M64 { .. } => unimplemented!("64bit memory not implemented yet"),
+        let WPMemoryType {
+            shared,
+            memory64,
+            initial,
+            maximum,
+        } = entry?;
+        if memory64 {
+            unimplemented!("64bit memory not implemented yet");
         }
+        environ.declare_memory(MemoryType {
+            minimum: Pages(initial as u32),
+            maximum: maximum.map(|p| Pages(p as u32)),
+            shared,
+        })?;
     }
 
     Ok(())
@@ -294,11 +300,11 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
-            ExternalKind::Type
-            | ExternalKind::Module
-            | ExternalKind::Instance
-            | ExternalKind::Event => {
+            ExternalKind::Type | ExternalKind::Module | ExternalKind::Instance => {
                 unimplemented!("module linking not implemented yet")
+            }
+            ExternalKind::Tag => {
+                unimplemented!("exception handling not implemented yet")
             }
         }
     }
@@ -318,7 +324,16 @@ fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
     let mut elems = Vec::with_capacity(usize::try_from(items_reader.get_count()).unwrap());
     for item in items_reader {
         let elem = match item? {
-            ElementItem::Null(_ty) => FunctionIndex::reserved_value(),
+            ElementItem::Expr(init) => match init.get_binary_reader().read_operator()? {
+                Operator::RefNull { .. } => FunctionIndex::reserved_value(),
+                Operator::RefFunc { function_index } => FunctionIndex::from_u32(function_index),
+                s => {
+                    return Err(WasmError::Unsupported(format!(
+                        "unsupported init expr in element section: {:?}",
+                        s
+                    )));
+                }
+            },
             ElementItem::Func(index) => FunctionIndex::from_u32(index),
         };
         elems.push(elem);
@@ -334,7 +349,12 @@ pub fn parse_element_section<'data>(
     environ.reserve_table_initializers(elements.get_count())?;
 
     for (index, entry) in elements.into_iter().enumerate() {
-        let Element { kind, items, ty } = entry?;
+        let Element {
+            kind,
+            items,
+            ty,
+            range: _,
+        } = entry?;
         if ty != wasmparser::Type::FuncRef {
             return Err(wasm_unsupported!(
                 "unsupported table element type: {:?}",
@@ -385,7 +405,11 @@ pub fn parse_data_section<'data>(
     environ.reserve_data_initializers(data.get_count())?;
 
     for (index, entry) in data.into_iter().enumerate() {
-        let Data { kind, data } = entry?;
+        let Data {
+            kind,
+            data,
+            range: _,
+        } = entry?;
         match kind {
             DataKind::Active {
                 memory_index,
@@ -445,7 +469,14 @@ pub fn parse_name_section<'data>(
                 }
             }
             wasmparser::Name::Local(_) => {}
-            wasmparser::Name::Unknown { .. } => {}
+            wasmparser::Name::Label(_)
+            | wasmparser::Name::Type(_)
+            | wasmparser::Name::Table(_)
+            | wasmparser::Name::Memory(_)
+            | wasmparser::Name::Global(_)
+            | wasmparser::Name::Element(_)
+            | wasmparser::Name::Data(_)
+            | wasmparser::Name::Unknown { .. } => {}
         };
     }
     Ok(())
