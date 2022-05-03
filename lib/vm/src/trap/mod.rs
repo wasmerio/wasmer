@@ -3,12 +3,13 @@
 
 //! This is the module that facilitates the usage of Traps
 //! in Wasmer Runtime
-mod trapcode;
+mod trap;
 mod traphandlers;
 
-pub use trapcode::TrapCode;
+pub use trap::Trap;
 pub use traphandlers::{
-    catch_traps, on_host_stack, raise_lib_trap, raise_user_trap, wasmer_call_trampoline, Trap,
+    catch_traps, on_host_stack, raise_lib_trap, raise_user_trap, wasmer_call_trampoline,
     TrapHandler, TrapHandlerFn,
 };
 pub use traphandlers::{init_traps, resume_panic};
+pub use wasmer_types::TrapCode;

@@ -31,11 +31,9 @@ mod resolver;
 mod trap;
 mod tunables;
 
-pub use crate::artifact::{Artifact, MetadataHeader};
+pub use crate::artifact::Artifact;
 pub use crate::engine::{Engine, EngineId};
-pub use crate::error::{
-    DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
-};
+pub use crate::error::{InstantiationError, LinkError};
 pub use crate::export::{Export, ExportFunction, ExportFunctionMetadata};
 pub use crate::resolver::{
     resolve_imports, ChainableNamedResolver, NamedResolver, NamedResolverChain, NullResolver,
@@ -43,6 +41,8 @@ pub use crate::resolver::{
 };
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
+pub use wasmer_artifact::{ArtifactCreate, MetadataHeader};
+pub use wasmer_artifact::{DeserializeError, ImportError, SerializeError};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

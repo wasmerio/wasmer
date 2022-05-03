@@ -2765,6 +2765,7 @@ dependencies = [
  "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -2778,6 +2779,17 @@ dependencies = [
  "wasmparser 0.83.0",
  "wat",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-artifact"
+version = "2.2.1"
+dependencies = [
+ "enumset",
+ "loupe",
+ "thiserror",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -2890,8 +2902,28 @@ dependencies = [
  "target-lexicon 0.12.3",
  "thiserror",
  "wasmer-types",
- "wasmer-vm",
  "wasmparser 0.83.0",
+]
+
+[[package]]
+name = "wasmer-compiler-cli"
+version = "2.2.1"
+dependencies = [
+ "anyhow",
+ "atty",
+ "bytesize",
+ "cfg-if 1.0.0",
+ "colored 2.0.0",
+ "distance",
+ "fern",
+ "log",
+ "structopt",
+ "tempfile",
+ "unix_mode",
+ "wasmer-compiler",
+ "wasmer-compiler-singlepass",
+ "wasmer-engine-universal-artifact",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -2955,7 +2987,6 @@ dependencies = [
  "target-lexicon 0.12.3",
  "wasmer-compiler",
  "wasmer-types",
- "wasmer-vm",
 ]
 
 [[package]]
@@ -2998,6 +3029,7 @@ dependencies = [
  "serde_bytes",
  "target-lexicon 0.12.3",
  "thiserror",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
@@ -3012,6 +3044,7 @@ dependencies = [
  "loupe",
  "serde",
  "serde_bytes",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-types",
@@ -3033,6 +3066,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
@@ -3054,6 +3088,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
@@ -3066,7 +3101,6 @@ name = "wasmer-engine-universal"
 version = "2.2.1"
 dependencies = [
  "cfg-if 1.0.0",
- "enum-iterator",
  "enumset",
  "leb128",
  "loupe",
@@ -3074,9 +3108,24 @@ dependencies = [
  "rkyv",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-engine-universal-artifact",
  "wasmer-types",
  "wasmer-vm",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-engine-universal-artifact"
+version = "2.2.1"
+dependencies = [
+ "enum-iterator",
+ "enumset",
+ "loupe",
+ "rkyv",
+ "thiserror",
+ "wasmer-artifact",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -3115,8 +3164,11 @@ dependencies = [
 name = "wasmer-types"
 version = "2.2.1"
 dependencies = [
+ "backtrace",
+ "enum-iterator",
  "indexmap",
  "loupe",
+ "more-asserts",
  "rkyv",
  "serde",
  "thiserror",
@@ -3155,6 +3207,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "thiserror",
+ "wasmer-artifact",
  "wasmer-types",
  "winapi",
 ]

@@ -59,12 +59,18 @@ mod extern_ref;
 mod features;
 mod indexes;
 mod initializers;
+mod libcalls;
+mod memory;
 mod memory_view;
 mod module;
 mod native;
+mod table;
+mod trapcode;
 mod types;
 mod units;
+mod utils;
 mod values;
+mod vmoffsets;
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;
@@ -92,6 +98,14 @@ pub use types::{
 
 #[cfg(feature = "enable-rkyv")]
 pub use archives::ArchivableIndexMap;
+
+pub use crate::libcalls::LibCall;
+pub use crate::memory::MemoryStyle;
+pub use crate::table::TableStyle;
+pub use crate::trapcode::TrapCode;
+pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
+
+pub use crate::utils::is_wasm;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

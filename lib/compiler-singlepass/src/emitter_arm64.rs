@@ -12,8 +12,7 @@ use dynasmrt::{
 use wasmer_compiler::{
     CallingConvention, CustomSection, CustomSectionProtection, FunctionBody, SectionBody,
 };
-use wasmer_types::{FunctionIndex, FunctionType, Type};
-use wasmer_vm::VMOffsets;
+use wasmer_types::{FunctionIndex, FunctionType, Type, VMOffsets};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 
