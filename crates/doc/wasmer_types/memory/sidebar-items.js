@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ArchivedMemoryStyle","An archived [`MemoryStyle`]"],["MemoryStyle","Implementation styles for WebAssembly linear memory."],["MemoryStyleResolver","The resolver for an archived [`MemoryStyle`]"]]});

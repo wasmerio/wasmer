@@ -116,16 +116,15 @@
 <span id="114">114</span>
 <span id="115">115</span>
 <span id="116">116</span>
-<span id="117">117</span>
-<span id="118">118</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Linking for Universal-compiled code.</span>
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trampoline::get_libcall_trampoline</span>;
 <span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="ident">read_unaligned</span>, <span class="ident">write_unaligned</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">Relocations</span>, <span class="ident">SectionIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmer_engine::FunctionExtent</span>;
+<span class="kw">use</span> <span class="ident">wasmer_engine_universal_artifact::get_libcall_trampoline</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm::libcalls::function_pointer</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm::SectionBodyPtr</span>;
 
 <span class="kw">fn</span> <span class="ident">apply_relocation</span>(
@@ -142,7 +141,7 @@
             <span class="comment">// Use the direct target of the libcall if the relocation supports</span>
             <span class="comment">// a full 64-bit address. Otherwise use a trampoline.</span>
             <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">kind</span> <span class="op">==</span> <span class="ident">RelocationKind::Abs8</span> <span class="op">|</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">kind</span> <span class="op">==</span> <span class="ident">RelocationKind::X86PCRel8</span> {
-                <span class="ident">libcall</span>.<span class="ident">function_pointer</span>()
+                <span class="ident">function_pointer</span>(<span class="ident">libcall</span>)
             } <span class="kw">else</span> {
                 <span class="ident">get_libcall_trampoline</span>(
                     <span class="ident">libcall</span>,
@@ -157,17 +156,14 @@
     };
 
     <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">kind</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>)]</span>
         <span class="ident">RelocationKind::Abs8</span> =&gt; <span class="kw">unsafe</span> {
             <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
             <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u64</span>, <span class="ident">reloc_delta</span>);
         },
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;32&quot;</span>)]</span>
         <span class="ident">RelocationKind::X86PCRel4</span> =&gt; <span class="kw">unsafe</span> {
             <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
             <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span> <span class="kw">as</span> <span class="kw">_</span>);
         },
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>)]</span>
         <span class="ident">RelocationKind::X86PCRel8</span> =&gt; <span class="kw">unsafe</span> {
             <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
             <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u64</span>, <span class="ident">reloc_delta</span>);

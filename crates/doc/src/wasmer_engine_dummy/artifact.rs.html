@@ -270,6 +270,7 @@
 <span id="268">268</span>
 <span id="269">269</span>
 <span id="270">270</span>
+<span id="271">271</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `DummyArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
@@ -279,6 +280,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">wasmer_artifact::ArtifactCreate</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler::ModuleEnvironment</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>};
@@ -465,7 +467,7 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Artifact</span> <span class="kw">for</span> <span class="ident">DummyArtifact</span> {
+<span class="kw">impl</span> <span class="ident">ArtifactCreate</span> <span class="kw">for</span> <span class="ident">DummyArtifact</span> {
     <span class="kw">fn</span> <span class="ident">module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">metadata</span>.<span class="ident">module</span>.<span class="ident">clone</span>()
     }
@@ -476,10 +478,6 @@
 
     <span class="kw">fn</span> <span class="ident">module_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">ModuleInfo</span><span class="op">&gt;</span> {
         <span class="ident">Arc::get_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">metadata</span>.<span class="ident">module</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">register_frame_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// Do nothing, since functions are not generated for the dummy engine</span>
     }
 
     <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Features</span> {
@@ -501,6 +499,28 @@
     <span class="kw">fn</span> <span class="ident">table_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">metadata</span>.<span class="ident">table_styles</span>
     }
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode::serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">metadata</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">SerializeError::Generic</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
+
+        <span class="comment">// Prepend the header.</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>.<span class="ident">to_vec</span>();
+        <span class="ident">serialized</span>.<span class="ident">extend</span>(<span class="ident">bytes</span>);
+        <span class="prelude-val">Ok</span>(<span class="ident">serialized</span>)
+    }
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>))]</span>
+    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">SerializeError::Generic</span>(
+            <span class="string">&quot;The serializer feature is not enabled in the DummyEngine&quot;</span>,
+        ))
+    }
+}
+<span class="kw">impl</span> <span class="ident">Artifact</span> <span class="kw">for</span> <span class="ident">DummyArtifact</span> {
+    <span class="kw">fn</span> <span class="ident">register_frame_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="comment">// Do nothing, since functions are not generated for the dummy engine</span>
+    }
 
     <span class="kw">fn</span> <span class="ident">finished_functions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_functions</span>
@@ -520,24 +540,6 @@
 
     <span class="kw">fn</span> <span class="ident">func_data_registry</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">FuncDataRegistry</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">func_data_registry</span>
-    }
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode::serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">metadata</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">SerializeError::Generic</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
-
-        <span class="comment">// Prepend the header.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>.<span class="ident">to_vec</span>();
-        <span class="ident">serialized</span>.<span class="ident">extend</span>(<span class="ident">bytes</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">serialized</span>)
-    }
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;serialize&quot;</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">SerializeError::Generic</span>(
-            <span class="string">&quot;The serializer feature is not enabled in the DummyEngine&quot;</span>,
-        ))
     }
 }
 </code></pre></div>

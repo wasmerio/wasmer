@@ -27,7 +27,7 @@
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm::TrapCode</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::TrapCode</span>;
 
 <span class="doccomment">/// Information about trap.</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>

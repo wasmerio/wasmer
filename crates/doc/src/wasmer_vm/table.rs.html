@@ -409,20 +409,6 @@
 <span id="407">407</span>
 <span id="408">408</span>
 <span id="409">409</span>
-<span id="410">410</span>
-<span id="411">411</span>
-<span id="412">412</span>
-<span id="413">413</span>
-<span id="414">414</span>
-<span id="415">415</span>
-<span id="416">416</span>
-<span id="417">417</span>
-<span id="418">418</span>
-<span id="419">419</span>
-<span id="420">420</span>
-<span id="421">421</span>
-<span id="422">422</span>
-<span id="423">423</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -431,31 +417,17 @@
 <span class="doccomment">//! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::func_data_registry::VMFuncRef</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::{<span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMTableDefinition</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Trap</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMExternRef</span>;
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std::borrow</span>::{<span class="ident">Borrow</span>, <span class="ident">BorrowMut</span>};
 <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExternRef</span>, <span class="ident">TableType</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">ValType</span>};
-
-<span class="doccomment">/// Implementation styles for WebAssembly tables.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">MemoryUsage</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(
-    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
-    <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
-)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TableStyle</span> {
-    <span class="doccomment">/// Signatures are stored in the table and checked in the caller.</span>
-    <span class="ident">CallerChecksSignature</span>,
-}
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExternRef</span>, <span class="ident">TableStyle</span>, <span class="ident">TableType</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">ValType</span>};
 
 <span class="doccomment">/// Trait for implementing the interface of a Wasm table.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Table</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {

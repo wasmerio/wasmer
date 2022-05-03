@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib&#x2F;cli-compiler&#x2F;src&#x2F;lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https:&#x2F;&#x2F;wasmer.io&#x2F;images&#x2F;icons&#x2F;favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cli/index.html"><img src="https:&#x2F;&#x2F;github.com&#x2F;wasmerio.png?size=200" alt="logo"></a><nav class="sub"><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+</pre><pre class="rust"><code><span class="doccomment">//! The Wasmer binary lib</span>
+
+<span class="attribute">#![<span class="ident">deny</span>(
+    <span class="ident">missing_docs</span>,
+    <span class="ident">dead_code</span>,
+    <span class="ident">nonstandard_style</span>,
+    <span class="ident">unused_mut</span>,
+    <span class="ident">unused_variables</span>,
+    <span class="ident">unused_unsafe</span>,
+    <span class="ident">unreachable_patterns</span>,
+    <span class="ident">unstable_features</span>
+)]</span>
+<span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]</span>
+<span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]</span>
+
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">anyhow</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">commands</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">common</span>;
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">cli</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">logging</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">store</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utils</span>;
+
+<span class="doccomment">/// Version number of this crate.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
+</code></pre></div>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0 (9d1b2106e 2022-02-23)" ></div>
+</body></html>

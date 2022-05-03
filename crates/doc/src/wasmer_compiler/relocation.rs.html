@@ -166,7 +166,6 @@
 <span id="164">164</span>
 <span id="165">165</span>
 <span id="166">166</span>
-<span id="167">167</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent</span>
 <span class="doccomment">//! code and data of a program and adjusting the code and data to reflect the</span>
 <span class="doccomment">//! assigned addresses.</span>
@@ -188,8 +187,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::LocalFunctionIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm::libcalls::LibCall</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LibCall</span>, <span class="ident">LocalFunctionIndex</span>};
 
 <span class="doccomment">/// Relocation kinds for every ISA.</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>

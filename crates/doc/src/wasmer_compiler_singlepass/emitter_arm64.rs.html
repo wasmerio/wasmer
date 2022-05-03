@@ -2857,7 +2857,6 @@
 <span id="2855">2855</span>
 <span id="2856">2856</span>
 <span id="2857">2857</span>
-<span id="2858">2858</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -2872,8 +2871,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">CallingConvention</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>, <span class="ident">SectionBody</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">Type</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm::VMOffsets</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">Type</span>, <span class="ident">VMOffsets</span>};
 
 <span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">Aarch64Relocation</span><span class="op">&gt;</span>;
 

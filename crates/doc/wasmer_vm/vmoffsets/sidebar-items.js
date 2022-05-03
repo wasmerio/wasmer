@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["align","Align an offset used in this module to a specific byte-width by rounding up"],["cast_to_u32",""]],"struct":[["TargetSharedSignatureIndex","Target specific type for shared signature index."],["VMOffsets","This class computes offsets to fields within `VMContext` and other related structs that JIT code accesses directly."]]});

@@ -5991,9 +5991,6 @@
 <span id="5989">5989</span>
 <span id="5990">5990</span>
 <span id="5991">5991</span>
-<span id="5992">5992</span>
-<span id="5993">5993</span>
-<span id="5994">5994</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
@@ -6015,13 +6012,10 @@
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>},
-    <span class="ident">FunctionType</span>,
+    <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">MemoryIndex</span>,
+    <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span>,
+    <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>,
-    <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
-};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
 
 <span class="doccomment">/// The singlepass per-function code generator.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FuncGen</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">M</span>: <span class="ident">Machine</span><span class="op">&gt;</span> {

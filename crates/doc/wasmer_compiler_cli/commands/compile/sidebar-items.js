@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Compile","The options for the `wasmer compile` subcommand"]]});

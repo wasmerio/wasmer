@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_engine_universal_artifact"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_engine_universal_artifact/trait.ArtifactCreate.html\" title=\"trait wasmer_engine_universal_artifact::ArtifactCreate\">ArtifactCreate</a> for <a class=\"struct\" href=\"wasmer_engine_universal_artifact/artifact/struct.UniversalArtifactBuild.html\" title=\"struct wasmer_engine_universal_artifact::artifact::UniversalArtifactBuild\">UniversalArtifactBuild</a>","synthetic":false,"types":["wasmer_engine_universal_artifact::artifact::UniversalArtifactBuild"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

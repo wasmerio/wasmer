@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["DeserializeError","The Deserialize error can occur when loading a compiled Module from a binary."],["ImportError","An ImportError."],["PreInstantiationError","An error while preinstantiating a module."],["SerializeError","The Serialize error can occur when serializing a compiled Module into a binary."]]});

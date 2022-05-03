@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Indented",""],["PrettyError","A `PrettyError` for printing `anyhow::Error` nicely."]]});
