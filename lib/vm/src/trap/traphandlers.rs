@@ -7,7 +7,7 @@
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use crate::Trap;
 use backtrace::Backtrace;
-use core::ptr::read_unaligned;
+use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
 use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
@@ -163,30 +163,31 @@ cfg_if::cfg_if! {
             let trap_code = match signum {
                 // check if it was cased by a UD and if the Trap info is a payload to it
                 libc::SIGILL => {
-                    let mut val: u8 = 0;
+                    let mut val: Option<u8> = None;
                     if cfg!(target_arch = "x86_64") {
                         let addr = (*siginfo).si_addr() as usize;
-                        val = if read_unaligned(addr as *mut u8)&0xf0 == 0x40
-                              && read_unaligned((addr+1) as *mut u8) == 0x0f
-                              && read_unaligned((addr+2) as *mut u8) == 0xb9 {
-                                read_unaligned((addr+3) as *mut u8)
-                            } else if read_unaligned(addr as *mut u8) == 0x0f
-                                    && read_unaligned((addr+1) as *mut u8) == 0xb9 {
-                                read_unaligned((addr+2) as *mut u8)
+                        val = if read(addr as *mut u8)&0xf0 == 0x40
+                              && read((addr+1) as *mut u8) == 0x0f
+                              && read((addr+2) as *mut u8) == 0xb9 {
+                                Some(read((addr+3) as *mut u8))
+                            } else if read(addr as *mut u8) == 0x0f
+                                    && read((addr+1) as *mut u8) == 0xb9 {
+                                Some(read((addr+2) as *mut u8))
                             } else {
-                                0
+                                None
                             }
                     }
                     if cfg!(target_arch = "aarch64") {
                         let addr = (*siginfo).si_addr() as usize;
                         val = if read_unaligned(addr as *mut u32)&0xffff0000 == 0 {
-                            read_unaligned(addr as *mut u8)
+                            Some(read(addr as *mut u8))
                         } else {
-                            0
+                            None
                         }
                     }
-                    if val&MAGIC == MAGIC {
-                        match val&0x0f {
+                    match val.and_then(|val| if val&MAGIC == MAGIC {Some(val&0xf)} else {None}) {
+                        None => None,
+                        Some(val) => match val {
                             0 => Some(TrapCode::StackOverflow),
                             1 => Some(TrapCode::HeapAccessOutOfBounds),
                             2 => Some(TrapCode::HeapMisaligned),
@@ -201,8 +202,6 @@ cfg_if::cfg_if! {
                             11 => Some(TrapCode::UnalignedAtomic),
                             _ => None,
                         }
-                    } else {
-                        None
                     }
                 }
                 _ => None,
