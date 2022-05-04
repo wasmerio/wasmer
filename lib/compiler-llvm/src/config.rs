@@ -5,7 +5,6 @@ use inkwell::targets::{
 };
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
-use loupe::MemoryUsage;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
@@ -38,14 +37,12 @@ pub trait LLVMCallbacks: Debug + Send + Sync {
     fn obj_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
 }
 
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_verifier: bool,
-    #[loupe(skip)]
     pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
-    #[loupe(skip)]
     pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,

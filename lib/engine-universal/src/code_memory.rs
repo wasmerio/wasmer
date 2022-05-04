@@ -3,7 +3,6 @@
 
 //! Memory management for executable code.
 use crate::unwind::UnwindRegistry;
-use loupe::MemoryUsage;
 use wasmer_compiler::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
 use wasmer_vm::{Mmap, VMFunctionBody};
 
@@ -19,7 +18,6 @@ const ARCH_FUNCTION_ALIGNMENT: usize = 16;
 const DATA_SECTION_ALIGNMENT: usize = 64;
 
 /// Memory manager for executable code.
-#[derive(MemoryUsage)]
 pub struct CodeMemory {
     unwind_registry: UnwindRegistry,
     mmap: Mmap,

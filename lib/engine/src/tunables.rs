@@ -1,5 +1,4 @@
 use crate::error::LinkError;
-use loupe::MemoryUsage;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -14,7 +13,7 @@ use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 
 /// An engine delegates the creation of memories, tables, and globals
 /// to a foreign implementor of this trait.
-pub trait Tunables: MemoryUsage {
+pub trait Tunables {
     /// Construct a `MemoryStyle` for the provided `MemoryType`
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle;
 

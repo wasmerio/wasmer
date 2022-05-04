@@ -4,7 +4,6 @@
 use crate::engine::{UniversalEngine, UniversalEngineInner};
 use crate::link::link_module;
 use enumset::EnumSet;
-use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
@@ -28,11 +27,9 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
-#[derive(MemoryUsage)]
 pub struct UniversalArtifact {
     artifact: UniversalArtifactBuild,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
