@@ -16,7 +16,6 @@ use crate::machine_x64::MachineX86_64;
 use crate::unwind::{create_systemv_cie, UnwindFrame};
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable};
-use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
@@ -35,7 +34,6 @@ use wasmer_vm::{TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
-#[derive(MemoryUsage)]
 pub struct SinglepassCompiler {
     config: Singlepass,
 }

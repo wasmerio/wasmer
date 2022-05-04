@@ -1,11 +1,10 @@
 use anyhow::Result;
 
-use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::*;
 
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 struct Add2MulGen {
     value_off: i32,
 }
@@ -47,7 +46,7 @@ impl FunctionMiddleware for Add2Mul {
     }
 }
 
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 struct FusionGen;
 
 #[derive(Debug)]

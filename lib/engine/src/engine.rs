@@ -2,7 +2,6 @@
 
 use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError};
-use loupe::MemoryUsage;
 use memmap2::Mmap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
@@ -17,7 +16,7 @@ use wasmer_vm::{VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex};
 /// such as: Universal or Native.
 ///
 /// The product that an `Engine` produces and consumes is the [`Artifact`].
-pub trait Engine: MemoryUsage {
+pub trait Engine {
     /// Gets the target
     fn target(&self) -> &Target;
 
@@ -72,7 +71,7 @@ pub trait Engine: MemoryUsage {
     fn cloned(&self) -> Arc<dyn Engine + Send + Sync>;
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, MemoryUsage)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 /// A unique identifier for an Engine.
 pub struct EngineId {

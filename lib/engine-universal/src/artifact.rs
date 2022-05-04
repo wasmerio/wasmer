@@ -8,7 +8,6 @@ use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
 use crate::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use enumset::EnumSet;
-use loupe::MemoryUsage;
 use std::mem;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, CpuFeature, Features, Triple};
@@ -31,11 +30,9 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
-#[derive(MemoryUsage)]
 pub struct UniversalArtifact {
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

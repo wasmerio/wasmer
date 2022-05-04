@@ -4,7 +4,6 @@
 //! Low-level abstraction for allocating and managing zero-filled pages
 //! of memory.
 
-use loupe::{MemoryUsage, MemoryUsageTracker};
 use more_asserts::assert_le;
 use more_asserts::assert_lt;
 use std::io;
@@ -277,14 +276,6 @@ impl Drop for Mmap {
             let r = unsafe { VirtualFree(self.ptr as *mut c_void, 0, MEM_RELEASE) };
             assert_ne!(r, 0);
         }
-    }
-}
-
-impl MemoryUsage for Mmap {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        tracker.track(self.as_ptr() as *const ());
-
-        self.len()
     }
 }
 
