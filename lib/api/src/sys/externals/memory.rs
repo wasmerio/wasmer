@@ -3,7 +3,6 @@ use crate::sys::externals::Extern;
 use crate::sys::store::Store;
 use crate::sys::MemoryType;
 use crate::MemoryAccessError;
-use loupe::MemoryUsage;
 use std::convert::TryInto;
 use std::mem;
 use std::mem::MaybeUninit;
@@ -27,7 +26,7 @@ use wasmer_vm::{MemoryError, VMMemory};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 pub struct Memory {
     store: Store,
     vm_memory: VMMemory,

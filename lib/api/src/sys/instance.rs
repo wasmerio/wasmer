@@ -4,7 +4,6 @@ use crate::sys::imports::Imports;
 use crate::sys::module::Module;
 use crate::sys::store::Store;
 use crate::sys::{HostEnvInitError, LinkError, RuntimeError};
-use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
@@ -18,7 +17,7 @@ use wasmer_vm::{InstanceHandle, VMContext};
 /// interacting with WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
-#[derive(Clone, MemoryUsage)]
+#[derive(Clone)]
 pub struct Instance {
     handle: Arc<Mutex<InstanceHandle>>,
     module: Module,

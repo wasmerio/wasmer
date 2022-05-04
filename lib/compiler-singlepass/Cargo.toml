@@ -24,7 +24,6 @@ dynasmrt = "1.2.1"
 lazy_static = "1.4"
 byteorder = "1.3"
 smallvec = "1.6"
-loupe = "0.1"
 
 [dev-dependencies]
 target-lexicon = { version = "0.12.2", default-features = false }

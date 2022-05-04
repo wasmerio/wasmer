@@ -24,7 +24,6 @@ rayon = "1.5"
 more-asserts = "0.2"
 gimli = { version = "0.26", optional = true }
 smallvec = "1.6"
-loupe = "0.1"
 target-lexicon = { version = "0.12.2", default-features = false }
 
 [dev-dependencies]

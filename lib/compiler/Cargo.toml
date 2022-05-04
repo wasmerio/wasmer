@@ -22,7 +22,6 @@ thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6"
 rkyv = { version = "0.7.20", optional = true }
-loupe = "0.1"
 
 [features]
 default = ["std", "enable-serde", "enable-rkyv"]

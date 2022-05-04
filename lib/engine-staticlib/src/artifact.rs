@@ -4,7 +4,6 @@
 use crate::engine::{StaticlibEngine, StaticlibEngineInner};
 use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
 use enumset::EnumSet;
-use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
@@ -38,12 +37,10 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
-#[derive(MemoryUsage)]
 pub struct StaticlibArtifact {
     metadata: ModuleMetadata,
     module_bytes: Vec<u8>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

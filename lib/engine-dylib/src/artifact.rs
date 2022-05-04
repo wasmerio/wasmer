@@ -6,7 +6,6 @@ use crate::serialize::ModuleMetadata;
 use crate::trampoline::{emit_trampolines, fill_trampoline_table, WASMER_TRAMPOLINES_SYMBOL};
 use enumset::EnumSet;
 use libloading::{Library, Symbol as LibrarySymbol};
-use loupe::MemoryUsage;
 use object::{write::CoffExportStyle, BinaryFormat};
 use std::error::Error;
 use std::fs::{self, File};
@@ -49,13 +48,11 @@ use wasmer_vm::{
 };
 
 /// A compiled Wasm module, ready to be instantiated.
-#[derive(MemoryUsage)]
 pub struct DylibArtifact {
     dylib_path: PathBuf,
     is_temporary: bool,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     func_data_registry: Arc<FuncDataRegistry>,

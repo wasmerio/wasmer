@@ -58,7 +58,6 @@ pub use crate::vmcontext::{
     VMTableImport, VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
-use loupe::MemoryUsage;
 pub use wasmer_types::VMExternRef;
 #[deprecated(
     since = "2.1.0",
@@ -70,7 +69,7 @@ pub use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// A safe wrapper around `VMFunctionBody`.
-#[derive(Clone, Copy, Debug, MemoryUsage)]
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 
