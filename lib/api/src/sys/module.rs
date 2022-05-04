@@ -2,7 +2,6 @@ use crate::sys::exports::Exportable;
 use crate::sys::store::Store;
 use crate::sys::types::{ExportType, ImportType};
 use crate::sys::InstantiationError;
-use loupe::MemoryUsage;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -33,7 +32,7 @@ pub enum IoCompileError {
 ///
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
-#[derive(Clone, MemoryUsage)]
+#[derive(Clone)]
 pub struct Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.

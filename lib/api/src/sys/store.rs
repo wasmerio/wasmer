@@ -1,5 +1,4 @@
 use crate::sys::tunables::BaseTunables;
-use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::{Arc, RwLock};
 #[cfg(all(feature = "compiler", feature = "engine"))]
@@ -17,11 +16,10 @@ use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 /// [`Tunables`] (that are used to create the memories, tables and globals).
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
-#[derive(Clone, MemoryUsage)]
+#[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
     tunables: Arc<dyn Tunables + Send + Sync>,
-    #[loupe(skip)]
     trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn>>>>,
 }
 

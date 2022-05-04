@@ -13,10 +13,8 @@ edition = "2018"
 [dependencies]
 wasmer-types = { path = "../types", version = "=2.3.0" }
 wasmer-compiler = { path = "../compiler", version = "=2.3.0" }
-loupe = "0.1"
 thiserror = "1.0"
 enumset = "1.0"
 
 [badges]
 maintenance = { status = "actively-developed" }
-

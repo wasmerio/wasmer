@@ -2,7 +2,6 @@ use crate::sys::externals::{Extern, Function, Global, Memory, Table};
 use crate::sys::native::NativeFunc;
 use crate::sys::WasmTypeList;
 use indexmap::IndexMap;
-use loupe::MemoryUsage;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use thiserror::Error;
@@ -60,7 +59,7 @@ pub enum ExportError {
 /// the types of instances.
 ///
 /// TODO: add examples of using exports
-#[derive(Clone, Default, MemoryUsage)]
+#[derive(Clone, Default)]
 pub struct Exports {
     map: IndexMap<String, Extern>,
 }

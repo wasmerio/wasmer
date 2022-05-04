@@ -11,7 +11,6 @@
 //! let module: ModuleInfo = ...;
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
-use loupe::MemoryUsage;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
@@ -45,7 +44,6 @@ pub struct GlobalFrameInfo {
 
 /// An RAII structure used to unregister a module's frame information when the
 /// module is destroyed.
-#[derive(MemoryUsage)]
 pub struct GlobalFrameInfoRegistration {
     /// The key that will be removed from the global `ranges` map when this is
     /// dropped.

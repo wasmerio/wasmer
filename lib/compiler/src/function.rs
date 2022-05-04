@@ -8,7 +8,6 @@ use crate::lib::std::vec::Vec;
 use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, Relocation};
-use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -25,7 +24,7 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(Debug, Clone, PartialEq, Eq, Default, MemoryUsage)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledFunctionFrameInfo {
     /// The traps (in the function body).
     ///
@@ -42,7 +41,7 @@ pub struct CompiledFunctionFrameInfo {
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionBody {
     /// The function body bytes.
     #[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))]
@@ -91,7 +90,7 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(Debug, PartialEq, Eq, Clone, MemoryUsage)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// [Learn

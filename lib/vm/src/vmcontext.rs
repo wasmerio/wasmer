@@ -12,11 +12,9 @@ use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
 use crate::VMBuiltinFunctionIndex;
 use crate::VMExternRef;
-use loupe::{MemoryUsage, MemoryUsageTracker, POINTER_BYTE_SIZE};
 use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;
-use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
@@ -63,14 +61,8 @@ impl std::hash::Hash for VMFunctionEnvironment {
     }
 }
 
-impl MemoryUsage for VMFunctionEnvironment {
-    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
-        mem::size_of_val(self)
-    }
-}
-
 /// An imported function.
-#[derive(Debug, Copy, Clone, MemoryUsage)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct VMFunctionImport {
     /// A pointer to the imported function body.
@@ -171,7 +163,7 @@ mod test_vmdynamicfunction_import_context {
 }
 
 /// A function kind is a calling convention into and out of wasm code.
-#[derive(Debug, Copy, Clone, PartialEq, MemoryUsage)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum VMFunctionKind {
     /// A static function has the native signature:
@@ -192,7 +184,7 @@ pub enum VMFunctionKind {
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// imported from another instance.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMTableImport {
     /// A pointer to the imported table description.
@@ -231,7 +223,7 @@ mod test_vmtable_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly linear
 /// memory imported from another instance.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMMemoryImport {
     /// A pointer to the imported memory description.
@@ -270,7 +262,7 @@ mod test_vmmemory_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMGlobalImport {
     /// A pointer to the imported global variable description.
@@ -342,16 +334,6 @@ unsafe impl Send for VMMemoryDefinition {}
 /// really no difference between passing it by reference or by value as far as
 /// correctness in a multi-threaded context is concerned.
 unsafe impl Sync for VMMemoryDefinition {}
-
-impl MemoryUsage for VMMemoryDefinition {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        if tracker.track(self.base as *const _ as *const ()) {
-            POINTER_BYTE_SIZE * self.current_length
-        } else {
-            0
-        }
-    }
-}
 
 impl VMMemoryDefinition {
     /// Do an unsynchronized, non-atomic `memory.copy` for the memory.
@@ -457,16 +439,6 @@ pub struct VMTableDefinition {
     pub current_elements: u32,
 }
 
-impl MemoryUsage for VMTableDefinition {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        if tracker.track(self.base as *const _ as *const ()) {
-            POINTER_BYTE_SIZE * (self.current_elements as usize)
-        } else {
-            0
-        }
-    }
-}
-
 #[cfg(test)]
 mod test_vmtable_definition {
     use super::VMTableDefinition;
@@ -524,17 +496,11 @@ impl fmt::Debug for VMGlobalDefinitionStorage {
     }
 }
 
-impl MemoryUsage for VMGlobalDefinitionStorage {
-    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
-        mem::size_of_val(self)
-    }
-}
-
 /// The storage for a WebAssembly global defined within the instance.
 ///
 /// TODO: Pack the globals more densely, rather than using the same size
 /// for every type.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C, align(16))]
 pub struct VMGlobalDefinition {
     storage: VMGlobalDefinitionStorage,
@@ -776,7 +742,7 @@ impl VMGlobalDefinition {
 /// An index into the shared signature registry, usable for checking signatures
 /// at indirect calls.
 #[repr(C)]
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, MemoryUsage)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct VMSharedSignatureIndex(u32);
 
 #[cfg(test)]
@@ -820,7 +786,7 @@ impl Default for VMSharedSignatureIndex {
 /// The VM caller-checked "anyfunc" record, for caller-side signature checking.
 /// It consists of the actual function pointer and a signature id to be checked
 /// by the caller.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, MemoryUsage)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
     /// Function body.

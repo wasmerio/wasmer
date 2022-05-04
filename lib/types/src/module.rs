@@ -14,7 +14,6 @@ use crate::{
     TableIndex, TableInitializer, TableType,
 };
 use indexmap::IndexMap;
-use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{
     de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
@@ -31,7 +30,7 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[cfg_attr(
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
@@ -57,7 +56,7 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, Default, MemoryUsage)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.

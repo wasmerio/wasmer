@@ -1,5 +1,4 @@
 use enum_iterator::IntoEnumIterator;
-use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -14,7 +13,7 @@ use std::fmt;
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, MemoryUsage, IntoEnumIterator)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, IntoEnumIterator)]
 pub enum LibCall {
     /// ceil.f32
     CeilF32,

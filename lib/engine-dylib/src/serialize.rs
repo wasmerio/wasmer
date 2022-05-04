@@ -1,4 +1,3 @@
-use loupe::MemoryUsage;
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
     ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
@@ -19,17 +18,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 }
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(
-    Serialize,
-    Deserialize,
-    Debug,
-    MemoryUsage,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
-    PartialEq,
-    Eq,
-)]
+#[derive(Serialize, Deserialize, Debug, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq)]
 pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub function_frame_info: Option<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>>,
