@@ -8,6 +8,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+### Added
+- [#2862](https://github.com/wasmerio/wasmer/pull/2862) Added CI builds for linux-aarch64 target.
+
 ### Changed
 - #2864 wasmer-cli: remove wasi-experimental-io-devices from default builds
 
