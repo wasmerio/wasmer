@@ -677,11 +677,11 @@ impl MachineX86_64 {
 
         self.emit_label(trap_overflow);
 
-        self.emit_illegal_op(TrapCode::IntegerOverflow);
+        self.emit_illegal_op_internal(TrapCode::IntegerOverflow);
 
         self.emit_label(trap_badconv);
 
-        self.emit_illegal_op(TrapCode::BadConversionToInteger);
+        self.emit_illegal_op_internal(TrapCode::BadConversionToInteger);
 
         self.emit_label(end);
     }
@@ -810,10 +810,10 @@ impl MachineX86_64 {
         );
 
         self.emit_label(trap_overflow);
-        self.emit_illegal_op(TrapCode::IntegerOverflow);
+        self.emit_illegal_op_internal(TrapCode::IntegerOverflow);
 
         self.emit_label(trap_badconv);
-        self.emit_illegal_op(TrapCode::BadConversionToInteger);
+        self.emit_illegal_op_internal(TrapCode::BadConversionToInteger);
 
         self.emit_label(end);
     }
@@ -1651,6 +1651,10 @@ impl MachineX86_64 {
     fn emit_unwind_op(&mut self, op: UnwindOps) {
         self.unwind_ops.push((self.get_offset().0, op));
     }
+    fn emit_illegal_op_internal(&mut self, trap: TrapCode) {
+        let v = trap as u8;
+        self.assembler.emit_ud1_payload(v);
+    }
 }
 
 impl Machine for MachineX86_64 {
@@ -2325,7 +2329,9 @@ impl Machine for MachineX86_64 {
         let v = trap as u8;
         // payload needs to be between 0-15
         // this will emit an 40 0F B9 Cx opcode, with x the payload
+        let offset = self.assembler.get_offset().0;
         self.assembler.emit_ud1_payload(v);
+        self.mark_instruction_address_end(offset);
     }
     fn get_label(&mut self) -> Label {
         self.assembler.new_dynamic_label()
