@@ -2,7 +2,6 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 //! Module for Windows x64 ABI unwind registry.
-use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::collections::HashMap;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 use winapi::um::winnt;
@@ -102,24 +101,5 @@ impl Drop for UnwindRegistry {
                 }
             }
         }
-    }
-}
-
-impl MemoryUsage for UnwindRegistry {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        // To count `RUNTIME_FUNCTION`, we first check the
-        // [documentation][doc1]. We see that it's a type alias to
-        // `_IMAGE_RUNTIME_FUNCTION_ENTRY`, let's check the
-        // [documentation][doc2]. It's composed of two `DWORD`, so two
-        // `u64`, and one `IMAGE_RUNTIME_FUNCTION_ENTRY_u`, which we
-        // approximate to size of `u64`.
-        //
-        // [doc1]: https://docs.rs/winapi/0.3.9/winapi/um/winnt/type.RUNTIME_FUNCTION.html
-        // [doc2]: https://docs.rs/winapi/0.3.9/winapi/um/winnt/struct._IMAGE_RUNTIME_FUNCTION_ENTRY.html
-        self.functions
-            .iter()
-            .map(|(_, _)| std::mem::size_of::<u64>() * 3)
-            .sum::<usize>()
-            + self.published.size_of_val(tracker)
     }
 }

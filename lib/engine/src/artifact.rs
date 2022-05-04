@@ -1,5 +1,4 @@
 use crate::{resolve_imports, Export, InstantiationError, RuntimeError, Tunables};
-use loupe::MemoryUsage;
 use std::any::Any;
 pub use wasmer_artifact::MetadataHeader;
 use wasmer_artifact::{ArtifactCreate, Upcastable};
@@ -20,7 +19,7 @@ use wasmer_vm::{
 ///
 /// The `ArtifactRun` contains the extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait Artifact: Send + Sync + Upcastable + MemoryUsage + ArtifactCreate {
+pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
     /// Register thie `Artifact` stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.

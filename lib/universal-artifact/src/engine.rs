@@ -1,13 +1,11 @@
 //! Universal compilation.
 
-use loupe::MemoryUsage;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_types::Features;
 
 /// The Builder contents of `UniversalEngine`
-#[derive(MemoryUsage)]
 pub struct UniversalEngineBuilder {
     /// The compiler
     #[cfg(feature = "compiler")]

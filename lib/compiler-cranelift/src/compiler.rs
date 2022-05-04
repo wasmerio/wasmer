@@ -18,7 +18,6 @@ use cranelift_codegen::{ir, MachReloc};
 use cranelift_codegen::{Context, MachTrap};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
-use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
@@ -37,7 +36,6 @@ use wasmer_vm::TrapCode;
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
-#[derive(MemoryUsage)]
 pub struct CraneliftCompiler {
     config: Cranelift,
 }
