@@ -5,7 +5,6 @@
 //! `wasmer::Module`.
 
 use crate::entity::{EntityRef, PrimaryMap};
-#[cfg(feature = "enable-rkyv")]
 use crate::ArchivableIndexMap;
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
@@ -14,7 +13,6 @@ use crate::{
     TableIndex, TableInitializer, TableType,
 };
 use indexmap::IndexMap;
-#[cfg(feature = "enable-rkyv")]
 use rkyv::{
     de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
     ser::SharedSerializeRegistry, Archive, Archived, Deserialize as RkyvDeserialize, Fallible,
@@ -22,7 +20,6 @@ use rkyv::{
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "enable-rkyv")]
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
@@ -30,11 +27,7 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleId {
     id: usize,
 }
@@ -134,7 +127,6 @@ pub struct ModuleInfo {
 }
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
-#[cfg(feature = "enable-rkyv")]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
@@ -159,7 +151,6 @@ pub struct ArchivableModuleInfo {
     num_imported_globals: usize,
 }
 
-#[cfg(feature = "enable-rkyv")]
 impl From<ModuleInfo> for ArchivableModuleInfo {
     fn from(it: ModuleInfo) -> Self {
         Self {
@@ -187,7 +178,6 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
     }
 }
 
-#[cfg(feature = "enable-rkyv")]
 impl From<ArchivableModuleInfo> for ModuleInfo {
     fn from(it: ArchivableModuleInfo) -> Self {
         Self {
@@ -216,14 +206,12 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
     }
 }
 
-#[cfg(feature = "enable-rkyv")]
 impl From<&ModuleInfo> for ArchivableModuleInfo {
     fn from(it: &ModuleInfo) -> Self {
         Self::from(it.clone())
     }
 }
 
-#[cfg(feature = "enable-rkyv")]
 impl Archive for ModuleInfo {
     type Archived = <ArchivableModuleInfo as Archive>::Archived;
     type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
@@ -233,7 +221,6 @@ impl Archive for ModuleInfo {
     }
 }
 
-#[cfg(feature = "enable-rkyv")]
 impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerialize<S>
     for ModuleInfo
 {
@@ -242,7 +229,6 @@ impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerial
     }
 }
 
-#[cfg(feature = "enable-rkyv")]
 impl<D: Fallible + ?Sized + SharedDeserializeRegistry> RkyvDeserialize<ModuleInfo, D>
     for Archived<ModuleInfo>
 {

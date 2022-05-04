@@ -53,7 +53,6 @@ pub mod lib {
     }
 }
 
-#[cfg(feature = "enable-rkyv")]
 mod archives;
 mod extern_ref;
 mod features;
@@ -95,7 +94,6 @@ pub use types::{
     Mutability, TableType, Type, V128,
 };
 
-#[cfg(feature = "enable-rkyv")]
 pub use archives::ArchivableIndexMap;
 
 pub use crate::libcalls::LibCall;
