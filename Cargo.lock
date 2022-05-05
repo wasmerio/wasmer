@@ -1881,6 +1881,7 @@ checksum = "517a3034eb2b1499714e9d1e49b2367ad567e07639b69776d35e259d9c27cca6"
 dependencies = [
  "bytecheck",
  "hashbrown 0.12.1",
+ "indexmap",
  "ptr_meta",
  "rend",
  "rkyv_derive",
@@ -1934,7 +1935,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.9",
+ "semver 1.0.10",
 ]
 
 [[package]]
@@ -2033,9 +2034,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cb243bdfdb5936c8dc3c45762a19d12ab4550cdc753bc247637d4ec35a040fd"
+checksum = "a41d061efea015927ac527063765e73601444cdc344ba855bc7bd44578b25e1c"
 
 [[package]]
 name = "semver-parser"
@@ -2458,9 +2459,9 @@ dependencies = [
 
 [[package]]
 name = "tracing"
-version = "0.1.34"
+version = "0.1.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d0ecdcb44a79f0fe9844f0c4f33a342cbcbb5117de8001e6ba0dc2351327d09"
+checksum = "a400e31aa60b9d44a52a8ee0343b5b18566b03a8321e0d321f695cf56e940160"
 dependencies = [
  "cfg-if 1.0.0",
  "log",
@@ -2753,6 +2754,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-encoder"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31f0c17267a5ffd6ae3d897589460e21db1673c84fb7016b909c9691369a75ea"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
 name = "wasm-smith"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2761,7 +2771,7 @@ dependencies = [
  "arbitrary",
  "indexmap",
  "leb128",
- "wasm-encoder",
+ "wasm-encoder 0.4.1",
 ]
 
 [[package]]
@@ -2972,7 +2982,7 @@ dependencies = [
  "rayon",
  "regex",
  "rustc_version 0.4.0",
- "semver 1.0.9",
+ "semver 1.0.10",
  "smallvec",
  "target-lexicon 0.12.4",
  "wasmer-compiler",
@@ -3359,21 +3369,21 @@ checksum = "718ed7c55c2add6548cca3ddd6383d738cd73b892df400e96b9aa876f0141d7a"
 
 [[package]]
 name = "wasmparser"
-version = "0.85.0"
+version = "0.86.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "570460c58b21e9150d2df0eaaedbb7816c34bcec009ae0dcc976e40ba81463e7"
+checksum = "4bcbfe95447da2aa7ff171857fc8427513eb57c75a729bb190e974dc695e8f5c"
 dependencies = [
  "indexmap",
 ]
 
 [[package]]
 name = "wasmprinter"
-version = "0.2.35"
+version = "0.2.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea454634a2a7888d053f7723a26a76024e4f705cf86f7b4d38d5f15b79369c31"
+checksum = "aa4cca415278da771add7c9ab7f3391f04b8d98719d2cf28a185d38d5206697e"
 dependencies = [
  "anyhow",
- "wasmparser 0.85.0",
+ "wasmparser 0.86.0",
 ]
 
 [[package]]
@@ -3396,22 +3406,23 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "41.0.0"
+version = "42.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f882898b8b817cc4edc16aa3692fdc087b356edc8cc0c2164f5b5181e31c3870"
+checksum = "badcb03f976f983ff0daf294da9697be659442f61e6b0942bb37a2b6cbfe9dd4"
 dependencies = [
  "leb128",
  "memchr",
  "unicode-width",
+ "wasm-encoder 0.13.0",
 ]
 
 [[package]]
 name = "wat"
-version = "1.0.43"
+version = "1.0.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48b3b9b3e39e66c7fd3f8be785e74444d216260f491e93369e317ed6482ff80f"
+checksum = "b92f20b742ac527066c8414bc0637352661b68cab07ef42586cefaba71c965cf"
 dependencies = [
- "wast 41.0.0",
+ "wast 42.0.0",
 ]
 
 [[package]]

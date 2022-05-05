@@ -5,7 +5,6 @@
 //! `wasmer::Module`.
 
 use crate::entity::{EntityRef, PrimaryMap};
-use crate::ArchivableIndexMap;
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
@@ -130,8 +129,8 @@ pub struct ModuleInfo {
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
-    imports: ArchivableIndexMap<(String, String, u32), ImportIndex>,
-    exports: ArchivableIndexMap<String, ExportIndex>,
+    imports: IndexMap<(String, String, u32), ImportIndex>,
+    exports: IndexMap<String, ExportIndex>,
     start_function: Option<FunctionIndex>,
     table_initializers: Vec<TableInitializer>,
     passive_elements: BTreeMap<ElemIndex, Box<[FunctionIndex]>>,
@@ -143,7 +142,7 @@ pub struct ArchivableModuleInfo {
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
     globals: PrimaryMap<GlobalIndex, GlobalType>,
-    custom_sections: ArchivableIndexMap<String, CustomSectionIndex>,
+    custom_sections: IndexMap<String, CustomSectionIndex>,
     custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
     num_imported_functions: usize,
     num_imported_tables: usize,
@@ -155,8 +154,8 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
     fn from(it: ModuleInfo) -> Self {
         Self {
             name: it.name,
-            imports: ArchivableIndexMap::from(it.imports),
-            exports: ArchivableIndexMap::from(it.exports),
+            imports: IndexMap::from(it.imports),
+            exports: IndexMap::from(it.exports),
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
@@ -168,7 +167,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             tables: it.tables,
             memories: it.memories,
             globals: it.globals,
-            custom_sections: ArchivableIndexMap::from(it.custom_sections),
+            custom_sections: IndexMap::from(it.custom_sections),
             custom_sections_data: it.custom_sections_data,
             num_imported_functions: it.num_imported_functions,
             num_imported_tables: it.num_imported_tables,

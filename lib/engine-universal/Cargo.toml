@@ -23,7 +23,7 @@ wasmer-engine = { path = "../engine", version = "=2.3.0" }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 cfg-if = "1.0"
 leb128 = "0.2"
-rkyv = "0.7.20"
+rkyv = { version = "0.7.20", features = ["indexmap"] }
 enumset = "1.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
