@@ -145,7 +145,7 @@ unsafe impl ValueType for __wasi_subscription_t {
         }
         self.userdata
             .zero_padding_bytes(&mut bytes[field!(userdata)..field_end!(userdata)]);
-        zero!(field_end!(userdata), field!(u));
+        zero!(field_end!(userdata), field!(type_));
         self.type_
             .zero_padding_bytes(&mut bytes[field!(type_)..field_end!(type_)]);
         zero!(field_end!(type_), field!(u));
