@@ -1,0 +1,379 @@
+name: Builds
+
+env:
+  RUST_BACKTRACE: 1
+
+on:
+  push:
+    branches:
+      - 'master'
+    tags:
+      # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+      - '[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+jobs:
+  setup:
+    name: Set up
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.setup.outputs.VERSION }}
+      DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
+    steps:
+      - name: Set up env vars
+        id: setup
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF/refs\/tags\//}
+          echo ::set-output name=VERSION::${VERSION}
+          DOING_RELEASE=$(echo $VERSION | grep -c '^[0-9]\+\.[0-9]\+\.[0-9]\+\(-\([a-zA-Z]\+\)\?[0-9]*\)\?$' || true)
+          echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
+          echo $VERSION
+          echo $DOING_RELEASE
+
+  build:
+    name: Build on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            artifact_name: 'wasmer-linux-amd64'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            artifact_name: 'wasmer-darwin-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            use_sccache: true
+          - build: macos-arm64
+            os: macos-11.0
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-darwin-arm64'
+            use_sccache: true
+          - build: windows-x64
+            os: windows-2019
+            artifact_name: 'wasmer-windows-amd64'
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            use_sccache: true
+          - build: linux-musl-x64
+            os: ubuntu-latest
+            artifact_name: 'wasmer-linux-musl-amd64'
+            container: alpine:latest
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Install dependencies on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libwayland-cursor0 libxkbcommon-dev libwayland-dev
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++ libxkbcommon-dev wayland-dev
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          override: true
+      - uses: Swatinem/rust-cache@v1
+        if: matrix.use_sccache != true
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          choco install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Setup Rust target
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
+      - name: Build C API
+        run: |
+          make build-capi
+      - name: Build Wasmer binary
+        run: |
+          make build-wasmer
+      - name: Build Wapm binary
+        run: |
+          make build-wapm
+      - name: Install Nightly Rust for Headless
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 'nightly-2022-02-08'
+          target: ${{ matrix.target }}
+          override: true
+          components: "rust-src"
+      - name: Build Minimal Wasmer Headless
+        if: matrix.build != 'linux-musl-x64'
+        run: |
+          cargo install xargo
+          echo "" >> Cargo.toml
+          echo "[profile.release]" >> Cargo.toml
+          echo "opt-level = 'z'" >> Cargo.toml
+          echo "debug = false" >> Cargo.toml
+          echo "debug-assertions = false" >> Cargo.toml
+          echo "overflow-checks = false" >> Cargo.toml
+          echo "lto = true" >> Cargo.toml
+          echo "panic = 'abort'" >> Cargo.toml
+          echo "incremental = false" >> Cargo.toml
+          echo "codegen-units = 1" >> Cargo.toml
+          echo "rpath = false" >> Cargo.toml
+          make build-wasmer-headless-minimal
+      - name: Dist
+        if: matrix.build != 'macos-arm64'
+        run: |
+          make distribution
+      - name: Dist macos-arm64
+        if: matrix.build == 'macos-arm64'
+        run: |
+          make distribution
+        env:
+          TARGET: aarch64-apple-darwin
+          TARGET_DIR: target/aarch64-apple-darwin/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
+
+  linux_aarch64:
+    name: Linux aarch64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-unknown-linux-gnu
+          override: true
+      - name: Build cross image
+        run: |
+          docker build -t wasmer/aarch64 /home/runner/work/wasmer/wasmer/.github/cross-linux-aarch64/
+        env:
+          CROSS_DOCKER_IN_DOCKER: true
+      - name: Install LLVM
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf "https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-aarch64-linux-gnu.tar.xz" -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Build Wasmer binary
+        run: |
+          make build-wasmer
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+      - name: Build C API
+        run: |
+          make build-capi
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+      - name: Dist
+        run: |
+          make distribution
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v /home/runner/work/wasmer/wasmer:/project -w /project wasmer/aarch64 cross
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          TARGET: aarch64-unknown-linux-gnu
+          TARGET_DIR: target/aarch64-unknown-linux-gnu/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: wasmer-linux-aarch64.tar.gz
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
+
+  release:
+    needs: [setup, build, linux_aarch64]
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.DOING_RELEASE == '1'
+    steps:
+      - name: Download the Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.setup.outputs.VERSION }}
+          release_name: Release ${{ needs.setup.outputs.VERSION }}
+          draft: true
+          prerelease: false
+      - name: Upload Release Asset Windows Installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
+          asset_name: wasmer-windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
+          asset_name: wasmer-windows-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
+          asset_name: wasmer-linux-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux aarch64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
+          asset_name: wasmer-linux-aarch64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux amd64 (musl)
+        id: upload-release-asset-linux-musl-amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
+          asset_name: wasmer-linux-musl-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
+          asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
+          asset_name: wasmer-darwin-arm64.tar.gz
+          asset_content_type: application/gzip
