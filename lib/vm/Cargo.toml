@@ -21,7 +21,7 @@ more-asserts = "0.2"
 cfg-if = "1.0"
 backtrace = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
-rkyv = { version = "0.7.20", features = ["indexmap"] }
+rkyv = { version = "0.7.38", features = ["indexmap"] }
 enum-iterator = "0.7.0"
 scopeguard = "1.1.0"
 lazy_static = "1.4.0"
