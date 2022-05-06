@@ -233,6 +233,10 @@
 <span id="231">231</span>
 <span id="232">232</span>
 <span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::store::wasm_store_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::trap::wasm_trap_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::types</span>::{<span class="ident">wasm_functype_t</span>, <span class="ident">wasm_valkind_enum</span>};
@@ -241,7 +245,7 @@
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::c_void</span>;
 <span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Function</span>, <span class="ident">RuntimeError</span>, <span class="ident">Val</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
@@ -345,7 +349,7 @@
     <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
     <span class="kw">struct</span> <span class="ident">WrapperEnv</span> {
         <span class="ident">env</span>: <span class="kw-2">*mut</span> <span class="ident">c_void</span>,
-        <span class="ident">env_finalizer</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasm_env_finalizer_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">env_finalizer</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasm_env_finalizer_t</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     }
 
     <span class="kw">impl</span> <span class="ident">wasmer_api::WasmerEnv</span> <span class="kw">for</span> <span class="ident">WrapperEnv</span> {}
@@ -357,8 +361,12 @@
 
     <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">WrapperEnv</span> {
         <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">env_finalizer</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">env_finalizer</span> {
-                <span class="kw">unsafe</span> { (<span class="ident">env_finalizer</span>)(<span class="self">self</span>.<span class="ident">env</span> <span class="kw">as</span> <span class="kw">_</span>) }
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">guard</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">env_finalizer</span>.<span class="ident">lock</span>() {
+                <span class="kw">if</span> <span class="ident">Arc::strong_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">env_finalizer</span>) <span class="op">==</span> <span class="number">1</span> {
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">env_finalizer</span>) <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">take</span>() {
+                        <span class="kw">unsafe</span> { (<span class="ident">env_finalizer</span>)(<span class="self">self</span>.<span class="ident">env</span> <span class="kw">as</span> <span class="kw">_</span>) };
+                    }
+                }
             }
         }
     }
@@ -401,7 +409,7 @@
         <span class="ident">func_sig</span>,
         <span class="ident">WrapperEnv</span> {
             <span class="ident">env</span>,
-            <span class="ident">env_finalizer</span>: <span class="ident">Arc::new</span>(<span class="ident">env_finalizer</span>),
+            <span class="ident">env_finalizer</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">env_finalizer</span>)),
         },
         <span class="ident">trampoline</span>,
     );
