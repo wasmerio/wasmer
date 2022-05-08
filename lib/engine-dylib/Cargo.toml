@@ -24,7 +24,6 @@ libloading = "0.7"
 tempfile = "3.1"
 which = "4.0"
 rkyv = "0.7.20"
-loupe = "0.1"
 enumset = "1.0"
 enum-iterator = "0.7.0"
 object = { version = "0.28.3", default-features = false, features = ["write"] }

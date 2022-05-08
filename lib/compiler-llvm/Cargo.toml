@@ -24,7 +24,6 @@ libc = { version = "^0.2", default-features = false }
 byteorder = "1"
 itertools = "0.10"
 rayon = "1.5"
-loupe = "0.1"
 
 [dependencies.inkwell]
 package = "inkwell"

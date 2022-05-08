@@ -15,7 +15,6 @@ wasmer-engine = { path = "../../../lib/engine", version = "=2.2.1" }
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 serde_bytes = { version = "0.11", optional = true }
 bincode = { version = "1.2", optional = true }
-loupe = "0.1"
 enumset = "1.0"
 
 [features]

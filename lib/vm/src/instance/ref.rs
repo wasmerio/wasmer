@@ -1,8 +1,6 @@
 use super::Instance;
-use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::alloc::Layout;
 use std::convert::TryFrom;
-use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::{Arc, Weak};
 
@@ -82,15 +80,6 @@ impl Drop for InstanceInner {
 unsafe impl Send for InstanceInner {}
 unsafe impl Sync for InstanceInner {}
 
-impl MemoryUsage for InstanceInner {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        mem::size_of_val(self) + self.instance_layout.size_of_val(tracker)
-            - mem::size_of_val(&self.instance_layout)
-            + self.as_ref().size_of_val(tracker)
-            - mem::size_of_val(&self.instance)
-    }
-}
-
 /// An `InstanceRef` is responsible to properly deallocate,
 /// and to give access to an `Instance`, in such a way that `Instance`
 /// is unique, can be shared, safely, across threads, without
@@ -110,7 +99,7 @@ impl MemoryUsage for InstanceInner {
 /// share an [`Instance`] between an [`InstanceHandle`] and the module
 /// exports, so that one can drop a [`InstanceHandle`] but still being
 /// able to use the exports properly.
-#[derive(Debug, PartialEq, Clone, MemoryUsage)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct InstanceRef(Arc<InstanceInner>);
 
 impl InstanceRef {
@@ -177,22 +166,11 @@ impl WeakInstanceRef {
     }
 }
 
-impl MemoryUsage for WeakInstanceRef {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        mem::size_of_val(self)
-            + if let Some(ir) = self.upgrade() {
-                ir.size_of_val(tracker)
-            } else {
-                0
-            }
-    }
-}
-
 /// An `InstanceRef` that may or may not be keeping the `Instance` alive.
 ///
 /// This type is useful for types that conditionally must keep / not keep the
 /// underlying `Instance` alive. For example, to prevent cycles in `WasmerEnv`s.
-#[derive(Debug, Clone, PartialEq, MemoryUsage)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WeakOrStrongInstanceRef {
     /// A weak instance ref.
     Weak(WeakInstanceRef),

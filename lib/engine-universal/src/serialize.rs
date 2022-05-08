@@ -1,4 +1,3 @@
-use loupe::MemoryUsage;
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
     ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
@@ -13,7 +12,7 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
 /// The compilation related data for a serialized modules
-#[derive(MemoryUsage, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
@@ -32,7 +31,7 @@ pub struct SerializableCompilation {
 
 /// Serializable struct that is able to serialize from and to
 /// a `UniversalArtifactInfo`.
-#[derive(MemoryUsage, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,
     pub compile_info: CompileModuleInfo,

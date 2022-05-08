@@ -12,12 +12,10 @@ use crate::lib::std::marker::PhantomData;
 use crate::lib::std::ops::{Index, IndexMut};
 use crate::lib::std::slice;
 use crate::lib::std::vec::Vec;
-use loupe::{MemoryUsage, MemoryUsageTracker};
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::mem;
 
 /// A primary mapping `K -> V` allocating dense entity references.
 ///
@@ -241,21 +239,6 @@ where
             elems: Vec::from_iter(iter),
             unused: PhantomData,
         }
-    }
-}
-
-impl<K, V> MemoryUsage for PrimaryMap<K, V>
-where
-    K: EntityRef,
-    V: MemoryUsage,
-{
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        mem::size_of_val(self)
-            + self
-                .elems
-                .iter()
-                .map(|value| value.size_of_val(tracker) - mem::size_of_val(value))
-                .sum::<usize>()
     }
 }
 

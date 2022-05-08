@@ -7,7 +7,6 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
-use loupe::MemoryUsage;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
@@ -23,7 +22,6 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
-#[derive(MemoryUsage)]
 pub struct LLVMCompiler {
     config: LLVM,
 }

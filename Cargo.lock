@@ -1273,27 +1273,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "loupe"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b6a72dfa44fe15b5e76b94307eeb2ff995a8c5b283b55008940c02e0c5b634d"
-dependencies = [
- "indexmap",
- "loupe-derive",
- "rustversion",
-]
-
-[[package]]
-name = "loupe-derive"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0fbfc88337168279f2e9ae06e157cfed4efd3316e14dc96ed074d4f2e6c5952"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "mach"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2804,7 +2783,6 @@ dependencies = [
  "hashbrown 0.11.2",
  "indexmap",
  "js-sys",
- "loupe",
  "more-asserts",
  "target-lexicon 0.12.3",
  "tempfile",
@@ -2928,7 +2906,6 @@ version = "2.2.1"
 dependencies = [
  "enumset",
  "hashbrown 0.11.2",
- "loupe",
  "rkyv",
  "serde",
  "serde_bytes",
@@ -2950,7 +2927,6 @@ dependencies = [
  "gimli",
  "hashbrown 0.11.2",
  "lazy_static",
- "loupe",
  "more-asserts",
  "rayon",
  "smallvec",
@@ -2971,7 +2947,6 @@ dependencies = [
  "itertools",
  "lazy_static",
  "libc",
- "loupe",
  "object 0.28.3",
  "rayon",
  "regex",
@@ -2994,7 +2969,6 @@ dependencies = [
  "gimli",
  "hashbrown 0.11.2",
  "lazy_static",
- "loupe",
  "more-asserts",
  "rayon",
  "smallvec",
@@ -3036,7 +3010,6 @@ dependencies = [
  "backtrace",
  "enumset",
  "lazy_static",
- "loupe",
  "memmap2",
  "more-asserts",
  "rustc-demangle",
@@ -3055,7 +3028,6 @@ version = "2.2.1"
 dependencies = [
  "bincode",
  "enumset",
- "loupe",
  "serde",
  "serde_bytes",
  "wasmer-compiler",
@@ -3073,7 +3045,6 @@ dependencies = [
  "enumset",
  "leb128",
  "libloading",
- "loupe",
  "object 0.28.3",
  "rkyv",
  "serde",
@@ -3096,7 +3067,6 @@ dependencies = [
  "enumset",
  "leb128",
  "libloading",
- "loupe",
  "serde",
  "tempfile",
  "tracing",
@@ -3115,7 +3085,6 @@ dependencies = [
  "enum-iterator",
  "enumset",
  "leb128",
- "loupe",
  "region",
  "rkyv",
  "wasmer-compiler",
@@ -3141,7 +3110,6 @@ version = "2.2.1"
 name = "wasmer-middlewares"
 version = "2.2.1"
 dependencies = [
- "loupe",
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
@@ -3162,7 +3130,6 @@ name = "wasmer-types"
 version = "2.2.1"
 dependencies = [
  "indexmap",
- "loupe",
  "rkyv",
  "serde",
  "thiserror",
@@ -3192,7 +3159,6 @@ dependencies = [
  "indexmap",
  "lazy_static",
  "libc",
- "loupe",
  "mach",
  "memoffset",
  "more-asserts",
@@ -3278,7 +3244,6 @@ dependencies = [
  "criterion",
  "glob",
  "lazy_static",
- "loupe",
  "rustc_version 0.4.0",
  "serial_test",
  "tempfile",

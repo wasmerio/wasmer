@@ -3,7 +3,6 @@ use crate::{
     Tunables,
 };
 use enumset::EnumSet;
-use loupe::MemoryUsage;
 use std::any::Any;
 use std::convert::TryInto;
 use std::path::Path;
@@ -26,7 +25,7 @@ use wasmer_vm::{
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
+pub trait Artifact: Send + Sync + Upcastable {
     /// Return a reference-counted pointer to the module
     fn module(&self) -> Arc<ModuleInfo>;
 

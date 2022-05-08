@@ -44,7 +44,6 @@ use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use crate::{on_host_stack, VMExternRef};
 use enum_iterator::IntoEnumIterator;
-use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
@@ -701,9 +700,7 @@ pub static wasmer_vm_probestack: unsafe extern "C" fn() = PROBESTACK;
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, MemoryUsage, IntoEnumIterator,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, IntoEnumIterator)]
 pub enum LibCall {
     /// ceil.f32
     CeilF32,

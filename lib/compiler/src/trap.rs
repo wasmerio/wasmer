@@ -1,5 +1,4 @@
 use crate::CodeOffset;
-use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -12,7 +11,7 @@ use wasmer_vm::TrapCode;
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(Clone, Debug, PartialEq, Eq, MemoryUsage)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TrapInformation {
     /// The offset of the trapping instruction in native code. It is relative to the beginning of the function.
     pub code_offset: CodeOffset,

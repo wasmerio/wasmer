@@ -1,7 +1,6 @@
 //! Universal compilation.
 
 use crate::{CodeMemory, UniversalArtifact};
-use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
@@ -19,7 +18,7 @@ use wasmer_vm::{
 };
 
 /// A WebAssembly `Universal` Engine.
-#[derive(Clone, MemoryUsage)]
+#[derive(Clone)]
 pub struct UniversalEngine {
     inner: Arc<Mutex<UniversalEngineInner>>,
     /// The target for the compiler
@@ -147,7 +146,6 @@ impl Engine for UniversalEngine {
 }
 
 /// The inner contents of `UniversalEngine`
-#[derive(MemoryUsage)]
 pub struct UniversalEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]

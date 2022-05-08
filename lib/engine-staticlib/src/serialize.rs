@@ -1,11 +1,10 @@
-use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(Serialize, Deserialize, Debug, MemoryUsage)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub prefix: String,
@@ -15,7 +14,6 @@ pub struct ModuleMetadata {
     pub cpu_features: u64,
 }
 
-#[derive(MemoryUsage)]
 pub struct ModuleMetadataSymbolRegistry {
     pub prefix: String,
 }

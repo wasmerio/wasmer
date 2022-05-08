@@ -8,7 +8,6 @@ use crate::sys::RuntimeError;
 use crate::sys::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 
-use loupe::MemoryUsage;
 use std::cmp::max;
 use std::ffi::c_void;
 use std::fmt;
@@ -37,7 +36,7 @@ use wasmer_vm::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(PartialEq, MemoryUsage)]
+#[derive(PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) exported: ExportFunction,
