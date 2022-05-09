@@ -54,14 +54,10 @@ pub use crate::vmcontext::{
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-<<<<<<< HEAD
-pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
-=======
 pub use wasmer_artifact::{FunctionBodyPtr, VMFunctionBody};
 pub use wasmer_types::LibCall;
 pub use wasmer_types::MemoryStyle;
 pub use wasmer_types::TableStyle;
->>>>>>> upstream/wasmer3
 pub use wasmer_types::VMExternRef;
 pub use wasmer_types::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
@@ -74,31 +70,6 @@ pub use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-<<<<<<< HEAD
-/// A safe wrapper around `VMFunctionBody`.
-#[derive(Clone, Copy, Debug)]
-#[repr(transparent)]
-pub struct FunctionBodyPtr(pub *const VMFunctionBody);
-
-impl std::ops::Deref for FunctionBodyPtr {
-    type Target = *const VMFunctionBody;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-/// # Safety
-/// The VMFunctionBody that this points to is opaque, so there's no data to
-/// read or write through this pointer. This is essentially a usize.
-unsafe impl Send for FunctionBodyPtr {}
-/// # Safety
-/// The VMFunctionBody that this points to is opaque, so there's no data to
-/// read or write through this pointer. This is essentially a usize.
-unsafe impl Sync for FunctionBodyPtr {}
-
-=======
->>>>>>> upstream/wasmer3
 /// Pointers to section data.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]

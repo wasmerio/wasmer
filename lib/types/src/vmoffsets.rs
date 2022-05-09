@@ -5,15 +5,7 @@
 //! module.
 
 #![deny(broken_intra_doc_links)]
-
-<<<<<<< HEAD:lib/vm/src/vmoffsets.rs
-use crate::VMBuiltinFunctionIndex;
-use more_asserts::assert_lt;
-use std::convert::TryFrom;
-use wasmer_types::{
-=======
 use crate::{
->>>>>>> upstream/wasmer3:lib/types/src/vmoffsets.rs
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex,
 };
@@ -157,11 +149,6 @@ const fn align(offset: u32, width: u32) -> u32 {
 
 /// This class computes offsets to fields within VMContext and other
 /// related structs that JIT code accesses directly.
-<<<<<<< HEAD:lib/vm/src/vmoffsets.rs
-///
-/// [`VMContext`]: crate::vmcontext::VMContext
-=======
->>>>>>> upstream/wasmer3:lib/types/src/vmoffsets.rs
 #[derive(Clone, Debug)]
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
