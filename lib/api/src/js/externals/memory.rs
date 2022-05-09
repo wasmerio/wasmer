@@ -79,6 +79,7 @@ extern "C" {
 pub struct Memory {
     store: Store,
     vm_memory: VMMemory,
+    view: js_sys::Uint8Array,
 }
 
 unsafe impl Send for Memory {}
@@ -110,9 +111,11 @@ impl Memory {
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
         let memory = VMMemory::new(js_memory, ty);
+        let view = js_sys::Uint8Array::new(&memory.memory.buffer());
         Ok(Self {
             store: store.clone(),
             vm_memory: memory,
+            view,
         })
     }
 
@@ -237,7 +240,7 @@ impl Memory {
     /// Used by tests
     #[doc(hidden)]
     pub fn uint8view(&self) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
+        self.view.clone()
     }
 
     /// A theoretical alias to `Self::view::<u8>` but it returns a `js::Uint8Array` in this case.
@@ -257,9 +260,11 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
+        let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
             store: store.clone(),
             vm_memory,
+            view,
         }
     }
 
@@ -292,12 +297,11 @@ impl Memory {
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
-        let view = self.uint8view();
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > view.length() {
+        if end > self.view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        view.subarray(offset, end).copy_to(buf);
+        self.view.subarray(offset, end).copy_to(buf);
         Ok(())
     }
 
@@ -321,10 +325,8 @@ impl Memory {
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
-        
-        let view = self.uint8view();
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > view.length() {
+        if end > self.view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
 
@@ -335,7 +337,7 @@ impl Memory {
         }
         let buf = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len()) };
 
-        view.subarray(offset, end).copy_to(buf);
+        self.view.subarray(offset, end).copy_to(buf);
         Ok(buf)
     }
 
@@ -352,12 +354,11 @@ impl Memory {
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
-        let view = self.uint8view();
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > view.length() {
+        if end > self.view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        view.subarray(offset, end).copy_from(data);
+        self.view.subarray(offset, end).copy_from(data);
         Ok(())
     }
 }

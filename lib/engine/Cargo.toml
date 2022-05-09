@@ -13,7 +13,7 @@ edition = "2018"
 [dependencies]
 wasmer-types = { path = "../types", version = "=2.2.1" }
 wasmer-compiler = { path = "../compiler", version = "=2.2.1" }
-wasmer-vm = { path = "../vm", version = "=2.2.1" }
+wasmer-artifact = { path = "../artifact", version = "=2.2.1" }
 target-lexicon = { version = "0.12.2", default-features = false }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 backtrace = "0.3"
@@ -25,6 +25,9 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11" }
 lazy_static = "1.4"
 enumset = "1.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wasmer-vm = { path = "../vm", version = "=2.2.1" }
 
 [badges]
 maintenance = { status = "actively-developed" }

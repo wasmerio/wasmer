@@ -1,8 +1,11 @@
 //! Common module with common used structures across different
 //! commands.
 
-use crate::common::WasmFeatures;
 use anyhow::Result;
+
+#[allow(unused_imports)]
+use crate::common::WasmFeatures;
+#[allow(unused_imports)]
 use std::path::PathBuf;
 use std::string::ToString;
 #[allow(unused_imports)]

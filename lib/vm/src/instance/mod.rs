@@ -563,7 +563,7 @@ impl Instance {
     ) -> Option<u32> {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
-        from.grow(delta.into(), init_value)
+        from.grow(delta, init_value)
     }
 
     /// Get table element by index.

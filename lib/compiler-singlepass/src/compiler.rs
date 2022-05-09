@@ -28,9 +28,9 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex,
+    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex, TrapCode,
+    VMOffsets,
 };
-use wasmer_vm::{TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -313,7 +313,7 @@ mod tests {
     use std::str::FromStr;
     use target_lexicon::triple;
     use wasmer_compiler::{CpuFeature, Features, Triple};
-    use wasmer_vm::{MemoryStyle, TableStyle};
+    use wasmer_types::{MemoryStyle, TableStyle};
 
     fn dummy_compilation_ingredients<'a>() -> (
         CompileModuleInfo,

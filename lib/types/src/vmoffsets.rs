@@ -6,13 +6,140 @@
 
 #![deny(broken_intra_doc_links)]
 
+<<<<<<< HEAD:lib/vm/src/vmoffsets.rs
 use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasmer_types::{
+=======
+use crate::{
+>>>>>>> upstream/wasmer3:lib/types/src/vmoffsets.rs
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex,
 };
+use more_asserts::assert_lt;
+use std::convert::TryFrom;
+
+/// An index type for builtin functions.
+#[derive(Copy, Clone, Debug)]
+pub struct VMBuiltinFunctionIndex(u32);
+
+impl VMBuiltinFunctionIndex {
+    /// Returns an index for wasm's `memory.grow` builtin function.
+    pub const fn get_memory32_grow_index() -> Self {
+        Self(0)
+    }
+    /// Returns an index for wasm's imported `memory.grow` builtin function.
+    pub const fn get_imported_memory32_grow_index() -> Self {
+        Self(1)
+    }
+    /// Returns an index for wasm's `memory.size` builtin function.
+    pub const fn get_memory32_size_index() -> Self {
+        Self(2)
+    }
+    /// Returns an index for wasm's imported `memory.size` builtin function.
+    pub const fn get_imported_memory32_size_index() -> Self {
+        Self(3)
+    }
+    /// Returns an index for wasm's `table.copy` when both tables are locally
+    /// defined.
+    pub const fn get_table_copy_index() -> Self {
+        Self(4)
+    }
+    /// Returns an index for wasm's `table.init`.
+    pub const fn get_table_init_index() -> Self {
+        Self(5)
+    }
+    /// Returns an index for wasm's `elem.drop`.
+    pub const fn get_elem_drop_index() -> Self {
+        Self(6)
+    }
+    /// Returns an index for wasm's `memory.copy` for locally defined memories.
+    pub const fn get_memory_copy_index() -> Self {
+        Self(7)
+    }
+    /// Returns an index for wasm's `memory.copy` for imported memories.
+    pub const fn get_imported_memory_copy_index() -> Self {
+        Self(8)
+    }
+    /// Returns an index for wasm's `memory.fill` for locally defined memories.
+    pub const fn get_memory_fill_index() -> Self {
+        Self(9)
+    }
+    /// Returns an index for wasm's `memory.fill` for imported memories.
+    pub const fn get_imported_memory_fill_index() -> Self {
+        Self(10)
+    }
+    /// Returns an index for wasm's `memory.init` instruction.
+    pub const fn get_memory_init_index() -> Self {
+        Self(11)
+    }
+    /// Returns an index for wasm's `data.drop` instruction.
+    pub const fn get_data_drop_index() -> Self {
+        Self(12)
+    }
+    /// Returns an index for wasm's `raise_trap` instruction.
+    pub const fn get_raise_trap_index() -> Self {
+        Self(13)
+    }
+    /// Returns an index for wasm's `table.size` instruction for local tables.
+    pub const fn get_table_size_index() -> Self {
+        Self(14)
+    }
+    /// Returns an index for wasm's `table.size` instruction for imported tables.
+    pub const fn get_imported_table_size_index() -> Self {
+        Self(15)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for local tables.
+    pub const fn get_table_grow_index() -> Self {
+        Self(16)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for imported tables.
+    pub const fn get_imported_table_grow_index() -> Self {
+        Self(17)
+    }
+    /// Returns an index for wasm's `table.get` instruction for local tables.
+    pub const fn get_table_get_index() -> Self {
+        Self(18)
+    }
+    /// Returns an index for wasm's `table.get` instruction for imported tables.
+    pub const fn get_imported_table_get_index() -> Self {
+        Self(19)
+    }
+    /// Returns an index for wasm's `table.set` instruction for local tables.
+    pub const fn get_table_set_index() -> Self {
+        Self(20)
+    }
+    /// Returns an index for wasm's `table.set` instruction for imported tables.
+    pub const fn get_imported_table_set_index() -> Self {
+        Self(21)
+    }
+    /// Returns an index for wasm's `func.ref` instruction.
+    pub const fn get_func_ref_index() -> Self {
+        Self(22)
+    }
+    /// Returns an index for wasm's `table.fill` instruction for local tables.
+    pub const fn get_table_fill_index() -> Self {
+        Self(23)
+    }
+    /// Returns an index for a function to increment the externref count.
+    pub const fn get_externref_inc_index() -> Self {
+        Self(24)
+    }
+    /// Returns an index for a function to decrement the externref count.
+    pub const fn get_externref_dec_index() -> Self {
+        Self(25)
+    }
+    /// Returns the total number of builtin functions.
+    pub const fn builtin_functions_total_number() -> u32 {
+        26
+    }
+
+    /// Return the index as an u32 number.
+    pub const fn index(self) -> u32 {
+        self.0
+    }
+}
 
 #[cfg(target_pointer_width = "32")]
 fn cast_to_u32(sz: usize) -> u32 {
@@ -28,10 +155,13 @@ const fn align(offset: u32, width: u32) -> u32 {
     (offset + (width - 1)) / width * width
 }
 
-/// This class computes offsets to fields within [`VMContext`] and other
+/// This class computes offsets to fields within VMContext and other
 /// related structs that JIT code accesses directly.
+<<<<<<< HEAD:lib/vm/src/vmoffsets.rs
 ///
 /// [`VMContext`]: crate::vmcontext::VMContext
+=======
+>>>>>>> upstream/wasmer3:lib/types/src/vmoffsets.rs
 #[derive(Clone, Debug)]
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
@@ -89,9 +219,7 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for [`VMFunctionImport`].
-///
-/// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
+/// Offsets for `VMFunctionImport`.
 impl VMOffsets {
     /// The offset of the `body` field.
     #[allow(clippy::erasing_op)]
@@ -105,17 +233,13 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of [`VMFunctionImport`].
-    ///
-    /// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
+    /// Return the size of `VMFunctionImport`.
     pub const fn size_of_vmfunction_import(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMDynamicFunctionContext`].
-///
-/// [`VMDynamicFunctionContext`]: crate::vmcontext::VMDynamicFunctionContext
+/// Offsets for `VMDynamicFunctionContext`.
 impl VMOffsets {
     /// The offset of the `address` field.
     #[allow(clippy::erasing_op)]
@@ -129,9 +253,7 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of [`VMDynamicFunctionContext`].
-    ///
-    /// [`VMDynamicFunctionContext`]: crate::vmcontext::VMDynamicFunctionContext
+    /// Return the size of `VMDynamicFunctionContext`.
     pub const fn size_of_vmdynamicfunction_import_context(&self) -> u8 {
         2 * self.pointer_size
     }
@@ -146,9 +268,7 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for [`VMTableImport`].
-///
-/// [`VMTableImport`]: crate::vmcontext::VMTableImport
+/// Offsets for `VMTableImport`.
 impl VMOffsets {
     /// The offset of the `definition` field.
     #[allow(clippy::erasing_op)]
@@ -162,17 +282,13 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of [`VMTableImport`].
-    ///
-    /// [`VMTableImport`]: crate::vmcontext::VMTableImport
+    /// Return the size of `VMTableImport`.
     pub const fn size_of_vmtable_import(&self) -> u8 {
         3 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMTableDefinition`].
-///
-/// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
+/// Offsets for `VMTableDefinition`.
 impl VMOffsets {
     /// The offset of the `base` field.
     #[allow(clippy::erasing_op)]
@@ -191,17 +307,13 @@ impl VMOffsets {
         4
     }
 
-    /// Return the size of [`VMTableDefinition`].
-    ///
-    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
+    /// Return the size of `VMTableDefinition`.
     pub const fn size_of_vmtable_definition(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMMemoryImport`].
-///
-/// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
+/// Offsets for `VMMemoryImport`.
 impl VMOffsets {
     /// The offset of the `from` field.
     #[allow(clippy::erasing_op)]
@@ -215,17 +327,13 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of [`VMMemoryImport`].
-    ///
-    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
+    /// Return the size of `VMMemoryImport`.
     pub const fn size_of_vmmemory_import(&self) -> u8 {
         3 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMMemoryDefinition`].
-///
-/// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
+/// Offsets for `VMMemoryDefinition`.
 impl VMOffsets {
     /// The offset of the `base` field.
     #[allow(clippy::erasing_op)]
@@ -244,17 +352,13 @@ impl VMOffsets {
         4
     }
 
-    /// Return the size of [`VMMemoryDefinition`].
-    ///
-    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
+    /// Return the size of `VMMemoryDefinition`.
     pub const fn size_of_vmmemory_definition(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMGlobalImport`].
-///
-/// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
+/// Offsets for `VMGlobalImport`.
 impl VMOffsets {
     /// The offset of the `definition` field.
     #[allow(clippy::erasing_op)]
@@ -268,45 +372,33 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
-    /// Return the size of [`VMGlobalImport`].
-    ///
-    /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
+    /// Return the size of `VMGlobalImport`.
     #[allow(clippy::identity_op)]
     pub const fn size_of_vmglobal_import(&self) -> u8 {
         2 * self.pointer_size
     }
 }
 
-/// Offsets for a non-null pointer to a [`VMGlobalDefinition`] used as a local global.
-///
-/// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
+/// Offsets for a non-null pointer to a `VMGlobalDefinition` used as a local global.
 impl VMOffsets {
-    /// Return the size of a pointer to a [`VMGlobalDefinition`];
+    /// Return the size of a pointer to a `VMGlobalDefinition`;
     ///
     /// The underlying global itself is the size of the largest value type (i.e. a V128),
     /// however the size of this type is just the size of a pointer.
-    ///
-    /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
     pub const fn size_of_vmglobal_local(&self) -> u8 {
         self.pointer_size
     }
 }
 
-/// Offsets for [`VMSharedSignatureIndex`].
-///
-/// [`VMSharedSignatureIndex`]: crate::vmcontext::VMSharedSignatureIndex
+/// Offsets for `VMSharedSignatureIndex`.
 impl VMOffsets {
-    /// Return the size of [`VMSharedSignatureIndex`].
-    ///
-    /// [`VMSharedSignatureIndex`]: crate::vmcontext::VMSharedSignatureIndex
+    /// Return the size of `VMSharedSignatureIndex`.
     pub const fn size_of_vmshared_signature_index(&self) -> u8 {
         4
     }
 }
 
-/// Offsets for [`VMCallerCheckedAnyfunc`].
-///
-/// [`VMCallerCheckedAnyfunc`]: crate::vmcontext::VMCallerCheckedAnyfunc
+/// Offsets for `VMCallerCheckedAnyfunc`.
 impl VMOffsets {
     /// The offset of the `func_ptr` field.
     #[allow(clippy::erasing_op)]
@@ -325,17 +417,13 @@ impl VMOffsets {
         2 * self.pointer_size
     }
 
-    /// Return the size of [`VMCallerCheckedAnyfunc`].
-    ///
-    /// [`VMCallerCheckedAnyfunc`]: crate::vmcontext::VMCallerCheckedAnyfunc
+    /// Return the size of `VMCallerCheckedAnyfunc`.
     pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
         3 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMFuncRef`].
-///
-/// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef
+/// Offsets for `VMFuncRef`.
 impl VMOffsets {
     /// The offset to the pointer to the anyfunc inside the ref.
     #[allow(clippy::erasing_op)]
@@ -343,17 +431,13 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// Return the size of [`VMFuncRef`].
-    ///
-    /// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef
+    /// Return the size of `VMFuncRef`.
     pub const fn size_of_vm_funcref(&self) -> u8 {
         1 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMContext`].
-///
-/// [`VMContext`]: crate::vmcontext::VMContext
+/// Offsets for `VMContext`.
 impl VMOffsets {
     /// The offset of the `signature_ids` array.
     pub fn vmctx_signature_ids_begin(&self) -> u32 {
@@ -452,9 +536,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the size of the [`VMContext`] allocation.
-    ///
-    /// [`VMContext`]: crate::vmcontext::VMContext
+    /// Return the size of the `VMContext` allocation.
     pub fn size_of_vmctx(&self) -> u32 {
         self.vmctx_builtin_functions_begin()
             .checked_add(
@@ -465,9 +547,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to [`VMSharedSignatureIndex`] index `index`.
-    ///
-    /// [`VMSharedSignatureIndex`]: crate::vmcontext::VMSharedSignatureIndex
+    /// Return the offset to `VMSharedSignatureIndex` index `index`.
     pub fn vmctx_vmshared_signature_id(&self, index: SignatureIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_signature_ids);
         self.vmctx_signature_ids_begin()
@@ -480,9 +560,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to [`VMFunctionImport`] index `index`.
-    ///
-    /// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
+    /// Return the offset to `VMFunctionImport` index `index`.
     pub fn vmctx_vmfunction_import(&self, index: FunctionIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_functions);
         self.vmctx_imported_functions_begin()
@@ -495,9 +573,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to [`VMTableImport`] index `index`.
-    ///
-    /// [`VMTableImport`]: crate::vmcontext::VMTableImport
+    /// Return the offset to `VMTableImport` index `index`.
     pub fn vmctx_vmtable_import(&self, index: TableIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_tables);
         self.vmctx_imported_tables_begin()
@@ -510,9 +586,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to [`VMMemoryImport`] index `index`.
-    ///
-    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
+    /// Return the offset to `VMMemoryImport` index `index`.
     pub fn vmctx_vmmemory_import(&self, index: MemoryIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin()
@@ -525,9 +599,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to [`VMGlobalImport`] index `index`.
-    ///
-    /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
+    /// Return the offset to `VMGlobalImport` index `index`.
     pub fn vmctx_vmglobal_import(&self, index: GlobalIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_imported_globals);
         self.vmctx_imported_globals_begin()
@@ -540,9 +612,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to [`VMTableDefinition`] index `index`.
-    ///
-    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
+    /// Return the offset to `VMTableDefinition` index `index`.
     pub fn vmctx_vmtable_definition(&self, index: LocalTableIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_tables);
         self.vmctx_tables_begin()
@@ -555,9 +625,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to [`VMMemoryDefinition`] index `index`.
-    ///
-    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
+    /// Return the offset to `VMMemoryDefinition` index `index`.
     pub fn vmctx_vmmemory_definition(&self, index: LocalMemoryIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_memories);
         self.vmctx_memories_begin()
@@ -570,9 +638,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to the [`VMGlobalDefinition`] index `index`.
-    ///
-    /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
+    /// Return the offset to the `VMGlobalDefinition` index `index`.
     pub fn vmctx_vmglobal_definition(&self, index: LocalGlobalIndex) -> u32 {
         assert_lt!(index.as_u32(), self.num_local_globals);
         self.vmctx_globals_begin()
@@ -599,72 +665,56 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to the `definition` field in [`VMTableImport`] index `index`.
-    ///
-    /// [`VMTableImport`]: crate::vmcontext::VMTableImport
+    /// Return the offset to the `definition` field in `VMTableImport` index `index`.
     pub fn vmctx_vmtable_import_definition(&self, index: TableIndex) -> u32 {
         self.vmctx_vmtable_import(index)
             .checked_add(u32::from(self.vmtable_import_definition()))
             .unwrap()
     }
 
-    /// Return the offset to the `base` field in [`VMTableDefinition`] index `index`.
-    ///
-    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
+    /// Return the offset to the `base` field in `VMTableDefinition` index `index`.
     pub fn vmctx_vmtable_definition_base(&self, index: LocalTableIndex) -> u32 {
         self.vmctx_vmtable_definition(index)
             .checked_add(u32::from(self.vmtable_definition_base()))
             .unwrap()
     }
 
-    /// Return the offset to the `current_elements` field in [`VMTableDefinition`] index `index`.
-    ///
-    /// [`VMTableDefinition`]: crate::vmcontext::VMTableDefinition
+    /// Return the offset to the `current_elements` field in `VMTableDefinition` index `index`.
     pub fn vmctx_vmtable_definition_current_elements(&self, index: LocalTableIndex) -> u32 {
         self.vmctx_vmtable_definition(index)
             .checked_add(u32::from(self.vmtable_definition_current_elements()))
             .unwrap()
     }
 
-    /// Return the offset to the `from` field in [`VMMemoryImport`] index `index`.
-    ///
-    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
+    /// Return the offset to the `from` field in `VMMemoryImport` index `index`.
     pub fn vmctx_vmmemory_import_definition(&self, index: MemoryIndex) -> u32 {
         self.vmctx_vmmemory_import(index)
             .checked_add(u32::from(self.vmmemory_import_definition()))
             .unwrap()
     }
 
-    /// Return the offset to the `vmctx` field in [`VMMemoryImport`] index `index`.
-    ///
-    /// [`VMMemoryImport`]: crate::vmcontext::VMMemoryImport
+    /// Return the offset to the `vmctx` field in `VMMemoryImport` index `index`.
     pub fn vmctx_vmmemory_import_from(&self, index: MemoryIndex) -> u32 {
         self.vmctx_vmmemory_import(index)
             .checked_add(u32::from(self.vmmemory_import_from()))
             .unwrap()
     }
 
-    /// Return the offset to the `base` field in [`VMMemoryDefinition`] index `index`.
-    ///
-    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
+    /// Return the offset to the `base` field in `VMMemoryDefinition` index `index`.
     pub fn vmctx_vmmemory_definition_base(&self, index: LocalMemoryIndex) -> u32 {
         self.vmctx_vmmemory_definition(index)
             .checked_add(u32::from(self.vmmemory_definition_base()))
             .unwrap()
     }
 
-    /// Return the offset to the `current_length` field in [`VMMemoryDefinition`] index `index`.
-    ///
-    /// [`VMMemoryDefinition`]: crate::vmcontext::VMMemoryDefinition
+    /// Return the offset to the `current_length` field in `VMMemoryDefinition` index `index`.
     pub fn vmctx_vmmemory_definition_current_length(&self, index: LocalMemoryIndex) -> u32 {
         self.vmctx_vmmemory_definition(index)
             .checked_add(u32::from(self.vmmemory_definition_current_length()))
             .unwrap()
     }
 
-    /// Return the offset to the `from` field in [`VMGlobalImport`] index `index`.
-    ///
-    /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
+    /// Return the offset to the `from` field in `VMGlobalImport` index `index`.
     pub fn vmctx_vmglobal_import_definition(&self, index: GlobalIndex) -> u32 {
         self.vmctx_vmglobal_import(index)
             .checked_add(u32::from(self.vmglobal_import_definition()))

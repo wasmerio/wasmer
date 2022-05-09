@@ -71,14 +71,14 @@ impl WasiVersion {
 
 impl PartialEq<WasiVersion> for WasiVersion {
     fn eq(&self, other: &Self) -> bool {
-        match (*self, *other) {
+        matches!(
+            (*self, *other),
             (Self::Snapshot1, Self::Latest)
-            | (Self::Latest, Self::Snapshot1)
-            | (Self::Latest, Self::Latest)
-            | (Self::Snapshot0, Self::Snapshot0)
-            | (Self::Snapshot1, Self::Snapshot1) => true,
-            _ => false,
-        }
+                | (Self::Latest, Self::Snapshot1)
+                | (Self::Latest, Self::Latest)
+                | (Self::Snapshot0, Self::Snapshot0)
+                | (Self::Snapshot1, Self::Snapshot1)
+        )
     }
 }
 

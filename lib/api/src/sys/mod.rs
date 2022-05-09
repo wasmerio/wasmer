@@ -10,7 +10,6 @@ mod ptr;
 mod store;
 mod tunables;
 mod types;
-mod utils;
 
 /// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.
 ///
@@ -45,7 +44,6 @@ pub use crate::sys::types::{
     TableType, Val, ValType,
 };
 pub use crate::sys::types::{Val as Value, ValType as Type};
-pub use crate::sys::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
@@ -59,6 +57,7 @@ pub use wasmer_derive::ValueType;
 pub use wasmer_engine::{
     DeserializeError, Engine, Export, FrameInfo, LinkError, RuntimeError, SerializeError, Tunables,
 };
+pub use wasmer_types::is_wasm;
 #[cfg(feature = "experimental-reference-types-extern-ref")]
 pub use wasmer_types::ExternRef;
 pub use wasmer_types::{

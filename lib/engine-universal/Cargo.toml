@@ -11,6 +11,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
+wasmer-engine-universal-artifact = { path = "../universal-artifact", version = "=2.2.1", features = [
+    "compiler",
+] }
 wasmer-types = { path = "../types", version = "=2.2.1", features = [
     "enable-rkyv",
 ] }
@@ -21,12 +24,13 @@ wasmer-compiler = { path = "../compiler", version = "=2.2.1", features = [
 wasmer-vm = { path = "../vm", version = "=2.2.1", features = ["enable-rkyv"] }
 wasmer-engine = { path = "../engine", version = "=2.2.1" }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
-region = "3.0"
 cfg-if = "1.0"
 leb128 = "0.2"
 rkyv = "0.7.20"
 enumset = "1.0"
-enum-iterator = "0.7.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+region = { version = "3.0" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winnt", "impl-default"] }

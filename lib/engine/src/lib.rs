@@ -4,7 +4,11 @@
 #![warn(unused_import_braces)]
 #![cfg_attr(
     feature = "cargo-clippy",
-    allow(clippy::new_without_default, clippy::new_without_default)
+    allow(
+        clippy::new_without_default,
+        clippy::upper_case_acronyms,
+        clippy::new_without_default
+    )
 )]
 #![cfg_attr(
     feature = "cargo-clippy",
@@ -27,15 +31,15 @@ mod resolver;
 mod trap;
 mod tunables;
 
-pub use crate::artifact::{Artifact, MetadataHeader};
+pub use crate::artifact::Artifact;
 pub use crate::engine::{Engine, EngineId};
-pub use crate::error::{
-    DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
-};
+pub use crate::error::{InstantiationError, LinkError};
 pub use crate::export::{Export, ExportFunction, ExportFunctionMetadata};
 pub use crate::resolver::resolve_imports;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
+pub use wasmer_artifact::{ArtifactCreate, MetadataHeader};
+pub use wasmer_artifact::{DeserializeError, ImportError, SerializeError};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

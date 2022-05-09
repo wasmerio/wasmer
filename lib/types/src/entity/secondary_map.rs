@@ -145,8 +145,8 @@ where
     K: EntityRef,
     V: Clone + Default,
 {
-    fn default() -> SecondaryMap<K, V> {
-        SecondaryMap::new()
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -295,7 +295,7 @@ mod tests {
 
     impl EntityRef for E {
         fn new(i: usize) -> Self {
-            E(i as u32)
+            Self(i as u32)
         }
         fn index(self) -> usize {
             self.0 as usize

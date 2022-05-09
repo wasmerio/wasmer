@@ -18,6 +18,7 @@ use tempfile::NamedTempFile;
 use tracing::log::error;
 #[cfg(feature = "compiler")]
 use tracing::trace;
+use wasmer_artifact::ArtifactCreate;
 use wasmer_compiler::{
     Architecture, CompileError, CompiledFunctionFrameInfo, CpuFeature, Features,
     FunctionAddressMap, OperatingSystem, Symbol, SymbolRegistry, Triple,
@@ -211,7 +212,7 @@ impl DylibArtifact {
         let mut metadata = ModuleMetadata {
             compile_info,
             function_frame_info,
-            prefix: engine_inner.get_prefix(&data),
+            prefix: engine_inner.get_prefix(data),
             data_initializers,
             function_body_lengths,
             cpu_features: target.cpu_features().as_u64(),
@@ -226,8 +227,8 @@ impl DylibArtifact {
         let (compile_info, symbol_registry) = metadata.split();
 
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
-            &target,
-            &compile_info,
+            target,
+            compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -239,8 +240,7 @@ impl DylibArtifact {
             Some(obj_bytes) => {
                 extra_filepath = {
                     // Create a separate object file with the trampolines.
-                    let mut obj =
-                        get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                    let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
                     emit_trampolines(&mut obj, engine.target());
                     if obj.format() == BinaryFormat::Coff {
                         obj.add_coff_exports(CoffExportStyle::Gnu);
@@ -273,12 +273,12 @@ impl DylibArtifact {
             }
             None => {
                 let compilation = compiler.compile_module(
-                    &target,
-                    &compile_info,
+                    target,
+                    compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;
-                let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
                 emit_trampolines(&mut obj, engine.target());
                 emit_data(
                     &mut obj,
@@ -288,9 +288,9 @@ impl DylibArtifact {
                 )
                 .map_err(to_compile_error)?;
 
-                let frame_info = compilation.get_frame_info().clone();
+                let frame_info = compilation.get_frame_info();
 
-                emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
+                emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
                     .map_err(to_compile_error)?;
                 if obj.format() == BinaryFormat::Coff {
                     obj.add_coff_exports(CoffExportStyle::Gnu);
@@ -313,7 +313,7 @@ impl DylibArtifact {
         };
 
         let output_filepath = {
-            let suffix = format!(".{}", Self::get_default_extension(&target_triple));
+            let suffix = format!(".{}", Self::get_default_extension(target_triple));
             let shared_file = tempfile::Builder::new()
                 .prefix("wasmer_dylib_")
                 .suffix(&suffix)
@@ -597,7 +597,7 @@ impl DylibArtifact {
         engine: &DylibEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
-        if !Self::is_deserializable(&bytes) {
+        if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));
@@ -605,10 +605,10 @@ impl DylibArtifact {
         // Dump the bytes into a file, so we can read it with our `dlopen`
         let named_file = NamedTempFile::new()?;
         let (mut file, path) = named_file.keep().map_err(|e| e.error)?;
-        file.write_all(&bytes)?;
+        file.write_all(bytes)?;
         // We already checked for the header, so we don't need
         // to check again.
-        let mut artifact = Self::deserialize_from_file_unchecked(&engine, &path)?;
+        let mut artifact = Self::deserialize_from_file_unchecked(engine, &path)?;
         artifact.is_temporary = true;
 
         Ok(artifact)
@@ -632,7 +632,7 @@ impl DylibArtifact {
                 "The provided bytes are not in any native format Wasmer can understand".to_string(),
             ));
         }
-        Self::deserialize_from_file_unchecked(&engine, &path)
+        Self::deserialize_from_file_unchecked(engine, path)
     }
 
     /// Deserialize a `DylibArtifact` from a file path (unchecked).
@@ -676,7 +676,7 @@ impl DylibArtifact {
     }
 }
 
-impl Artifact for DylibArtifact {
+impl ArtifactCreate for DylibArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -689,6 +689,70 @@ impl Artifact for DylibArtifact {
         Arc::get_mut(&mut self.metadata.compile_info.module)
     }
 
+    fn features(&self) -> &Features {
+        &self.metadata.compile_info.features
+    }
+
+    fn cpu_features(&self) -> enumset::EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.metadata.cpu_features)
+    }
+
+    fn data_initializers(&self) -> &[OwnedDataInitializer] {
+        &*self.metadata.data_initializers
+    }
+
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.metadata.compile_info.memory_styles
+    }
+
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.metadata.compile_info.table_styles
+    }
+
+    /// Serialize a `DylibArtifact`.
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Ok(std::fs::read(&self.dylib_path)?)
+    }
+
+    /// Serialize a `DylibArtifact` to a portable file
+    #[cfg(feature = "compiler")]
+    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        std::fs::write(&path, serialized)?;
+
+        /*
+        When you write the artifact to a new file it still has the 'Mach-O Identifier'
+        of the original file, and so this can causes linker issues when adding
+        the new file to an XCode project.
+
+        The below code renames the ID of the file so that it references itself through
+        an @executable_path prefix. Basically it tells XCode to find this file
+        inside of the projects' list of 'linked executables'.
+
+        You need to be running MacOS for the following to actually work though.
+        */
+        let has_extension = path.extension().is_some();
+        if has_extension && path.extension().unwrap() == "dylib" {
+            let filename = path.file_name().unwrap().to_str().unwrap();
+            let parent_dir = path.parent().unwrap();
+            let absolute_path = std::fs::canonicalize(&parent_dir)
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+
+            Command::new("install_name_tool")
+                .arg("-id")
+                .arg(format!("@executable_path/{}", &filename))
+                .arg(&filename)
+                .current_dir(&absolute_path)
+                .output()?;
+        }
+
+        Ok(())
+    }
+}
+impl Artifact for DylibArtifact {
     fn register_frame_info(&self) {
         let mut info = self.frame_info_registration.lock().unwrap();
 
@@ -819,26 +883,6 @@ impl Artifact for DylibArtifact {
         );
     }
 
-    fn features(&self) -> &Features {
-        &self.metadata.compile_info.features
-    }
-
-    fn cpu_features(&self) -> enumset::EnumSet<CpuFeature> {
-        EnumSet::from_u64(self.metadata.cpu_features)
-    }
-
-    fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        &*self.metadata.data_initializers
-    }
-
-    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
-        &self.metadata.compile_info.memory_styles
-    }
-
-    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
-        &self.metadata.compile_info.table_styles
-    }
-
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
@@ -860,49 +904,6 @@ impl Artifact for DylibArtifact {
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        Ok(())
-    }
-
-    /// Serialize a `DylibArtifact`.
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(std::fs::read(&self.dylib_path)?)
-    }
-
-    /// Serialize a `DylibArtifact` to a portable file
-    #[cfg(feature = "compiler")]
-    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
-        let serialized = self.serialize()?;
-        std::fs::write(&path, serialized)?;
-
-        /*
-        When you write the artifact to a new file it still has the 'Mach-O Identifier'
-        of the original file, and so this can causes linker issues when adding
-        the new file to an XCode project.
-
-        The below code renames the ID of the file so that it references itself through
-        an @executable_path prefix. Basically it tells XCode to find this file
-        inside of the projects' list of 'linked executables'.
-
-        You need to be running MacOS for the following to actually work though.
-        */
-        let has_extension = path.extension().is_some();
-        if has_extension && path.extension().unwrap() == "dylib" {
-            let filename = path.file_name().unwrap().to_str().unwrap();
-            let parent_dir = path.parent().unwrap();
-            let absolute_path = std::fs::canonicalize(&parent_dir)
-                .unwrap()
-                .into_os_string()
-                .into_string()
-                .unwrap();
-
-            Command::new("install_name_tool")
-                .arg("-id")
-                .arg(format!("@executable_path/{}", &filename))
-                .arg(&filename)
-                .current_dir(&absolute_path)
-                .output()?;
-        }
-
         Ok(())
     }
 }

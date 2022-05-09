@@ -11,7 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const PRE_HEADER: &'static str = r#"
+const PRE_HEADER: &str = r#"
 // Define the `ARCH_X86_X64` constant.
 #if defined(MSVC) && defined(_M_AMD64)
 #  define ARCH_X86_64
@@ -38,19 +38,19 @@ const PRE_HEADER: &'static str = r#"
 "#;
 
 #[allow(unused)]
-const UNIVERSAL_FEATURE_AS_C_DEFINE: &'static str = "WASMER_UNIVERSAL_ENABLED";
+const UNIVERSAL_FEATURE_AS_C_DEFINE: &str = "WASMER_UNIVERSAL_ENABLED";
 
 #[allow(unused)]
-const COMPILER_FEATURE_AS_C_DEFINE: &'static str = "WASMER_COMPILER_ENABLED";
+const COMPILER_FEATURE_AS_C_DEFINE: &str = "WASMER_COMPILER_ENABLED";
 
 #[allow(unused)]
-const WASI_FEATURE_AS_C_DEFINE: &'static str = "WASMER_WASI_ENABLED";
+const WASI_FEATURE_AS_C_DEFINE: &str = "WASMER_WASI_ENABLED";
 
 #[allow(unused)]
-const MIDDLEWARES_FEATURE_AS_C_DEFINE: &'static str = "WASMER_MIDDLEWARES_ENABLED";
+const MIDDLEWARES_FEATURE_AS_C_DEFINE: &str = "WASMER_MIDDLEWARES_ENABLED";
 
 #[allow(unused)]
-const EMSCRIPTEN_FEATURE_AS_C_DEFINE: &'static str = "WASMER_EMSCRIPTEN_ENABLED";
+const EMSCRIPTEN_FEATURE_AS_C_DEFINE: &str = "WASMER_EMSCRIPTEN_ENABLED";
 
 macro_rules! map_feature_as_c_define {
     ($feature:expr, $c_define:ident, $accumulator:ident) => {
@@ -203,7 +203,7 @@ fn add_wasmer_version(pre_header: &mut String) {
 
 /// Create a fresh new `Builder`, already pre-configured.
 fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header: &str) -> Builder {
-    let builder = Builder::new()
+    Builder::new()
         .with_config(cbindgen::Config {
             sort_by: cbindgen::SortKey::Name,
             cpp_compat: true,
@@ -219,9 +219,7 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_define("feature", "universal", UNIVERSAL_FEATURE_AS_C_DEFINE)
         .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
         .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
-        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE);
-
-    builder
+        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
 }
 
 fn build_inline_c_env_vars() {
@@ -285,11 +283,11 @@ fn build_cdylib_link_arg() {
 
     match (os.as_str(), env.as_str()) {
         ("android", _) => {
-            lines.push(format!("-Wl,-soname,libwasmer.so"));
+            lines.push("-Wl,-soname,libwasmer.so".to_string());
         }
 
         ("linux", _) | ("freebsd", _) | ("dragonfly", _) | ("netbsd", _) if env != "musl" => {
-            lines.push(format!("-Wl,-soname,libwasmer.so"));
+            lines.push("-Wl,-soname,libwasmer.so".to_string());
         }
 
         ("macos", _) | ("ios", _) => {
@@ -305,11 +303,11 @@ fn build_cdylib_link_arg() {
             // This is only set up to work on GNU toolchain versions of Rust
             lines.push(format!(
                 "-Wl,--out-implib,{}",
-                shared_object_dir.join(format!("wasmer.dll.a")).display()
+                shared_object_dir.join("wasmer.dll.a".to_string()).display()
             ));
             lines.push(format!(
                 "-Wl,--output-def,{}",
-                shared_object_dir.join(format!("wasmer.def")).display()
+                shared_object_dir.join("wasmer.def".to_string()).display()
             ));
         }
 

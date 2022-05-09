@@ -161,8 +161,8 @@ pub struct ArchivableModuleInfo {
 
 #[cfg(feature = "enable-rkyv")]
 impl From<ModuleInfo> for ArchivableModuleInfo {
-    fn from(it: ModuleInfo) -> ArchivableModuleInfo {
-        ArchivableModuleInfo {
+    fn from(it: ModuleInfo) -> Self {
+        Self {
             name: it.name,
             imports: ArchivableIndexMap::from(it.imports),
             exports: ArchivableIndexMap::from(it.exports),
@@ -189,8 +189,8 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
 
 #[cfg(feature = "enable-rkyv")]
 impl From<ArchivableModuleInfo> for ModuleInfo {
-    fn from(it: ArchivableModuleInfo) -> ModuleInfo {
-        ModuleInfo {
+    fn from(it: ArchivableModuleInfo) -> Self {
+        Self {
             id: Default::default(),
             name: it.name,
             imports: it.imports.into(),
@@ -218,8 +218,8 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
 
 #[cfg(feature = "enable-rkyv")]
 impl From<&ModuleInfo> for ArchivableModuleInfo {
-    fn from(it: &ModuleInfo) -> ArchivableModuleInfo {
-        ArchivableModuleInfo::from(it.clone())
+    fn from(it: &ModuleInfo) -> Self {
+        Self::from(it.clone())
     }
 }
 
@@ -255,7 +255,7 @@ impl<D: Fallible + ?Sized + SharedDeserializeRegistry> RkyvDeserialize<ModuleInf
 
 // For test serialization correctness, everything except module id should be same
 impl PartialEq for ModuleInfo {
-    fn eq(&self, other: &ModuleInfo) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.imports == other.imports
             && self.exports == other.exports
@@ -308,7 +308,7 @@ impl ModuleInfo {
     }
 
     /// Get the export types of the module
-    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+    pub fn exports(&'_ self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
         let iter = self.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
@@ -335,7 +335,7 @@ impl ModuleInfo {
     }
 
     /// Get the import types of the module
-    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+    pub fn imports(&'_ self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
         let iter = self
             .imports
             .iter()
@@ -460,7 +460,7 @@ impl ModuleInfo {
     }
 
     /// Get the imported function types of the module.
-    pub fn imported_function_types<'a>(&'a self) -> impl Iterator<Item = FunctionType> + 'a {
+    pub fn imported_function_types(&'_ self) -> impl Iterator<Item = FunctionType> + '_ {
         self.functions
             .values()
             .take(self.num_imported_functions)

@@ -1,0 +1,20 @@
+[package]
+name = "wasmer-artifact"
+version = "2.2.1"
+description = "Wasmer Artifact abstraction"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "engine"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT OR Apache-2.0 WITH LLVM-exception "
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasmer-types = { path = "../types", version = "=2.2.1" }
+wasmer-compiler = { path = "../compiler", version = "=2.2.1" }
+thiserror = "1.0"
+enumset = "1.0"
+
+[badges]
+maintenance = { status = "actively-developed" }

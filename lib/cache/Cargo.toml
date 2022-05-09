@@ -28,7 +28,3 @@ wasmer-engine-dylib = { path = "../engine-dylib", version = "=2.2.1" }
 default = ["wasmer/js-serializable-module", "filesystem"]
 filesystem = []
 blake3-pure = ["blake3/pure"]
-
-[[bench]]
-name = "bench_filesystem_cache"
-harness = false

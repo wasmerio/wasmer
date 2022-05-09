@@ -98,12 +98,15 @@ endif
 #
 #####
 
+CARGO_BINARY ?= cargo
+CARGO_TARGET ?=
 
 # Variables that can be overriden by the users to force to enable or
 # to disable a specific compiler.
 ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
 ENABLE_SINGLEPASS ?=
+LLVM_VERSION ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers := 
@@ -127,11 +130,11 @@ endif
 ifneq ($(ENABLE_LLVM), 0)
 	# … then maybe the user forced to enable the LLVM compiler.
 	ifeq ($(ENABLE_LLVM), 1)
-		LLVM_VERSION := $(shell llvm-config --version)
+		LLVM_VERSION ?= $(shell llvm-config --version)
 		compilers += llvm
 	# … otherwise, we try to autodetect LLVM from `llvm-config`
 	else ifneq (, $(shell which llvm-config 2>/dev/null))
-		LLVM_VERSION := $(shell llvm-config --version)
+		LLVM_VERSION ?= $(shell llvm-config --version)
 
 		# If findstring is not empty, then it have found the value
 		ifneq (, $(findstring 13,$(LLVM_VERSION)))
@@ -142,16 +145,16 @@ ifneq ($(ENABLE_LLVM), 0)
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
 	else
 		ifneq (, $(shell which llvm-config-13 2>/dev/null))
-			LLVM_VERSION := $(shell llvm-config-13 --version)
+			LLVM_VERSION ?= $(shell llvm-config-13 --version)
 			compilers += llvm
 		else ifneq (, $(shell which llvm-config-12 2>/dev/null))
-			LLVM_VERSION := $(shell llvm-config-12 --version)
+			LLVM_VERSION ?= $(shell llvm-config-12 --version)
 			compilers += llvm
 		endif
 	endif
 endif
 
-exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-compiler-cli
 # Is failing to compile in Linux for some reason
 exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
@@ -304,10 +307,10 @@ endif
 
 HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
 
-TARGET_DIR := target/release
+TARGET_DIR ?= target/release
 
 ifneq (, $(TARGET))
-	TARGET_DIR := target/$(TARGET)/release
+	TARGET_DIR ?= target/$(TARGET)/release
 endif
 
 $(info -----------)
@@ -371,13 +374,16 @@ endif
 all: build-wasmer build-capi
 
 build-wasmer:
-	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer
 
 bench:
-	cargo bench $(compiler_features)
+	$(CARGO_BINARY) bench $(CARGO_TARGET) $(compiler_features)
+
+build-wasmer-wasm:
+	cargo build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,universal --bin wasmer-compiler
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
@@ -409,13 +415,13 @@ get-wapm:
 build-wapm: get-wapm
 ifeq ($(IS_DARWIN), 1)
 	# We build it without bundling sqlite, as is included by default in macos
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "full packagesigning telemetry update-notifications"
+	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "full packagesigning telemetry update-notifications"
 else
-	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
 endif
 
 build-docs:
-	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
+	$(CARGO_BINARY) doc $(CARGO_TARGET) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
 capi-setup:
 ifeq ($(IS_WINDOWS), 1)
@@ -427,77 +433,77 @@ build-docs-capi: capi-setup
 	# when generating the documentation, we rename it to its
 	# crate's name. Then we restore the lib's name.
 	sed "$(SEDI)"  -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
-	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) doc $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,dylib,cranelift,wasi
 	sed "$(SEDI)"  -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
 
 build-capi: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,dylib,staticlib,singlepass,wasi,middlewares
 
 build-capi-singlepass-universal: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,singlepass,wasi,middlewares
 
 build-capi-singlepass-dylib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,dylib,singlepass,wasi,middlewares
 
 build-capi-singlepass-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,staticlib,singlepass,wasi,middlewares
 
 build-capi-cranelift: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,dylib,staticlib,cranelift,wasi,middlewares
 
 build-capi-cranelift-universal: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,cranelift,wasi,middlewares
 
 build-capi-cranelift-dylib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,dylib,cranelift,wasi,middlewares
 
 build-capi-cranelift-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,dylib,staticlib,cranelift,wasi,middlewares
 
 build-capi-llvm: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,dylib,staticlib,llvm,wasi,middlewares
 
 build-capi-llvm-universal: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,llvm,wasi,middlewares
 
 build-capi-llvm-dylib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,dylib,llvm,wasi,middlewares
 
 build-capi-llvm-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,staticlib,llvm,wasi,middlewares
 
 # Headless (we include the minimal to be able to run)
 
 build-capi-headless-universal: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,wasi
 
 build-capi-headless-dylib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features dylib,wasi
 
 build-capi-headless-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features staticlib,wasi
 
 build-capi-headless-all: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,dylib,staticlib,wasi
 
 build-capi-headless-ios: capi-setup
@@ -513,13 +519,13 @@ build-capi-headless-ios: capi-setup
 test: test-compilers test-packages test-examples
 
 test-compilers:
-	cargo test --release --tests $(compiler_features)
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features)
 
 test-packages:
-	cargo test --all --release $(exclude_tests)
-	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
-	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
+	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests)
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 test-js: test-js-api test-js-wasi
 
@@ -538,22 +544,22 @@ test-js-wasi:
 test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
 test-singlepass-dylib:
-	cargo test --release --tests $(compiler_features) -- singlepass::dylib
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- singlepass::dylib
 
 test-singlepass-universal:
-	cargo test --release --tests $(compiler_features) -- singlepass::universal
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- singlepass::universal
 
 test-cranelift-dylib:
-	cargo test --release --tests $(compiler_features) -- cranelift::dylib
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- cranelift::dylib
 
 test-cranelift-universal:
-	cargo test --release --tests $(compiler_features) -- cranelift::universal
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- cranelift::universal
 
 test-llvm-dylib:
-	cargo test --release --tests $(compiler_features) -- llvm::dylib
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- llvm::dylib
 
 test-llvm-universal:
-	cargo test --release --tests $(compiler_features) -- llvm::universal
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- llvm::universal
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
@@ -566,7 +572,7 @@ test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(ll
 test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
 
 test-capi-crate-%:
-	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) cargo test --manifest-path lib/c-api/Cargo.toml --release \
+	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
@@ -576,25 +582,25 @@ test-capi-integration-%:
 	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
-	cargo test --manifest-path lib/wasi/Cargo.toml --release
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/wasi/Cargo.toml --release
 
 test-wasi:
-	cargo test --release --tests $(compiler_features) -- wasi::wasitests
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- wasi::wasitests
 
 test-examples:
-	cargo test $(compiler_features) --features wasi --examples
-	cargo test --release $(compiler_features) --features wasi --examples
+	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
 test-integration:
-	cargo test -p wasmer-integration-tests-cli
+	$(CARGO_BINARY) test $(CARGO_TARGET) -p wasmer-integration-tests-cli
 
 test-integration-ios:
-	cargo test -p wasmer-integration-tests-ios
+	$(CARGO_BINARY) test $(CARGO_TARGET) -p wasmer-integration-tests-ios
 
 generate-wasi-tests:
 # Uncomment the following for installing the toolchain
 #   cargo run -p wasi-test-generator -- -s
-	cargo run -p wasi-test-generator -- -g
+	$(CARGO_BINARY) run $(CARGO_TARGET) -p wasi-test-generator -- -g
 #####
 #
 # Packaging.
@@ -672,7 +678,7 @@ package-docs: build-docs build-docs-capi
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
-package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
+package: package-wasmer package-minimal-headless-wasmer package-capi
 
 distribution: package
 	cp LICENSE package/LICENSE

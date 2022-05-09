@@ -3,11 +3,11 @@
 
 use crate::global::Global;
 use crate::instance::WeakOrStrongInstanceRef;
-use crate::memory::{Memory, MemoryStyle};
-use crate::table::{Table, TableStyle};
+use crate::memory::Memory;
+use crate::table::Table;
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
 use std::sync::Arc;
-use wasmer_types::{FunctionType, MemoryType, TableType};
+use wasmer_types::{FunctionType, MemoryStyle, MemoryType, TableStyle, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug)]

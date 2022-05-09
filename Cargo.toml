@@ -34,6 +34,7 @@ members = [
     "lib/cache",
     "lib/c-api",
     "lib/cli",
+    "lib/cli-compiler",
     "lib/compiler",
     "lib/compiler-cranelift",
     "lib/compiler-singlepass",

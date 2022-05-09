@@ -256,7 +256,7 @@ impl ArgumentRegisterAllocator {
     ) -> Option<ARM64Register> {
         match calling_convention {
             CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
-                static GPR_SEQ: &'static [GPR] = &[
+                static GPR_SEQ: &[GPR] = &[
                     GPR::X0,
                     GPR::X1,
                     GPR::X2,
@@ -266,7 +266,7 @@ impl ArgumentRegisterAllocator {
                     GPR::X6,
                     GPR::X7,
                 ];
-                static NEON_SEQ: &'static [NEON] = &[
+                static NEON_SEQ: &[NEON] = &[
                     NEON::V0,
                     NEON::V1,
                     NEON::V2,

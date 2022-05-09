@@ -13,9 +13,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=2.2.1", features = ["translator"], default-features = false }
-wasmer-vm = { path = "../vm", version = "=2.2.1" }
 wasmer-types = { path = "../types", version = "=2.2.1", default-features = false, features = ["std"] }
-rayon = { version = "1.5", optional = true }
 hashbrown = { version = "0.11", optional = true }
 gimli = { version = "0.26", optional = true }
 more-asserts = "0.2"
@@ -25,6 +23,9 @@ lazy_static = "1.4"
 byteorder = "1.3"
 smallvec = "1.6"
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { version = "1.5", optional = true }
+
 [dev-dependencies]
 target-lexicon = { version = "0.12.2", default-features = false }
 
@@ -33,6 +34,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["std", "rayon", "unwind", "avx"]
+wasm = ["std", "unwind", "avx"]
 std = ["wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 unwind = ["gimli"]

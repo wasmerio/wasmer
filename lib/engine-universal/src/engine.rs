@@ -8,6 +8,7 @@ use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
+use wasmer_engine_universal_artifact::UniversalEngineBuilder;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     Features, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo, SignatureIndex,
@@ -32,11 +33,10 @@ impl UniversalEngine {
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(UniversalEngineInner {
-                compiler: Some(compiler),
+                builder: UniversalEngineBuilder::new(Some(compiler), features),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 func_data: Arc::new(FuncDataRegistry::new()),
-                features,
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
@@ -59,12 +59,10 @@ impl UniversalEngine {
     pub fn headless() -> Self {
         Self {
             inner: Arc::new(Mutex::new(UniversalEngineInner {
-                #[cfg(feature = "compiler")]
-                compiler: None,
+                builder: UniversalEngineBuilder::new(None, Features::default()),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 func_data: Arc::new(FuncDataRegistry::new()),
-                features: Features::default(),
             })),
             target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
@@ -147,11 +145,8 @@ impl Engine for UniversalEngine {
 
 /// The inner contents of `UniversalEngine`
 pub struct UniversalEngineInner {
-    /// The compiler
-    #[cfg(feature = "compiler")]
-    compiler: Option<Box<dyn Compiler>>,
-    /// The features to compile the Wasm module with
-    features: Features,
+    /// The builder (include compiler and cpu features)
+    builder: UniversalEngineBuilder,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
     code_memory: Vec<CodeMemory>,
@@ -166,32 +161,22 @@ pub struct UniversalEngineInner {
 
 impl UniversalEngineInner {
     /// Gets the compiler associated to this engine.
-    #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
-        if self.compiler.is_none() {
-            return Err(CompileError::Codegen("The UniversalEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
-        }
-        Ok(&**self.compiler.as_ref().unwrap())
+        self.builder.compiler()
     }
 
     /// Validate the module
-    #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler()?.validate_module(self.features(), data)
-    }
-
-    /// Validate the module
-    #[cfg(not(feature = "compiler"))]
-    pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
-        Err(CompileError::Validate(
-            "The UniversalEngine is not compiled with compiler support, which is required for validating"
-                .to_string(),
-        ))
+        self.builder.validate(data)
     }
 
     /// The Wasm features
     pub fn features(&self) -> &Features {
-        &self.features
+        self.builder.features()
+    }
+
+    pub fn builder_mut(&mut self) -> &mut UniversalEngineBuilder {
+        &mut self.builder
     }
 
     /// Allocate compiled functions into memory

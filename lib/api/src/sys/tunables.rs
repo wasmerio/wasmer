@@ -98,7 +98,7 @@ impl Tunables for BaseTunables {
         ty: &MemoryType,
         style: &MemoryStyle,
     ) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::new(&ty, &style)?))
+        Ok(Arc::new(LinearMemory::new(ty, style)?))
     }
 
     /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
@@ -113,8 +113,8 @@ impl Tunables for BaseTunables {
         vm_definition_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Arc<dyn Memory>, MemoryError> {
         Ok(Arc::new(LinearMemory::from_definition(
-            &ty,
-            &style,
+            ty,
+            style,
             vm_definition_location,
         )?))
     }
@@ -125,7 +125,7 @@ impl Tunables for BaseTunables {
         ty: &TableType,
         style: &TableStyle,
     ) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::new(&ty, &style)?))
+        Ok(Arc::new(LinearTable::new(ty, style)?))
     }
 
     /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
@@ -140,8 +140,8 @@ impl Tunables for BaseTunables {
         vm_definition_location: NonNull<VMTableDefinition>,
     ) -> Result<Arc<dyn Table>, String> {
         Ok(Arc::new(LinearTable::from_definition(
-            &ty,
-            &style,
+            ty,
+            style,
             vm_definition_location,
         )?))
     }

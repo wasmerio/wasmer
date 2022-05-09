@@ -6,30 +6,16 @@
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
 use crate::func_data_registry::VMFuncRef;
-use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::VMTableDefinition;
+use crate::Trap;
 use crate::VMExternRef;
-#[cfg(feature = "enable-rkyv")]
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
-use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasmer_types::{ExternRef, TableType, Type as ValType};
-
-/// Implementation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
-pub enum TableStyle {
-    /// Signatures are stored in the table and checked in the caller.
-    CallerChecksSignature,
-}
+use wasmer_types::{ExternRef, TableStyle, TableType, TrapCode, Type as ValType};
 
 /// Trait for implementing the interface of a Wasm table.
 pub trait Table: fmt::Debug + Send + Sync {

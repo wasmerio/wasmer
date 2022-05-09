@@ -6,6 +6,7 @@ use enumset::EnumSet;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use wasmer_artifact::ArtifactCreate;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, CpuFeature};
@@ -189,7 +190,7 @@ impl DummyArtifact {
     }
 }
 
-impl Artifact for DummyArtifact {
+impl ArtifactCreate for DummyArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.module.clone()
     }
@@ -200,10 +201,6 @@ impl Artifact for DummyArtifact {
 
     fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
         Arc::get_mut(&mut self.metadata.module)
-    }
-
-    fn register_frame_info(&self) {
-        // Do nothing, since functions are not generated for the dummy engine
     }
 
     fn features(&self) -> &Features {
@@ -225,6 +222,28 @@ impl Artifact for DummyArtifact {
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
         &self.metadata.table_styles
     }
+    #[cfg(feature = "serialize")]
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        let bytes = bincode::serialize(&self.metadata)
+            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
+
+        // Prepend the header.
+        let mut serialized = Self::MAGIC_HEADER.to_vec();
+        serialized.extend(bytes);
+        Ok(serialized)
+    }
+
+    #[cfg(not(feature = "serialize"))]
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Err(SerializeError::Generic(
+            "The serializer feature is not enabled in the DummyEngine",
+        ))
+    }
+}
+impl Artifact for DummyArtifact {
+    fn register_frame_info(&self) {
+        // Do nothing, since functions are not generated for the dummy engine
+    }
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
@@ -244,23 +263,5 @@ impl Artifact for DummyArtifact {
 
     fn func_data_registry(&self) -> &FuncDataRegistry {
         &self.func_data_registry
-    }
-
-    #[cfg(feature = "serialize")]
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let bytes = bincode::serialize(&self.metadata)
-            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
-
-        // Prepend the header.
-        let mut serialized = Self::MAGIC_HEADER.to_vec();
-        serialized.extend(bytes);
-        Ok(serialized)
-    }
-
-    #[cfg(not(feature = "serialize"))]
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Err(SerializeError::Generic(
-            "The serializer feature is not enabled in the DummyEngine",
-        ))
     }
 }

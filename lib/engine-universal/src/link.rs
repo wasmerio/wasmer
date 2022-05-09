@@ -1,11 +1,12 @@
 //! Linking for Universal-compiled code.
 
-use crate::trampoline::get_libcall_trampoline;
 use std::ptr::{read_unaligned, write_unaligned};
 use wasmer_compiler::{Relocation, RelocationKind, RelocationTarget, Relocations, SectionIndex};
 use wasmer_engine::FunctionExtent;
+use wasmer_engine_universal_artifact::get_libcall_trampoline;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
+use wasmer_vm::libcalls::function_pointer;
 use wasmer_vm::SectionBodyPtr;
 
 fn apply_relocation(
@@ -22,7 +23,7 @@ fn apply_relocation(
             // Use the direct target of the libcall if the relocation supports
             // a full 64-bit address. Otherwise use a trampoline.
             if r.kind == RelocationKind::Abs8 || r.kind == RelocationKind::X86PCRel8 {
-                libcall.function_pointer()
+                function_pointer(libcall)
             } else {
                 get_libcall_trampoline(
                     libcall,
@@ -37,17 +38,14 @@ fn apply_relocation(
     };
 
     match r.kind {
-        #[cfg(target_pointer_width = "64")]
         RelocationKind::Abs8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
-        #[cfg(target_pointer_width = "32")]
         RelocationKind::X86PCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
-        #[cfg(target_pointer_width = "64")]
         RelocationKind::X86PCRel8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);

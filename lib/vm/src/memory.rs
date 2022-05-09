@@ -8,9 +8,6 @@
 use crate::mmap::Mmap;
 use crate::vmcontext::VMMemoryDefinition;
 use more_asserts::assert_ge;
-#[cfg(feature = "enable-rkyv")]
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
-use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
@@ -18,7 +15,7 @@ use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
-use wasmer_types::{Bytes, MemoryType, Pages};
+use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
@@ -62,6 +59,7 @@ pub enum MemoryError {
     Generic(String),
 }
 
+<<<<<<< HEAD
 /// Implementation styles for WebAssembly linear memory.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(
@@ -101,6 +99,8 @@ impl MemoryStyle {
     }
 }
 
+=======
+>>>>>>> upstream/wasmer3
 /// Trait for implementing Wasm Memory used by Wasmer.
 pub trait Memory: fmt::Debug + Send + Sync {
     /// Returns the memory type for this memory.

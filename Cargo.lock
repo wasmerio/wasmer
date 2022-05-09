@@ -1406,9 +1406,9 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "num-integer"
-version = "0.1.44"
+version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
+checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
 dependencies = [
  "autocfg",
  "num-traits",
@@ -2789,6 +2789,7 @@ dependencies = [
  "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -2802,6 +2803,16 @@ dependencies = [
  "wasmparser 0.83.0",
  "wat",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-artifact"
+version = "2.2.1"
+dependencies = [
+ "enumset",
+ "thiserror",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -2913,8 +2924,28 @@ dependencies = [
  "target-lexicon 0.12.3",
  "thiserror",
  "wasmer-types",
- "wasmer-vm",
  "wasmparser 0.83.0",
+]
+
+[[package]]
+name = "wasmer-compiler-cli"
+version = "2.2.1"
+dependencies = [
+ "anyhow",
+ "atty",
+ "bytesize",
+ "cfg-if 1.0.0",
+ "colored 2.0.0",
+ "distance",
+ "fern",
+ "log",
+ "structopt",
+ "tempfile",
+ "unix_mode",
+ "wasmer-compiler",
+ "wasmer-compiler-singlepass",
+ "wasmer-engine-universal-artifact",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -2975,7 +3006,6 @@ dependencies = [
  "target-lexicon 0.12.3",
  "wasmer-compiler",
  "wasmer-types",
- "wasmer-vm",
 ]
 
 [[package]]
@@ -3017,6 +3047,7 @@ dependencies = [
  "serde_bytes",
  "target-lexicon 0.12.3",
  "thiserror",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
@@ -3030,6 +3061,7 @@ dependencies = [
  "enumset",
  "serde",
  "serde_bytes",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-types",
@@ -3050,6 +3082,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
@@ -3070,6 +3103,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
+ "wasmer-artifact",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
@@ -3082,16 +3116,29 @@ name = "wasmer-engine-universal"
 version = "2.2.1"
 dependencies = [
  "cfg-if 1.0.0",
- "enum-iterator",
  "enumset",
  "leb128",
  "region",
  "rkyv",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-engine-universal-artifact",
  "wasmer-types",
  "wasmer-vm",
  "winapi",
+]
+
+[[package]]
+name = "wasmer-engine-universal-artifact"
+version = "2.2.1"
+dependencies = [
+ "enum-iterator",
+ "enumset",
+ "rkyv",
+ "thiserror",
+ "wasmer-artifact",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -3129,7 +3176,9 @@ dependencies = [
 name = "wasmer-types"
 version = "2.2.1"
 dependencies = [
+ "enum-iterator",
  "indexmap",
+ "more-asserts",
  "rkyv",
  "serde",
  "thiserror",
@@ -3167,6 +3216,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "thiserror",
+ "wasmer-artifact",
  "wasmer-types",
  "winapi",
 ]

@@ -163,8 +163,8 @@ impl<K, V> Default for PrimaryMap<K, V>
 where
     K: EntityRef,
 {
-    fn default() -> PrimaryMap<K, V> {
-        PrimaryMap::new()
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -252,7 +252,7 @@ mod tests {
 
     impl EntityRef for E {
         fn new(i: usize) -> Self {
-            E(i as u32)
+            Self(i as u32)
         }
         fn index(self) -> usize {
             self.0 as usize
@@ -347,10 +347,8 @@ mod tests {
         m.push(12);
         m.push(33);
 
-        let mut i = 0;
-        for key in m.keys() {
+        for (i, key) in m.keys().enumerate() {
             assert_eq!(key.index(), i);
-            i += 1;
         }
     }
 

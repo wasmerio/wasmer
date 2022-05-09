@@ -34,9 +34,7 @@ pub struct ModuleMetadataSymbolRegistry<'a> {
 }
 
 impl ModuleMetadata {
-    pub fn split<'a>(
-        &'a mut self,
-    ) -> (&'a mut CompileModuleInfo, ModuleMetadataSymbolRegistry<'a>) {
+    pub fn split(&'_ mut self) -> (&'_ mut CompileModuleInfo, ModuleMetadataSymbolRegistry<'_>) {
         let compile_info = &mut self.compile_info;
         let symbol_registry = ModuleMetadataSymbolRegistry {
             prefix: &self.prefix,
@@ -44,7 +42,7 @@ impl ModuleMetadata {
         (compile_info, symbol_registry)
     }
 
-    pub fn get_symbol_registry<'a>(&'a self) -> ModuleMetadataSymbolRegistry<'a> {
+    pub fn get_symbol_registry(&'_ self) -> ModuleMetadataSymbolRegistry<'_> {
         ModuleMetadataSymbolRegistry {
             prefix: &self.prefix,
         }
@@ -63,13 +61,13 @@ impl ModuleMetadata {
         Self::deserialize_from_archive(archived)
     }
 
-    unsafe fn archive_from_slice<'a>(
-        metadata_slice: &'a [u8],
-    ) -> Result<&'a ArchivedModuleMetadata, DeserializeError> {
+    unsafe fn archive_from_slice(
+        metadata_slice: &[u8],
+    ) -> Result<&ArchivedModuleMetadata, DeserializeError> {
         let mut pos: [u8; 8] = Default::default();
         pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
         let pos: u64 = u64::from_le_bytes(pos);
-        Ok(archived_value::<ModuleMetadata>(
+        Ok(archived_value::<Self>(
             &metadata_slice[..metadata_slice.len() - 8],
             pos as usize,
         ))
