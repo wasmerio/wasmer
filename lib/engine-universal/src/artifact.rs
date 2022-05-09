@@ -7,7 +7,7 @@ use enumset::EnumSet;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CompileError, CpuFeature, Features, Triple};
+use wasmer_compiler::{CompileError, CpuFeature, Features, SymbolRegistry, Triple};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
     MetadataHeader, SerializeError,
@@ -279,5 +279,13 @@ impl Artifact for UniversalArtifact {
 
     fn func_data_registry(&self) -> &FuncDataRegistry {
         &self.func_data_registry
+    }
+
+    fn symbol_registry(&self) -> Option<&dyn SymbolRegistry> {
+        None
+    }
+
+    fn metadata_length(&self) -> usize {
+        0
     }
 }

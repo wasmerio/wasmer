@@ -906,4 +906,12 @@ impl Artifact for DylibArtifact {
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())
     }
+
+    fn symbol_registry(&self) -> Option<&dyn SymbolRegistry> {
+        None
+    }
+
+    fn metadata_length(&self) -> usize {
+        0
+    }
 }

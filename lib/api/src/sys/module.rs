@@ -9,7 +9,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
-use wasmer_compiler::WasmError;
+use wasmer_compiler::{SymbolRegistry, WasmError};
 use wasmer_engine::{Artifact, DeserializeError, SerializeError};
 use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
 use wasmer_vm::InstanceHandle;
@@ -433,14 +433,16 @@ impl Module {
         &self.artifact.module_ref()
     }
 
-    /// Gets the [`Artifact`] used internally by the Module.
-    ///
-    /// This API is hidden because it's not necessarily stable;
-    /// this functionality is required for some core functionality though, like
-    /// the object file engine.
-    #[doc(hidden)]
-    pub fn artifact(&self) -> &Arc<dyn Artifact> {
-        &self.artifact
+    /// Get the `SymbolRegistry` used to generate the names used in the StaticLib Artifact.
+    /// Or None for other kind of Artifacts.
+    pub fn symbol_registry(&self) -> Option<&dyn SymbolRegistry> {
+        self.artifact.symbol_registry()
+    }
+
+    /// The length in bytes of the metadata in the serialized output.
+    /// Will be 0 if not a StaticLib Artifact.
+    pub fn metadata_length(&self) -> usize {
+        self.artifact.metadata_length()
     }
 }
 

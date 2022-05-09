@@ -9,7 +9,7 @@ use std::sync::Arc;
 use wasmer_artifact::ArtifactCreate;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CompileError, CpuFeature};
+use wasmer_compiler::{CompileError, CpuFeature, SymbolRegistry};
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
@@ -263,5 +263,13 @@ impl Artifact for DummyArtifact {
 
     fn func_data_registry(&self) -> &FuncDataRegistry {
         &self.func_data_registry
+    }
+
+    fn symbol_registry(&self) -> Option<&dyn SymbolRegistry> {
+        None
+    }
+
+    fn metadata_length(&self) -> usize {
+        0
     }
 }

@@ -2,7 +2,7 @@ use crate::{resolve_imports, Export, InstantiationError, RuntimeError, Tunables}
 use std::any::Any;
 pub use wasmer_artifact::MetadataHeader;
 use wasmer_artifact::{ArtifactCreate, Upcastable};
-use wasmer_compiler::CpuFeature;
+use wasmer_compiler::{CpuFeature, SymbolRegistry};
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
@@ -146,6 +146,13 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
             .finish_instantiation(trap_handler, &data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
+
+    /// Get the `SymbolRegistry` used to generate the names used in the StaticLib Artifact.
+    /// Or None for other kind of Artifacts
+    fn symbol_registry(&self) -> Option<&dyn SymbolRegistry>;
+
+    /// The length in bytes of the metadata in the serialized output.
+    fn metadata_length(&self) -> usize;
 }
 
 impl dyn Artifact + 'static {

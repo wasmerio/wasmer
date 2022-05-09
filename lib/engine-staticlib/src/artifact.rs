@@ -422,16 +422,6 @@ impl StaticlibArtifact {
             is_compiled: false,
         })
     }
-
-    /// Get the `SymbolRegistry` used to generate the names used in the Artifact.
-    pub fn symbol_registry(&self) -> &dyn SymbolRegistry {
-        &self.symbol_registry
-    }
-
-    /// The length in bytes of the metadata in the serialized output.
-    pub fn metadata_length(&self) -> usize {
-        self.metadata_length
-    }
 }
 
 impl ArtifactCreate for StaticlibArtifact {
@@ -504,5 +494,13 @@ impl Artifact for StaticlibArtifact {
             );
         }
         Ok(())
+    }
+
+    fn symbol_registry(&self) -> Option<&dyn SymbolRegistry> {
+        Some(&self.symbol_registry)
+    }
+
+    fn metadata_length(&self) -> usize {
+        self.metadata_length
     }
 }
