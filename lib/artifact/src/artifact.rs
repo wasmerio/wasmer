@@ -1,4 +1,3 @@
-use crate::{DeserializeError, SerializeError};
 use enumset::EnumSet;
 use std::any::Any;
 use std::convert::TryInto;
@@ -7,6 +6,7 @@ use std::sync::Arc;
 use std::{fs, mem};
 use wasmer_compiler::{CpuFeature, Features};
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{DeserializeError, SerializeError};
 use wasmer_types::{
     MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, TableIndex, TableStyle,
 };

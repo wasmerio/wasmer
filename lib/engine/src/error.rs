@@ -1,7 +1,7 @@
 //! The WebAssembly possible errors
 use crate::trap::RuntimeError;
 use thiserror::Error;
-pub use wasmer_artifact::{DeserializeError, ImportError, SerializeError};
+pub use wasmer_types::{DeserializeError, ImportError, SerializeError};
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).

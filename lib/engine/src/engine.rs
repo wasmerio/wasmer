@@ -1,13 +1,13 @@
 //! Engine trait and associated types.
 
 use crate::tunables::Tunables;
-use crate::{Artifact, DeserializeError};
+use crate::Artifact;
 use memmap2::Mmap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasmer_compiler::Target;
-use wasmer_types::{CompileError, FunctionType};
+use wasmer_types::{CompileError, DeserializeError, FunctionType};
 use wasmer_vm::{VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex};
 
 /// A unimplemented Wasmer `Engine`.

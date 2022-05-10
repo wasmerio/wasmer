@@ -52,16 +52,14 @@ pub use wasmer_compiler::{
 };
 pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_derive::ValueType;
-pub use wasmer_engine::{
-    DeserializeError, Engine, Export, FrameInfo, LinkError, RuntimeError, SerializeError, Tunables,
-};
+pub use wasmer_engine::{Engine, Export, FrameInfo, LinkError, RuntimeError, Tunables};
 pub use wasmer_types::is_wasm;
 #[cfg(feature = "experimental-reference-types-extern-ref")]
 pub use wasmer_types::ExternRef;
 pub use wasmer_types::{
-    Bytes, CompileError, ExportIndex, GlobalInit, LocalFunctionIndex, MiddlewareError, Pages,
-    ParseCpuFeatureError, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
-    WASM_PAGE_SIZE,
+    Bytes, CompileError, DeserializeError, ExportIndex, GlobalInit, LocalFunctionIndex,
+    MiddlewareError, Pages, ParseCpuFeatureError, SerializeError, ValueType, WasmError, WasmResult,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 // TODO: should those be moved into wasmer::vm as well?

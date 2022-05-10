@@ -39,7 +39,6 @@ pub use crate::resolver::resolve_imports;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
 pub use wasmer_artifact::{ArtifactCreate, MetadataHeader};
-pub use wasmer_artifact::{DeserializeError, ImportError, SerializeError};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

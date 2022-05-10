@@ -9,8 +9,7 @@ use std::sync::{Arc, Mutex};
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CpuFeature, Features, Triple};
 use wasmer_engine::{
-    register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
-    MetadataHeader, SerializeError,
+    register_frame_info, Artifact, FunctionExtent, GlobalFrameInfoRegistration, MetadataHeader,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
@@ -18,8 +17,8 @@ use wasmer_engine_universal_artifact::ArtifactCreate;
 use wasmer_engine_universal_artifact::{SerializableModule, UniversalArtifactBuild};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    CompileError, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    CompileError, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex,

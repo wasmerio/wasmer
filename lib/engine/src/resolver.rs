@@ -1,9 +1,11 @@
 //! Custom resolution for external references.
 
-use crate::{Export, ExportFunctionMetadata, ImportError, LinkError};
+use crate::{Export, ExportFunctionMetadata, LinkError};
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, ModuleInfo, TableIndex};
+use wasmer_types::{
+    ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
+};
 
 use wasmer_vm::{
     FunctionBodyPtr, ImportFunctionEnv, Imports, MemoryStyle, TableStyle, VMFunctionBody,

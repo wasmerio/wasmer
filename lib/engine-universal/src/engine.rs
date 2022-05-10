@@ -5,12 +5,12 @@ use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target};
-use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
+use wasmer_engine::{Artifact, Engine, EngineId, FunctionExtent, Tunables};
 use wasmer_engine_universal_artifact::UniversalEngineBuilder;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    CompileError, Features, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo,
-    SignatureIndex,
+    CompileError, DeserializeError, Features, FunctionIndex, FunctionType, LocalFunctionIndex,
+    ModuleInfo, SignatureIndex,
 };
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMCallerCheckedAnyfunc,

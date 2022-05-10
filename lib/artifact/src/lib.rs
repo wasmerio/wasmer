@@ -20,11 +20,9 @@
 )]
 
 mod artifact;
-mod error;
 mod funcbody;
 
 pub use crate::artifact::{ArtifactCreate, MetadataHeader, Upcastable};
-pub use crate::error::{DeserializeError, ImportError, PreInstantiationError, SerializeError};
 pub use crate::funcbody::VMFunctionBody;
 
 /// Version number of this crate.
