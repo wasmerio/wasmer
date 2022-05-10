@@ -75,6 +75,7 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
+#[archive(as = "Self")]
 pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
     /// [Learn

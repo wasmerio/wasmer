@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[archive(as = "Self")]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {

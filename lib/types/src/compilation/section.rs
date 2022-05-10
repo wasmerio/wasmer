@@ -27,18 +27,17 @@ use serde::{Deserialize, Serialize};
     Debug,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))]
+#[archive(as = "Self")]
 pub struct SectionIndex(u32);
 
 entity_impl!(SectionIndex);
-
-entity_impl!(ArchivedSectionIndex);
 
 /// Custom section Protection.
 ///
 /// Determines how a custom section may be used.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive(as = "Self")]
 pub enum CustomSectionProtection {
     /// A custom section with read permission.
     Read,
