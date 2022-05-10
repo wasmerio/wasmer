@@ -13,7 +13,7 @@ SHELL=/usr/bin/env bash
 # | Compiler   ⨯ Engine    ⨯ Platform ⨯ Architecture ⨯ libc  |
 # |------------|-----------|----------|--------------|-------|
 # | Cranelift  | Universal | Linux    | amd64        | glibc |
-# | LLVM       | Staticlib | Darwin   | aarch64      | musl  |
+# | LLVM       |           | Darwin   | aarch64      | musl  |
 # | Singlepass |           | Windows  |              |       |
 # |------------|-----------|----------|--------------|-------|
 #
@@ -359,7 +359,7 @@ check-wasmer-wasm:
 
 check-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) check $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml  \
-		--no-default-features --features wat,universal,dylib,staticlib,wasi,middlewares $(capi_compiler_features)
+		--no-default-features --features wat,universal,wasi,middlewares $(capi_compiler_features)
 
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
@@ -421,48 +421,36 @@ build-docs-capi: capi-setup
 	# when generating the documentation, we rename it to its
 	# crate's name. Then we restore the lib's name.
 	sed "$(SEDI)"  -e 's/name = "wasmer" # ##lib.name##/name = "wasmer_c_api" # ##lib.name##/' lib/c-api/Cargo.toml
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) doc $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,staticlib,cranelift,wasi
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) doc $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,universal,cranelift,wasi
 	sed "$(SEDI)"  -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
 
 build-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,staticlib,wasi,middlewares $(capi_compiler_features)
+		--no-default-features --features wat,universal,wasi,middlewares $(capi_compiler_features)
 
 build-capi-singlepass: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,staticlib,singlepass,wasi,middlewares
+		--no-default-features --features wat,universal,singlepass,wasi,middlewares
 
 build-capi-singlepass-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,singlepass,wasi,middlewares
 
-build-capi-singlepass-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,staticlib,singlepass,wasi,middlewares
-
 build-capi-cranelift: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,staticlib,cranelift,wasi,middlewares
+		--no-default-features --features wat,universal,cranelift,wasi,middlewares
 
 build-capi-cranelift-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,cranelift,wasi,middlewares
 
-build-capi-cranelift-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,staticlib,cranelift,wasi,middlewares
-
 build-capi-llvm: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,staticlib,llvm,wasi,middlewares
+		--no-default-features --features wat,universal,llvm,wasi,middlewares
 
 build-capi-llvm-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,universal,llvm,wasi,middlewares
-
-build-capi-llvm-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,staticlib,llvm,wasi,middlewares
 
 # Headless (we include the minimal to be able to run)
 
@@ -470,13 +458,9 @@ build-capi-headless-universal: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features universal,wasi
 
-build-capi-headless-staticlib: capi-setup
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features staticlib,wasi
-
 build-capi-headless-all: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features universal,staticlib,wasi
+		--no-default-features --features universal,wasi
 
 build-capi-headless-ios: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
@@ -536,7 +520,7 @@ test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_en
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,universal,staticlib,wasi,middlewares $(capi_compiler_features) -- --nocapture
+		--no-default-features --features wat,universal,wasi,middlewares $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
 	# Test the Wasmer C API tests for C
@@ -662,7 +646,7 @@ endif
 
 DESTDIR ?= /usr/local
 
-install: install-wasmer install-capi-headers install-capi-lib install-capi-staticlib install-pkgconfig install-misc
+install: install-wasmer install-capi-headers install-capi-lib install-pkgconfig install-misc
 
 install-wasmer:
 	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer
@@ -680,9 +664,6 @@ install-capi-lib:
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$shortver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$majorver" && \
 	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so"
-
-install-capi-staticlib:
-	install -Dm644 target/release/libwasmer.a "$(DESTDIR)/lib/libwasmer.a"
 
 install-misc:
 	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE

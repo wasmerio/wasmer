@@ -77,10 +77,6 @@
 //!   compilation process and to store the generated executable code
 //!   somewhere, either:
 //!   * in-memory (with [`wasmer-engine-universal`]),
-//!   * in a native static object file (with [`wasmer-engine-staticlib`]),
-//!     in addition to emitting a C header file, which both can be linked
-//!     against a sandboxed WebAssembly runtime environment for the
-//!     compiled module with no need for runtime compilation.
 //!
 //! * **Pluggable compilers** — A compiler is used by an engine to
 //!   transform WebAssembly into executable code:
@@ -424,7 +420,6 @@
 //! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/
 //! [wasmer-engine]: https://docs.rs/wasmer-engine/
 //! [`wasmer-engine-universal`]: https://docs.rs/wasmer-engine-universal/
-//! [`wasmer-engine-staticlib`]: https://docs.rs/wasmer-engine-staticlib/
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/

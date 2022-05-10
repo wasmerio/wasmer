@@ -29,7 +29,6 @@ wasmer-compiler-llvm = { version = "=2.3.0", path = "../compiler-llvm", optional
 wasmer-emscripten = { version = "=2.3.0", path = "../emscripten", optional = true }
 wasmer-engine = { version = "=2.3.0", path = "../engine" }
 wasmer-engine-universal = { version = "=2.3.0", path = "../engine-universal", optional = true }
-wasmer-engine-staticlib = { version = "=2.3.0", path = "../engine-staticlib", optional = true }
 wasmer-middlewares = { version = "=2.3.0", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "../wasi", default-features = false, features = ["host-fs", "sys"], optional = true }
 wasmer-types = { version = "=2.3.0", path = "../types" }
@@ -65,14 +64,9 @@ universal = [
     "wasmer-engine-universal",
     "engine",
 ]
-staticlib = [
-    "wasmer-engine-staticlib",
-    "engine",
-]
 compiler = [
     "wasmer-api/compiler",
     "wasmer-engine-universal/compiler",
-    "wasmer-engine-staticlib/compiler"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",

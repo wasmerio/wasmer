@@ -20,7 +20,6 @@ pub mod commands;
 pub mod common;
 #[macro_use]
 pub mod error;
-pub mod c_gen;
 pub mod cli;
 #[cfg(feature = "debug")]
 pub mod logging;

@@ -18,7 +18,6 @@ wasmer-compiler-llvm = { version = "=2.3.0", path = "lib/compiler-llvm", optiona
 wasmer-emscripten = { version = "=2.3.0", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "=2.3.0", path = "lib/engine" }
 wasmer-engine-universal = { version = "=2.3.0", path = "lib/engine-universal", optional = true }
-wasmer-engine-staticlib = { version = "=2.3.0", path = "lib/engine-staticlib", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "=2.3.0", path = "tests/lib/wast", optional = true }
 wasi-test-generator = { version = "=2.3.0", path = "tests/wasi-wast", optional = true }
@@ -42,7 +41,6 @@ members = [
     "lib/emscripten",
     "lib/engine",
     "lib/engine-universal",
-    "lib/engine-staticlib",
     "lib/object",
     "lib/vfs",
     "lib/vnet",
@@ -89,7 +87,6 @@ default = [
     "wat",
     "wast",
     "universal",
-    "staticlib",
     "cache",
     "wasi",
     "emscripten",
@@ -98,10 +95,6 @@ default = [
 engine = []
 universal = [
     "wasmer-engine-universal",
-    "engine",
-]
-staticlib = [
-    "wasmer-engine-staticlib",
     "engine",
 ]
 cache = ["wasmer-cache"]
@@ -113,7 +106,6 @@ compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-engine-universal/compiler",
-    "wasmer-engine-staticlib/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",

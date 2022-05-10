@@ -23,20 +23,12 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 
     /// Use the Universal Engine.
-    #[structopt(long, conflicts_with_all = &["staticlib", "jit", "object_file"])]
+    #[structopt(long, conflicts_with_all = &["jit"])]
     universal: bool,
 
-    /// Use the Staticlib Engine.
-    #[structopt(long, conflicts_with_all = &["universal", "jit", "object_file"])]
-    staticlib: bool,
-
     /// Use the JIT (Universal) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "staticlib", "object_file"])]
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal"])]
     jit: bool,
-
-    /// Use the ObjectFile (Staticlib) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "staticlib", "jit"])]
-    object_file: bool,
 }
 
 #[cfg(feature = "compiler")]
@@ -142,14 +134,7 @@ impl CompilerOptions {
                     .target(target)
                     .engine(),
             ),
-            #[cfg(feature = "staticlib")]
-            EngineType::Staticlib => Box::new(
-                wasmer_engine_staticlib::Staticlib::new(compiler_config)
-                    .target(target)
-                    .features(features)
-                    .engine(),
-            ),
-            #[cfg(not(all(feature = "universal", feature = "staticlib")))]
+            #[cfg(not(all(feature = "universal")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -341,15 +326,12 @@ impl ToString for CompilerType {
 pub enum EngineType {
     /// Universal Engine
     Universal,
-    /// Static Engine
-    Staticlib,
 }
 
 impl ToString for EngineType {
     fn to_string(&self) -> String {
         match self {
             Self::Universal => "universal".to_string(),
-            Self::Staticlib => "staticlib".to_string(),
         }
     }
 }
@@ -392,14 +374,10 @@ impl StoreOptions {
     fn get_engine(&self) -> Result<EngineType> {
         if self.universal || self.jit {
             Ok(EngineType::Universal)
-        } else if self.staticlib || self.object_file {
-            Ok(EngineType::Staticlib)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "universal") {
                 Ok(EngineType::Universal)
-            } else if cfg!(feature = "staticlib") {
-                Ok(EngineType::Staticlib)
             } else {
                 bail!("There are no available engines for your architecture")
             }
@@ -417,11 +395,7 @@ impl StoreOptions {
             EngineType::Universal => {
                 Arc::new(wasmer_engine_universal::Universal::headless().engine())
             }
-            #[cfg(feature = "staticlib")]
-            EngineType::Staticlib => {
-                Arc::new(wasmer_engine_staticlib::Staticlib::headless().engine())
-            }
-            #[cfg(not(all(feature = "universal", feature = "staticlib")))]
+            #[cfg(not(all(feature = "universal")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()

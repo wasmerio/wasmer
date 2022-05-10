@@ -13,7 +13,6 @@ attributions of the project.
 
 
 [`wasmer-engine-universal`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-universal
-[`wasmer-engine-staticlib`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-staticlib
 [`wasmer-engine-dummy`]: https://github.com/wasmerio/wasmer/tree/master/tests/lib/engine-dummy
 [`wasmtime-api`]: https://crates.io/crates/wasmtime
 [Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md

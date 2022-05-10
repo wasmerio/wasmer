@@ -13,8 +13,6 @@ use crate::error::update_last_error;
 use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer_api::Engine;
-#[cfg(feature = "staticlib")]
-use wasmer_engine_staticlib::Staticlib;
 #[cfg(feature = "universal")]
 use wasmer_engine_universal::Universal;
 
@@ -67,10 +65,6 @@ pub enum wasmer_engine_t {
     /// Variant to represent the Universal engine. See the
     /// [`wasmer_engine_universal`] Rust crate.
     UNIVERSAL = 0,
-
-    /// Variant to represent the Staticlib engine. See the
-    /// [`wasmer_engine_staticlib`] Rust crate.
-    STATICLIB = 2,
 }
 
 impl Default for wasmer_engine_t {
@@ -78,8 +72,6 @@ impl Default for wasmer_engine_t {
         cfg_if! {
             if #[cfg(feature = "universal")] {
                 Self::UNIVERSAL
-            } else if #[cfg(feature = "staticlib")] {
-                Self::STATICLIB
             } else {
                 compile_error!("Please enable one of the engines")
             }
@@ -320,22 +312,6 @@ cfg_if! {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Universal::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    }
-    // There are currently no uses of the Staticlib engine + compiler from the C API.
-    // So if we get here, we default to headless mode regardless of if `compiler` is enabled.
-    else if #[cfg(feature = "staticlib")] {
-        /// Creates a new headless Staticlib engine.
-        ///
-        /// # Example
-        ///
-        /// See [`wasm_engine_delete`].
-        ///
-        /// cbindgen:ignore
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Staticlib::headless().engine());
-            Box::new(wasm_engine_t { inner: engine })
-        }
     } else {
         /// Creates a new unknown engine, i.e. it will panic with an error message.
         ///
@@ -463,27 +439,6 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::STATICLIB => {
-                    cfg_if! {
-                        // There are currently no uses of the Staticlib engine + compiler from the C API.
-                        // So we run in headless mode.
-                        if #[cfg(feature = "staticlib")] {
-                            let mut builder = Staticlib::headless();
-
-                            if let Some(target) = config.target {
-                                builder = builder.target(target.inner);
-                            }
-
-                            if let Some(features) = config.features {
-                                builder = builder.features(features.inner);
-                            }
-
-                            Arc::new(builder.engine())
-                        } else {
-                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
-                        }
-                    }
-                },
             };
             Some(Box::new(wasm_engine_t { inner }))
         } else {
@@ -504,25 +459,6 @@ pub extern "C" fn wasm_engine_new_with_config(
                             Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `universal` feature.");
-                        }
-                    }
-                },
-                wasmer_engine_t::STATICLIB => {
-                    cfg_if! {
-                        if #[cfg(feature = "staticlib")] {
-                            let mut builder = Staticlib::headless();
-
-                            if let Some(target) = config.target {
-                                builder = builder.target(target.inner);
-                            }
-
-                            if let Some(features) = config.features {
-                                builder = builder.features(features.inner);
-                            }
-
-                            Arc::new(builder.engine())
-                        } else {
-                            return return_with_error("Wasmer has not been compiled with the `staticlib` feature.");
                         }
                     }
                 },

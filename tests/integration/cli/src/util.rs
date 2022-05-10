@@ -22,14 +22,12 @@ impl Compiler {
 #[derive(Debug, Copy, Clone)]
 pub enum Engine {
     Universal,
-    Staticlib,
 }
 
 impl Engine {
     pub const fn to_flag(self) -> &'static str {
         match self {
             Engine::Universal => "--universal",
-            Engine::Staticlib => "--staticlib",
         }
     }
 }

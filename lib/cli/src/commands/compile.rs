@@ -16,10 +16,6 @@ pub struct Compile {
     #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
     output: PathBuf,
 
-    /// Output path for generated header file
-    #[structopt(name = "HEADER PATH", long = "header", parse(from_os_str))]
-    header_path: Option<PathBuf>,
-
     /// Compilation Target triple
     #[structopt(long = "target")]
     target_triple: Option<Triple>,
@@ -47,11 +43,7 @@ impl Compile {
             EngineType::Universal => {
                 wasmer_engine_universal::UniversalArtifact::get_default_extension(target_triple)
             }
-            #[cfg(feature = "staticlib")]
-            EngineType::Staticlib => {
-                wasmer_engine_staticlib::StaticlibArtifact::get_default_extension(target_triple)
-            }
-            #[cfg(not(all(feature = "universal", feature = "staticlib")))]
+            #[cfg(not(all(feature = "universal")))]
             _ => bail!("selected engine type is not compiled in"),
         })
     }
@@ -101,43 +93,6 @@ impl Compile {
             self.output.display(),
         );
 
-        #[cfg(feature = "staticlib")]
-        if engine_type == EngineType::Staticlib {
-            let artifact: &wasmer_engine_staticlib::StaticlibArtifact =
-                module.artifact().as_ref().downcast_ref().context("Engine type is Staticlib but could not downcast artifact into StaticlibArtifact")?;
-            let symbol_registry = artifact.symbol_registry();
-            let metadata_length = artifact.metadata_length();
-            let module_info = module.info();
-            let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-                module_info,
-                symbol_registry,
-                metadata_length,
-            );
-
-            let header_path = self.header_path.as_ref().cloned().unwrap_or_else(|| {
-                let mut hp = PathBuf::from(
-                    self.path
-                        .file_stem()
-                        .map(|fs| fs.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "wasm_out".to_string()),
-                );
-                hp.set_extension("h");
-                hp
-            });
-            // for C code
-            let mut header = std::fs::OpenOptions::new()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(&header_path)?;
-
-            use std::io::Write;
-            header.write_all(header_file_src.as_bytes())?;
-            eprintln!(
-                "✔ Header file generated successfully at `{}`.",
-                header_path.display(),
-            );
-        }
         Ok(())
     }
 }
