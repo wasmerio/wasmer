@@ -121,9 +121,6 @@ impl Default for Store {
                 if #[cfg(feature = "default-universal")] {
                     wasmer_engine_universal::Universal::new(config)
                         .engine()
-                } else if #[cfg(feature = "default-dylib")] {
-                    wasmer_engine_dylib::Dylib::new(config)
-                        .engine()
                 } else {
                     compile_error!("No default engine chosen")
                 }

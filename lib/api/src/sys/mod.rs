@@ -112,9 +112,6 @@ pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 #[cfg(feature = "universal")]
 pub use wasmer_engine_universal::{Universal, UniversalArtifact, UniversalEngine};
 
-#[cfg(feature = "dylib")]
-pub use wasmer_engine_dylib::{Dylib, DylibArtifact, DylibEngine};
-
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -122,11 +119,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg(feature = "jit")]
 #[deprecated(since = "2.0.0", note = "Please use the `universal` feature instead")]
 pub type JIT = Universal;
-
-/// The Deprecated Native Engine (please use `Dylib` instead)
-#[cfg(feature = "native")]
-#[deprecated(since = "2.0.0", note = "Please use the `native` feature instead")]
-pub type Native = Dylib;
 
 /// This type is deprecated, it has been replaced by TypedFunction.
 #[deprecated(

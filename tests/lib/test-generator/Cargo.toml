@@ -10,5 +10,4 @@ anyhow = "1.0"
 target-lexicon = "0.12"
 
 [features]
-test-dylib = []
 test-universal = []

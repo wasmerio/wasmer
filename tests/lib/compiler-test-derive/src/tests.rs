@@ -63,15 +63,6 @@ gen_tests! {
                         crate::Compiler::Singlepass
                     ))
                 }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "dylib")]
-                fn dylib() {
-                    foo(crate::Config::new(
-                        crate::Engine::Dylib,
-                        crate::Compiler::Singlepass
-                    ))
-                }
             }
 
             #[cfg(feature = "cranelift")]
@@ -86,15 +77,6 @@ gen_tests! {
                         crate::Compiler::Cranelift
                     ))
                 }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "dylib")]
-                fn dylib() {
-                    foo(crate::Config::new(
-                        crate::Engine::Dylib,
-                        crate::Compiler::Cranelift
-                    ))
-                }
             }
 
             #[cfg(feature = "llvm")]
@@ -106,15 +88,6 @@ gen_tests! {
                 fn universal() {
                     foo(crate::Config::new(
                         crate::Engine::Universal,
-                        crate::Compiler::LLVM
-                    ))
-                }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "dylib")]
-                fn dylib() {
-                    foo(crate::Config::new(
-                        crate::Engine::Dylib,
                         crate::Compiler::LLVM
                     ))
                 }

@@ -23,27 +23,19 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 
     /// Use the Universal Engine.
-    #[structopt(long, conflicts_with_all = &["dylib", "staticlib", "jit", "native", "object_file"])]
+    #[structopt(long, conflicts_with_all = &["staticlib", "jit", "object_file"])]
     universal: bool,
 
-    /// Use the Dylib Engine.
-    #[structopt(long, conflicts_with_all = &["universal", "staticlib", "jit", "native", "object_file"])]
-    dylib: bool,
-
     /// Use the Staticlib Engine.
-    #[structopt(long, conflicts_with_all = &["universal", "dylib", "jit", "native", "object_file"])]
+    #[structopt(long, conflicts_with_all = &["universal", "jit", "object_file"])]
     staticlib: bool,
 
     /// Use the JIT (Universal) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "native", "object_file"])]
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "staticlib", "object_file"])]
     jit: bool,
 
-    /// Use the Native (Dylib) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "object_file"])]
-    native: bool,
-
     /// Use the ObjectFile (Staticlib) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "native"])]
+    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "staticlib", "jit"])]
     object_file: bool,
 }
 
@@ -150,13 +142,6 @@ impl CompilerOptions {
                     .target(target)
                     .engine(),
             ),
-            #[cfg(feature = "dylib")]
-            EngineType::Dylib => Box::new(
-                wasmer_engine_dylib::Dylib::new(compiler_config)
-                    .target(target)
-                    .features(features)
-                    .engine(),
-            ),
             #[cfg(feature = "staticlib")]
             EngineType::Staticlib => Box::new(
                 wasmer_engine_staticlib::Staticlib::new(compiler_config)
@@ -164,7 +149,7 @@ impl CompilerOptions {
                     .features(features)
                     .engine(),
             ),
-            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "staticlib")))]
+            #[cfg(not(all(feature = "universal", feature = "staticlib")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -356,8 +341,6 @@ impl ToString for CompilerType {
 pub enum EngineType {
     /// Universal Engine
     Universal,
-    /// Dylib Engine
-    Dylib,
     /// Static Engine
     Staticlib,
 }
@@ -366,7 +349,6 @@ impl ToString for EngineType {
     fn to_string(&self) -> String {
         match self {
             Self::Universal => "universal".to_string(),
-            Self::Dylib => "dylib".to_string(),
             Self::Staticlib => "staticlib".to_string(),
         }
     }
@@ -410,16 +392,12 @@ impl StoreOptions {
     fn get_engine(&self) -> Result<EngineType> {
         if self.universal || self.jit {
             Ok(EngineType::Universal)
-        } else if self.dylib || self.native {
-            Ok(EngineType::Dylib)
         } else if self.staticlib || self.object_file {
             Ok(EngineType::Staticlib)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "universal") {
                 Ok(EngineType::Universal)
-            } else if cfg!(feature = "dylib") {
-                Ok(EngineType::Dylib)
             } else if cfg!(feature = "staticlib") {
                 Ok(EngineType::Staticlib)
             } else {
@@ -439,13 +417,11 @@ impl StoreOptions {
             EngineType::Universal => {
                 Arc::new(wasmer_engine_universal::Universal::headless().engine())
             }
-            #[cfg(feature = "dylib")]
-            EngineType::Dylib => Arc::new(wasmer_engine_dylib::Dylib::headless().engine()),
             #[cfg(feature = "staticlib")]
             EngineType::Staticlib => {
                 Arc::new(wasmer_engine_staticlib::Staticlib::headless().engine())
             }
-            #[cfg(not(all(feature = "universal", feature = "dylib", feature = "staticlib")))]
+            #[cfg(not(all(feature = "universal", feature = "staticlib")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()

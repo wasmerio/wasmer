@@ -112,7 +112,6 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
             let mod_name = ::quote::format_ident!("{}", compiler_name.to_lowercase());
             let universal_engine_test =
                 construct_engine_test(func, compiler_name, "Universal", "universal");
-            let dylib_engine_test = construct_engine_test(func, compiler_name, "Dylib", "dylib");
             let compiler_name_lowercase = compiler_name.to_lowercase();
 
             quote! {
@@ -121,7 +120,6 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
                     use super::*;
 
                     #universal_engine_test
-                    #dylib_engine_test
                 }
             }
         };

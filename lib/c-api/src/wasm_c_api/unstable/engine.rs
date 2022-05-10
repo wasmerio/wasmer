@@ -163,7 +163,6 @@ pub extern "C" fn wasmer_is_headless() -> bool {
 pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
     match engine {
         wasmer_engine_t::UNIVERSAL if cfg!(feature = "universal") => true,
-        wasmer_engine_t::DYLIB if cfg!(feature = "dylib") => true,
         wasmer_engine_t::STATICLIB if cfg!(feature = "staticlib") => true,
         _ => false,
     }
@@ -245,7 +244,6 @@ mod tests {
                 "0"
             },
         );
-        set_var("DYLIB", if cfg!(feature = "dylib") { "1" } else { "0" });
         set_var(
             "STATICLIB",
             if cfg!(feature = "staticlib") {
@@ -261,7 +259,6 @@ mod tests {
 
             int main() {
                 assert(wasmer_is_engine_available(UNIVERSAL) == (getenv("UNIVERSAL")[0] == '1'));
-                assert(wasmer_is_engine_available(DYLIB) == (getenv("DYLIB")[0] == '1'));
                 assert(wasmer_is_engine_available(STATICLIB) == (getenv("STATICLIB")[0] == '1'));
 
                 return 0;
@@ -270,7 +267,6 @@ mod tests {
         .success();
 
         remove_var("UNIVERSAL");
-        remove_var("DYLIB");
         remove_var("STATICLIB");
     }
 }

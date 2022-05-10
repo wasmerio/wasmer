@@ -22,7 +22,7 @@ use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_dylib::Dylib;
+use wasmer_engine_universal::Universal;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -67,13 +67,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Define the engine that will drive everything.
     //
-    // In this case, the engine is `wasmer_engine_dylib` which means
-    // that a shared object is going to be generated.
-    //
     // That's where we specify the target for the compiler.
     //
-    // Use the Dylib engine.
-    let engine = Dylib::new(compiler_config)
+    // Use the Universal engine.
+    let engine = Universal::new(compiler_config)
         // Here we go.
         // Pass the target to the engine! The engine will share
         // this information with the compiler.

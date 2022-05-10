@@ -77,8 +77,6 @@
 //!   compilation process and to store the generated executable code
 //!   somewhere, either:
 //!   * in-memory (with [`wasmer-engine-universal`]),
-//!   * in a native shared object file (with [`wasmer-engine-dylib`],
-//!     `.dylib`, `.so`, `.dll`), then load it with `dlopen`,
 //!   * in a native static object file (with [`wasmer-engine-staticlib`]),
 //!     in addition to emitting a C header file, which both can be linked
 //!     against a sandboxed WebAssembly runtime environment for the
@@ -324,11 +322,7 @@
 //! - `universal`
 #![cfg_attr(feature = "universal", doc = "(enabled),")]
 #![cfg_attr(not(feature = "universal"), doc = "(disabled),")]
-//!   enables [the Universal engine][`wasmer-engine-universal`],
-//! - `dylib`
-#![cfg_attr(feature = "dylib", doc = "(enabled),")]
-#![cfg_attr(not(feature = "dylib"), doc = "(disabled),")]
-//!   enables [the Dylib engine][`wasmer-engine-dylib`].
+//!   enables [the Universal engine][`wasmer-engine-universal`].
 //!
 //! The features that set defaults come in sets that are mutually exclusive.
 //!
@@ -350,11 +344,7 @@
 //! - `default-universal`
 #![cfg_attr(feature = "default-universal", doc = "(enabled),")]
 #![cfg_attr(not(feature = "default-universal"), doc = "(disabled),")]
-//!   set the Universal engine as the default,
-//! - `default-dylib`
-#![cfg_attr(feature = "default-dylib", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-dylib"), doc = "(disabled),")]
-//!   set the Dylib engine as the default.
+//!   set the Universal engine as the default.
 //!
 #![cfg_attr(
     feature = "js",
@@ -434,7 +424,6 @@
 //! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/
 //! [wasmer-engine]: https://docs.rs/wasmer-engine/
 //! [`wasmer-engine-universal`]: https://docs.rs/wasmer-engine-universal/
-//! [`wasmer-engine-dylib`]: https://docs.rs/wasmer-engine-dylib/
 //! [`wasmer-engine-staticlib`]: https://docs.rs/wasmer-engine-staticlib/
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/

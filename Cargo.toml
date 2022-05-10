@@ -18,7 +18,6 @@ wasmer-compiler-llvm = { version = "=2.3.0", path = "lib/compiler-llvm", optiona
 wasmer-emscripten = { version = "=2.3.0", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "=2.3.0", path = "lib/engine" }
 wasmer-engine-universal = { version = "=2.3.0", path = "lib/engine-universal", optional = true }
-wasmer-engine-dylib = { version = "=2.3.0", path = "lib/engine-dylib", optional = true }
 wasmer-engine-staticlib = { version = "=2.3.0", path = "lib/engine-staticlib", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "=2.3.0", path = "tests/lib/wast", optional = true }
@@ -43,7 +42,6 @@ members = [
     "lib/emscripten",
     "lib/engine",
     "lib/engine-universal",
-    "lib/engine-dylib",
     "lib/engine-staticlib",
     "lib/object",
     "lib/vfs",
@@ -91,7 +89,6 @@ default = [
     "wat",
     "wast",
     "universal",
-    "dylib",
     "staticlib",
     "cache",
     "wasi",
@@ -101,10 +98,6 @@ default = [
 engine = []
 universal = [
     "wasmer-engine-universal",
-    "engine",
-]
-dylib = [
-    "wasmer-engine-dylib",
     "engine",
 ]
 staticlib = [
@@ -120,7 +113,6 @@ compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-engine-universal/compiler",
-    "wasmer-engine-dylib/compiler",
     "wasmer-engine-staticlib/compiler",
 ]
 singlepass = [
@@ -148,10 +140,6 @@ test-llvm = [
     "llvm",
 ]
 
-test-dylib = [
-    "dylib",
-    "test-generator/test-dylib",
-]
 test-universal = [
     "universal",
     "test-generator/test-universal",
@@ -176,11 +164,6 @@ required-features = ["cranelift"]
 [[example]]
 name = "engine-universal"
 path = "examples/engine_universal.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "engine-dylib"
-path = "examples/engine_dylib.rs"
 required-features = ["cranelift"]
 
 [[example]]

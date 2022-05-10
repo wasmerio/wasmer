@@ -2,37 +2,27 @@
 singlepass spec::multi_value # Singlepass has not implemented multivalue (functions that returns "structs"/"tuples")
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 
-windows+dylib * # This might be trivial to fix?
-musl+dylib * # Dynamic loading not supported in Musl
-
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
 ## Unwinding is not properly implemented in Singlepass
 # Needs investigation
 singlepass+aarch64+macos traps::test_trap_trace
-dylib     traps::test_trap_trace
 cranelift+aarch64    traps::test_trap_trace
 singlepass+aarch64+macos traps::test_trap_stack_overflow # Need to investigate
-dylib     traps::test_trap_stack_overflow # Need to investigate
 cranelift+aarch64    traps::test_trap_stack_overflow # Need to investigate
 singlepass+aarch64+macos traps::trap_display_pretty
 llvm       traps::trap_display_pretty
-dylib     traps::trap_display_pretty
 cranelift+aarch64    traps::trap_display_pretty
 singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
-dylib     traps::trap_display_multi_module
 cranelift+aarch64    traps::trap_display_multi_module
 singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for inderect call
 llvm       traps::call_signature_mismatch
-dylib     traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch
 singlepass+aarch64+macos traps::start_trap_pretty
 llvm       traps::start_trap_pretty
-dylib     traps::start_trap_pretty
 cranelift+aarch64    traps::start_trap_pretty
 
-singlepass multi_value_imports::dylib # Singlepass doesn't support multivalue
 singlepass multi_value_imports::dynamic # Singlepass doesn't support multivalue
 
 # Also neither LLVM nor Cranelift currently implement stack probing on AArch64.

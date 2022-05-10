@@ -43,10 +43,6 @@ impl Compile {
         target_triple: &Triple,
     ) -> Result<&'static str> {
         Ok(match engine_type {
-            #[cfg(feature = "dylib")]
-            EngineType::Dylib => {
-                wasmer_engine_dylib::DylibArtifact::get_default_extension(target_triple)
-            }
             #[cfg(feature = "universal")]
             EngineType::Universal => {
                 wasmer_engine_universal::UniversalArtifact::get_default_extension(target_triple)
@@ -55,7 +51,7 @@ impl Compile {
             EngineType::Staticlib => {
                 wasmer_engine_staticlib::StaticlibArtifact::get_default_extension(target_triple)
             }
-            #[cfg(not(all(feature = "dylib", feature = "universal", feature = "staticlib")))]
+            #[cfg(not(all(feature = "universal", feature = "staticlib")))]
             _ => bail!("selected engine type is not compiled in"),
         })
     }

@@ -10,7 +10,6 @@ pub enum Compiler {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Engine {
-    Dylib,
     Universal,
 }
 
@@ -61,14 +60,6 @@ impl Config {
         #[cfg(not(feature = "engine"))]
         compile_error!("Plese enable at least one engine via the features");
         match &self.engine {
-            #[cfg(feature = "dylib")]
-            Engine::Dylib => {
-                let mut engine = wasmer_engine_dylib::Dylib::new(compiler_config);
-                if let Some(ref features) = self.features {
-                    engine = engine.features(features.clone())
-                }
-                Box::new(engine.engine())
-            }
             #[cfg(feature = "universal")]
             Engine::Universal => {
                 let mut engine = wasmer_engine_universal::Universal::new(compiler_config);
@@ -87,8 +78,6 @@ impl Config {
 
     pub fn engine_headless(&self) -> Box<dyn WasmerEngine> {
         match &self.engine {
-            #[cfg(feature = "dylib")]
-            Engine::Dylib => Box::new(wasmer_engine_dylib::Dylib::headless().engine()),
             #[cfg(feature = "universal")]
             Engine::Universal => Box::new(wasmer_engine_universal::Universal::headless().engine()),
             #[allow(unreachable_patterns)]

@@ -29,7 +29,6 @@ wasmer-compiler-llvm = { version = "=2.3.0", path = "../compiler-llvm", optional
 wasmer-emscripten = { version = "=2.3.0", path = "../emscripten", optional = true }
 wasmer-engine = { version = "=2.3.0", path = "../engine" }
 wasmer-engine-universal = { version = "=2.3.0", path = "../engine-universal", optional = true }
-wasmer-engine-dylib = { version = "=2.3.0", path = "../engine-dylib", optional = true }
 wasmer-engine-staticlib = { version = "=2.3.0", path = "../engine-staticlib", optional = true }
 wasmer-middlewares = { version = "=2.3.0", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "=2.3.0", path = "../wasi", default-features = false, features = ["host-fs", "sys"], optional = true }
@@ -66,10 +65,6 @@ universal = [
     "wasmer-engine-universal",
     "engine",
 ]
-dylib = [
-    "wasmer-engine-dylib",
-    "engine",
-]
 staticlib = [
     "wasmer-engine-staticlib",
     "engine",
@@ -77,7 +72,6 @@ staticlib = [
 compiler = [
     "wasmer-api/compiler",
     "wasmer-engine-universal/compiler",
-    "wasmer-engine-dylib/compiler",
     "wasmer-engine-staticlib/compiler"
 ]
 singlepass = [
@@ -95,7 +89,6 @@ llvm = [
 
 # Deprecated features.
 jit = ["universal"]
-native = ["dylib"]
 
 # TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]

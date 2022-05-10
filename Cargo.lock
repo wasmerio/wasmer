@@ -160,7 +160,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "which 3.1.1",
+ "which",
 ]
 
 [[package]]
@@ -2796,7 +2796,6 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-derive",
  "wasmer-engine",
- "wasmer-engine-dylib",
  "wasmer-engine-universal",
  "wasmer-types",
  "wasmer-vm",
@@ -2826,7 +2825,6 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-engine-dylib",
  "wasmer-engine-universal",
  "wasmer-middlewares",
  "wasmprinter",
@@ -2853,7 +2851,6 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-engine",
- "wasmer-engine-dylib",
  "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-middlewares",
@@ -2873,7 +2870,6 @@ dependencies = [
  "thiserror",
  "wasmer",
  "wasmer-compiler-singlepass",
- "wasmer-engine-dylib",
  "wasmer-engine-universal",
 ]
 
@@ -2900,7 +2896,6 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-engine",
- "wasmer-engine-dylib",
  "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-types",
@@ -3066,29 +3061,6 @@ dependencies = [
  "wasmer-engine",
  "wasmer-types",
  "wasmer-vm",
-]
-
-[[package]]
-name = "wasmer-engine-dylib"
-version = "2.3.0"
-dependencies = [
- "cfg-if 1.0.0",
- "enum-iterator",
- "enumset",
- "leb128",
- "libloading",
- "object",
- "rkyv",
- "serde",
- "tempfile",
- "tracing",
- "wasmer-artifact",
- "wasmer-compiler",
- "wasmer-engine",
- "wasmer-object",
- "wasmer-types",
- "wasmer-vm",
- "which 4.2.5",
 ]
 
 [[package]]
@@ -3352,7 +3324,6 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",
- "wasmer-engine-dylib",
  "wasmer-engine-staticlib",
  "wasmer-engine-universal",
  "wasmer-middlewares",
@@ -3511,17 +3482,6 @@ version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
 dependencies = [
- "libc",
-]
-
-[[package]]
-name = "which"
-version = "4.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c4fb54e6113b6a8772ee41c3404fb0301ac79604489467e0a9ce1f3e97c24ae"
-dependencies = [
- "either",
- "lazy_static",
  "libc",
 ]
 
