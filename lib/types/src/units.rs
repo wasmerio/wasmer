@@ -24,6 +24,7 @@ pub const WASM_MIN_PAGES: u32 = 0x100;
     Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive(as = "Self")]
 pub struct Pages(pub u32);
 
 impl Pages {

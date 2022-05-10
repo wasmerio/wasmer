@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(as = "Self")]
 pub enum Type {
     /// Signed 32 bit integer.
     I32,
@@ -61,6 +62,7 @@ impl fmt::Display for Type {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 /// The WebAssembly V128 type
+#[archive(as = "Self")]
 pub struct V128(pub(crate) [u8; 16]);
 
 impl V128 {
@@ -316,6 +318,7 @@ impl From<&Self> for FunctionType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(as = "Self")]
 pub enum Mutability {
     /// The global is constant and its value does not change
     Const,
@@ -353,6 +356,7 @@ impl From<Mutability> for bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(as = "Self")]
 pub struct GlobalType {
     /// The type of the value stored in the global.
     pub ty: Type,
@@ -397,6 +401,7 @@ impl fmt::Display for GlobalType {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(as = "Self")]
 pub enum GlobalInit {
     /// An `i32.const`.
     I32Const(i32),
