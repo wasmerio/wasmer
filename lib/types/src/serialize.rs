@@ -1,13 +1,13 @@
+use crate::entity::PrimaryMap;
+use crate::{
+    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, DeserializeError, Dwarf,
+    FunctionBody, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, Relocation,
+    SectionIndex, SerializeError, SignatureIndex,
+};
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
     ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
     Serialize as RkyvSerialize,
-};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, DeserializeError, Dwarf,
-    FunctionBody, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, Relocation,
-    SectionIndex, SerializeError, SignatureIndex,
 };
 
 /// The compilation related data for a serialized modules

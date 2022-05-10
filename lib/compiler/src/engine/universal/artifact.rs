@@ -4,19 +4,19 @@
 use super::engine::{UniversalEngine, UniversalEngineInner};
 use crate::engine::universal::link::link_module;
 use crate::ArtifactCreate;
+use crate::UniversalArtifactBuild;
 use crate::{
     register_frame_info, Artifact, FunctionExtent, GlobalFrameInfoRegistration, MetadataHeader,
 };
 use crate::{CpuFeature, Features, Triple};
 #[cfg(feature = "universal_engine")]
 use crate::{Engine, ModuleEnvironment, Tunables};
-use crate::{SerializableModule, UniversalArtifactBuild};
 use enumset::EnumSet;
 use std::sync::{Arc, Mutex};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     CompileError, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    OwnedDataInitializer, SerializableModule, SerializeError, SignatureIndex, TableIndex,
 };
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 
