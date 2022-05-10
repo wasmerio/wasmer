@@ -3,7 +3,7 @@
 
 //! Module for Windows x64 ABI unwind registry.
 use std::collections::HashMap;
-use wasmer_compiler::CompiledFunctionUnwindInfo;
+use wasmer_types::CompiledFunctionUnwindInfo;
 use winapi::um::winnt;
 
 /// Represents a registry of function unwind information for Windows x64 ABI.

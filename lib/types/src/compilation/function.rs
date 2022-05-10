@@ -4,16 +4,16 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
+use super::trap::TrapInformation;
+use crate::entity::PrimaryMap;
 use crate::lib::std::vec::Vec;
-use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap};
+use crate::{
+    CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,
+};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{
-    CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,
-};
 
 /// The frame info for a Compiled function.
 ///
@@ -234,6 +234,7 @@ impl<'a> IntoIterator for &'a Compilation {
     }
 }
 
+/// `Functions` iterator.
 pub struct Iter<'a> {
     iterator: <&'a Functions as IntoIterator>::IntoIter,
 }

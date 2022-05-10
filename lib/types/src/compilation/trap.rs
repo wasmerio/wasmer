@@ -1,8 +1,9 @@
+//! Types for traps.
 use crate::CodeOffset;
+use crate::TrapCode;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::TrapCode;
 
 /// Information about trap.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]

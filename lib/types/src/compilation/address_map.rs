@@ -1,8 +1,8 @@
 //! Data structures to provide transformation of the source
 // addresses of a WebAssembly module into the native code.
 
+use super::sourceloc::SourceLoc;
 use crate::lib::std::vec::Vec;
-use crate::sourceloc::SourceLoc;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

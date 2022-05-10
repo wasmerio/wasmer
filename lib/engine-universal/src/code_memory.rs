@@ -3,8 +3,7 @@
 
 //! Memory management for executable code.
 use crate::unwind::UnwindRegistry;
-use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody};
-use wasmer_types::CustomSection;
+use wasmer_types::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
 use wasmer_vm::{Mmap, VMFunctionBody};
 
 /// The optimal alignment for functions.

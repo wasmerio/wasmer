@@ -3,7 +3,8 @@
 
 use cranelift_codegen::Context;
 use cranelift_codegen::MachSrcLoc;
-use wasmer_compiler::{wasmparser::Range, FunctionAddressMap, InstructionAddressMap, SourceLoc};
+use wasmer_compiler::wasmparser::Range;
+use wasmer_types::{FunctionAddressMap, InstructionAddressMap, SourceLoc};
 
 pub fn get_function_address_map(
     context: &Context,

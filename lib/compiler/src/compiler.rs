@@ -1,14 +1,14 @@
 //! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
-use crate::function::Compilation;
 use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
-use crate::module::CompileModuleInfo;
 use crate::target::Target;
 use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
+use wasmer_types::compilation::function::Compilation;
+use wasmer_types::compilation::module::CompileModuleInfo;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::error::CompileError;
 use wasmer_types::SectionIndex;

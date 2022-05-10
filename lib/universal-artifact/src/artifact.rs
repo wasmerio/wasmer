@@ -11,16 +11,16 @@ use std::mem;
 use std::sync::Arc;
 use wasmer_artifact::MetadataHeader;
 use wasmer_compiler::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, CpuFeature, Dwarf, Features, FunctionBody,
-    ModuleEnvironment, ModuleMiddlewareChain, Target, Triple,
+    CpuFeature, Features, ModuleEnvironment, ModuleMiddlewareChain, Target, Triple,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::SerializeError;
 use wasmer_types::{
-    CompileError, CustomSection, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex, TableIndex,
-    TableStyle,
+    CompileError, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
+    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
+    TableIndex, TableStyle,
 };
+use wasmer_types::{CompileModuleInfo, CompiledFunctionFrameInfo, FunctionBody};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct UniversalArtifactBuild {

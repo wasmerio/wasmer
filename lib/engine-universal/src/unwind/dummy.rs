@@ -1,6 +1,6 @@
 //! Module for Dummy unwind registry.
 
-use wasmer_compiler::CompiledFunctionUnwindInfo;
+use wasmer_types::CompiledFunctionUnwindInfo;
 
 /// Represents a registry of function unwind information when the host system
 /// support any one in specific.

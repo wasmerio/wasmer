@@ -14,8 +14,8 @@
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasmer_types::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
 use wasmer_vm::FunctionBodyPtr;
 

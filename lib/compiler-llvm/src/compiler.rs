@@ -11,13 +11,13 @@ use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Compilation, CompileModuleInfo, Compiler, Dwarf, FunctionBodyData, ModuleMiddleware,
-    ModuleTranslationState, Symbol, SymbolRegistry, Target,
+    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState, Symbol, SymbolRegistry,
+    Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionIndex, LocalFunctionIndex,
-    RelocationTarget, SectionBody, SectionIndex, SignatureIndex,
+    Compilation, CompileError, CompileModuleInfo, CustomSection, CustomSectionProtection, Dwarf,
+    FunctionIndex, LocalFunctionIndex, RelocationTarget, SectionBody, SectionIndex, SignatureIndex,
 };
 
 //use std::sync::Mutex;

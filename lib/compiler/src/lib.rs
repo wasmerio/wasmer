@@ -48,28 +48,15 @@ mod lib {
     }
 }
 
-mod address_map;
 #[cfg(feature = "translator")]
 mod compiler;
-mod function;
-mod module;
 mod target;
-mod trap;
-mod unwind;
+
 #[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
-mod sourceloc;
-
-pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 #[cfg(feature = "translator")]
 pub use crate::compiler::{Compiler, CompilerConfig, Symbol, SymbolRegistry};
-pub use crate::function::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
-    Functions,
-};
-pub use crate::module::CompileModuleInfo;
-pub use crate::sourceloc::SourceLoc;
 pub use crate::target::{
     Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
     PointerWidth, Target, Triple,
@@ -80,8 +67,6 @@ pub use crate::translator::{
     FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState,
     ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
-pub use crate::trap::TrapInformation;
-pub use crate::unwind::CompiledFunctionUnwindInfo;
 
 pub use wasmer_types::{Addend, CodeOffset, Features};
 

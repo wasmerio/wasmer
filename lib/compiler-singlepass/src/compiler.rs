@@ -20,12 +20,14 @@ use gimli::write::{EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Architecture, CallingConvention, Compilation, CompileModuleInfo, CompiledFunction, Compiler,
-    CompilerConfig, CpuFeature, Dwarf, FunctionBinaryReader, FunctionBody, FunctionBodyData,
-    MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
-    OperatingSystem, Target, TrapInformation,
+    Architecture, CallingConvention, Compiler, CompilerConfig, CpuFeature, FunctionBinaryReader,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
+    ModuleTranslationState, OperatingSystem, Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{
+    Compilation, CompileModuleInfo, CompiledFunction, Dwarf, FunctionBody, TrapInformation,
+};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     SectionIndex, TableIndex, TrapCode, VMOffsets,

@@ -11,17 +11,16 @@ use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
 use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
+use wasmer_compiler::{CallingConvention, FunctionBodyData};
 #[cfg(feature = "unwind")]
-use wasmer_compiler::CompiledFunctionUnwindInfo;
-use wasmer_compiler::{
-    CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, FunctionBodyData,
-};
+use wasmer_types::CompiledFunctionUnwindInfo;
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, Relocation, RelocationTarget, SectionIndex, SignatureIndex,
     TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
 };
+use wasmer_types::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {

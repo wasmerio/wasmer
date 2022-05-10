@@ -115,6 +115,16 @@ pub use crate::compilation::section::{
     CustomSection, CustomSectionProtection, SectionBody, SectionIndex,
 };
 
+pub use crate::compilation::address_map::{FunctionAddressMap, InstructionAddressMap};
+pub use crate::compilation::function::{
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
+    Functions,
+};
+pub use crate::compilation::module::CompileModuleInfo;
+pub use crate::compilation::sourceloc::SourceLoc;
+pub use crate::compilation::trap::TrapInformation;
+pub use crate::compilation::unwind::CompiledFunctionUnwindInfo;
+
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;
 
