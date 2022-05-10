@@ -20,16 +20,15 @@ use gimli::write::{EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Architecture, CallingConvention, Compilation, CompileError, CompileModuleInfo,
-    CompiledFunction, Compiler, CompilerConfig, CpuFeature, Dwarf, FunctionBinaryReader,
-    FunctionBody, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, SectionIndex, Target,
-    TrapInformation,
+    Architecture, CallingConvention, Compilation, CompileModuleInfo, CompiledFunction, Compiler,
+    CompilerConfig, CpuFeature, Dwarf, FunctionBinaryReader, FunctionBody, FunctionBodyData,
+    MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    OperatingSystem, SectionIndex, Target, TrapInformation,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex, TrapCode,
-    VMOffsets,
+    CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    TableIndex, TrapCode, VMOffsets,
 };
 
 /// A compiler that compiles a WebAssembly module with Singlepass.

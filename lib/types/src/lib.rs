@@ -53,6 +53,7 @@ pub mod lib {
     }
 }
 
+pub mod error;
 mod extern_ref;
 mod features;
 mod indexes;
@@ -68,6 +69,11 @@ mod units;
 mod utils;
 mod values;
 mod vmoffsets;
+
+pub use error::{
+    CompileError, DeserializeError, ImportError, MiddlewareError, ParseCpuFeatureError,
+    PreInstantiationError, SerializeError, WasmError, WasmResult,
+};
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;

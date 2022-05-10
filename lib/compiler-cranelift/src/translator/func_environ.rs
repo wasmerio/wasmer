@@ -13,10 +13,9 @@ use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use wasmer_compiler::wasmparser::{Operator, Type};
-use wasmer_compiler::WasmResult;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
-    TableIndex, Type as WasmerType,
+    TableIndex, Type as WasmerType, WasmResult,
 };
 
 /// The value of a WebAssembly global variable.

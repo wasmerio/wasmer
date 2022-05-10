@@ -8,7 +8,7 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
-use wasmer_compiler::CompileError;
+use wasmer_types::CompileError;
 use wasmer_types::{FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
 

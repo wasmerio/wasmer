@@ -51,7 +51,6 @@ mod lib {
 mod address_map;
 #[cfg(feature = "translator")]
 mod compiler;
-mod error;
 mod function;
 mod module;
 mod relocation;
@@ -67,9 +66,6 @@ mod sourceloc;
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 #[cfg(feature = "translator")]
 pub use crate::compiler::{Compiler, CompilerConfig, Symbol, SymbolRegistry};
-pub use crate::error::{
-    CompileError, MiddlewareError, ParseCpuFeatureError, WasmError, WasmResult,
-};
 pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
     Functions,
@@ -84,9 +80,9 @@ pub use crate::target::{
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    translate_module, wptype_to_type, FunctionBinaryReader, FunctionBodyData, FunctionMiddleware,
-    MiddlewareBinaryReader, MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror, translate_module, wptype_to_type, FunctionBinaryReader,
+    FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState,
+    ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::CompiledFunctionUnwindInfo;

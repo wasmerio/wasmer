@@ -11,8 +11,7 @@ use inkwell::{
     },
     AddressSpace,
 };
-use wasmer_compiler::CompileError;
-use wasmer_types::{FunctionType as FuncSig, Type};
+use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;

@@ -6,7 +6,6 @@ use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, Range, Type};
-use crate::{WasmError, WasmResult};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use wasmer_types::entity::PrimaryMap;
@@ -17,6 +16,7 @@ use wasmer_types::{
     LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
     TableInitializer, TableType,
 };
+use wasmer_types::{WasmError, WasmResult};
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]

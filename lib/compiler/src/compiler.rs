@@ -1,7 +1,6 @@
 //! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
-use crate::error::CompileError;
 use crate::function::Compilation;
 use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
@@ -12,6 +11,7 @@ use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::error::CompileError;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{Validator, WasmFeatures};
 

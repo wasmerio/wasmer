@@ -1,28 +1,26 @@
-use crate::{CompileError, WasmError};
+use wasmer_types::{CompileError, WasmError};
 use wasmparser::BinaryReaderError;
 
 /// Return an `Err(WasmError::Unsupported(msg))` where `msg` the string built by calling `format!`
 /// on the arguments to this macro.
 #[macro_export]
 macro_rules! wasm_unsupported {
-    ($($arg:tt)*) => { $crate::WasmError::Unsupported(format!($($arg)*)) }
+    ($($arg:tt)*) => { wasmer_types::WasmError::Unsupported(format!($($arg)*)) }
 }
 
-impl From<BinaryReaderError> for WasmError {
-    fn from(original: BinaryReaderError) -> Self {
-        Self::InvalidWebAssembly {
-            message: original.message().into(),
-            offset: original.offset(),
-        }
+///
+pub fn from_binaryreadererror_wasmerror(original: BinaryReaderError) -> WasmError {
+    WasmError::InvalidWebAssembly {
+        message: original.message().into(),
+        offset: original.offset(),
     }
 }
 
-impl From<BinaryReaderError> for CompileError {
-    fn from(original: BinaryReaderError) -> Self {
-        // `From` does not seem to be transitive by default, so we convert
-        // BinaryReaderError -> WasmError -> CompileError
-        Self::from(WasmError::from(original))
-    }
+///
+#[allow(dead_code)]
+pub fn from_binaryreadererror_compileerror(original: BinaryReaderError) -> CompileError {
+    // BinaryReaderError -> WasmError -> CompileError
+    CompileError::Wasm(from_binaryreadererror_wasmerror(original))
 }
 
 #[cfg(test)]

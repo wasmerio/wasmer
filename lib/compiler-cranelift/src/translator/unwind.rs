@@ -5,7 +5,8 @@
 use cranelift_codegen::isa::unwind::{systemv::UnwindInfo as DwarfFDE, UnwindInfo};
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{isa, Context};
-use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo};
+use wasmer_compiler::CompiledFunctionUnwindInfo;
+use wasmer_types::CompileError;
 
 /// Cranelift specific unwind info
 pub(crate) enum CraneliftUnwindInfo {

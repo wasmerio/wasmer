@@ -14,7 +14,7 @@ use inkwell::{
     types::FunctionType,
     values::{BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
 };
-use wasmer_compiler::CompileError;
+use wasmer_types::CompileError;
 use wasmer_types::FunctionType as FuncSig;
 use wasmer_vm::VMOffsets;
 

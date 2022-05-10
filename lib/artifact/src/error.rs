@@ -1,7 +1,7 @@
 //! The WebAssembly possible errors
 use std::io;
 use thiserror::Error;
-use wasmer_compiler::CompileError;
+use wasmer_types::CompileError;
 use wasmer_types::ExternType;
 
 /// The Serialize error can occur when serializing a

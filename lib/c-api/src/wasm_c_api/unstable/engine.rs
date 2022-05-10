@@ -161,10 +161,7 @@ pub extern "C" fn wasmer_is_headless() -> bool {
 /// compiled library.
 #[no_mangle]
 pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
-    match engine {
-        wasmer_engine_t::UNIVERSAL if cfg!(feature = "universal") => true,
-        _ => false,
-    }
+    matches!(engine, wasmer_engine_t::UNIVERSAL if cfg!(feature = "universal"))
 }
 
 #[cfg(test)]

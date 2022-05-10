@@ -1,8 +1,8 @@
 //! Universal compilation.
 
-use wasmer_compiler::CompileError;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
-use wasmer_types::Features;
+use wasmer_types::{CompileError, Features};
 
 /// The Builder contents of `UniversalEngine`
 pub struct UniversalEngineBuilder {

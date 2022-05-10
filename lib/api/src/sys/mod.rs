@@ -48,12 +48,9 @@ pub use crate::sys::types::{Val as Value, ValType as Type};
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
-    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareError, MiddlewareReaderState,
-    ModuleMiddleware,
+    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{
-    CompileError, CpuFeature, Features, ParseCpuFeatureError, Target, WasmError, WasmResult,
-};
+pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_derive::ValueType;
 pub use wasmer_engine::{
     DeserializeError, Engine, Export, FrameInfo, LinkError, RuntimeError, SerializeError, Tunables,
@@ -62,8 +59,9 @@ pub use wasmer_types::is_wasm;
 #[cfg(feature = "experimental-reference-types-extern-ref")]
 pub use wasmer_types::ExternRef;
 pub use wasmer_types::{
-    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Bytes, CompileError, ExportIndex, GlobalInit, LocalFunctionIndex, MiddlewareError, Pages,
+    ParseCpuFeatureError, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
 };
 
 // TODO: should those be moved into wasmer::vm as well?

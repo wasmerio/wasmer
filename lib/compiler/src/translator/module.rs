@@ -4,13 +4,14 @@
 //! Translation skeleton that traverses the whole WebAssembly module and call helper functions
 //! to deal with each part of it.
 use super::environ::ModuleEnvironment;
+use super::error::from_binaryreadererror_wasmerror;
 use super::sections::{
     parse_data_section, parse_element_section, parse_export_section, parse_function_section,
     parse_global_section, parse_import_section, parse_memory_section, parse_name_section,
     parse_start_section, parse_table_section, parse_type_section,
 };
 use super::state::ModuleTranslationState;
-use crate::WasmResult;
+use wasmer_types::WasmResult;
 use wasmparser::{NameSectionReader, Parser, Payload};
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
@@ -22,7 +23,7 @@ pub fn translate_module<'data>(
     let mut module_translation_state = ModuleTranslationState::new();
 
     for payload in Parser::new(0).parse_all(data) {
-        match payload? {
+        match payload.map_err(from_binaryreadererror_wasmerror)? {
             Payload::Version { .. } | Payload::End => {}
 
             Payload::TypeSection(types) => {
@@ -68,7 +69,8 @@ pub fn translate_module<'data>(
                 let offset = code.original_position();
                 environ.define_function_body(
                     &module_translation_state,
-                    code.read_bytes(size)?,
+                    code.read_bytes(size)
+                        .map_err(from_binaryreadererror_wasmerror)?,
                     offset,
                 )?;
             }
@@ -97,7 +99,11 @@ pub fn translate_module<'data>(
                 data,
                 data_offset,
                 ..
-            } => parse_name_section(NameSectionReader::new(data, data_offset)?, environ)?,
+            } => parse_name_section(
+                NameSectionReader::new(data, data_offset)
+                    .map_err(from_binaryreadererror_wasmerror)?,
+                environ,
+            )?,
 
             Payload::CustomSection { name, data, .. } => environ.custom_section(name, data)?,
 

@@ -4,14 +4,13 @@ use crate::{CodeMemory, UniversalArtifact};
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
-use wasmer_compiler::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
-};
+use wasmer_compiler::{CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
 use wasmer_engine_universal_artifact::UniversalEngineBuilder;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    Features, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    CompileError, Features, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo,
+    SignatureIndex,
 };
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMCallerCheckedAnyfunc,

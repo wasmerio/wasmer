@@ -16,8 +16,8 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;
-use wasmer_compiler::{CompileError, FunctionBody};
-use wasmer_types::FunctionType;
+use wasmer_compiler::FunctionBody;
+use wasmer_types::{CompileError, FunctionType};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_function_call(

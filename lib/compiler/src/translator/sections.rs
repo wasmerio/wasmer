@@ -11,9 +11,9 @@
 //! is handled, according to the semantics of WebAssembly, to only specific expressions that are
 //! interpreted on the fly.
 use super::environ::ModuleEnvironment;
+use super::error::from_binaryreadererror_wasmerror;
 use super::state::ModuleTranslationState;
 use crate::wasm_unsupported;
-use crate::{WasmError, WasmResult};
 use core::convert::TryFrom;
 use std::boxed::Box;
 use std::collections::HashMap;
@@ -24,6 +24,7 @@ use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
     MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
 };
+use wasmer_types::{WasmError, WasmResult};
 use wasmparser::{
     self, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems, ElementKind,
     ElementSectionReader, Export, ExportSectionReader, ExternalKind, FuncType as WPFunctionType,
@@ -93,7 +94,7 @@ pub fn parse_import_section<'data>(
     environ.reserve_imports(imports.get_count())?;
 
     for entry in imports {
-        let import = entry?;
+        let import = entry.map_err(from_binaryreadererror_wasmerror)?;
         let module_name = import.module;
         let field_name = import.field;
 
@@ -172,7 +173,7 @@ pub fn parse_function_section(
     environ.reserve_func_types(num_functions)?;
 
     for entry in functions {
-        let sigindex = entry?;
+        let sigindex = entry.map_err(from_binaryreadererror_wasmerror)?;
         environ.declare_func_type(SignatureIndex::from_u32(sigindex))?;
     }
 
@@ -187,7 +188,7 @@ pub fn parse_table_section(
     environ.reserve_tables(tables.get_count())?;
 
     for entry in tables {
-        let table = entry?;
+        let table = entry.map_err(from_binaryreadererror_wasmerror)?;
         environ.declare_table(TableType {
             ty: wptype_to_type(table.element_type).unwrap(),
             minimum: table.initial,
@@ -211,7 +212,7 @@ pub fn parse_memory_section(
             memory64,
             initial,
             maximum,
-        } = entry?;
+        } = entry.map_err(from_binaryreadererror_wasmerror)?;
         if memory64 {
             unimplemented!("64bit memory not implemented yet");
         }
@@ -239,9 +240,12 @@ pub fn parse_global_section(
                 mutable,
             },
             init_expr,
-        } = entry?;
+        } = entry.map_err(from_binaryreadererror_wasmerror)?;
         let mut init_expr_reader = init_expr.get_binary_reader();
-        let initializer = match init_expr_reader.read_operator()? {
+        let initializer = match init_expr_reader
+            .read_operator()
+            .map_err(from_binaryreadererror_wasmerror)?
+        {
             Operator::I32Const { value } => GlobalInit::I32Const(value),
             Operator::I64Const { value } => GlobalInit::I64Const(value),
             Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
@@ -283,7 +287,7 @@ pub fn parse_export_section<'data>(
             field,
             ref kind,
             index,
-        } = entry?;
+        } = entry.map_err(from_binaryreadererror_wasmerror)?;
 
         // The input has already been validated, so we should be able to
         // assume valid UTF-8 and use `from_utf8_unchecked` if performance
@@ -320,11 +324,17 @@ pub fn parse_start_section(index: u32, environ: &mut ModuleEnvironment) -> WasmR
 }
 
 fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
-    let items_reader = items.get_items_reader()?;
+    let items_reader = items
+        .get_items_reader()
+        .map_err(from_binaryreadererror_wasmerror)?;
     let mut elems = Vec::with_capacity(usize::try_from(items_reader.get_count()).unwrap());
     for item in items_reader {
-        let elem = match item? {
-            ElementItem::Expr(init) => match init.get_binary_reader().read_operator()? {
+        let elem = match item.map_err(from_binaryreadererror_wasmerror)? {
+            ElementItem::Expr(init) => match init
+                .get_binary_reader()
+                .read_operator()
+                .map_err(from_binaryreadererror_wasmerror)?
+            {
                 Operator::RefNull { .. } => FunctionIndex::reserved_value(),
                 Operator::RefFunc { function_index } => FunctionIndex::from_u32(function_index),
                 s => {
@@ -354,7 +364,7 @@ pub fn parse_element_section<'data>(
             items,
             ty,
             range: _,
-        } = entry?;
+        } = entry.map_err(from_binaryreadererror_wasmerror)?;
         if ty != wasmparser::Type::FuncRef {
             return Err(wasm_unsupported!(
                 "unsupported table element type: {:?}",
@@ -368,7 +378,10 @@ pub fn parse_element_section<'data>(
                 init_expr,
             } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
-                let (base, offset) = match init_expr_reader.read_operator()? {
+                let (base, offset) = match init_expr_reader
+                    .read_operator()
+                    .map_err(from_binaryreadererror_wasmerror)?
+                {
                     Operator::I32Const { value } => (None, value as u32 as usize),
                     Operator::GlobalGet { global_index } => {
                         (Some(GlobalIndex::from_u32(global_index)), 0)
@@ -409,14 +422,17 @@ pub fn parse_data_section<'data>(
             kind,
             data,
             range: _,
-        } = entry?;
+        } = entry.map_err(from_binaryreadererror_wasmerror)?;
         match kind {
             DataKind::Active {
                 memory_index,
                 init_expr,
             } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
-                let (base, offset) = match init_expr_reader.read_operator()? {
+                let (base, offset) = match init_expr_reader
+                    .read_operator()
+                    .map_err(from_binaryreadererror_wasmerror)?
+                {
                     Operator::I32Const { value } => (None, value as u32 as usize),
                     Operator::GlobalGet { global_index } => {
                         (Some(GlobalIndex::from_u32(global_index)), 0)

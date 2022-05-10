@@ -7,11 +7,10 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_compiler::CompileError;
-#[cfg(feature = "wat")]
-use wasmer_compiler::WasmError;
 use wasmer_engine::{Artifact, DeserializeError, SerializeError};
-use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
+#[cfg(feature = "wat")]
+use wasmer_types::WasmError;
+use wasmer_types::{CompileError, ExportsIterator, ImportsIterator, ModuleInfo};
 use wasmer_vm::InstanceHandle;
 
 #[derive(Error, Debug)]

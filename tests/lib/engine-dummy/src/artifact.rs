@@ -7,14 +7,14 @@ use enumset::EnumSet;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasmer_artifact::ArtifactCreate;
+use wasmer_compiler::CpuFeature;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CompileError, CpuFeature};
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
-    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    CompileError, Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
+    OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMContext, VMFunctionBody,
