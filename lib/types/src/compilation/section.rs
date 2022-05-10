@@ -5,12 +5,12 @@
 //! to emit a custom relocation: `RelocationTarget::CustomSection`, so
 //! it can be patched later by the engine (native or JIT).
 
+use super::relocation::Relocation;
+use crate::entity::entity_impl;
 use crate::lib::std::vec::Vec;
-use crate::Relocation;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::entity::entity_impl;
 
 /// Index type of a Section defined inside a WebAssembly `Compilation`.
 #[derive(

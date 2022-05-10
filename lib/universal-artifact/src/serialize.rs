@@ -3,11 +3,9 @@ use rkyv::{
     ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
     Serialize as RkyvSerialize,
 };
-use wasmer_compiler::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody, Relocation,
-    SectionIndex,
-};
+use wasmer_compiler::{CompileModuleInfo, CompiledFunctionFrameInfo, Dwarf, FunctionBody};
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{CustomSection, Relocation, SectionIndex};
 use wasmer_types::{DeserializeError, SerializeError};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 

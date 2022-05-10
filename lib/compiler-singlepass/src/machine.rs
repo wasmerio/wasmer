@@ -9,9 +9,10 @@ use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody,
-    InstructionAddressMap, Relocation, RelocationTarget, Target, TrapInformation,
+    Architecture, CallingConvention, CpuFeature, FunctionBody, InstructionAddressMap, Target,
+    TrapInformation,
 };
+use wasmer_types::{CustomSection, Relocation, RelocationTarget};
 use wasmer_types::{FunctionIndex, FunctionType, TrapCode, VMOffsets};
 
 pub type Label = DynamicLabel;

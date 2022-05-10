@@ -53,6 +53,7 @@ pub mod lib {
     }
 }
 
+pub mod compilation;
 pub mod error;
 mod extern_ref;
 mod features;
@@ -106,6 +107,19 @@ pub use crate::trapcode::TrapCode;
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 pub use crate::utils::is_wasm;
+
+pub use crate::compilation::relocation::{
+    Relocation, RelocationKind, RelocationTarget, Relocations,
+};
+pub use crate::compilation::section::{
+    CustomSection, CustomSectionProtection, SectionBody, SectionIndex,
+};
+
+/// Offset in bytes from the beginning of the function.
+pub type CodeOffset = u32;
+
+/// Addend to add to the symbol value.
+pub type Addend = i64;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -5,14 +5,15 @@
 //! module (`CompiledFunction`).
 
 use crate::lib::std::vec::Vec;
-use crate::section::{CustomSection, SectionIndex};
 use crate::trap::TrapInformation;
-use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, Relocation};
+use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::{
+    CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,
+};
 
 /// The frame info for a Compiled function.
 ///

@@ -11,15 +11,15 @@ use std::mem;
 use std::sync::Arc;
 use wasmer_artifact::MetadataHeader;
 use wasmer_compiler::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, CpuFeature, CustomSection, Dwarf, Features,
-    FunctionBody, ModuleEnvironment, ModuleMiddlewareChain, Relocation, SectionIndex, Target,
-    Triple,
+    CompileModuleInfo, CompiledFunctionFrameInfo, CpuFeature, Dwarf, Features, FunctionBody,
+    ModuleEnvironment, ModuleMiddlewareChain, Target, Triple,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::SerializeError;
 use wasmer_types::{
-    CompileError, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo,
-    OwnedDataInitializer, SignatureIndex, TableIndex, TableStyle,
+    CompileError, CustomSection, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
+    ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex, TableIndex,
+    TableStyle,
 };
 
 /// A compiled wasm module, ready to be instantiated.

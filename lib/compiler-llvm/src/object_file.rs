@@ -5,12 +5,15 @@ use std::convert::TryInto;
 use std::num::TryFromIntError;
 
 use wasmer_compiler::{
-    CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection, CustomSections,
-    FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, SectionIndex, SourceLoc,
+    CompiledFunctionFrameInfo, CustomSections, FunctionAddressMap, FunctionBody,
+    InstructionAddressMap, SourceLoc,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::CompileError;
+use wasmer_types::{
+    CustomSection, CustomSectionProtection, Relocation, RelocationKind, RelocationTarget,
+    SectionBody, SectionIndex,
+};
 use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {

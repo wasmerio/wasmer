@@ -23,12 +23,12 @@ use wasmer_compiler::{
     Architecture, CallingConvention, Compilation, CompileModuleInfo, CompiledFunction, Compiler,
     CompilerConfig, CpuFeature, Dwarf, FunctionBinaryReader, FunctionBody, FunctionBodyData,
     MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
-    OperatingSystem, SectionIndex, Target, TrapInformation,
+    OperatingSystem, Target, TrapInformation,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    TableIndex, TrapCode, VMOffsets,
+    SectionIndex, TableIndex, TrapCode, VMOffsets,
 };
 
 /// A compiler that compiles a WebAssembly module with Singlepass.

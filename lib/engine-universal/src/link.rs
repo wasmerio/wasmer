@@ -1,11 +1,11 @@
 //! Linking for Universal-compiled code.
 
 use std::ptr::{read_unaligned, write_unaligned};
-use wasmer_compiler::{Relocation, RelocationKind, RelocationTarget, Relocations, SectionIndex};
 use wasmer_engine::FunctionExtent;
 use wasmer_engine_universal_artifact::get_libcall_trampoline;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{LocalFunctionIndex, ModuleInfo};
+use wasmer_types::{Relocation, RelocationKind, RelocationTarget, Relocations, SectionIndex};
 use wasmer_vm::libcalls::function_pointer;
 use wasmer_vm::SectionBodyPtr;
 

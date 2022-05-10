@@ -7,11 +7,13 @@ use object::{
     SymbolScope,
 };
 use wasmer_compiler::{
-    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
-    RelocationKind as Reloc, RelocationTarget, SectionIndex, Symbol, SymbolRegistry, Triple,
+    Architecture, BinaryFormat, Compilation, Endianness, Symbol, SymbolRegistry, Triple,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
+use wasmer_types::{
+    CustomSectionProtection, RelocationKind as Reloc, RelocationTarget, SectionIndex,
+};
 
 const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 

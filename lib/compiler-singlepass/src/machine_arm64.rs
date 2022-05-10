@@ -11,9 +11,9 @@ use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 use gimli::{write::CallFrameInstruction, AArch64};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    CallingConvention, CustomSection, FunctionBody, InstructionAddressMap, Relocation,
-    RelocationKind, RelocationTarget, SourceLoc, TrapInformation,
+    CallingConvention, FunctionBody, InstructionAddressMap, SourceLoc, TrapInformation,
 };
+use wasmer_types::{CustomSection, Relocation, RelocationKind, RelocationTarget};
 use wasmer_types::{FunctionIndex, FunctionType, TrapCode, VMOffsets};
 
 type Assembler = VecAssembler<Aarch64Relocation>;

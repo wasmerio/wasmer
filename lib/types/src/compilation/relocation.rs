@@ -9,15 +9,15 @@
 //! the generated machine code, so a given frontend (JIT or native) can
 //! do the corresponding work to run it.
 
+use super::section::SectionIndex;
+use crate::entity::PrimaryMap;
 use crate::lib::std::fmt;
 use crate::lib::std::vec::Vec;
-use crate::section::SectionIndex;
 use crate::{Addend, CodeOffset};
+use crate::{LibCall, LocalFunctionIndex};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{LibCall, LocalFunctionIndex};
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

@@ -4,11 +4,11 @@
 //! through normal branch instructions.
 
 use enum_iterator::IntoEnumIterator;
-use wasmer_compiler::{
-    Architecture, CustomSection, CustomSectionProtection, Relocation, RelocationKind,
-    RelocationTarget, SectionBody, Target,
+use wasmer_compiler::{Architecture, Target};
+use wasmer_types::{
+    CustomSection, CustomSectionProtection, LibCall, Relocation, RelocationKind, RelocationTarget,
+    SectionBody,
 };
-use wasmer_types::LibCall;
 
 // SystemV says that both x16 and x17 are available as intra-procedural scratch
 // registers but Apple's ABI restricts us to use x17.

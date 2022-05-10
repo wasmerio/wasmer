@@ -15,13 +15,12 @@ use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as Wp
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     CallingConvention, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, FunctionBodyData,
-    Relocation, RelocationTarget, SectionIndex,
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
-    VMBuiltinFunctionIndex, VMOffsets,
+    MemoryStyle, ModuleInfo, Relocation, RelocationTarget, SectionIndex, SignatureIndex,
+    TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
 };
 
 /// The singlepass per-function code generator.

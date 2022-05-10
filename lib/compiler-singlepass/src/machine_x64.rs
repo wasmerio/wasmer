@@ -14,9 +14,11 @@ use gimli::{write::CallFrameInstruction, X86_64};
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_compiler::{
-    CallingConvention, CpuFeature, CustomSection, CustomSectionProtection, FunctionBody,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SectionBody, SourceLoc,
-    TrapInformation,
+    CallingConvention, CpuFeature, FunctionBody, InstructionAddressMap, SourceLoc, TrapInformation,
+};
+use wasmer_types::{
+    CustomSection, CustomSectionProtection, Relocation, RelocationKind, RelocationTarget,
+    SectionBody,
 };
 use wasmer_types::{FunctionIndex, FunctionType, TrapCode, Type, VMOffsets};
 

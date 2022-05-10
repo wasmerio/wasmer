@@ -53,14 +53,12 @@ mod address_map;
 mod compiler;
 mod function;
 mod module;
-mod relocation;
 mod target;
 mod trap;
 mod unwind;
 #[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
-mod section;
 mod sourceloc;
 
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
@@ -71,8 +69,6 @@ pub use crate::function::{
     Functions,
 };
 pub use crate::module::CompileModuleInfo;
-pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
-pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
 pub use crate::target::{
     Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
@@ -87,17 +83,11 @@ pub use crate::translator::{
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::CompiledFunctionUnwindInfo;
 
-pub use wasmer_types::Features;
+pub use wasmer_types::{Addend, CodeOffset, Features};
 
 #[cfg(feature = "translator")]
 /// wasmparser is exported as a module to slim compiler dependencies
 pub use wasmparser;
-
-/// Offset in bytes from the beginning of the function.
-pub type CodeOffset = u32;
-
-/// Addend to add to the symbol value.
-pub type Addend = i64;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
