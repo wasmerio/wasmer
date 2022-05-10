@@ -18,6 +18,7 @@ use thiserror::Error;
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(u32)]
+#[archive(as = "Self")]
 pub enum TrapCode {
     /// The current stack space was exhausted.
     ///
