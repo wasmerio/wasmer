@@ -2,9 +2,6 @@
 //! done as separate steps.
 
 #[cfg(feature = "universal_engine")]
-use super::serialize::SerializableCompilation;
-use super::serialize::SerializableModule;
-#[cfg(feature = "universal_engine")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::MetadataHeader;
 use crate::{ArtifactCreate, UniversalEngineBuilder};
@@ -23,7 +20,9 @@ use wasmer_types::{
     MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
     TableIndex, TableStyle,
 };
-use wasmer_types::{CompiledFunctionFrameInfo, FunctionBody};
+use wasmer_types::{
+    CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
+};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct UniversalArtifactBuild {
