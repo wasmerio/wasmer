@@ -7,7 +7,6 @@ use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, Range, Type};
 use std::convert::{TryFrom, TryInto};
-use std::sync::Arc;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionType;
 use wasmer_types::{
@@ -408,7 +407,7 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        let old = self.module.passive_data.insert(data_index, Arc::from(data));
+        let old = self.module.passive_data.insert(data_index, Box::from(data));
         debug_assert!(
             old.is_none(),
             "a module can't have duplicate indices, this would be a wasmer-compiler bug"
@@ -451,7 +450,7 @@ impl<'data> ModuleEnvironment<'data> {
         self.module
             .custom_sections
             .insert(String::from(name), custom_section);
-        self.module.custom_sections_data.push(Arc::from(data));
+        self.module.custom_sections_data.push(Box::from(data));
         Ok(())
     }
 }
