@@ -5979,18 +5979,6 @@
 <span id="5977">5977</span>
 <span id="5978">5978</span>
 <span id="5979">5979</span>
-<span id="5980">5980</span>
-<span id="5981">5981</span>
-<span id="5982">5982</span>
-<span id="5983">5983</span>
-<span id="5984">5984</span>
-<span id="5985">5985</span>
-<span id="5986">5986</span>
-<span id="5987">5987</span>
-<span id="5988">5988</span>
-<span id="5989">5989</span>
-<span id="5990">5990</span>
-<span id="5991">5991</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
@@ -9758,11 +9746,8 @@
             }
             <span class="ident">Operator::Unreachable</span> =&gt; {
                 <span class="self">self</span>.<span class="ident">mark_trappable</span>();
-                <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>
-                    .<span class="ident">machine</span>
-                    .<span class="ident">mark_instruction_with_trap_code</span>(<span class="ident">TrapCode::UnreachableCodeReached</span>);
-                <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>();
-                <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">mark_instruction_address_end</span>(<span class="ident">offset</span>);
+                <span class="self">self</span>.<span class="ident">machine</span>
+                    .<span class="ident">emit_illegal_op</span>(<span class="ident">TrapCode::UnreachableCodeReached</span>);
                 <span class="self">self</span>.<span class="ident">unreachable_depth</span> <span class="op">=</span> <span class="number">1</span>;
             }
             <span class="ident">Operator::Return</span> =&gt; {
@@ -11854,36 +11839,27 @@
         <span class="self">self</span>.<span class="ident">machine</span>
             .<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">integer_division_by_zero</span>);
         <span class="self">self</span>.<span class="ident">machine</span>
-            .<span class="ident">mark_address_with_trap_code</span>(<span class="ident">TrapCode::IntegerDivisionByZero</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>();
+            .<span class="ident">emit_illegal_op</span>(<span class="ident">TrapCode::IntegerDivisionByZero</span>);
 
         <span class="self">self</span>.<span class="ident">machine</span>
             .<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">integer_overflow</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>
-            .<span class="ident">mark_address_with_trap_code</span>(<span class="ident">TrapCode::IntegerOverflow</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>();
+        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>(<span class="ident">TrapCode::IntegerOverflow</span>);
 
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">heap_access_oob</span>);
         <span class="self">self</span>.<span class="ident">machine</span>
-            .<span class="ident">mark_address_with_trap_code</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>();
+            .<span class="ident">emit_illegal_op</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>);
 
         <span class="self">self</span>.<span class="ident">machine</span>
             .<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">table_access_oob</span>);
         <span class="self">self</span>.<span class="ident">machine</span>
-            .<span class="ident">mark_address_with_trap_code</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>();
+            .<span class="ident">emit_illegal_op</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>);
 
         <span class="self">self</span>.<span class="ident">machine</span>
             .<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">indirect_call_null</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>
-            .<span class="ident">mark_address_with_trap_code</span>(<span class="ident">TrapCode::IndirectCallToNull</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>();
+        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>(<span class="ident">TrapCode::IndirectCallToNull</span>);
 
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">bad_signature</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>
-            .<span class="ident">mark_address_with_trap_code</span>(<span class="ident">TrapCode::BadSignature</span>);
-        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>();
+        <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_illegal_op</span>(<span class="ident">TrapCode::BadSignature</span>);
 
         <span class="comment">// Notify the assembler backend to generate necessary code at end of function.</span>
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">finalize_function</span>();

@@ -1886,6 +1886,11 @@
 <span id="1884">1884</span>
 <span id="1885">1885</span>
 <span id="1886">1886</span>
+<span id="1887">1887</span>
+<span id="1888">1888</span>
+<span id="1889">1889</span>
+<span id="1890">1890</span>
+<span id="1891">1891</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Multiplier</span>;
@@ -2086,6 +2091,7 @@
     <span class="kw">fn</span> <span class="ident">emit_test_gpr_64</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>);
 
     <span class="kw">fn</span> <span class="ident">emit_ud2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
+    <span class="kw">fn</span> <span class="ident">emit_ud1_payload</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u8</span>);
     <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
     <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_call_location</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>);
@@ -3740,6 +3746,10 @@
 
     <span class="kw">fn</span> <span class="ident">emit_ud2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ud2</span>);
+    }
+    <span class="kw">fn</span> <span class="ident">emit_ud1_payload</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u8</span>) {
+        <span class="macro">assert!</span>(<span class="ident">payload</span> <span class="op">&amp;</span> <span class="number">0xf0</span> <span class="op">==</span> <span class="number">0</span>);
+        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ud1</span> <span class="ident">Rd</span>((<span class="ident">payload</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="number">3</span>)<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="ident">Rd</span>(<span class="ident">payload</span><span class="kw-2">&amp;</span><span class="number">7</span>));
     }
     <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ret</span>);

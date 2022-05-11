@@ -2568,8 +2568,8 @@
         <span class="ident">output</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::GPR</span>, <span class="ident"><span class="self">Self</span>::SIMD</span><span class="op">&gt;</span>,
     );
 
-    <span class="doccomment">/// emit an Illegal Opcode</span>
-    <span class="kw">fn</span> <span class="ident">emit_illegal_op</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
+    <span class="doccomment">/// emit an Illegal Opcode, associated with a trapcode</span>
+    <span class="kw">fn</span> <span class="ident">emit_illegal_op</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">trp</span>: <span class="ident">TrapCode</span>);
     <span class="doccomment">/// create a new label</span>
     <span class="kw">fn</span> <span class="ident">get_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">Label</span>;
     <span class="doccomment">/// emit a label</span>

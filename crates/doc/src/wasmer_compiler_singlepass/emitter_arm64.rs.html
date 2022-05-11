@@ -3029,7 +3029,7 @@
     <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>);
     <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
 
-    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
+    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u16</span>);
     <span class="kw">fn</span> <span class="ident">emit_dmb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
     <span class="kw">fn</span> <span class="ident">emit_brk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
 
@@ -4874,8 +4874,8 @@
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ret</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">udf</span> <span class="number">0x1234</span>);
+    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u16</span>) {
+        <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">udf</span> (<span class="ident">payload</span> <span class="kw">as</span> <span class="ident">u32</span>));
     }
     <span class="kw">fn</span> <span class="ident">emit_dmb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">dmb</span> <span class="ident">ish</span>);

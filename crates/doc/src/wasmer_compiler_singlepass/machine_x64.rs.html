@@ -7210,7 +7210,6 @@
 <span id="7208">7208</span>
 <span id="7209">7209</span>
 <span id="7210">7210</span>
-<span id="7211">7211</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::emitter_x64</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -7889,21 +7888,12 @@
         );
 
         <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">trap_overflow</span>);
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
-        <span class="self">self</span>.<span class="ident">trap_table</span>
-            .<span class="ident">offset_to_code</span>
-            .<span class="ident">insert</span>(<span class="ident">offset</span>, <span class="ident">TrapCode::IntegerOverflow</span>);
-        <span class="self">self</span>.<span class="ident">emit_illegal_op</span>();
-        <span class="self">self</span>.<span class="ident">mark_instruction_address_end</span>(<span class="ident">offset</span>);
+
+        <span class="self">self</span>.<span class="ident">emit_illegal_op_internal</span>(<span class="ident">TrapCode::IntegerOverflow</span>);
 
         <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">trap_badconv</span>);
 
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
-        <span class="self">self</span>.<span class="ident">trap_table</span>
-            .<span class="ident">offset_to_code</span>
-            .<span class="ident">insert</span>(<span class="ident">offset</span>, <span class="ident">TrapCode::BadConversionToInteger</span>);
-        <span class="self">self</span>.<span class="ident">emit_illegal_op</span>();
-        <span class="self">self</span>.<span class="ident">mark_instruction_address_end</span>(<span class="ident">offset</span>);
+        <span class="self">self</span>.<span class="ident">emit_illegal_op_internal</span>(<span class="ident">TrapCode::BadConversionToInteger</span>);
 
         <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">end</span>);
     }
@@ -8032,20 +8022,10 @@
         );
 
         <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">trap_overflow</span>);
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
-        <span class="self">self</span>.<span class="ident">trap_table</span>
-            .<span class="ident">offset_to_code</span>
-            .<span class="ident">insert</span>(<span class="ident">offset</span>, <span class="ident">TrapCode::IntegerOverflow</span>);
-        <span class="self">self</span>.<span class="ident">emit_illegal_op</span>();
-        <span class="self">self</span>.<span class="ident">mark_instruction_address_end</span>(<span class="ident">offset</span>);
+        <span class="self">self</span>.<span class="ident">emit_illegal_op_internal</span>(<span class="ident">TrapCode::IntegerOverflow</span>);
 
         <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">trap_badconv</span>);
-        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
-        <span class="self">self</span>.<span class="ident">trap_table</span>
-            .<span class="ident">offset_to_code</span>
-            .<span class="ident">insert</span>(<span class="ident">offset</span>, <span class="ident">TrapCode::BadConversionToInteger</span>);
-        <span class="self">self</span>.<span class="ident">emit_illegal_op</span>();
-        <span class="self">self</span>.<span class="ident">mark_instruction_address_end</span>(<span class="ident">offset</span>);
+        <span class="self">self</span>.<span class="ident">emit_illegal_op_internal</span>(<span class="ident">TrapCode::BadConversionToInteger</span>);
 
         <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">end</span>);
     }
@@ -8883,6 +8863,10 @@
     <span class="kw">fn</span> <span class="ident">emit_unwind_op</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">op</span>: <span class="ident">UnwindOps</span>) {
         <span class="self">self</span>.<span class="ident">unwind_ops</span>.<span class="ident">push</span>((<span class="self">self</span>.<span class="ident">get_offset</span>().<span class="number">0</span>, <span class="ident">op</span>));
     }
+    <span class="kw">fn</span> <span class="ident">emit_illegal_op_internal</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">trap</span>: <span class="ident">TrapCode</span>) {
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">trap</span> <span class="kw">as</span> <span class="ident">u8</span>;
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_ud1_payload</span>(<span class="ident">v</span>);
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">Machine</span> <span class="kw">for</span> <span class="ident">MachineX86_64</span> {
@@ -9544,8 +9528,22 @@
         <span class="self">self</span>.<span class="ident">release_simd</span>(<span class="ident">tmp1</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_illegal_op</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_ud2</span>();
+    <span class="kw">fn</span> <span class="ident">emit_illegal_op</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">trap</span>: <span class="ident">TrapCode</span>) {
+        <span class="comment">// code below is kept as a reference on how to emit illegal op with trap info</span>
+        <span class="comment">// without an Undefined opcode with payload</span>
+        <span class="comment">/*
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+        .offset_to_code
+        .insert(offset, trap);
+        self.assembler.emit_ud2();
+        self.mark_instruction_address_end(offset);*/</span>
+        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">trap</span> <span class="kw">as</span> <span class="ident">u8</span>;
+        <span class="comment">// payload needs to be between 0-15</span>
+        <span class="comment">// this will emit an 40 0F B9 Cx opcode, with x the payload</span>
+        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">get_offset</span>().<span class="number">0</span>;
+        <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_ud1_payload</span>(<span class="ident">v</span>);
+        <span class="self">self</span>.<span class="ident">mark_instruction_address_end</span>(<span class="ident">offset</span>);
     }
     <span class="kw">fn</span> <span class="ident">get_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">Label</span> {
         <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">new_dynamic_label</span>()
