@@ -5,7 +5,6 @@ use enumset::EnumSet;
 use std::any::Any;
 use std::convert::TryInto;
 use std::path::Path;
-use std::sync::Arc;
 use std::{fs, mem};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{DeserializeError, SerializeError};
@@ -20,16 +19,8 @@ use wasmer_types::{
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
 pub trait ArtifactCreate: Send + Sync + Upcastable {
-    /// Return a reference-counted pointer to the module
-    fn module(&self) -> Arc<ModuleInfo>;
-
-    /// Return a pointer to a module.
-    fn module_ref(&self) -> &ModuleInfo;
-
-    /// Gets a mutable reference to the info.
-    ///
-    /// Note: this will return `None` if the module is already instantiated.
-    fn module_mut(&mut self) -> Option<&mut ModuleInfo>;
+    /// Create a `ModuleInfo` for instantiation
+    fn create_module_info(&self) -> ModuleInfo;
 
     /// Returns the features for this Artifact
     fn features(&self) -> &Features;

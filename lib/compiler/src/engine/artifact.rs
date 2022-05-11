@@ -1,6 +1,7 @@
 use crate::CpuFeature;
 use crate::{resolve_imports, InstantiationError, RuntimeError, Tunables};
 use crate::{ArtifactCreate, Upcastable};
+use std::sync::Arc;
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
@@ -65,7 +66,7 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
 
         self.preinstantiate()?;
 
-        let module = self.module();
+        let module = Arc::new(self.create_module_info());
         let imports = resolve_imports(
             &module,
             imports,

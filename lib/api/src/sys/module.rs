@@ -51,6 +51,7 @@ pub struct Module {
     // In the future, this code should be refactored to properly describe the
     // ownership of the code and its metadata.
     artifact: Arc<dyn Artifact>,
+    module_info: Arc<ModuleInfo>,
     store: Store,
 }
 
@@ -272,6 +273,7 @@ impl Module {
     fn from_artifact(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
         Self {
             store: store.clone(),
+            module_info: Arc::new(artifact.create_module_info()),
             artifact,
         }
     }
@@ -328,7 +330,7 @@ impl Module {
     /// # }
     /// ```
     pub fn name(&self) -> Option<&str> {
-        self.artifact.module_ref().name.as_deref()
+        self.module_info.name.as_deref()
     }
 
     /// Sets the name of the current module.
@@ -353,12 +355,10 @@ impl Module {
     /// # }
     /// ```
     pub fn set_name(&mut self, name: &str) -> bool {
-        Arc::get_mut(&mut self.artifact)
-            .and_then(|artifact| artifact.module_mut())
-            .map_or(false, |mut module_info| {
-                module_info.name = Some(name.to_string());
-                true
-            })
+        Arc::get_mut(&mut self.module_info).map_or(false, |mut module_info| {
+            module_info.name = Some(name.to_string());
+            true
+        })
     }
 
     /// Returns an iterator over the imported types in the Module.
@@ -386,7 +386,7 @@ impl Module {
     /// # }
     /// ```
     pub fn imports(&self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
-        self.artifact.module_ref().imports()
+        self.module_info.imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -413,7 +413,7 @@ impl Module {
     /// # }
     /// ```
     pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
-        self.artifact.module_ref().exports()
+        self.module_info.exports()
     }
 
     /// Get the custom sections of the module given a `name`.
@@ -423,8 +423,8 @@ impl Module {
     /// Following the WebAssembly spec, one name can have multiple
     /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-        self.artifact.module_ref().custom_sections(name)
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
+        self.module_info.custom_sections(name)
     }
 
     /// Returns the [`Store`] where the `Instance` belongs.
@@ -439,7 +439,7 @@ impl Module {
     /// However, the usage is highly discouraged.
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
-        self.artifact.module_ref()
+        &self.module_info
     }
 
     /// Gets the [`Artifact`] used internally by the Module.
