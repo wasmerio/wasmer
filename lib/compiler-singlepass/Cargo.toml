@@ -17,8 +17,8 @@ wasmer-types = { path = "../types", version = "=2.2.1", default-features = false
 hashbrown = { version = "0.11", optional = true }
 gimli = { version = "0.26", optional = true }
 more-asserts = "0.2"
-dynasm = "1.2.1"
-dynasmrt = "1.2.1"
+dynasm = "1.2.3"
+dynasmrt = "1.2.3"
 lazy_static = "1.4"
 byteorder = "1.3"
 smallvec = "1.6"
