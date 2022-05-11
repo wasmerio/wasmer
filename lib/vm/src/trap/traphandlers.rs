@@ -39,6 +39,54 @@ cfg_if::cfg_if! {
     }
 }
 
+// Process an IllegalOpcode to see if it has a TrapCode payload
+unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
+    let mut val: Option<u8> = None;
+    if cfg!(target_arch = "x86_64") {
+        val = if read(addr as *mut u8) & 0xf0 == 0x40
+            && read((addr + 1) as *mut u8) == 0x0f
+            && read((addr + 2) as *mut u8) == 0xb9
+        {
+            Some(read((addr + 3) as *mut u8))
+        } else if read(addr as *mut u8) == 0x0f && read((addr + 1) as *mut u8) == 0xb9 {
+            Some(read((addr + 2) as *mut u8))
+        } else {
+            None
+        }
+    }
+    if cfg!(target_arch = "aarch64") {
+        val = if read_unaligned(addr as *mut u32) & 0xffff0000 == 0 {
+            Some(read(addr as *mut u8))
+        } else {
+            None
+        }
+    }
+    match val.and_then(|val| {
+        if val & MAGIC == MAGIC {
+            Some(val & 0xf)
+        } else {
+            None
+        }
+    }) {
+        None => None,
+        Some(val) => match val {
+            0 => Some(TrapCode::StackOverflow),
+            1 => Some(TrapCode::HeapAccessOutOfBounds),
+            2 => Some(TrapCode::HeapMisaligned),
+            3 => Some(TrapCode::TableAccessOutOfBounds),
+            4 => Some(TrapCode::OutOfBounds),
+            5 => Some(TrapCode::IndirectCallToNull),
+            6 => Some(TrapCode::BadSignature),
+            7 => Some(TrapCode::IntegerOverflow),
+            8 => Some(TrapCode::IntegerDivisionByZero),
+            9 => Some(TrapCode::BadConversionToInteger),
+            10 => Some(TrapCode::UnreachableCodeReached),
+            11 => Some(TrapCode::UnalignedAtomic),
+            _ => None,
+        },
+    }
+}
+
 /// A package of functionality needed by `catch_traps` to figure out what to do
 /// when handling a trap.
 ///
@@ -163,46 +211,8 @@ cfg_if::cfg_if! {
             let trap_code = match signum {
                 // check if it was cased by a UD and if the Trap info is a payload to it
                 libc::SIGILL => {
-                    let mut val: Option<u8> = None;
-                    if cfg!(target_arch = "x86_64") {
-                        let addr = (*siginfo).si_addr() as usize;
-                        val = if read(addr as *mut u8)&0xf0 == 0x40
-                              && read((addr+1) as *mut u8) == 0x0f
-                              && read((addr+2) as *mut u8) == 0xb9 {
-                                Some(read((addr+3) as *mut u8))
-                            } else if read(addr as *mut u8) == 0x0f
-                                    && read((addr+1) as *mut u8) == 0xb9 {
-                                Some(read((addr+2) as *mut u8))
-                            } else {
-                                None
-                            }
-                    }
-                    if cfg!(target_arch = "aarch64") {
-                        let addr = (*siginfo).si_addr() as usize;
-                        val = if read_unaligned(addr as *mut u32)&0xffff0000 == 0 {
-                            Some(read(addr as *mut u8))
-                        } else {
-                            None
-                        }
-                    }
-                    match val.and_then(|val| if val&MAGIC == MAGIC {Some(val&0xf)} else {None}) {
-                        None => None,
-                        Some(val) => match val {
-                            0 => Some(TrapCode::StackOverflow),
-                            1 => Some(TrapCode::HeapAccessOutOfBounds),
-                            2 => Some(TrapCode::HeapMisaligned),
-                            3 => Some(TrapCode::TableAccessOutOfBounds),
-                            4 => Some(TrapCode::OutOfBounds),
-                            5 => Some(TrapCode::IndirectCallToNull),
-                            6 => Some(TrapCode::BadSignature),
-                            7 => Some(TrapCode::IntegerOverflow),
-                            8 => Some(TrapCode::IntegerDivisionByZero),
-                            9 => Some(TrapCode::BadConversionToInteger),
-                            10 => Some(TrapCode::UnreachableCodeReached),
-                            11 => Some(TrapCode::UnalignedAtomic),
-                            _ => None,
-                        }
-                    }
+                    let addr = (*siginfo).si_addr() as usize;
+                    process_illegal_op(addr)
                 }
                 _ => None,
             };
@@ -463,47 +473,7 @@ cfg_if::cfg_if! {
             let trap_code = match record.ExceptionCode {
                 // check if it was cased by a UD and if the Trap info is a payload to it
                 EXCEPTION_ILLEGAL_INSTRUCTION => {
-                    let mut val: u8 = 0;
-                    if cfg!(target_arch = "x86_64") {
-                        let addr = pc;
-                        val = if read_unaligned(addr as *mut u8)&0xf0 == 0x40
-                              && read_unaligned((addr+1) as *mut u8) == 0x0f
-                              && read_unaligned((addr+2) as *mut u8) == 0xb9 {
-                                read_unaligned((addr+3) as *mut u8)
-                            } else if read_unaligned(addr as *mut u8) == 0x0f
-                                    && read_unaligned((addr+1) as *mut u8) == 0xb9 {
-                                read_unaligned((addr+2) as *mut u8)
-                            } else {
-                                0
-                            }
-                    }
-                    if cfg!(target_arch = "aarch64") {
-                        let addr = pc;
-                        val = if read_unaligned(addr as *mut u32)&0xffff0000 == 0 {
-                            read_unaligned(addr as *mut u8)
-                        } else {
-                            0
-                        }
-                    }
-                    if val&MAGIC == MAGIC {
-                        match val&0x0f {
-                            0 => Some(TrapCode::StackOverflow),
-                            1 => Some(TrapCode::HeapAccessOutOfBounds),
-                            2 => Some(TrapCode::HeapMisaligned),
-                            3 => Some(TrapCode::TableAccessOutOfBounds),
-                            4 => Some(TrapCode::OutOfBounds),
-                            5 => Some(TrapCode::IndirectCallToNull),
-                            6 => Some(TrapCode::BadSignature),
-                            7 => Some(TrapCode::IntegerOverflow),
-                            8 => Some(TrapCode::IntegerDivisionByZero),
-                            9 => Some(TrapCode::BadConversionToInteger),
-                            10 => Some(TrapCode::UnreachableCodeReached),
-                            11 => Some(TrapCode::UnalignedAtomic),
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    }
+                    process_illegal_op(pc)
                 }
                 _ => None,
             };
