@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv`
-    let wasi_env = WasiState::new("hello")
+    let mut wasi_env = WasiState::new("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
         .finalize()?;
@@ -48,8 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Instantiating module with WASI imports...");
     // Then, we get the import object related to our WASI
     // and attach it to the Wasm instance.
-    let mut wasi_thread = wasi_env.new_thread();
-    let import_object = wasi_thread.import_object(&module)?;
+    let import_object = wasi_env.import_object(&module)?;
     let instance = Instance::new(&module, &import_object)?;
 
     println!("Call WASI `_start` function...");

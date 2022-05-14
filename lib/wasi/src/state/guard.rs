@@ -1,6 +1,6 @@
 use std::{sync::{
     RwLockReadGuard, RwLockWriteGuard
-}, io::Seek};
+}, io::{Seek, Read}};
 use super::*;
 
 #[derive(Debug)]
@@ -50,17 +50,19 @@ pub(crate) struct WasiStateFileGuard {
 
 impl WasiStateFileGuard
 {
-    pub fn new(state: &WasiState, fd: __wasi_fd_t) -> Result<Self, FsError> {
+    pub fn new(state: &WasiState, fd: __wasi_fd_t) -> Result<Option<Self>, FsError> {
         let inodes = state.inodes.read().unwrap();
         let fd_map = state.fs.fd_map.read().unwrap();
         if let Some(fd) = fd_map.get(&fd) {
             let guard = inodes.arena[fd.inode].read();
             if let Kind::File { .. } = guard.deref() {
                 Ok(
-                    Self {
-                        inodes: state.inodes.clone(),
-                        inode: fd.inode
-                    }
+                    Some(
+                        Self {
+                            inodes: state.inodes.clone(),
+                            inode: fd.inode
+                        }
+                    )
                 )
             } else {
                 // Our public API should ensure that this is not possible
@@ -68,7 +70,7 @@ impl WasiStateFileGuard
             }
             
         } else {
-            Err(FsError::NoDevice)
+            Ok(None)
         }
     }
 

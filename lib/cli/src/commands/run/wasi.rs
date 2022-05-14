@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use wasmer::{Instance, Module, RuntimeError, Val};
-use wasmer_wasi::{get_wasi_versions, WasiError, WasiState, WasiVersion};
+use wasmer_wasi::{get_wasi_versions, is_wasix_module, WasiError, WasiState, WasiVersion};
 
 use structopt::StructOpt;
 
@@ -96,9 +96,13 @@ impl Wasi {
             }
         }
 
-        let wasi_env = wasi_state_builder.finalize()?;
-        let mut wasi_thread = wasi_env.new_thread();
-        let import_object = wasi_thread.import_object_for_all_wasi_versions(&module)?;
+        let mut wasi_env = wasi_state_builder.finalize()?;
+        wasi_env.state.fs.is_wasix.store(
+            is_wasix_module(&module),
+            std::sync::atomic::Ordering::Release,
+        );
+
+        let import_object = wasi_env.import_object_for_all_wasi_versions(&module)?;
         let instance = Instance::new(&module, &import_object)?;
         Ok(instance)
     }

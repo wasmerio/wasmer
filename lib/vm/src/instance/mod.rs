@@ -859,7 +859,7 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InstanceHandle {
     /// The [`InstanceRef`]. See its documentation to learn more.
     instance: InstanceRef,

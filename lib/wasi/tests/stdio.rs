@@ -1,7 +1,5 @@
 use std::io::{Read, Write};
 
-#[cfg(feature = "js")]
-use wasm_bindgen_test::*;
 use wasmer::{Instance, Module, Store};
 use wasmer_wasi::{Pipe, WasiState};
 
@@ -24,6 +22,8 @@ mod sys {
 
 #[cfg(feature = "js")]
 mod js {
+    use wasm_bindgen_test::*;
+    
     #[wasm_bindgen_test]
     fn test_stdout() {
         super::test_stdout()
@@ -74,15 +74,14 @@ fn test_stdout() {
 
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let wasi_env = WasiState::new("command-name")
+    let mut wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(stdout.clone()))
         .finalize()
         .unwrap();
 
     // Generate an `ImportObject`.
-    let mut wasi_thread = wasi_env.new_thread();
-    let import_object = wasi_thread.import_object(&module).unwrap();
+    let import_object = wasi_env.import_object(&module).unwrap();
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -117,14 +116,13 @@ fn test_env() {
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
-    let wasi_env = wasi_state_builder
+    let mut wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))
         .finalize()
         .unwrap();
 
     // Generate an `ImportObject`.
-    let mut wasi_thread = wasi_env.new_thread();
-    let import_object = wasi_thread.import_object(&module).unwrap();
+    let import_object = wasi_env.import_object(&module).unwrap();
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&module, &import_object).unwrap();
@@ -145,7 +143,7 @@ fn test_stdin() {
 
     // Create the `WasiEnv`.
     let mut stdin = Pipe::new();
-    let wasi_env = WasiState::new("command-name")
+    let mut wasi_env = WasiState::new("command-name")
         .stdin(Box::new(stdin.clone()))
         .finalize()
         .unwrap();
@@ -155,8 +153,7 @@ fn test_stdin() {
     stdin.write(&buf[..]).unwrap();
 
     // Generate an `ImportObject`.
-    let mut wasi_thread = wasi_env.new_thread();
-    let import_object = wasi_thread.import_object(&module).unwrap();
+    let import_object = wasi_env.import_object(&module).unwrap();
 
     // Let's instantiate the module with the imports.
     let instance = Instance::new(&module, &import_object).unwrap();

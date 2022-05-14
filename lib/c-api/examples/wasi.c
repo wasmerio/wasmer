@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,13 +13,16 @@
 void print_wasmer_error()
 {
     int error_len = wasmer_last_error_length();
-    printf("Error len: `%d`\n", error_len);
-    char *error_str = malloc(error_len);
-    wasmer_last_error_message(error_str, error_len);
-    printf("Error str: `%s`\n", error_str);
+    if (error_len > 0) {
+      printf("Error len: `%d`\n", error_len);
+      char *error_str = malloc(error_len);
+      wasmer_last_error_message(error_str, error_len);
+      printf("Error str: `%s`\n", error_str);
+    }
 }
 
 int main(int argc, const char* argv[]) {
+
   // Initialize.
   printf("Initializing...\n");
   wasm_engine_t* engine = wasm_engine_new();
@@ -119,6 +123,7 @@ int main(int argc, const char* argv[]) {
     printf("> Error calling function!\n");
     return 1;
   }
+  printf("Call completed\n");
 
   {
     FILE *memory_stream;
@@ -137,6 +142,11 @@ int main(int argc, const char* argv[]) {
 
     do {
       data_read_size = wasi_env_read_stdout(wasi_env, buffer, BUF_SIZE);
+      if (data_read_size == -1) {
+        printf("failed to read stdout: %s\n", strerror(errno));
+        print_wasmer_error();
+        return -1;
+      }
 
       if (data_read_size > 0) {
         stdout_size += data_read_size;

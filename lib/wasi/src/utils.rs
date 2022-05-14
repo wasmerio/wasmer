@@ -9,6 +9,18 @@ pub fn is_wasi_module(module: &Module) -> bool {
     get_wasi_version(module, false).is_some()
 }
 
+#[allow(dead_code)]
+/// Returns if the module is WASIX or not
+pub fn is_wasix_module(module: &Module) -> bool {
+    match get_wasi_versions(module, false).ok_or(false) {
+        Ok(wasi_versions) => {
+            wasi_versions.contains(&WasiVersion::Wasix32v1)
+                || wasi_versions.contains(&WasiVersion::Wasix64v1)
+        }
+        Err(_) => false,
+    }
+}
+
 pub fn map_io_err(err: std::io::Error) -> __wasi_errno_t {
     use std::io::ErrorKind;
     match err.kind() {
