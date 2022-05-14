@@ -245,6 +245,19 @@ impl dyn VirtualFile + 'static {
     }
 }
 
+/// Determines the mode that stdio handlers will operate in
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum StdioMode {
+    /// Stdio will be piped to a file descriptor
+    Piped,
+    /// Stdio will inherit the file handlers of its parent
+    Inherit,
+    /// Stdio will be dropped
+    Null,
+    /// Stdio will be sent to the log handler
+    Log,
+}
+
 /// Error type for external users
 #[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum FsError {

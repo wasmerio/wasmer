@@ -10,7 +10,7 @@ use std::{
     string::FromUtf8Error,
 };
 use thiserror::Error;
-use wasmer_types::ValueType;
+use wasmer_types::{MemorySize, ValueType};
 
 /// Error for invalid [`Memory`] access.
 #[derive(Clone, Copy, Debug, Error)]
@@ -83,6 +83,13 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     #[inline]
     pub fn as_ptr64(self) -> WasmPtr<T, Memory64> {
         WasmPtr::new(self.offset)
+    }
+
+    /// Get a `WasmPtr` fror this `WasmRef`.
+    #[inline]
+    pub fn as_ptr<M: MemorySize>(self) -> WasmPtr<T, M> {
+        let offset: M::Offset = self.offset.try_into().map_err(|_| "invalid offset into memory").unwrap();
+        WasmPtr::<T, M>::new(offset)
     }
 
     /// Get a reference to the Wasm memory backing this reference.

@@ -16,6 +16,7 @@ pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_vnet::{NetworkError};
 
 pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
     match err {
@@ -69,6 +70,33 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
         FsError::WriteZero => __WASI_ENOSPC,
         FsError::DirectoryNotEmpty => __WASI_ENOTEMPTY,
         FsError::Lock | FsError::UnknownError => __WASI_EIO,
+    }
+}
+
+pub fn net_error_into_wasi_err(net_error: NetworkError) -> __wasi_errno_t {
+    match net_error {
+        NetworkError::InvalidFd => __WASI_EBADF,
+        NetworkError::AlreadyExists => __WASI_EEXIST,
+        NetworkError::Lock => __WASI_EIO,
+        NetworkError::IOError => __WASI_EIO,
+        NetworkError::AddressInUse => __WASI_EADDRINUSE,
+        NetworkError::AddressNotAvailable => __WASI_EADDRNOTAVAIL,
+        NetworkError::BrokenPipe => __WASI_EPIPE,
+        NetworkError::ConnectionAborted => __WASI_ECONNABORTED,
+        NetworkError::ConnectionRefused => __WASI_ECONNREFUSED,
+        NetworkError::ConnectionReset => __WASI_ECONNRESET,
+        NetworkError::Interrupted => __WASI_EINTR,
+        NetworkError::InvalidData => __WASI_EIO,
+        NetworkError::InvalidInput => __WASI_EINVAL,
+        NetworkError::NotConnected => __WASI_ENOTCONN,
+        NetworkError::NoDevice => __WASI_ENODEV,
+        NetworkError::PermissionDenied => __WASI_EPERM,
+        NetworkError::TimedOut => __WASI_ETIMEDOUT,
+        NetworkError::UnexpectedEof => __WASI_EPROTO,
+        NetworkError::WouldBlock => __WASI_EAGAIN,
+        NetworkError::WriteZero => __WASI_ENOSPC,
+        NetworkError::Unsupported => __WASI_ENOTSUP,
+        NetworkError::UnknownError => __WASI_EIO,
     }
 }
 

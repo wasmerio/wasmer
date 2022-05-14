@@ -11,7 +11,7 @@ macro_rules! wasi_try {
                 val
             }
             Err(err) => {
-                tracing::trace!("wasi::wasi_try::err: {:?}", err);
+                tracing::debug!("wasi::wasi_try::err: {:?}", err);
                 return err;
             }
         }
@@ -29,7 +29,7 @@ macro_rules! wasi_try_ok {
                 val
             }
             Err(err) => {
-                tracing::trace!("wasi::wasi_try_ok::err: {:?}", err);
+                tracing::debug!("wasi::wasi_try_ok::err: {:?}", err);
                 return Ok(err);
             }
         }
@@ -44,9 +44,9 @@ macro_rules! wasi_try_ok {
             }
             Err(err) => {
                 if err == __WASI_EINTR {
-                    $thread.yield_callback()?;
+                    $thread.yield_now()?;
                 }
-                tracing::trace!("wasi::wasi_try_ok::err: {:?}", err);
+                tracing::debug!("wasi::wasi_try_ok::err: {:?}", err);
                 return Ok(err);
             }
         }
