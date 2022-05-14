@@ -2,12 +2,12 @@
 
 use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::{WasiEnv, WasiInodes, WasiThread, WasiError};
+use crate::{WasiEnv, WasiInodes};
 use generational_arena::Arena;
+use std::sync::Arc;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::RwLock;
 use thiserror::Error;
 use wasmer_vfs::{FsError, VirtualFile};
@@ -50,7 +50,7 @@ pub struct WasiStateBuilder {
     stderr_override: Option<Box<dyn VirtualFile + Sync>>,
     stdin_override: Option<Box<dyn VirtualFile + Sync>>,
     fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
-    on_yield: Option<Arc<dyn Fn(&WasiThread) -> Result<(), WasiError> + Send + Sync + 'static>>,
+    runtime_override: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
 }
 
 impl std::fmt::Debug for WasiStateBuilder {
@@ -61,10 +61,10 @@ impl std::fmt::Debug for WasiStateBuilder {
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
-            .field("on_yield exists", &self.on_yield.is_some())
             .field("stdout_override exists", &self.stdout_override.is_some())
             .field("stderr_override exists", &self.stderr_override.is_some())
             .field("stdin_override exists", &self.stdin_override.is_some())
+            .field("runtime_override_exists", &self.runtime_override.is_some())
             .finish()
     }
 }
@@ -326,17 +326,12 @@ impl WasiStateBuilder {
         self
     }
 
-    /// Sets a callback that will be invoked whenever the process yields execution.
-    ///
-    /// This is useful if the background tasks and/or callbacks are to be
-    /// executed whenever the WASM process goes idle
-    pub fn on_yield<F>(&mut self, callback: F) -> &mut Self
-    where
-        F: Fn(&WasiThread) -> Result<(), WasiError>,
-        F: Send + Sync + 'static,
+    /// Sets the WASI runtime implementation and overrides the default
+    /// implementation
+    pub fn runtime<R>(&mut self, runtime: R) -> &mut Self
+    where R: crate::WasiRuntimeImplementation + Send + Sync + 'static
     {
-        self.on_yield = Some(Arc::new(callback));
-
+        self.runtime_override = Some(Arc::new(runtime));
         self
     }
 
@@ -499,7 +494,9 @@ impl WasiStateBuilder {
         let state = self.build()?;
 
         let mut env = WasiEnv::new(state);
-        env.on_yield = self.on_yield.clone();
+        if let Some(runtime) = self.runtime_override.as_ref() {
+            env.runtime = runtime.clone();
+        }
         Ok(env)
     }
 }

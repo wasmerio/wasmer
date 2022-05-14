@@ -1,0 +1,20 @@
+[package]
+name = "wasmer-vnet"
+version = "2.3.0"
+description = "Wasmer Virtual Networking"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+libc = { version = "^0.2", default-features = false, optional = true }
+thiserror = "1"
+tracing = { version = "0.1" }
+typetag = { version = "0.1", optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+slab = { version = "0.4", optional = true }
+wasmer-vfs = { path = "../vfs", version = "=2.3.0", default-features = false }
+bytes = "1"
+
+[features]
+default = []

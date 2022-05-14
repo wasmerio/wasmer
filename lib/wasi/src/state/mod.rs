@@ -17,9 +17,13 @@
 
 mod builder;
 mod types;
+mod socket;
+mod pipe;
 
 pub use self::builder::*;
 pub use self::types::*;
+pub use self::socket::*;
+pub use self::pipe::*;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
 use generational_arena::Arena;
@@ -27,12 +31,16 @@ pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::mpsc;
 use std::{
     borrow::Borrow,
     io::Write,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
+        Mutex,
         atomic::{AtomicU32, AtomicU64, Ordering},
         RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
@@ -139,6 +147,14 @@ pub enum Kind {
         /// TOOD: clarify here?
         fd: Option<u32>,
     },
+    Socket {
+        /// Represents a networking socket
+        socket: InodeSocket,
+    },
+    Pipe {
+        /// Reference to the pipe
+        pipe: WasiPipe,
+    },
     Dir {
         /// Parent directory
         parent: Option<Inode>,
@@ -172,6 +188,15 @@ pub enum Kind {
     Buffer {
         buffer: Vec<u8>,
     },
+    EventNotifications {
+        /// Used for event notifications by the user application or operating system
+        counter: Arc<AtomicU64>,
+        /// Flag that indicates if this is operating 
+        is_semaphore: bool,
+        /// Receiver that wakes sleeping threads
+        wakers: Arc<Mutex<VecDeque<mpsc::Sender<()>>>>,
+    },
+    
 }
 
 #[derive(Debug, Clone)]
@@ -338,6 +363,7 @@ pub struct WasiFs {
     pub fd_map: RwLock<HashMap<u32, Fd>>,
     pub next_fd: AtomicU32,
     inode_counter: AtomicU64,
+    pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_fs_backing"))]
     pub fs_backing: Box<dyn FileSystem>,
 }
@@ -585,6 +611,7 @@ impl WasiFs {
             fd_map: RwLock::new(HashMap::new()),
             next_fd: AtomicU32::new(3),
             inode_counter: AtomicU64::new(1024),
+            current_dir: Mutex::new("/".to_string()),
             fs_backing,
         };
         wasi_fs.create_stdin(inodes);
@@ -828,6 +855,36 @@ impl WasiFs {
         }
     }
 
+    /// Changes the current directory
+    pub fn set_current_dir(
+        &self,
+        path: &str
+    ) {
+        let mut guard = self.current_dir.lock().unwrap();
+        *guard = path.to_string();
+    }
+
+    /// Gets the current directory
+    pub fn get_current_dir(
+        &self,
+        inodes: &mut WasiInodes,
+    ) -> Result<(Inode, String), __wasi_errno_t> {
+        self.get_current_dir_inner(inodes, 0)
+    }
+
+    fn get_current_dir_inner(
+        &self,
+        inodes: &mut WasiInodes,
+        symlink_count: u32,
+    ) -> Result<(Inode, String), __wasi_errno_t> {
+        let current_dir = {
+            let guard = self.current_dir.lock().unwrap();
+            guard.clone()
+        };
+        let inode = self.get_inode_at_path_inner(inodes, VIRTUAL_ROOT_FD, current_dir.as_str(), symlink_count, true)?;
+        Ok((inode, current_dir))
+    }
+
     /// Internal part of the core path resolution function which implements path
     /// traversal logic such as resolving relative path segments (such as
     /// `.` and `..`) and resolving symlinks (while preventing infinite
@@ -854,9 +911,19 @@ impl WasiFs {
         }
 
         let path: &Path = Path::new(path);
-
         let mut cur_inode = self.get_fd_inode(base)?;
         let n_components = path.components().count();
+
+        // If this is the start of the path search and it starts with the
+        // current directory marker then we need to resolve the current
+        // path to the inode before we do the search
+        if path.components().next().map(|c| c.as_os_str().to_str()).flatten() == Some(".")
+           && base == VIRTUAL_ROOT_FD   // File queries will occur on the root first
+           && symlink_count == 0        // The resolving of the current path only should happen once and not after symbolic links are followed
+        {
+            (cur_inode, _) = self.get_current_dir_inner(inodes, symlink_count + 1)?;
+        }
+
         // TODO: rights checks
         'path_iter: for (i, component) in path.components().enumerate() {
             // used to terminate symlink resolution properly
@@ -882,7 +949,9 @@ impl WasiFs {
                                     return Err(__WASI_EACCES);
                                 }
                             }
-                            "." => continue 'path_iter,
+                            "." => {
+                                continue 'path_iter
+                            },
                             _ => (),
                         }
                         // used for full resolution of symlinks
@@ -1042,7 +1111,7 @@ impl WasiFs {
                             return Err(__WASI_ENOENT);
                         }
                     }
-                    Kind::File { .. } => {
+                    Kind::File { .. } | Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
                         return Err(__WASI_ENOTDIR);
                     }
                     Kind::Symlink {
@@ -1443,6 +1512,26 @@ impl WasiFs {
         Ok(idx)
     }
 
+    pub fn clone_fd(
+        &self,
+        fd: __wasi_fd_t,
+    ) -> Result<__wasi_fd_t, __wasi_errno_t> {
+        let fd = self.get_fd(fd)?;
+        let idx = self.next_fd.fetch_add(1, Ordering::AcqRel);
+        self.fd_map.write().unwrap().insert(
+            idx,
+            Fd {
+                rights: fd.rights,
+                rights_inheriting: fd.rights_inheriting,
+                flags: fd.flags,
+                offset: fd.offset,
+                open_flags: fd.open_flags,
+                inode: fd.inode,
+            },
+        );
+        Ok(idx)
+    }
+
     /// Low level function to remove an inode, that is it deletes the WASI FS's
     /// knowledge of a file.
     ///
@@ -1627,6 +1716,13 @@ impl WasiFs {
                 let mut empty_handle = None;
                 std::mem::swap(handle, &mut empty_handle);
             }
+            Kind::Socket { ref mut socket, .. } => {
+                let mut closed_socket = InodeSocket::new(InodeSocketKind::Closed);
+                std::mem::swap(socket, &mut closed_socket);
+            }
+            Kind::Pipe { ref mut pipe } => {
+                pipe.close();
+            }
             Kind::Dir { parent, path, .. } => {
                 debug!("Closing dir {:?}", &path);
                 let key = path
@@ -1670,6 +1766,7 @@ impl WasiFs {
                     return Err(__WASI_EINVAL);
                 }
             }
+            Kind::EventNotifications { .. } => { }
             Kind::Root { .. } => return Err(__WASI_EACCES),
             Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(__WASI_EINVAL),
         }

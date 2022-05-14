@@ -287,6 +287,12 @@ pub enum wasi_version_t {
 
     /// `wasi_snapshot_preview1`.
     SNAPSHOT1 = 2,
+
+    /// `wasix_32v1`.
+    WASIX32V1 = 3,
+
+    /// `wasix_64v1`.
+    WASIX64V1 = 4,
 }
 
 impl From<WasiVersion> for wasi_version_t {
@@ -294,6 +300,8 @@ impl From<WasiVersion> for wasi_version_t {
         match other {
             WasiVersion::Snapshot0 => wasi_version_t::SNAPSHOT0,
             WasiVersion::Snapshot1 => wasi_version_t::SNAPSHOT1,
+            WasiVersion::Wasix32v1 => wasi_version_t::WASIX32V1,
+            WasiVersion::Wasix64v1 => wasi_version_t::WASIX64V1,
             WasiVersion::Latest => wasi_version_t::LATEST,
         }
     }
@@ -307,6 +315,8 @@ impl TryFrom<wasi_version_t> for WasiVersion {
             wasi_version_t::INVALID_VERSION => return Err("Invalid WASI version cannot be used"),
             wasi_version_t::SNAPSHOT0 => WasiVersion::Snapshot0,
             wasi_version_t::SNAPSHOT1 => WasiVersion::Snapshot1,
+            wasi_version_t::WASIX32V1 => WasiVersion::Wasix32v1,
+            wasi_version_t::WASIX64V1 => WasiVersion::Wasix64v1,
             wasi_version_t::LATEST => WasiVersion::Latest,
         })
     }

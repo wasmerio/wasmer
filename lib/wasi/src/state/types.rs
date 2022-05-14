@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
 use std::{
+    sync::{Arc, Mutex},
     collections::VecDeque,
     io::{self, Read, Seek, Write},
     time::Duration,
@@ -16,6 +17,7 @@ pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_vnet::{NetworkError};
 
 pub fn fs_error_from_wasi_err(err: __wasi_errno_t) -> FsError {
     match err {
@@ -69,6 +71,33 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> __wasi_errno_t {
         FsError::WriteZero => __WASI_ENOSPC,
         FsError::DirectoryNotEmpty => __WASI_ENOTEMPTY,
         FsError::Lock | FsError::UnknownError => __WASI_EIO,
+    }
+}
+
+pub fn net_error_into_wasi_err(net_error: NetworkError) -> __wasi_errno_t {
+    match net_error {
+        NetworkError::InvalidFd => __WASI_EBADF,
+        NetworkError::AlreadyExists => __WASI_EEXIST,
+        NetworkError::Lock => __WASI_EIO,
+        NetworkError::IOError => __WASI_EIO,
+        NetworkError::AddressInUse => __WASI_EADDRINUSE,
+        NetworkError::AddressNotAvailable => __WASI_EADDRNOTAVAIL,
+        NetworkError::BrokenPipe => __WASI_EPIPE,
+        NetworkError::ConnectionAborted => __WASI_ECONNABORTED,
+        NetworkError::ConnectionRefused => __WASI_ECONNREFUSED,
+        NetworkError::ConnectionReset => __WASI_ECONNRESET,
+        NetworkError::Interrupted => __WASI_EINTR,
+        NetworkError::InvalidData => __WASI_EIO,
+        NetworkError::InvalidInput => __WASI_EINVAL,
+        NetworkError::NotConnected => __WASI_ENOTCONN,
+        NetworkError::NoDevice => __WASI_ENODEV,
+        NetworkError::PermissionDenied => __WASI_EPERM,
+        NetworkError::TimedOut => __WASI_ETIMEDOUT,
+        NetworkError::UnexpectedEof => __WASI_EPROTO,
+        NetworkError::WouldBlock => __WASI_EAGAIN,
+        NetworkError::WriteZero => __WASI_ENOSPC,
+        NetworkError::Unsupported => __WASI_ENOTSUP,
+        NetworkError::UnknownError => __WASI_EIO,
     }
 }
 
@@ -288,10 +317,10 @@ pub(crate) fn poll(
 pub trait WasiPath {}
 
 /// For piping stdio. Stores all output / input in a byte-vector.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Pipe {
-    buffer: VecDeque<u8>,
+    buffer: Arc<Mutex<VecDeque<u8>>>,
 }
 
 impl Pipe {
@@ -302,8 +331,9 @@ impl Pipe {
 
 impl Read for Pipe {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let amt = std::cmp::min(buf.len(), self.buffer.len());
-        for (i, byte) in self.buffer.drain(..amt).enumerate() {
+        let mut buffer = self.buffer.lock().unwrap();
+        let amt = std::cmp::min(buf.len(), buffer.len());
+        for (i, byte) in buffer.drain(..amt).enumerate() {
             buf[i] = byte;
         }
         Ok(amt)
@@ -312,7 +342,8 @@ impl Read for Pipe {
 
 impl Write for Pipe {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buffer.extend(buf);
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.extend(buf);
         Ok(buf.len())
     }
     fn flush(&mut self) -> io::Result<()> {
@@ -341,17 +372,20 @@ impl VirtualFile for Pipe {
         0
     }
     fn size(&self) -> u64 {
-        self.buffer.len() as u64
+        let buffer = self.buffer.lock().unwrap();
+        buffer.len() as u64
     }
     fn set_len(&mut self, len: u64) -> Result<(), FsError> {
-        self.buffer.resize(len as usize, 0);
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.resize(len as usize, 0);
         Ok(())
     }
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.buffer.len())
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        let buffer = self.buffer.lock().unwrap();
+        Ok(Some(buffer.len()))
     }
 }
 

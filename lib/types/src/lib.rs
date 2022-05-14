@@ -93,6 +93,9 @@ pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,
 };
+pub use crate::memory::{
+    MemorySize, Memory32, Memory64
+};
 
 #[cfg(feature = "enable-rkyv")]
 pub use archives::ArchivableIndexMap;
