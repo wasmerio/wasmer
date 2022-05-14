@@ -130,14 +130,18 @@ impl CType {
                 w.push(' ');
                 w.push_str("(*)");
                 w.push('(');
-                if arguments.len() > 1 {
-                    for arg in &arguments[..arguments.len() - 1] {
-                        arg.generate_c(w);
-                        w.push_str(", ");
+                match arguments.len() {
+                    l if l > 1 => {
+                        for arg in &arguments[..arguments.len() - 1] {
+                            arg.generate_c(w);
+                            w.push_str(", ");
+                        }
+                        arguments.last().unwrap().generate_c(w);
                     }
-                    arguments.last().unwrap().generate_c(w);
-                } else if arguments.len() == 1 {
-                    arguments[0].generate_c(w);
+                    1 => {
+                        arguments[0].generate_c(w);
+                    }
+                    _ => {}
                 }
                 w.push(')');
             }
@@ -146,7 +150,7 @@ impl CType {
                 w.push_str("[]");
             }
             Self::TypeDef(inner) => {
-                w.push_str(&inner);
+                w.push_str(inner);
             }
         }
     }
@@ -181,23 +185,27 @@ impl CType {
                     .unwrap_or_default();
                 ret.generate_c(w);
                 w.push(' ');
-                w.push_str(&name);
+                w.push_str(name);
                 w.push('(');
-                if arguments.len() > 1 {
-                    for arg in &arguments[..arguments.len() - 1] {
-                        arg.generate_c(w);
-                        w.push_str(", ");
+                match arguments.len() {
+                    l if l > 1 => {
+                        for arg in &arguments[..arguments.len() - 1] {
+                            arg.generate_c(w);
+                            w.push_str(", ");
+                        }
+                        arguments.last().unwrap().generate_c(w);
                     }
-                    arguments.last().unwrap().generate_c(w);
-                } else if arguments.len() == 1 {
-                    arguments[0].generate_c(w);
+                    1 => {
+                        arguments[0].generate_c(w);
+                    }
+                    _ => {}
                 }
                 w.push(')');
             }
             Self::Array { inner } => {
                 inner.generate_c(w);
                 w.push(' ');
-                w.push_str(&name);
+                w.push_str(name);
                 w.push_str("[]");
             }
         }
@@ -299,7 +307,7 @@ impl CStatement {
                 w.push('}');
             }
             Self::LiteralConstant { value } => {
-                w.push_str(&value);
+                w.push_str(value);
             }
             Self::Cast {
                 target_type,
@@ -322,7 +330,7 @@ impl CStatement {
                 } else {
                     source_type.generate_c(w);
                     w.push(' ');
-                    w.push_str(&new_name);
+                    w.push_str(new_name);
                 }
                 w.push(';');
                 w.push('\n');

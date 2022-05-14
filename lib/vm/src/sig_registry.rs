@@ -5,7 +5,6 @@
 //! signature checking.
 
 use crate::vmcontext::VMSharedSignatureIndex;
-use loupe::MemoryUsage;
 use more_asserts::{assert_lt, debug_assert_lt};
 use std::collections::{hash_map, HashMap};
 use std::convert::TryFrom;
@@ -16,7 +15,7 @@ use wasmer_types::FunctionType;
 /// call must match. To implement this efficiently, keep a registry of all
 /// signatures, shared by all instances, so that call sites can just do an
 /// index comparison.
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 pub struct SignatureRegistry {
     // This structure is stored in an `Engine` and is intended to be shared
     // across many instances. Ideally instances can themselves be sent across
@@ -26,7 +25,7 @@ pub struct SignatureRegistry {
     inner: RwLock<Inner>,
 }
 
-#[derive(Debug, Default, MemoryUsage)]
+#[derive(Debug, Default)]
 struct Inner {
     signature2index: HashMap<FunctionType, VMSharedSignatureIndex>,
     index2signature: HashMap<VMSharedSignatureIndex, FunctionType>,

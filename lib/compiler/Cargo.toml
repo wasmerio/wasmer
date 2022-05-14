@@ -11,7 +11,6 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-vm = { path = "../vm", version = "=2.2.1" }
 wasmer-types = { path = "../types", version = "=2.2.1", default-features = false }
 wasmparser = { version = "0.83", optional = true, default-features = false }
 target-lexicon = { version = "0.12.2", default-features = false }
@@ -22,7 +21,6 @@ thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6"
 rkyv = { version = "0.7.20", optional = true }
-loupe = "0.1"
 
 [features]
 default = ["std", "enable-serde", "enable-rkyv"]
@@ -33,7 +31,7 @@ translator = ["wasmparser"]
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
-enable-rkyv = ["rkyv", "wasmer-vm/enable-rkyv", "wasmer-types/enable-rkyv"]
+enable-rkyv = ["rkyv", "wasmer-types/enable-rkyv"]
 
 [badges]
 maintenance = { status = "experimental" }

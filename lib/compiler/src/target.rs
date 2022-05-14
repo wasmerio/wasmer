@@ -3,7 +3,6 @@ use crate::error::ParseCpuFeatureError;
 use crate::lib::std::str::FromStr;
 use crate::lib::std::string::{String, ToString};
 use enumset::{EnumSet, EnumSetType};
-use loupe::MemoryUsage;
 pub use target_lexicon::{
     Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
     Triple,
@@ -161,11 +160,9 @@ impl ToString for CpuFeature {
 
 /// This is the target that we will use for compiling
 /// the WebAssembly ModuleInfo, and then run it.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, MemoryUsage)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Target {
-    #[loupe(skip)]
     triple: Triple,
-    #[loupe(skip)]
     cpu_features: EnumSet<CpuFeature>,
 }
 

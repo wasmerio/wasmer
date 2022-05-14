@@ -392,10 +392,10 @@ pub fn ___syscall192(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
             }
         }
         debug!("=> ptr: {}", ptr);
-        return ptr as i32;
+        ptr as i32
     } else {
         // return ENODEV
-        return -19;
+        -19
     }
 }
 
@@ -518,7 +518,7 @@ pub fn ___syscall191(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     let rlim = unsafe { slice::from_raw_parts_mut(rlim_ptr, 16) };
 
     // set all to RLIM_INIFINTY
-    LittleEndian::write_i64(&mut rlim[..], -1);
+    LittleEndian::write_i64(&mut *rlim, -1);
     LittleEndian::write_i64(&mut rlim[8..], -1);
 
     0
@@ -721,7 +721,7 @@ pub fn ___syscall340(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
         let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), old_limit) as *mut u8;
         let buf = unsafe { slice::from_raw_parts_mut(buf_ptr, 16) };
 
-        LittleEndian::write_i64(&mut buf[..], val);
+        LittleEndian::write_i64(&mut *buf, val);
         LittleEndian::write_i64(&mut buf[8..], val);
     }
 

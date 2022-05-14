@@ -4,11 +4,11 @@
 use crate::engine::{StaticlibEngine, StaticlibEngineInner};
 use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
 use enumset::EnumSet;
-use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
 use std::sync::Arc;
+use wasmer_artifact::ArtifactCreate;
 use wasmer_compiler::{
     CompileError, CpuFeature, Features, OperatingSystem, SymbolRegistry, Triple,
 };
@@ -38,12 +38,10 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
-#[derive(MemoryUsage)]
 pub struct StaticlibArtifact {
     metadata: ModuleMetadata,
     module_bytes: Vec<u8>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -436,7 +434,7 @@ impl StaticlibArtifact {
     }
 }
 
-impl Artifact for StaticlibArtifact {
+impl ArtifactCreate for StaticlibArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -447,10 +445,6 @@ impl Artifact for StaticlibArtifact {
 
     fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
         Arc::get_mut(&mut self.metadata.compile_info.module)
-    }
-
-    fn register_frame_info(&self) {
-        // Do nothing for now
     }
 
     fn features(&self) -> &Features {
@@ -473,6 +467,16 @@ impl Artifact for StaticlibArtifact {
         &self.metadata.compile_info.table_styles
     }
 
+    /// Serialize a StaticlibArtifact
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Ok(self.module_bytes.clone())
+    }
+}
+impl Artifact for StaticlibArtifact {
+    fn register_frame_info(&self) {
+        // Do nothing for now
+    }
+
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
@@ -492,7 +496,6 @@ impl Artifact for StaticlibArtifact {
     fn func_data_registry(&self) -> &FuncDataRegistry {
         &self.func_data_registry
     }
-
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
         if self.is_compiled {
             panic!(
@@ -501,10 +504,5 @@ impl Artifact for StaticlibArtifact {
             );
         }
         Ok(())
-    }
-
-    /// Serialize a StaticlibArtifact
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(self.module_bytes.clone())
     }
 }

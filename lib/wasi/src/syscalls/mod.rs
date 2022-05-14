@@ -170,11 +170,7 @@ pub fn args_get(
             .args
             .iter()
             .enumerate()
-            .map(|(i, v)| format!(
-                "{:>20}: {}",
-                i,
-                ::std::str::from_utf8(v).unwrap().to_string()
-            ))
+            .map(|(i, v)| format!("{:>20}: {}", i, ::std::str::from_utf8(v).unwrap()))
             .collect::<Vec<String>>()
             .join("\n")
     );

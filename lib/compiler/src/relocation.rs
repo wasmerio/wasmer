@@ -13,14 +13,12 @@ use crate::lib::std::fmt;
 use crate::lib::std::vec::Vec;
 use crate::section::SectionIndex;
 use crate::{Addend, CodeOffset};
-use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::LocalFunctionIndex;
-use wasmer_vm::libcalls::LibCall;
+use wasmer_types::{LibCall, LocalFunctionIndex};
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -28,7 +26,7 @@ use wasmer_vm::libcalls::LibCall;
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, MemoryUsage)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RelocationKind {
     /// absolute 4-byte
     Abs4,
@@ -81,7 +79,7 @@ impl fmt::Display for RelocationKind {
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,
@@ -99,7 +97,7 @@ pub struct Relocation {
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, MemoryUsage)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).
     LocalFunc(LocalFunctionIndex),

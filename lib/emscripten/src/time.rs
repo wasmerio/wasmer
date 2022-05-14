@@ -23,8 +23,6 @@ extern "C" {
     pub fn libc_time(s: *const time_t) -> time_t;
 }
 
-use time;
-
 use super::env;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]

@@ -42,18 +42,16 @@ jobs:
         include:
           - build: linux-x64
             os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            artifact_name: 'wasmer-linux-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_test: true
             run_test_capi: true
             run_integration_tests: true
             use_sccache: true
           - build: macos-x64
             os: macos-11
+            target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            artifact_name: 'wasmer-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_test: true
             run_test_capi: true
             use_sccache: true
@@ -62,31 +60,22 @@ jobs:
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
-            artifact_name: 'wasmer-darwin-arm64'
             use_sccache: true
             run_test: false
             run_test_capi: false
           - build: windows-x64
             os: windows-2019
+            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            artifact_name: 'wasmer-windows-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
             use_sccache: true
             run_test: true
             run_test_capi: false # We can't run yet the capi tests on Windows
-          #- build: linux-aarch64
-          #  os: [self-hosted, linux, ARM64]
-          #  random_sccache_port: true
-          #  use_sccache: true
-          #  llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/linux-aarch64.tar.gz'
-          #  artifact_name: 'wasmer-linux-aarch64'
-          #  run_integration_tests: false
           - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            artifact_name: 'wasmer-linux-musl-amd64'
             run_test: true
             run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
             run_integration_tests: false
@@ -95,7 +84,6 @@ jobs:
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
-      TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up libstdc++ on Linux
@@ -206,247 +194,29 @@ jobs:
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
       - name: Test
+        if: matrix.run_test && matrix.os != 'windows-2019'
         run: |
           make test
-        if: matrix.run_test
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
       - name: Test C API
+        if: matrix.run_test_capi && matrix.os != 'windows-2019'
         run: |
           make test-capi
-        if: matrix.run_test_capi
-      - name: Build C API
-        run: |
-          make build-capi
-      - name: Build Wasmer binary
-        run: |
-          make build-wasmer
-      - name: Build Wapm binary
-        if: needs.setup.outputs.DOING_RELEASE == '1'
-        run: |
-          make build-wapm
-      - name: Install Nightly Rust for Headless
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 'nightly-2022-02-08'
-          target: ${{ matrix.target }}
-          override: true
-          components: "rust-src"
-      - name: Build Minimal Wasmer Headless
-        if: matrix.build != 'linux-musl-x64'
-        run: |
-          cargo install xargo
-          echo "" >> Cargo.toml
-          echo "[profile.release]" >> Cargo.toml
-          echo "opt-level = 'z'" >> Cargo.toml
-          echo "debug = false" >> Cargo.toml
-          echo "debug-assertions = false" >> Cargo.toml
-          echo "overflow-checks = false" >> Cargo.toml
-          echo "lto = true" >> Cargo.toml
-          echo "panic = 'abort'" >> Cargo.toml
-          echo "incremental = false" >> Cargo.toml
-          echo "codegen-units = 1" >> Cargo.toml
-          echo "rpath = false" >> Cargo.toml
-          make build-wasmer-headless-minimal
-      - name: Dist
-        run: |
-          make distribution
-      - name: Run integration tests (Windows)
-        shell: cmd
-        run: |
-          call refreshenv
-          set WASMER_DIR=%CD%\package
-          make test-integration
-        if: matrix.run_integration_tests && matrix.os == 'windows-2019'
-      - name: Run integration tests (Unix)
-        run: |
-          export WASMER_DIR=`pwd`/package
-          make test-integration
-        if: matrix.run_integration_tests && matrix.os != 'windows-2019'
-      - name: Run iOS integration tests
-        run: |
-          rustup target add aarch64-apple-ios x86_64-apple-ios
-          cargo install cargo-lipo
-          make test-integration-ios
-        if: matrix.run_ios_tests
-      - name: Cross compile from Linux
-        if: matrix.build == 'linux-x64'
-        shell: bash
-        run: |
-          ls target/release
-          alias wasmer=target/release/wasmer
-          ./target/release/wasmer compile --target=x86_64-apple-darwin lib/c-api/examples/assets/qjs.wasm -o qjs_mac_from_linux.wjit
-          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc lib/c-api/examples/assets/qjs.wasm -o qjs_win_from_linux.wjit
-          mkdir cross
-          cp qjs_mac_from_linux.wjit cross
-          #cp qjs_win_from_linux.wjit cross
-          cp target/release/wasmer cross
-      - name: Cross compile from Mac
-        if: matrix.os == 'macos-11'
-        shell: bash
-        run: |
-          ls target/release
-          alias wasmer=target/release/wasmer
-          ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu lib/c-api/examples/assets/qjs.wasm -o qjs_linux_from_mac.wjit
-          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc lib/c-api/examples/assets/qjs.wasm -o qjs_win_from_mac.wjit
-          mkdir cross
-          cp qjs_linux_from_mac.wjit cross
-          #cp qjs_win_from_mac.wjit cross
-          cp target/release/wasmer cross
-      #- name: Cross compile from Windows
-      #  if: matrix.os == 'windows-2019'
-      #  shell: bash
-      #  run: |
-      #    alias wasmer=target/release/wasmer
-      #    ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_win.wjit
-      #    ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_win.wjit
-      #    mkdir cross
-      #    cp qjs_linux_from_win.wjit cross
-      #    cp qjs_mac_from_win.wjit cross
-      #    cp target/release/wasmer.exe cross
-      - name: Upload Cross Compiled Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.cross_compilation_artifact_name }}
-          path: cross
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: dist
-          if-no-files-found: error
-          retention-days: 1
-
-  test-cross-compile-on-linux:
-    name: Test cross-compile on linux
-    needs: [setup, test]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Wasmer
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-      - name: Run it
-        run: |
-          cp artifacts/cross_compiled_from_linux/wasmer .
-          chmod +x wasmer
-          OUTPUT=$(./wasmer run artifacts/cross_compiled_from_mac/qjs_linux_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));")
-          [[ "$OUTPUT" == '"Hello, World"' ]]
-          #wasmer run artifacts/cross/cross_compiled_from_win/qjs_linux_from_win.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-
-  test-cross-compile-on-mac:
-    name: Test cross-compile on macos
-    needs: [setup, test]
-    runs-on: macos-11
-    steps:
-      - name: Download Wasmer
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-      - name: Run it
-        run: |
-          cp artifacts/cross_compiled_from_mac/wasmer .
-          chmod +x wasmer
-          OUTPUT=$(./wasmer run artifacts/cross_compiled_from_linux/qjs_mac_from_linux.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));")
-          [[ "$OUTPUT" == '"Hello, World"' ]]
-          #wasmer run artifacts/cross/cross_compiled_from_win/qjs_mac_from_win.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-          
-  #test-cross-compile-on-win:
-  #  needs: [setup, test]
-  #  runs-on: windows-2019
-  #  steps:
-  #    - name: Download Wasmer
-  #      uses: actions/download-artifact@v2
-  #      with:
-  #        path: artifacts
-  #    - name: Run it
-  #      shell: bash
-  #      run: |
-  #        alias wasmer=artifacts/cross/cross_compiled_from_win/wasmer.exe
-  #        wasmer run artifacts/cross/cross_compiled_from_linux/win_from_linux.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-  #        wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-
-  release:
-    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
-    runs-on: ubuntu-latest
-    if: needs.setup.outputs.DOING_RELEASE == '1'
-    steps:
-      - name: Download the Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ needs.setup.outputs.VERSION }}
-          release_name: Release ${{ needs.setup.outputs.VERSION }}
-          draft: true
-          prerelease: false
-      - name: Upload Release Asset Windows Installer
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
-          asset_name: wasmer-windows.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
-      - name: Upload Release Asset Windows
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
-          asset_name: wasmer-windows-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
-          asset_name: wasmer-linux-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 (musl)
-        id: upload-release-asset-linux-musl-amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
-          asset_name: wasmer-linux-musl-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
-          asset_name: wasmer-darwin-arm64.tar.gz
-          asset_content_type: application/gzip
-      #- name: Upload Release Asset Linux aarch64
-      #  uses: actions/upload-release-asset@v1
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #  with:
-      #    upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #    asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-      #    asset_name: wasmer-linux-aarch64.tar.gz
-      #    asset_content_type: application/gzip
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+      - name: Test
+        if: matrix.run_test && matrix.os == 'windows-2019'
+        run: |
+          make test
+      - name: Test C API
+        if: matrix.run_test_capi && matrix.os == 'windows-2019'
+        run: |
+          make test-capi
 
   audit:
     name: Audit

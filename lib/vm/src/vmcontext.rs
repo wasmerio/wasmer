@@ -10,15 +10,15 @@ use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
+use crate::VMBuiltinFunctionIndex;
 use crate::VMExternRef;
-use loupe::{MemoryUsage, MemoryUsageTracker, POINTER_BYTE_SIZE};
 use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;
-use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
+pub use wasmer_artifact::VMFunctionBody;
 
 /// Union representing the first parameter passed when calling a function.
 ///
@@ -61,14 +61,8 @@ impl std::hash::Hash for VMFunctionEnvironment {
     }
 }
 
-impl MemoryUsage for VMFunctionEnvironment {
-    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
-        mem::size_of_val(self)
-    }
-}
-
 /// An imported function.
-#[derive(Debug, Copy, Clone, MemoryUsage)]
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct VMFunctionImport {
     /// A pointer to the imported function body.
@@ -168,26 +162,8 @@ mod test_vmdynamicfunction_import_context {
     }
 }
 
-/// A placeholder byte-sized type which is just used to provide some amount of type
-/// safety when dealing with pointers to JIT-compiled function bodies. Note that it's
-/// deliberately not Copy, as we shouldn't be carelessly copying function body bytes
-/// around.
-#[repr(C)]
-pub struct VMFunctionBody(u8);
-
-#[cfg(test)]
-mod test_vmfunction_body {
-    use super::VMFunctionBody;
-    use std::mem::size_of;
-
-    #[test]
-    fn check_vmfunction_body_offsets() {
-        assert_eq!(size_of::<VMFunctionBody>(), 1);
-    }
-}
-
 /// A function kind is a calling convention into and out of wasm code.
-#[derive(Debug, Copy, Clone, PartialEq, MemoryUsage)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum VMFunctionKind {
     /// A static function has the native signature:
@@ -208,7 +184,7 @@ pub enum VMFunctionKind {
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// imported from another instance.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMTableImport {
     /// A pointer to the imported table description.
@@ -247,7 +223,7 @@ mod test_vmtable_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly linear
 /// memory imported from another instance.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMMemoryImport {
     /// A pointer to the imported memory description.
@@ -286,7 +262,7 @@ mod test_vmmemory_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMGlobalImport {
     /// A pointer to the imported global variable description.
@@ -358,16 +334,6 @@ unsafe impl Send for VMMemoryDefinition {}
 /// really no difference between passing it by reference or by value as far as
 /// correctness in a multi-threaded context is concerned.
 unsafe impl Sync for VMMemoryDefinition {}
-
-impl MemoryUsage for VMMemoryDefinition {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        if tracker.track(self.base as *const _ as *const ()) {
-            POINTER_BYTE_SIZE * self.current_length
-        } else {
-            0
-        }
-    }
-}
 
 impl VMMemoryDefinition {
     /// Do an unsynchronized, non-atomic `memory.copy` for the memory.
@@ -473,16 +439,6 @@ pub struct VMTableDefinition {
     pub current_elements: u32,
 }
 
-impl MemoryUsage for VMTableDefinition {
-    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
-        if tracker.track(self.base as *const _ as *const ()) {
-            POINTER_BYTE_SIZE * (self.current_elements as usize)
-        } else {
-            0
-        }
-    }
-}
-
 #[cfg(test)]
 mod test_vmtable_definition {
     use super::VMTableDefinition;
@@ -540,17 +496,11 @@ impl fmt::Debug for VMGlobalDefinitionStorage {
     }
 }
 
-impl MemoryUsage for VMGlobalDefinitionStorage {
-    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
-        mem::size_of_val(self)
-    }
-}
-
 /// The storage for a WebAssembly global defined within the instance.
 ///
 /// TODO: Pack the globals more densely, rather than using the same size
 /// for every type.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone)]
 #[repr(C, align(16))]
 pub struct VMGlobalDefinition {
     storage: VMGlobalDefinitionStorage,
@@ -792,15 +742,14 @@ impl VMGlobalDefinition {
 /// An index into the shared signature registry, usable for checking signatures
 /// at indirect calls.
 #[repr(C)]
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, MemoryUsage)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct VMSharedSignatureIndex(u32);
 
 #[cfg(test)]
 mod test_vmshared_signature_index {
     use super::VMSharedSignatureIndex;
-    use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
     use std::mem::size_of;
-    use wasmer_types::ModuleInfo;
+    use wasmer_types::{ModuleInfo, TargetSharedSignatureIndex, VMOffsets};
 
     #[test]
     fn check_vmshared_signature_index() {
@@ -837,7 +786,7 @@ impl Default for VMSharedSignatureIndex {
 /// The VM caller-checked "anyfunc" record, for caller-side signature checking.
 /// It consists of the actual function pointer and a signature id to be checked
 /// by the caller.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, MemoryUsage)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
     /// Function body.
@@ -889,127 +838,6 @@ impl Default for VMCallerCheckedAnyfunc {
                 vmctx: ptr::null_mut(),
             },
         }
-    }
-}
-
-/// An index type for builtin functions.
-#[derive(Copy, Clone, Debug)]
-pub struct VMBuiltinFunctionIndex(u32);
-
-impl VMBuiltinFunctionIndex {
-    /// Returns an index for wasm's `memory.grow` builtin function.
-    pub const fn get_memory32_grow_index() -> Self {
-        Self(0)
-    }
-    /// Returns an index for wasm's imported `memory.grow` builtin function.
-    pub const fn get_imported_memory32_grow_index() -> Self {
-        Self(1)
-    }
-    /// Returns an index for wasm's `memory.size` builtin function.
-    pub const fn get_memory32_size_index() -> Self {
-        Self(2)
-    }
-    /// Returns an index for wasm's imported `memory.size` builtin function.
-    pub const fn get_imported_memory32_size_index() -> Self {
-        Self(3)
-    }
-    /// Returns an index for wasm's `table.copy` when both tables are locally
-    /// defined.
-    pub const fn get_table_copy_index() -> Self {
-        Self(4)
-    }
-    /// Returns an index for wasm's `table.init`.
-    pub const fn get_table_init_index() -> Self {
-        Self(5)
-    }
-    /// Returns an index for wasm's `elem.drop`.
-    pub const fn get_elem_drop_index() -> Self {
-        Self(6)
-    }
-    /// Returns an index for wasm's `memory.copy` for locally defined memories.
-    pub const fn get_memory_copy_index() -> Self {
-        Self(7)
-    }
-    /// Returns an index for wasm's `memory.copy` for imported memories.
-    pub const fn get_imported_memory_copy_index() -> Self {
-        Self(8)
-    }
-    /// Returns an index for wasm's `memory.fill` for locally defined memories.
-    pub const fn get_memory_fill_index() -> Self {
-        Self(9)
-    }
-    /// Returns an index for wasm's `memory.fill` for imported memories.
-    pub const fn get_imported_memory_fill_index() -> Self {
-        Self(10)
-    }
-    /// Returns an index for wasm's `memory.init` instruction.
-    pub const fn get_memory_init_index() -> Self {
-        Self(11)
-    }
-    /// Returns an index for wasm's `data.drop` instruction.
-    pub const fn get_data_drop_index() -> Self {
-        Self(12)
-    }
-    /// Returns an index for wasm's `raise_trap` instruction.
-    pub const fn get_raise_trap_index() -> Self {
-        Self(13)
-    }
-    /// Returns an index for wasm's `table.size` instruction for local tables.
-    pub const fn get_table_size_index() -> Self {
-        Self(14)
-    }
-    /// Returns an index for wasm's `table.size` instruction for imported tables.
-    pub const fn get_imported_table_size_index() -> Self {
-        Self(15)
-    }
-    /// Returns an index for wasm's `table.grow` instruction for local tables.
-    pub const fn get_table_grow_index() -> Self {
-        Self(16)
-    }
-    /// Returns an index for wasm's `table.grow` instruction for imported tables.
-    pub const fn get_imported_table_grow_index() -> Self {
-        Self(17)
-    }
-    /// Returns an index for wasm's `table.get` instruction for local tables.
-    pub const fn get_table_get_index() -> Self {
-        Self(18)
-    }
-    /// Returns an index for wasm's `table.get` instruction for imported tables.
-    pub const fn get_imported_table_get_index() -> Self {
-        Self(19)
-    }
-    /// Returns an index for wasm's `table.set` instruction for local tables.
-    pub const fn get_table_set_index() -> Self {
-        Self(20)
-    }
-    /// Returns an index for wasm's `table.set` instruction for imported tables.
-    pub const fn get_imported_table_set_index() -> Self {
-        Self(21)
-    }
-    /// Returns an index for wasm's `func.ref` instruction.
-    pub const fn get_func_ref_index() -> Self {
-        Self(22)
-    }
-    /// Returns an index for wasm's `table.fill` instruction for local tables.
-    pub const fn get_table_fill_index() -> Self {
-        Self(23)
-    }
-    /// Returns an index for a function to increment the externref count.
-    pub const fn get_externref_inc_index() -> Self {
-        Self(24)
-    }
-    /// Returns an index for a function to decrement the externref count.
-    pub const fn get_externref_dec_index() -> Self {
-        Self(25)
-    }
-    /// Returns the total number of builtin functions.
-    pub const fn builtin_functions_total_number() -> u32 {
-        26
-    }
-
-    /// Return the index as an u32 number.
-    pub const fn index(self) -> u32 {
-        self.0
     }
 }
 

@@ -16,8 +16,7 @@
         clippy::float_arithmetic,
         clippy::mut_mut,
         clippy::nonminimal_bool,
-        clippy::option_map_unwrap_or,
-        clippy::option_map_unwrap_or_else,
+        clippy::map_unwrap_or,
         clippy::print_stdout,
         clippy::unicode_not_nfc,
         clippy::use_self
@@ -29,8 +28,6 @@ mod builder;
 mod code_memory;
 mod engine;
 mod link;
-mod serialize;
-mod trampoline;
 mod unwind;
 
 pub use crate::artifact::UniversalArtifact;

@@ -16,7 +16,6 @@ use crate::machine_x64::MachineX86_64;
 use crate::unwind::{create_systemv_cie, UnwindFrame};
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable};
-use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
@@ -29,13 +28,12 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
-    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex,
+    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo, TableIndex, TrapCode,
+    VMOffsets,
 };
-use wasmer_vm::{TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
-#[derive(MemoryUsage)]
 pub struct SinglepassCompiler {
     config: Singlepass,
 }
@@ -315,7 +313,7 @@ mod tests {
     use std::str::FromStr;
     use target_lexicon::triple;
     use wasmer_compiler::{CpuFeature, Features, Triple};
-    use wasmer_vm::{MemoryStyle, TableStyle};
+    use wasmer_types::{MemoryStyle, TableStyle};
 
     fn dummy_compilation_ingredients<'a>() -> (
         CompileModuleInfo,

@@ -74,31 +74,32 @@ pub fn generate_header_file(
     symbol_registry: &dyn SymbolRegistry,
     metadata_length: usize,
 ) -> String {
-    let mut c_statements = vec![];
-    c_statements.push(CStatement::LiteralConstant {
-        value: "#include <stdlib.h>\n#include <string.h>\n\n".to_string(),
-    });
-    c_statements.push(CStatement::LiteralConstant {
-        value: "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n".to_string(),
-    });
-    c_statements.push(CStatement::Declaration {
-        name: "module_bytes_len".to_string(),
-        is_extern: false,
-        is_const: true,
-        ctype: CType::U32,
-        definition: Some(Box::new(CStatement::LiteralConstant {
-            value: metadata_length.to_string(),
-        })),
-    });
-    c_statements.push(CStatement::Declaration {
-        name: "WASMER_METADATA".to_string(),
-        is_extern: true,
-        is_const: true,
-        ctype: CType::Array {
-            inner: Box::new(CType::U8),
+    let mut c_statements = vec![
+        CStatement::LiteralConstant {
+            value: "#include <stdlib.h>\n#include <string.h>\n\n".to_string(),
         },
-        definition: None,
-    });
+        CStatement::LiteralConstant {
+            value: "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n".to_string(),
+        },
+        CStatement::Declaration {
+            name: "module_bytes_len".to_string(),
+            is_extern: false,
+            is_const: true,
+            ctype: CType::U32,
+            definition: Some(Box::new(CStatement::LiteralConstant {
+                value: metadata_length.to_string(),
+            })),
+        },
+        CStatement::Declaration {
+            name: "WASMER_METADATA".to_string(),
+            is_extern: true,
+            is_const: true,
+            ctype: CType::Array {
+                inner: Box::new(CType::U8),
+            },
+            definition: None,
+        },
+    ];
     let function_declarations = module_info
         .functions
         .iter()

@@ -11,8 +11,7 @@ use wasmer_compiler::wasm_unsupported;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::RelocationKind;
 use wasmer_compiler::{WasmError, WasmResult};
-use wasmer_types::{FunctionType, Type};
-use wasmer_vm::libcalls::LibCall;
+use wasmer_types::{FunctionType, LibCall, Type};
 
 /// Helper function translate a Function signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(

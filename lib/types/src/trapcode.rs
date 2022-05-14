@@ -5,20 +5,21 @@
 
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
-use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// A trap code describing the reason for a trap.
 ///
 /// All trap instructions have an explicit trap code.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error, MemoryUsage)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Error)]
 #[cfg_attr(
     feature = "enable-rkyv",
     derive(RkyvSerialize, RkyvDeserialize, Archive)
 )]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.

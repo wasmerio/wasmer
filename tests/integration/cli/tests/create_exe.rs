@@ -81,7 +81,7 @@ fn create_exe_works() -> anyhow::Result<()> {
 
     WasmerCreateExe {
         current_dir: operating_dir.clone(),
-        wasm_path: wasm_path.clone(),
+        wasm_path: wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
         ..Default::default()
@@ -114,7 +114,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
 
     WasmerCreateExe {
         current_dir: operating_dir.clone(),
-        wasm_path: wasm_path.clone(),
+        wasm_path: wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
         ..Default::default()

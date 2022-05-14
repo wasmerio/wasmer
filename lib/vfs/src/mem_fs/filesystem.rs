@@ -598,7 +598,7 @@ impl fmt::Debug for FileSystemInner {
 
         debug(
             vec![self.storage.get(ROOT_INODE).unwrap()],
-            &self,
+            self,
             formatter,
             0,
         )

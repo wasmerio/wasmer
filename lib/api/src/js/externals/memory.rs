@@ -79,6 +79,7 @@ extern "C" {
 pub struct Memory {
     store: Store,
     vm_memory: VMMemory,
+    view: js_sys::Uint8Array,
 }
 
 unsafe impl Send for Memory {}
@@ -110,9 +111,11 @@ impl Memory {
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
         let memory = VMMemory::new(js_memory, ty);
+        let view = js_sys::Uint8Array::new(&memory.memory.buffer());
         Ok(Self {
             store: store.clone(),
             vm_memory: memory,
+            view,
         })
     }
 
@@ -237,13 +240,15 @@ impl Memory {
     /// Used by tests
     #[doc(hidden)]
     pub fn uint8view(&self) -> js_sys::Uint8Array {
-        js_sys::Uint8Array::new(&self.vm_memory.memory.buffer())
+        self.view.clone()
     }
 
     pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
+        let view = js_sys::Uint8Array::new(&vm_memory.memory.buffer());
         Self {
             store: store.clone(),
             vm_memory,
+            view,
         }
     }
 

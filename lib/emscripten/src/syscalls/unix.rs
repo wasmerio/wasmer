@@ -858,15 +858,13 @@ pub fn ___syscall168(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
 
     let mut fds_mut = fds.deref(&memory).read().unwrap();
 
-    let ret = unsafe {
+    unsafe {
         libc::poll(
             &mut fds_mut as *mut EmPollFd as *mut libc::pollfd,
             nfds as _,
             timeout,
         )
-    };
-
-    ret
+    }
 }
 
 // pread
@@ -1092,7 +1090,7 @@ pub fn ___syscall220(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
                 i += 1;
             }
             // We set the termination string char
-            *(dirp.add(pos + 11 + i) as *mut c_char) = 0 as c_char;
+            *(dirp.add(pos + 11 + i) as *mut c_char) = 0;
             debug!(
                 "  => file {}",
                 CStr::from_ptr(dirp.add(pos + 11) as *const c_char)

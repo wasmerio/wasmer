@@ -1,5 +1,6 @@
 //! X64 structures.
 
+#![allow(clippy::upper_case_acronyms)]
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
@@ -69,7 +70,7 @@ impl AbstractReg for GPR {
     }
     fn from_index(n: usize) -> Result<GPR, ()> {
         match n {
-            0..=15 => Ok(GPR::iterator().nth(n).unwrap().clone()),
+            0..=15 => Ok(*GPR::iterator().nth(n).unwrap()),
             _ => Err(()),
         }
     }
@@ -132,7 +133,7 @@ impl AbstractReg for XMM {
     }
     fn from_index(n: usize) -> Result<XMM, ()> {
         match n {
-            0..=15 => Ok(XMM::iterator().nth(n).unwrap().clone()),
+            0..=15 => Ok(*XMM::iterator().nth(n).unwrap()),
             _ => Err(()),
         }
     }

@@ -7,11 +7,7 @@
 
 use crate::mmap::Mmap;
 use crate::vmcontext::VMMemoryDefinition;
-use loupe::MemoryUsage;
 use more_asserts::assert_ge;
-#[cfg(feature = "enable-rkyv")]
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
-use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
@@ -19,7 +15,7 @@ use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
-use wasmer_types::{Bytes, MemoryType, Pages};
+use wasmer_types::{Bytes, MemoryStyle, MemoryType, Pages};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
@@ -63,47 +59,8 @@ pub enum MemoryError {
     Generic(String),
 }
 
-/// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, MemoryUsage)]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
-pub enum MemoryStyle {
-    /// The actual memory can be resized and moved.
-    Dynamic {
-        /// Our chosen offset-guard size.
-        ///
-        /// It represents the size in bytes of extra guard pages after the end
-        /// to optimize loads and stores with constant offsets.
-        offset_guard_size: u64,
-    },
-    /// Address space is allocated up front.
-    Static {
-        /// The number of mapped and unmapped pages.
-        bound: Pages,
-        /// Our chosen offset-guard size.
-        ///
-        /// It represents the size in bytes of extra guard pages after the end
-        /// to optimize loads and stores with constant offsets.
-        offset_guard_size: u64,
-    },
-}
-
-impl MemoryStyle {
-    /// Returns the offset-guard size
-    pub fn offset_guard_size(&self) -> u64 {
-        match self {
-            Self::Dynamic { offset_guard_size } => *offset_guard_size,
-            Self::Static {
-                offset_guard_size, ..
-            } => *offset_guard_size,
-        }
-    }
-}
-
 /// Trait for implementing Wasm Memory used by Wasmer.
-pub trait Memory: fmt::Debug + Send + Sync + MemoryUsage {
+pub trait Memory: fmt::Debug + Send + Sync {
     /// Returns the memory type for this memory.
     fn ty(&self) -> MemoryType;
 
@@ -123,7 +80,7 @@ pub trait Memory: fmt::Debug + Send + Sync + MemoryUsage {
 }
 
 /// A linear memory instance.
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 pub struct LinearMemory {
     // The underlying allocation.
     mmap: Mutex<WasmMmap>,
@@ -143,15 +100,11 @@ pub struct LinearMemory {
 
     /// The owned memory definition used by the generated code
     vm_memory_definition: VMMemoryDefinitionOwnership,
-
-    // Records whether we're using a bounds-checking strategy which requires
-    // handlers to catch trapping accesses.
-    pub(crate) needs_signal_handlers: bool,
 }
 
 /// A type to help manage who is responsible for the backing memory of them
 /// `VMMemoryDefinition`.
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 enum VMMemoryDefinitionOwnership {
     /// The `VMMemoryDefinition` is owned by the `Instance` and we should use
     /// its memory. This is how a local memory that's exported should be stored.
@@ -174,7 +127,7 @@ unsafe impl Send for LinearMemory {}
 /// This is correct because all internal mutability is protected by a mutex.
 unsafe impl Sync for LinearMemory {}
 
-#[derive(Debug, MemoryUsage)]
+#[derive(Debug)]
 struct WasmMmap {
     // Our OS allocation of mmap'd memory.
     alloc: Mmap,
@@ -238,15 +191,6 @@ impl LinearMemory {
 
         let offset_guard_bytes = style.offset_guard_size() as usize;
 
-        // If we have an offset guard, or if we're doing the static memory
-        // allocation strategy, we need signal handlers to catch out of bounds
-        // acceses.
-        let needs_signal_handlers = offset_guard_bytes > 0
-            || match style {
-                MemoryStyle::Dynamic { .. } => false,
-                MemoryStyle::Static { .. } => true,
-            };
-
         let minimum_pages = match style {
             MemoryStyle::Dynamic { .. } => memory.minimum,
             MemoryStyle::Static { bound, .. } => {
@@ -271,7 +215,6 @@ impl LinearMemory {
             mmap: Mutex::new(mmap),
             maximum: memory.maximum,
             offset_guard_size: offset_guard_bytes,
-            needs_signal_handlers,
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
                     let mut ptr = mem_loc;

@@ -1,60 +1,7 @@
 //! The WebAssembly possible errors
 use crate::trap::RuntimeError;
-use std::io;
 use thiserror::Error;
-use wasmer_compiler::CompileError;
-use wasmer_types::ExternType;
-
-/// The Serialize error can occur when serializing a
-/// compiled Module into a binary.
-#[derive(Error, Debug)]
-pub enum SerializeError {
-    /// An IO error
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    /// A generic serialization error
-    #[error("{0}")]
-    Generic(String),
-}
-
-/// The Deserialize error can occur when loading a
-/// compiled Module from a binary.
-#[derive(Error, Debug)]
-pub enum DeserializeError {
-    /// An IO error
-    #[error(transparent)]
-    Io(#[from] io::Error),
-    /// A generic deserialization error
-    #[error("{0}")]
-    Generic(String),
-    /// Incompatible serialized binary
-    #[error("incompatible binary: {0}")]
-    Incompatible(String),
-    /// The provided binary is corrupted
-    #[error("corrupted binary: {0}")]
-    CorruptedBinary(String),
-    /// The binary was valid, but we got an error when
-    /// trying to allocate the required resources.
-    #[error(transparent)]
-    Compiler(CompileError),
-}
-
-/// An ImportError.
-///
-/// Note: this error is not standard to WebAssembly, but it's
-/// useful to determine the import issue on the API side.
-#[derive(Error, Debug)]
-pub enum ImportError {
-    /// Incompatible Import Type.
-    /// This error occurs when the import types mismatch.
-    #[error("incompatible import type. Expected {0:?} but received {1:?}")]
-    IncompatibleType(ExternType, ExternType),
-
-    /// Unknown Import.
-    /// This error occurs when an import was expected but not provided.
-    #[error("unknown import. Expected {0:?}")]
-    UnknownImport(ExternType),
-}
+pub use wasmer_artifact::{DeserializeError, ImportError, SerializeError};
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).

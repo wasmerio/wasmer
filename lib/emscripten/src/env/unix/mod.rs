@@ -277,7 +277,7 @@ pub fn _getaddrinfo(
 
                     let guest_canonname_writer =
                         guest_canonname.slice(&memory, str_size as _).unwrap();
-                    for (i, b) in canonname_bytes.into_iter().enumerate() {
+                    for (i, b) in canonname_bytes.iter().enumerate() {
                         guest_canonname_writer
                             .index(i as u64)
                             .write(*b as _)

@@ -1,11 +1,9 @@
 //! Module for Dummy unwind registry.
 
-use loupe::MemoryUsage;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 
 /// Represents a registry of function unwind information when the host system
 /// support any one in specific.
-#[derive(MemoryUsage)]
 pub struct DummyUnwindRegistry {}
 
 impl DummyUnwindRegistry {
