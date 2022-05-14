@@ -2,12 +2,14 @@
 use crate::syscalls::types::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
 use std::{
     collections::VecDeque,
     io::{self, Read, Seek, Write},
 };
+#[cfg(any(not(unix), not(feature = "sys-poll")))]
+use tracing::debug;
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
@@ -136,7 +138,7 @@ pub fn iterate_poll_events(pes: PollEventSet) -> PollEventIter {
     PollEventIter { pes, i: 0 }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     let mut out = 0;
     for i in 0..16 {
@@ -153,7 +155,7 @@ fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     out
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     let mut peb = PollEventBuilder::new();
     for i in 0..16 {
@@ -170,6 +172,7 @@ fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     peb.build()
 }
 
+#[allow(dead_code)]
 impl PollEventBuilder {
     pub fn new() -> PollEventBuilder {
         PollEventBuilder { inner: 0 }
@@ -185,7 +188,7 @@ impl PollEventBuilder {
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "sys-poll"))]
 pub(crate) fn poll(
     selfs: &[&dyn VirtualFile],
     events: &[PollEventSet],
@@ -218,13 +221,61 @@ pub(crate) fn poll(
     Ok(result.try_into().unwrap())
 }
 
-#[cfg(not(unix))]
+#[cfg(any(not(unix), not(feature = "sys-poll")))]
 pub(crate) fn poll(
-    _selfs: &[&dyn VirtualFile],
-    _events: &[PollEventSet],
-    _seen_events: &mut [PollEventSet],
-) -> Result<(), FsError> {
-    unimplemented!("VirtualFile::poll is not implemented for non-Unix-like targets yet");
+    files: &[&dyn VirtualFile],
+    events: &[PollEventSet],
+    seen_events: &mut [PollEventSet],
+) -> Result<u32, FsError> {
+    if !(files.len() == events.len() && events.len() == seen_events.len()) {
+        debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
+        return Err(FsError::InvalidInput);
+    }
+
+    let mut ret = 0;
+    for n in 0..files.len() {
+        let mut builder = PollEventBuilder::new();
+
+        let file = files[n];
+        let can_read = file.bytes_available_read()?.map(|s| s > 0).unwrap_or(false);
+        let can_write = file
+            .bytes_available_write()?
+            .map(|s| s > 0)
+            .unwrap_or(false);
+        let is_closed = file.is_open() == false;
+
+        for event in iterate_poll_events(events[n]) {
+            match event {
+                PollEvent::PollIn if can_read => {
+                    builder = builder.add(PollEvent::PollIn);
+                }
+                PollEvent::PollOut if can_write => {
+                    builder = builder.add(PollEvent::PollOut);
+                }
+                PollEvent::PollHangUp if is_closed => {
+                    builder = builder.add(PollEvent::PollHangUp);
+                }
+                PollEvent::PollInvalid if is_closed => {
+                    builder = builder.add(PollEvent::PollInvalid);
+                }
+                PollEvent::PollError if is_closed => {
+                    builder = builder.add(PollEvent::PollError);
+                }
+                _ => {}
+            }
+        }
+        let revents = builder.build();
+        if revents != 0 {
+            ret += 1;
+        }
+        seen_events[n] = revents;
+    }
+
+    if ret == 0 {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+
+    Ok(ret)
 }
 
 pub trait WasiPath {}

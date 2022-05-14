@@ -3,7 +3,9 @@
 use crate::state::{default_fs_backing, WasiFs, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::WasiEnv;
+use crate::WasiThread;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use thiserror::Error;
 use wasmer_vfs::{FsError, VirtualFile};
 
@@ -45,6 +47,7 @@ pub struct WasiStateBuilder {
     stderr_override: Option<Box<dyn VirtualFile>>,
     stdin_override: Option<Box<dyn VirtualFile>>,
     fs_override: Option<Box<dyn wasmer_vfs::FileSystem>>,
+    on_yield: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
 }
 
 impl std::fmt::Debug for WasiStateBuilder {
@@ -55,6 +58,7 @@ impl std::fmt::Debug for WasiStateBuilder {
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
+            .field("on_yield exists", &self.on_yield.is_some())
             .field("stdout_override exists", &self.stdout_override.is_some())
             .field("stderr_override exists", &self.stderr_override.is_some())
             .field("stdin_override exists", &self.stdin_override.is_some())
@@ -319,6 +323,20 @@ impl WasiStateBuilder {
         self
     }
 
+    /// Sets a callback that will be invoked whenever the process yields execution.
+    ///
+    /// This is useful if the background tasks and/or callbacks are to be
+    /// executed whenever the WASM process goes idle
+    pub fn on_yield<F>(&mut self, callback: F) -> &mut Self
+    where
+        F: Fn(&WasiThread),
+        F: Send + Sync + 'static,
+    {
+        self.on_yield = Some(Arc::new(callback));
+
+        self
+    }
+
     /// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
@@ -464,7 +482,9 @@ impl WasiStateBuilder {
     pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
         let state = self.build()?;
 
-        Ok(WasiEnv::new(state))
+        let mut env = WasiEnv::new(state);
+        env.on_yield = self.on_yield.clone();
+        Ok(env)
     }
 }
 

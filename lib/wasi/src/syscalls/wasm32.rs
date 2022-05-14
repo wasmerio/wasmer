@@ -1,4 +1,5 @@
 use crate::syscalls::types::*;
+use chrono::prelude::*;
 use std::mem;
 use wasmer::WasmRef;
 
@@ -18,7 +19,8 @@ pub fn platform_clock_time_get(
     precision: __wasi_timestamp_t,
     time: WasmRef<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
-    let t_out = 1 * 1_000_000_000;
+    let new_time: DateTime<Local> = Local::now();
+    let t_out = new_time.timestamp_nanos();
     wasi_try_mem!(time.write(t_out as __wasi_timestamp_t));
 
     __WASI_ESUCCESS

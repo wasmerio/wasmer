@@ -21,6 +21,7 @@ mod types;
 pub use self::builder::*;
 pub use self::types::*;
 use crate::syscalls::types::*;
+use crate::utils::map_io_err;
 use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
@@ -346,7 +347,8 @@ impl WasiFs {
                         | __WASI_RIGHT_PATH_CREATE_FILE
                         | __WASI_RIGHT_PATH_LINK_TARGET
                         | __WASI_RIGHT_PATH_OPEN
-                        | __WASI_RIGHT_PATH_RENAME_TARGET;
+                        | __WASI_RIGHT_PATH_RENAME_TARGET
+                        | __WASI_RIGHT_PATH_SYMLINK;
                 }
 
                 rights
@@ -791,7 +793,7 @@ impl WasiFs {
                                 }
                             } else if file_type.is_symlink() {
                                 should_insert = false;
-                                let link_value = file.read_link().ok().ok_or(__WASI_EIO)?;
+                                let link_value = file.read_link().map_err(map_io_err)?;
                                 debug!("attempting to decompose path {:?}", link_value);
 
                                 let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
@@ -1172,14 +1174,14 @@ impl WasiFs {
                 .stdout_mut()
                 .map_err(fs_error_into_wasi_err)?
                 .as_mut()
-                .and_then(|f| f.flush().ok())
-                .ok_or(__WASI_EIO)?,
+                .and_then(|f| Some(f.flush().map_err(map_io_err)))
+                .unwrap_or_else(|| Err(__WASI_EIO))?,
             __WASI_STDERR_FILENO => self
                 .stderr_mut()
                 .map_err(fs_error_into_wasi_err)?
                 .as_mut()
-                .and_then(|f| f.flush().ok())
-                .ok_or(__WASI_EIO)?,
+                .and_then(|f| Some(f.flush().map_err(map_io_err)))
+                .unwrap_or_else(|| Err(__WASI_EIO))?,
             _ => {
                 let fd = self.fd_map.get(&fd).ok_or(__WASI_EBADF)?;
                 if fd.rights & __WASI_RIGHT_FD_DATASYNC == 0 {
@@ -1191,7 +1193,7 @@ impl WasiFs {
                 match &mut inode.kind {
                     Kind::File { handle, .. } => {
                         if let Some(file) = handle {
-                            file.flush().map_err(|_| __WASI_EIO)?
+                            file.flush().map_err(map_io_err)?
                         } else {
                             return Err(__WASI_EIO);
                         }
@@ -1214,7 +1216,7 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Result<Inode, __wasi_errno_t> {
-        let stat = self.get_stat_for_kind(&kind).ok_or(__WASI_EIO)?;
+        let stat = self.get_stat_for_kind(&kind)?;
         Ok(self.create_inode_with_stat(kind, is_preopened, name, stat))
     }
 
@@ -1367,11 +1369,11 @@ impl WasiFs {
         );
     }
 
-    pub fn get_stat_for_kind(&self, kind: &Kind) -> Option<__wasi_filestat_t> {
+    pub fn get_stat_for_kind(&self, kind: &Kind) -> Result<__wasi_filestat_t, __wasi_errno_t> {
         let md = match kind {
             Kind::File { handle, path, .. } => match handle {
                 Some(wf) => {
-                    return Some(__wasi_filestat_t {
+                    return Ok(__wasi_filestat_t {
                         st_filetype: __WASI_FILETYPE_REGULAR_FILE,
                         st_size: wf.size(),
                         st_atim: wf.last_accessed(),
@@ -1381,9 +1383,15 @@ impl WasiFs {
                         ..__wasi_filestat_t::default()
                     })
                 }
-                None => self.fs_backing.metadata(path).ok()?,
+                None => self
+                    .fs_backing
+                    .metadata(path)
+                    .map_err(fs_error_into_wasi_err)?,
             },
-            Kind::Dir { path, .. } => self.fs_backing.metadata(path).ok()?,
+            Kind::Dir { path, .. } => self
+                .fs_backing
+                .metadata(path)
+                .map_err(fs_error_into_wasi_err)?,
             Kind::Symlink {
                 base_po_dir,
                 path_to_symlink,
@@ -1393,7 +1401,7 @@ impl WasiFs {
                 let base_po_inode_v = &self.inodes[*base_po_inode];
                 match &base_po_inode_v.kind {
                     Kind::Root { .. } => {
-                        self.fs_backing.symlink_metadata(path_to_symlink).ok()?
+                        self.fs_backing.symlink_metadata(path_to_symlink).map_err(fs_error_into_wasi_err)?
                     }
                     Kind::Dir { path, .. } => {
                         let mut real_path = path.clone();
@@ -1404,15 +1412,15 @@ impl WasiFs {
                         // TODO: adjust size of symlink, too
                         //      for all paths adjusted think about this
                         real_path.push(path_to_symlink);
-                        self.fs_backing.symlink_metadata(&real_path).ok()?
+                        self.fs_backing.symlink_metadata(&real_path).map_err(fs_error_into_wasi_err)?
                     }
                     // if this triggers, there's a bug in the symlink code
                     _ => unreachable!("Symlink pointing to something that's not a directory as its base preopened directory"),
                 }
             }
-            _ => return None,
+            _ => return Err(__WASI_EIO),
         };
-        Some(__wasi_filestat_t {
+        Ok(__wasi_filestat_t {
             st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
             st_size: md.len(),
             st_atim: md.accessed(),

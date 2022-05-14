@@ -25,6 +25,8 @@ wasmer-vfs = { path = "../vfs", version = "=2.2.1", default-features = false }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 bincode = { version = "1.3", optional = true }
+chrono = { version = "^0.4", features = [ "wasmbind" ], optional = true }
+derivative = { version = "^2" }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
@@ -43,9 +45,10 @@ tracing-wasm = "0.2"
 default = ["sys-default"]
 
 sys = ["wasmer/sys"]
-sys-default = ["wasmer/sys-default", "sys", "logging", "host-fs"]
+sys-default = ["wasmer/sys-default", "sys", "logging", "host-fs", "sys-poll"]
+sys-poll = []
 
-js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js"]
+js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono"]
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 

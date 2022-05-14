@@ -93,8 +93,9 @@ impl Wasi {
             }
         }
 
-        let mut wasi_env = wasi_state_builder.finalize()?;
-        let import_object = wasi_env.import_object_for_all_wasi_versions(&module)?;
+        let wasi_env = wasi_state_builder.finalize()?;
+        let mut wasi_thread = wasi_env.new_thread();
+        let import_object = wasi_thread.import_object_for_all_wasi_versions(&module)?;
         let instance = Instance::new(&module, &import_object)?;
         Ok(instance)
     }
