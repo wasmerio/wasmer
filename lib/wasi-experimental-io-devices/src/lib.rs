@@ -3,7 +3,7 @@ use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 use tracing::debug;
-use wasmer_wasi::types::*;
+use wasmer_wasi::{types::*, WasiInodes};
 use wasmer_wasi::{Fd, VirtualFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
 
 use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
@@ -428,7 +428,7 @@ impl VirtualFile for FrameBuffer {
     }
 }
 
-pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
+pub fn initialize(inodes: &mut WasiInodes, fs: &mut WasiFs) -> Result<(), String> {
     let frame_buffer_file = Box::new(FrameBuffer {
         fb_type: FrameBufferFileType::Buffer,
         cursor: 0,
@@ -448,6 +448,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let base_dir_fd = unsafe {
         fs.open_dir_all(
+            inodes,
             VIRTUAL_ROOT_FD,
             "_wasmer/dev/fb0".to_string(),
             ALL_RIGHTS,
@@ -459,6 +460,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
+            inodes,
             base_dir_fd,
             input_file,
             Fd::READ,
@@ -473,6 +475,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
+            inodes,
             base_dir_fd,
             frame_buffer_file,
             Fd::READ | Fd::WRITE,
@@ -487,6 +490,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
+            inodes,
             base_dir_fd,
             resolution_file,
             Fd::READ | Fd::WRITE,
@@ -501,6 +505,7 @@ pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
 
     let _fd = fs
         .open_file_at(
+            inodes,
             base_dir_fd,
             draw_file,
             Fd::READ | Fd::WRITE,

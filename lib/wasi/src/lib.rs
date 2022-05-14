@@ -42,7 +42,7 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiState, WasiStateBuilder, WasiStateCreationError,
+    Fd, Pipe, Stderr, Stdin, Stdout, WasiFs, WasiInodes, WasiState, WasiStateBuilder, WasiStateCreationError,
     ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
@@ -52,6 +52,7 @@ pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_wasi_types::__WASI_CLOCK_MONOTONIC;
 
 use derivative::*;
 use std::ops::Deref;
@@ -60,8 +61,8 @@ use wasmer::{
     imports, Function, Imports, LazyInit, Memory, MemoryAccessError, Module, Store, WasmerEnv,
 };
 
-use std::time::{Instant, Duration};
-use std::sync::{atomic::AtomicU32, atomic::Ordering, Arc, Mutex, MutexGuard};
+use std::time::Duration;
+use std::sync::{atomic::AtomicU32, atomic::Ordering, Arc, RwLockReadGuard, RwLockWriteGuard};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
@@ -100,32 +101,41 @@ impl WasiThread {
     }
 
     /// Yields execution
-    pub fn yield_now(&self) {
+    pub fn yield_callback(&self) -> Result<(), WasiError> {
         if let Some(callback) = self.on_yield.as_ref() {
-            callback(self);
+            callback(self)?;
         }
-        std::thread::yield_now();
+        Ok(())
     }
 
-    /// Sleeps for a period of time
-    pub fn sleep(&self, duration: Duration) {
-        let start = Instant::now();
-        self.yield_now();
+    // Yields execution
+    pub fn yield_now(&self) -> Result<(), WasiError> {
+        self.yield_callback()?;
+        Ok(())
+    }
+
+    // Sleeps for a period of time
+    pub fn sleep(&self, duration: Duration) -> Result<(), WasiError> {
+        let duration = duration.as_nanos();
+        let start = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+        self.yield_now()?;
         loop {
-            let delta = match Instant::now().checked_duration_since(start) {
+            let now = platform_clock_time_get(__WASI_CLOCK_MONOTONIC, 1_000_000).unwrap() as u128;
+            let delta = match now.checked_sub(start) {
                 Some(a) => a,
                 None => { break; }
             };            
-            if delta > duration {
+            if delta >= duration {
                 break;
             }
             let remaining = match duration.checked_sub(delta) {
-                Some(a) => a.min(Duration::from_millis(10)),
+                Some(a) => Duration::from_nanos(a as u64),
                 None => { break; }
             };
-            self.yield_now();
-            std::thread::sleep(remaining);
+            std::thread::sleep(remaining.min(Duration::from_millis(10)));
+            self.yield_now()?;
         }
+        Ok(())
     }
 
     /// Get a reference to the memory
@@ -140,13 +150,30 @@ impl WasiThread {
         self.memory.clone()
     }
 
-    pub(crate) fn get_memory_and_wasi_state(
+    pub(crate) fn get_memory_and_wasi_state(&self, _mem_index: u32) -> (&Memory, &WasiState) {
+        let memory = self.memory();
+        let state = self.state.deref();
+        (memory, state)
+    }
+
+    pub(crate) fn get_memory_and_wasi_state_and_inodes(
         &self,
         _mem_index: u32,
-    ) -> (&Memory, MutexGuard<WasiState>) {
+    ) -> (&Memory, &WasiState, RwLockReadGuard<WasiInodes>) {
         let memory = self.memory();
-        let state = self.state.lock().unwrap();
-        (memory, state)
+        let state = self.state.deref();
+        let inodes = state.inodes.read().unwrap();
+        (memory, state, inodes)
+    }
+
+    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut(
+        &self,
+        _mem_index: u32,
+    ) -> (&Memory, &WasiState, RwLockWriteGuard<WasiInodes>) {
+        let memory = self.memory();
+        let state = self.state.deref();
+        let inodes = state.inodes.write().unwrap();
+        (memory, state, inodes)
     }
 
     /// Get an `Imports` for a specific version of WASI detected in the module.
@@ -189,15 +216,13 @@ pub struct WasiEnv {
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
     ///
-    /// Be careful when using this in host functions that call into Wasm:
-    /// if the lock is held and the Wasm calls into a host function that tries
-    /// to lock this mutex, the program will deadlock.
-    pub state: Arc<Mutex<WasiState>>,
+    /// Holding a read lock across WASM calls now is allowed
+    pub state: Arc<WasiState>,
     /// Optional callback thats invoked whenever a syscall is made
     /// which is used to make callbacks to the process without breaking
     /// the single threaded WASM modules
     #[derivative(Debug = "ignore")]
-    pub(crate) on_yield: Option<Arc<dyn Fn(&WasiThread) + Send + Sync + 'static>>,
+    pub(crate) on_yield: Option<Arc<dyn Fn(&WasiThread) -> Result<(), WasiError> + Send + Sync + 'static>>,
     /// The thread ID seed is used to generate unique thread identifiers
     /// for each WasiThread. These are needed for multithreading code that needs
     /// this information in the syscalls
@@ -207,7 +232,7 @@ pub struct WasiEnv {
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
-            state: Arc::new(Mutex::new(state)),
+            state: Arc::new(state),
             memory: LazyInit::new(),
             on_yield: None,
             thread_id_seed: Arc::new(AtomicU32::new(1u32)),
@@ -228,8 +253,8 @@ impl WasiEnv {
     /// Be careful when using this in host functions that call into Wasm:
     /// if the lock is held and the Wasm calls into a host function that tries
     /// to lock this mutex, the program will deadlock.
-    pub fn state(&self) -> MutexGuard<WasiState> {
-        self.state.lock().unwrap()
+    pub fn state(&self) -> &WasiState {
+        self.state.deref()
     }
 
     /// Get a reference to the memory

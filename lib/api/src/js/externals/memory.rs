@@ -335,11 +335,12 @@ impl Memory {
             .len()
             .try_into()
             .map_err(|_| MemoryAccessError::Overflow)?;
+            let view = self.uint8view();
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        if end > self.view.length() {
+        if end > view.length() {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
-        self.view.subarray(offset, end).copy_from(data);
+        view.subarray(offset, end).copy_from(data);
         Ok(())
     }
 }

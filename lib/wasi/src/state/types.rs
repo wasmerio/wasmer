@@ -7,9 +7,8 @@ use std::convert::TryInto;
 use std::{
     collections::VecDeque,
     io::{self, Read, Seek, Write},
+    time::Duration,
 };
-#[cfg(any(not(unix), not(feature = "sys-poll")))]
-use tracing::debug;
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
@@ -190,9 +189,10 @@ impl PollEventBuilder {
 
 #[cfg(all(unix, feature = "sys-poll"))]
 pub(crate) fn poll(
-    selfs: &[&dyn VirtualFile],
+    selfs: &[&(dyn VirtualFile + Sync)],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
+    timeout: Duration,
 ) -> Result<u32, FsError> {
     if !(selfs.len() == events.len() && events.len() == seen_events.len()) {
         return Err(FsError::InvalidInput);
@@ -207,7 +207,7 @@ pub(crate) fn poll(
             revents: 0,
         })
         .collect::<Vec<_>>();
-    let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, 1) };
+    let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, timeout.as_millis() as i32) };
 
     if result < 0 {
         // TODO: check errno and return value
@@ -223,12 +223,13 @@ pub(crate) fn poll(
 
 #[cfg(any(not(unix), not(feature = "sys-poll")))]
 pub(crate) fn poll(
-    files: &[&dyn VirtualFile],
+    files: &[&(dyn VirtualFile + Sync)],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
+    timeout: Duration,
 ) -> Result<u32, FsError> {
     if !(files.len() == events.len() && events.len() == seen_events.len()) {
-        debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
+        tracing::debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
         return Err(FsError::InvalidInput);
     }
 
@@ -237,12 +238,17 @@ pub(crate) fn poll(
         let mut builder = PollEventBuilder::new();
 
         let file = files[n];
-        let can_read = file.bytes_available_read()?.map(|s| s > 0).unwrap_or(false);
+        let can_read = file
+            .bytes_available_read()?
+            .map(|_| true)
+            .unwrap_or(false);
         let can_write = file
             .bytes_available_write()?
             .map(|s| s > 0)
             .unwrap_or(false);
         let is_closed = file.is_open() == false;
+
+        tracing::debug!("poll_evt can_read={} can_write={} is_closed={}", can_read, can_write, is_closed);
 
         for event in iterate_poll_events(events[n]) {
             match event {
@@ -271,8 +277,8 @@ pub(crate) fn poll(
         seen_events[n] = revents;
     }
 
-    if ret == 0 {
-        std::thread::sleep(std::time::Duration::from_millis(1));
+    if ret == 0 && timeout > Duration::ZERO {
+        return Err(FsError::WouldBlock);
     }
 
     Ok(ret)

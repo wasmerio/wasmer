@@ -1,6 +1,6 @@
 use crate::syscalls;
 use crate::syscalls::types::{self, snapshot0};
-use crate::{mem_error_to_wasi, WasiEnv, WasiThread};
+use crate::{mem_error_to_wasi, WasiEnv, WasiError, WasiThread};
 use wasmer::WasmPtr;
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -101,7 +101,7 @@ pub fn fd_seek(
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
     newoffset: WasmPtr<types::__wasi_filesize_t>,
-) -> types::__wasi_errno_t {
+) -> Result<types::__wasi_errno_t, WasiError> {
     let new_whence = match whence {
         snapshot0::__WASI_WHENCE_CUR => types::__WASI_WHENCE_CUR,
         snapshot0::__WASI_WHENCE_END => types::__WASI_WHENCE_END,
@@ -120,23 +120,23 @@ pub fn poll_oneoff(
     out_: WasmPtr<types::__wasi_event_t>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32>,
-) -> types::__wasi_errno_t {
+) -> Result<types::__wasi_errno_t, WasiError> {
     // in this case the new type is smaller than the old type, so it all fits into memory,
     // we just need to readjust and copy it
 
     // we start by adjusting `in_` into a format that the new code can understand
     let memory = thread.memory();
-    let in_origs = wasi_try_mem!(in_.slice(memory, nsubscriptions));
-    let in_origs = wasi_try_mem!(in_origs.read_to_vec());
+    let in_origs = wasi_try_mem_ok!(in_.slice(memory, nsubscriptions));
+    let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
 
     // get a pointer to the smaller new type
     let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t> = in_.cast();
 
-    for (in_sub_new, orig) in wasi_try_mem!(in_new_type_ptr.slice(memory, nsubscriptions))
+    for (in_sub_new, orig) in wasi_try_mem_ok!(in_new_type_ptr.slice(memory, nsubscriptions))
         .iter()
         .zip(in_origs.iter())
     {
-        wasi_try_mem!(in_sub_new.write(types::__wasi_subscription_t {
+        wasi_try_mem_ok!(in_sub_new.write(types::__wasi_subscription_t {
             userdata: orig.userdata,
             type_: orig.type_,
             u: if orig.type_ == types::__WASI_EVENTTYPE_CLOCK {
@@ -162,11 +162,11 @@ pub fn poll_oneoff(
     // replace the old values of in, in case the calling code reuses the memory
     let memory = thread.memory();
 
-    for (in_sub, orig) in wasi_try_mem!(in_.slice(memory, nsubscriptions))
+    for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(memory, nsubscriptions))
         .iter()
         .zip(in_origs.into_iter())
     {
-        wasi_try_mem!(in_sub.write(orig));
+        wasi_try_mem_ok!(in_sub.write(orig));
     }
 
     result

@@ -41,7 +41,7 @@ pub struct Wasi {
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices")]
+    #[cfg_attr(feature = "experimental-io-devices", structopt(long = "enable-experimental-io-devices"))]
     enable_experimental_io_devices: bool,
 
     /// Allow WASI modules to import multiple versions of WASI without a warning.

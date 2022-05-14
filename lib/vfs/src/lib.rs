@@ -51,7 +51,7 @@ impl dyn FileSystem + 'static {
 }
 
 pub trait FileOpener {
-    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile>>;
+    fn open(&mut self, path: &Path, conf: &OpenOptionsConfig) -> Result<Box<dyn VirtualFile + Sync>>;
 }
 
 #[derive(Debug, Clone)]
@@ -147,7 +147,7 @@ impl OpenOptions {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile>> {
+    pub fn open<P: AsRef<Path>>(&mut self, path: P) -> Result<Box<dyn VirtualFile + Sync>> {
         self.opener.open(path.as_ref(), &self.conf)
     }
 }
