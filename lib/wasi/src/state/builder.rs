@@ -467,6 +467,7 @@ impl WasiStateBuilder {
             fs: wasi_fs,
             inodes: Arc::new(inodes),
             args: self.args.clone(),
+            threading: Default::default(),
             envs: self
                 .envs
                 .iter()

@@ -10,11 +10,19 @@ pub type Result<T> = std::result::Result<T, BusError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct BusDescriptor(usize);
+pub struct CallDescriptor(u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[repr(transparent)]
-pub struct CallDescriptor(usize);
+impl CallDescriptor {
+    pub fn raw(&self) -> u32 {
+        self.0
+    }
+}
+
+impl From<u32> for CallDescriptor {
+    fn from(a: u32) -> Self {
+        Self(a)
+    }
+}
 
 pub trait VirtualBus: fmt::Debug + Send + Sync + 'static {
     /// Starts a new WAPM sub process
@@ -31,6 +39,7 @@ pub trait VirtualBusSpawner {
 
 #[derive(Debug, Clone)]
 pub struct SpawnOptionsConfig {
+    reuse: bool,
     chroot: bool,
     args: Vec<String>,
     preopen: Vec<String>,
@@ -43,6 +52,10 @@ pub struct SpawnOptionsConfig {
 }
 
 impl SpawnOptionsConfig {
+    pub const fn reuse(&self) -> bool {
+        self.reuse
+    }
+
     pub const fn chroot(&self) -> bool {
         self.chroot
     }
@@ -90,6 +103,7 @@ impl SpawnOptions {
         Self {
             spawner,
             conf: SpawnOptionsConfig {
+                reuse: false,
                 chroot: false,
                 args: Vec::new(),
                 preopen: Vec::new(),
@@ -104,6 +118,16 @@ impl SpawnOptions {
     }
     pub fn options(&mut self, options: SpawnOptionsConfig) -> &mut Self {
         self.conf = options;
+        self
+    }
+
+    pub fn reuse(&mut self, reuse: bool) -> &mut Self {
+        self.conf.reuse = reuse;
+        self
+    }
+
+    pub fn chroot(&mut self, chroot: bool) -> &mut Self {
+        self.conf.chroot = chroot;
         self
     }
 
@@ -155,8 +179,6 @@ impl SpawnOptions {
 
 #[derive(Debug)]
 pub struct BusSpawnedProcess {
-    /// Handle of the instance
-    pub handle: BusDescriptor,
     /// Reference to the spawned instance
     pub inst: Box<dyn VirtualBusProcess + Sync>,
 }
@@ -330,6 +352,9 @@ pub enum BusError {
     /// Invocation has failed
     #[error("invocation has failed")]
     InvokeFailed,
+    /// Already consumed
+    #[error("already consumed")]
+    AlreadyConsumed,
     /// Memory access violation
     #[error("memory access violation")]
     MemoryAccessViolation,

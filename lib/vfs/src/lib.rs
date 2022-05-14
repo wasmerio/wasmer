@@ -22,6 +22,18 @@ pub type Result<T> = std::result::Result<T, FsError>;
 #[repr(transparent)]
 pub struct FileDescriptor(usize);
 
+impl From<u32> for FileDescriptor {
+    fn from(a: u32) -> Self {
+        Self(a as usize)
+    }
+}
+
+impl Into<u32> for FileDescriptor {
+    fn into(self) -> u32 {
+        self.0 as u32
+    }
+}
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
@@ -235,17 +247,6 @@ impl<T: Any + fmt::Debug + 'static> Upcastable for T {
     #[inline]
     fn upcast_any_box(self: Box<Self>) -> Box<dyn Any> {
         self
-    }
-}
-
-impl dyn VirtualFile + 'static {
-    #[inline]
-    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
-        self.upcast_any_ref().downcast_ref::<T>()
-    }
-    #[inline]
-    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
-        self.upcast_any_mut().downcast_mut::<T>()
     }
 }
 

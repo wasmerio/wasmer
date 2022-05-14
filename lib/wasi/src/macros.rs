@@ -53,10 +53,35 @@ macro_rules! wasi_try_ok {
     }};
 }
 
+/// Like the `try!` macro or `?` syntax: returns the value if the computation
+/// succeeded or returns the error value.
+macro_rules! wasi_try_bus {
+    ($expr:expr) => {{
+        let res: Result<_, crate::syscalls::types::__bus_errno_t> = $expr;
+        match res {
+            Ok(val) => {
+                tracing::trace!("wasi::wasi_try_bus::val: {:?}", val);
+                val
+            }
+            Err(err) => {
+                tracing::debug!("wasi::wasi_try_bus::err: {:?}", err);
+                return err;
+            }
+        }
+    }};
+}
+
 /// Like `wasi_try` but converts a `MemoryAccessError` to a __wasi_errno_t`.
 macro_rules! wasi_try_mem {
     ($expr:expr) => {{
         wasi_try!($expr.map_err($crate::mem_error_to_wasi))
+    }};
+}
+
+/// Like `wasi_try` but converts a `MemoryAccessError` to a __bus_errno_t`.
+macro_rules! wasi_try_mem_bus {
+    ($expr:expr) => {{
+        wasi_try_bus!($expr.map_err($crate::mem_error_to_bus))
     }};
 }
 
@@ -75,5 +100,11 @@ macro_rules! wasi_try_mem_ok {
 macro_rules! get_input_str {
     ($memory:expr, $data:expr, $len:expr) => {{
         wasi_try_mem!($data.read_utf8_string($memory, $len))
+    }};
+}
+
+macro_rules! get_input_str_bus {
+    ($memory:expr, $data:expr, $len:expr) => {{
+        wasi_try_mem_bus!($data.read_utf8_string($memory, $len))
     }};
 }

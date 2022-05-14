@@ -40,11 +40,13 @@ Now let's create a program to link with this static object file.
 static void print_wasmer_error()
 {
     int error_len = wasmer_last_error_length();
-    printf("Error len: `%d`\n", error_len);
-    char* error_str = (char*) malloc(error_len);
-    wasmer_last_error_message(error_str, error_len);
-    printf("Error str: `%s`\n", error_str);
-    free(error_str);
+    if (error_len > 0) {
+        printf("Error len: `%d`\n", error_len);
+        char* error_str = (char*) malloc(error_len);
+        wasmer_last_error_message(error_str, error_len);
+        printf("Error str: `%s`\n", error_str);
+        free(error_str);
+    }
 }
 
 int main() {

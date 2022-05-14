@@ -10,6 +10,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+use wasmer_vbus::BusError;
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
@@ -98,6 +99,56 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> __wasi_errno_t {
         NetworkError::WriteZero => __WASI_ENOSPC,
         NetworkError::Unsupported => __WASI_ENOTSUP,
         NetworkError::UnknownError => __WASI_EIO,
+    }
+}
+
+pub fn bus_error_into_wasi_err(bus_error: BusError) -> __bus_errno_t {
+    use BusError::*;
+    match bus_error {
+        Serialization => __BUS_ESER,
+        Deserialization => __BUS_EDES,
+        InvalidWapm => __BUS_EWAPM,
+        FetchFailed => __BUS_EFETCH,
+        CompileError => __BUS_ECOMPILE,
+        InvalidABI => __BUS_EABI,
+        Aborted => __BUS_EABORTED,
+        BadHandle => __BUS_EBADHANDLE,
+        InvalidTopic => __BUS_ETOPIC,
+        BadCallback => __BUS_EBADCB,
+        Unsupported => __BUS_EUNSUPPORTED,
+        BadRequest => __BUS_EBADREQUEST,
+        AccessDenied => __BUS_EDENIED,
+        InternalError => __BUS_EINTERNAL,
+        MemoryAllocationFailed => __BUS_EALLOC,
+        InvokeFailed => __BUS_EINVOKE,
+        AlreadyConsumed => __BUS_ECONSUMED,
+        MemoryAccessViolation => __BUS_EMEMVIOLATION,
+        UnknownError => __BUS_EUNKNOWN,
+    }
+}
+
+pub fn wasi_error_into_bus_err(bus_error: __bus_errno_t) -> BusError {
+    use BusError::*;
+    match bus_error {
+        __BUS_ESER => Serialization,
+        __BUS_EDES => Deserialization,
+        __BUS_EWAPM => InvalidWapm,
+        __BUS_EFETCH => FetchFailed,
+        __BUS_ECOMPILE => CompileError,
+        __BUS_EABI => InvalidABI,
+        __BUS_EABORTED => Aborted,
+        __BUS_EBADHANDLE => BadHandle,
+        __BUS_ETOPIC => InvalidTopic,
+        __BUS_EBADCB => BadCallback,
+        __BUS_EUNSUPPORTED => Unsupported,
+        __BUS_EBADREQUEST => BadRequest,
+        __BUS_EDENIED => AccessDenied,
+        __BUS_EINTERNAL => InternalError,
+        __BUS_EALLOC => MemoryAllocationFailed,
+        __BUS_EINVOKE => InvokeFailed,
+        __BUS_ECONSUMED => AlreadyConsumed,
+        __BUS_EMEMVIOLATION => MemoryAccessViolation,
+        __BUS_EUNKNOWN | _ => UnknownError,
     }
 }
 

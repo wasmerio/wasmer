@@ -76,20 +76,13 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// Spawns a new thread by invoking the
     fn thread_spawn(
         &self,
-        _method: &str,
-        _user_data: u64,
-        _reactor: bool,
-    ) -> Result<WasiThreadId, WasiThreadError> {
+        _callback: Box<dyn FnOnce() + Send + 'static>,
+    ) -> Result<(), WasiThreadError> {
         Err(WasiThreadError::Unsupported)
     }
 
     /// Returns the amount of parallelism that is possible on this platform
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-
-    // Joins the specified thread with this thread - which effectively waits for it to exit
-    fn thread_join(&self, _other: WasiThreadId) -> Result<(), WasiThreadError> {
         Err(WasiThreadError::Unsupported)
     }
 
@@ -108,13 +101,13 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
 }
 
 #[derive(Debug)]
-pub struct PlugableRuntimeImplementation {
+pub struct PluggableRuntimeImplementation {
     pub bus: Box<dyn VirtualBus + Sync>,
     pub networking: Box<dyn VirtualNetworking + Sync>,
     pub thread_id_seed: AtomicU32,
 }
 
-impl PlugableRuntimeImplementation {
+impl PluggableRuntimeImplementation {
     pub fn set_bus_implementation<I>(&mut self, bus: I)
     where
         I: VirtualBus + Sync,
@@ -130,7 +123,7 @@ impl PlugableRuntimeImplementation {
     }
 }
 
-impl Default for PlugableRuntimeImplementation {
+impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
         Self {
             #[cfg(not(feature = "host-vnet"))]
@@ -143,13 +136,15 @@ impl Default for PlugableRuntimeImplementation {
     }
 }
 
-impl WasiRuntimeImplementation for PlugableRuntimeImplementation {
+impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
     fn bus<'a>(&'a self) -> &'a (dyn VirtualBus) {
         self.bus.deref()
     }
+
     fn networking<'a>(&'a self) -> &'a (dyn VirtualNetworking) {
         self.networking.deref()
     }
+
     fn thread_generate_id(&self) -> WasiThreadId {
         self.thread_id_seed.fetch_add(1, Ordering::Relaxed).into()
     }

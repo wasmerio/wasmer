@@ -6,7 +6,7 @@ use super::super::{
     wasi::wasi_env_t,
 };
 use wasmer_api::{Exportable, Extern};
-use wasmer_wasi::{generate_import_object_from_thread, get_wasi_version};
+use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 
 /// Unstable non-standard type wrapping `wasm_extern_t` with the
 /// addition of two `wasm_name_t` respectively for the module name and
@@ -170,8 +170,7 @@ fn wasi_get_unordered_imports_inner(
     let version = c_try!(get_wasi_version(&module.inner, false)
         .ok_or("could not detect a WASI version on the given module"));
 
-    let thread = wasi_env.inner.new_thread();
-    let import_object = generate_import_object_from_thread(store, thread, version);
+    let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
     imports.set_buffer(
         import_object
