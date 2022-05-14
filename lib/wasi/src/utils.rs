@@ -45,6 +45,12 @@ pub enum WasiVersion {
     /// `wasi_snapshot_preview1`.
     Snapshot1,
 
+    /// `wasix_32v1`.
+    Wasix32v1,
+
+    /// `wasix_64v1`.
+    Wasix64v1,
+
     /// Latest version.
     ///
     /// It's a “floating” version, i.e. it's an alias to the latest
@@ -64,6 +70,8 @@ impl WasiVersion {
         match *self {
             WasiVersion::Snapshot0 => SNAPSHOT0_NAMESPACE,
             WasiVersion::Snapshot1 => SNAPSHOT1_NAMESPACE,
+            WasiVersion::Wasix32v1 => WASIX_32V1_NAMESPACE,
+            WasiVersion::Wasix64v1 => WASIX_64V1_NAMESPACE,
             WasiVersion::Latest => SNAPSHOT1_NAMESPACE,
         }
     }
@@ -78,6 +86,8 @@ impl PartialEq<WasiVersion> for WasiVersion {
                 | (Self::Latest, Self::Latest)
                 | (Self::Snapshot0, Self::Snapshot0)
                 | (Self::Snapshot1, Self::Snapshot1)
+                | (Self::Wasix32v1, Self::Wasix32v1)
+                | (Self::Wasix64v1, Self::Wasix64v1)
         )
     }
 }
@@ -94,12 +104,22 @@ impl Ord for WasiVersion {
             return std::cmp::Ordering::Equal;
         }
         match (*self, *other) {
-            // if snapshot0 is not equal, it must be less
-            (Self::Snapshot0, _) => std::cmp::Ordering::Less,
-            (Self::Snapshot1, Self::Snapshot0) | (Self::Latest, Self::Snapshot0) => {
+            (Self::Snapshot1, Self::Snapshot0) => {
                 std::cmp::Ordering::Greater
             }
-            _ => unreachable!("Missing info about ordering of WasiVerison"),
+            (Self::Wasix32v1, Self::Snapshot1) | (Self::Wasix32v1, Self::Snapshot0) => {
+                std::cmp::Ordering::Greater
+            }
+            (Self::Wasix64v1, Self::Wasix32v1) | (Self::Wasix64v1, Self::Snapshot1) | (Self::Wasix64v1, Self::Snapshot0) => {
+                std::cmp::Ordering::Greater
+            }
+            (Self::Latest, Self::Wasix64v1) | (Self::Latest, Self::Wasix32v1) | (Self::Latest, Self::Snapshot1) | (Self::Latest, Self::Snapshot0) => {
+                std::cmp::Ordering::Greater
+            }
+            // they are not equal and not greater so they must be less
+            (_, _) => {
+                std::cmp::Ordering::Less
+            }
         }
     }
 }
@@ -109,6 +129,12 @@ const SNAPSHOT0_NAMESPACE: &str = "wasi_unstable";
 
 /// Namespace for the `Snapshot1` version.
 const SNAPSHOT1_NAMESPACE: &str = "wasi_snapshot_preview1";
+
+/// Namespace for the `wasix` version.
+const WASIX_32V1_NAMESPACE: &str = "wasix_32v1";
+
+/// Namespace for the `wasix` version.
+const WASIX_64V1_NAMESPACE: &str = "wasix_64v1";
 
 /// Detect the version of WASI being used based on the import
 /// namespaces.
@@ -126,6 +152,8 @@ pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
             match first_module.as_str() {
                 SNAPSHOT0_NAMESPACE => Some(WasiVersion::Snapshot0),
                 SNAPSHOT1_NAMESPACE => Some(WasiVersion::Snapshot1),
+                WASIX_32V1_NAMESPACE => Some(WasiVersion::Wasix32v1),
+                WASIX_64V1_NAMESPACE => Some(WasiVersion::Wasix64v1),
                 _ => None,
             }
         } else {
@@ -137,6 +165,8 @@ pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
         imports.find_map(|module| match module.as_str() {
             SNAPSHOT0_NAMESPACE => Some(WasiVersion::Snapshot0),
             SNAPSHOT1_NAMESPACE => Some(WasiVersion::Snapshot1),
+            WASIX_32V1_NAMESPACE => Some(WasiVersion::Wasix32v1),
+            WASIX_64V1_NAMESPACE => Some(WasiVersion::Wasix64v1),
             _ => None,
         })
     }
@@ -159,6 +189,12 @@ pub fn get_wasi_versions(module: &Module, strict: bool) -> Option<BTreeSet<WasiV
             SNAPSHOT1_NAMESPACE => {
                 out.insert(WasiVersion::Snapshot1);
             }
+            WASIX_32V1_NAMESPACE => {
+                out.insert(WasiVersion::Wasix32v1);
+            }
+            WASIX_64V1_NAMESPACE => {
+                out.insert(WasiVersion::Wasix64v1);
+            }
             _ => {
                 non_wasi_seen = true;
             }
@@ -178,31 +214,65 @@ mod test {
     #[test]
     fn wasi_version_equality() {
         assert_eq!(WasiVersion::Snapshot0, WasiVersion::Snapshot0);
+        assert_eq!(WasiVersion::Wasix64v1, WasiVersion::Wasix64v1);
+        assert_eq!(WasiVersion::Wasix32v1, WasiVersion::Wasix32v1);
         assert_eq!(WasiVersion::Snapshot1, WasiVersion::Snapshot1);
         assert_eq!(WasiVersion::Snapshot1, WasiVersion::Latest);
         assert_eq!(WasiVersion::Latest, WasiVersion::Snapshot1);
         assert_eq!(WasiVersion::Latest, WasiVersion::Latest);
+        assert!(WasiVersion::Wasix32v1 != WasiVersion::Wasix64v1);
+        assert!(WasiVersion::Wasix64v1 != WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Snapshot1 != WasiVersion::Wasix64v1);
+        assert!(WasiVersion::Wasix64v1 != WasiVersion::Snapshot1);
+        assert!(WasiVersion::Snapshot1 != WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Wasix32v1 != WasiVersion::Snapshot1);
         assert!(WasiVersion::Snapshot0 != WasiVersion::Snapshot1);
         assert!(WasiVersion::Snapshot1 != WasiVersion::Snapshot0);
         assert!(WasiVersion::Snapshot0 != WasiVersion::Latest);
         assert!(WasiVersion::Latest != WasiVersion::Snapshot0);
+        assert!(WasiVersion::Snapshot0 != WasiVersion::Latest);
+        assert!(WasiVersion::Latest != WasiVersion::Snapshot0);
+        assert!(WasiVersion::Wasix32v1 != WasiVersion::Latest);
+        assert!(WasiVersion::Wasix64v1 != WasiVersion::Latest);
     }
 
     #[test]
     fn wasi_version_ordering() {
         assert!(WasiVersion::Snapshot0 <= WasiVersion::Snapshot0);
         assert!(WasiVersion::Snapshot1 <= WasiVersion::Snapshot1);
+        assert!(WasiVersion::Wasix32v1 <= WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Wasix64v1 <= WasiVersion::Wasix64v1);
         assert!(WasiVersion::Latest <= WasiVersion::Latest);
         assert!(WasiVersion::Snapshot0 >= WasiVersion::Snapshot0);
         assert!(WasiVersion::Snapshot1 >= WasiVersion::Snapshot1);
+        assert!(WasiVersion::Wasix32v1 >= WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Wasix64v1 >= WasiVersion::Wasix64v1);
         assert!(WasiVersion::Latest >= WasiVersion::Latest);
 
-        assert!(WasiVersion::Snapshot0 < WasiVersion::Snapshot1);
-        assert!(WasiVersion::Snapshot1 > WasiVersion::Snapshot0);
         assert!(WasiVersion::Snapshot0 < WasiVersion::Latest);
+        assert!(WasiVersion::Snapshot0 < WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Snapshot0 < WasiVersion::Wasix64v1);
+        assert!(WasiVersion::Snapshot0 < WasiVersion::Snapshot1);
         assert!(WasiVersion::Latest > WasiVersion::Snapshot0);
+        assert!(WasiVersion::Wasix32v1 > WasiVersion::Snapshot0);
+        assert!(WasiVersion::Wasix64v1 > WasiVersion::Snapshot0);
+        assert!(WasiVersion::Snapshot1 > WasiVersion::Snapshot0);
 
-        assert!(!(WasiVersion::Snapshot1 < WasiVersion::Latest));
-        assert!(!(WasiVersion::Latest > WasiVersion::Snapshot1));
+        assert!(WasiVersion::Snapshot1 < WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Snapshot1 < WasiVersion::Wasix64v1);
+        assert!(WasiVersion::Wasix32v1 > WasiVersion::Snapshot1);
+        assert!(WasiVersion::Wasix64v1 > WasiVersion::Snapshot1);
+
+        assert!(WasiVersion::Wasix32v1 < WasiVersion::Latest);
+        assert!(WasiVersion::Wasix32v1 > WasiVersion::Snapshot1);
+        assert!(WasiVersion::Wasix64v1 < WasiVersion::Latest);
+        assert!(WasiVersion::Wasix64v1 > WasiVersion::Snapshot1);
+        assert!(WasiVersion::Latest > WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Snapshot1 < WasiVersion::Wasix32v1);
+        assert!(WasiVersion::Latest > WasiVersion::Wasix64v1);
+        assert!(WasiVersion::Snapshot1 < WasiVersion::Wasix32v1);
+
+        assert!(WasiVersion::Wasix32v1 < WasiVersion::Wasix64v1);
+        assert!(WasiVersion::Wasix64v1 > WasiVersion::Wasix32v1);
     }
 }

@@ -4,53 +4,11 @@ use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 use wasmer_types::{NativeWasmType, ValueType};
 
-/// Trait for the `Memory32` and `Memory64` marker types.
-///
-/// This allows code to be generic over 32-bit and 64-bit memories.
-pub unsafe trait MemorySize {
-    /// Type used to represent an offset into a memory. This is `u32` or `u64`.
-    type Offset: Copy + Into<u64> + TryFrom<u64>;
+pub use wasmer_types::MemorySize;
 
-    /// Type used to pass this value as an argument or return value for a Wasm function.
-    type Native: NativeWasmType;
+pub use wasmer_types::Memory32;
 
-    /// Zero value used for `WasmPtr::is_null`.
-    const ZERO: Self::Offset;
-
-    /// Convert an `Offset` to a `Native`.
-    fn offset_to_native(offset: Self::Offset) -> Self::Native;
-
-    /// Convert a `Native` to an `Offset`.
-    fn native_to_offset(native: Self::Native) -> Self::Offset;
-}
-
-/// Marker trait for 32-bit memories.
-pub struct Memory32;
-unsafe impl MemorySize for Memory32 {
-    type Offset = u32;
-    type Native = i32;
-    const ZERO: Self::Offset = 0;
-    fn offset_to_native(offset: Self::Offset) -> Self::Native {
-        offset as Self::Native
-    }
-    fn native_to_offset(native: Self::Native) -> Self::Offset {
-        native as Self::Offset
-    }
-}
-
-/// Marker trait for 64-bit memories.
-pub struct Memory64;
-unsafe impl MemorySize for Memory64 {
-    type Offset = u64;
-    type Native = i64;
-    const ZERO: Self::Offset = 0;
-    fn offset_to_native(offset: Self::Offset) -> Self::Native {
-        offset as Self::Native
-    }
-    fn native_to_offset(native: Self::Native) -> Self::Offset {
-        native as Self::Offset
-    }
-}
+pub use wasmer_types::Memory64;
 
 /// Alias for `WasmPtr<T, Memory64>.
 pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
