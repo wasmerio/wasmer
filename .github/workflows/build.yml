@@ -11,6 +11,9 @@ on:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
+    inputs:
+      release:
+          description: 'Make release'
 jobs:
   setup:
     name: Set up
@@ -289,7 +292,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: wasmer-linux-aarch64.tar.gz
+          name: wasmer-linux-aarch64
           path: dist
           if-no-files-found: error
           retention-days: 2
@@ -297,7 +300,7 @@ jobs:
   release:
     needs: [setup, build, linux_aarch64]
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.DOING_RELEASE == '1'
+    if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
     steps:
       - name: Download the Artifacts
         uses: actions/download-artifact@v2
