@@ -12,16 +12,16 @@ use crate::commands::{Cache, Config, Inspect, Run, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use anyhow::Result;
 
-use structopt::{clap::ErrorKind, StructOpt};
+use clap::{ErrorKind, Parser};
 
-#[derive(StructOpt)]
+#[derive(Parser)]
 #[cfg_attr(
     not(feature = "headless"),
-    structopt(name = "wasmer", about = "WebAssembly standalone runtime.", author)
+    clap(name = "wasmer", about = "WebAssembly standalone runtime.", author)
 )]
 #[cfg_attr(
     feature = "headless",
-    structopt(
+    clap(
         name = "wasmer-headless",
         about = "Headless WebAssembly standalone runtime.",
         author
@@ -30,48 +30,49 @@ use structopt::{clap::ErrorKind, StructOpt};
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wat
-    #[structopt(name = "run")]
+    #[clap(name = "run")]
     Run(Run),
 
+    // TODO: check whether this should really be a subcommand.
     /// Wasmer cache
-    #[structopt(name = "cache")]
+    #[clap(subcommand, name = "cache")]
     Cache(Cache),
 
     /// Validate a WebAssembly binary
-    #[structopt(name = "validate")]
+    #[clap(name = "validate")]
     Validate(Validate),
 
     /// Compile a WebAssembly binary
     #[cfg(feature = "compiler")]
-    #[structopt(name = "compile")]
+    #[clap(name = "compile")]
     Compile(Compile),
 
     /// Compile a WebAssembly binary into a native executable
     #[cfg(all(feature = "staticlib", feature = "compiler"))]
-    #[structopt(name = "create-exe")]
+    #[clap(name = "create-exe")]
     CreateExe(CreateExe),
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
-    #[structopt(name = "config")]
+    #[clap(name = "config")]
     Config(Config),
 
     /// Update wasmer to the latest version
-    #[structopt(name = "self-update")]
+    #[clap(name = "self-update")]
     SelfUpdate(SelfUpdate),
 
     /// Inspect a WebAssembly file
-    #[structopt(name = "inspect")]
+    #[clap(name = "inspect")]
     Inspect(Inspect),
 
     /// Run spec testsuite
     #[cfg(feature = "wast")]
-    #[structopt(name = "wast")]
+    #[clap(name = "wast")]
     Wast(Wast),
 
     /// Unregister and/or register wasmer as binfmt interpreter
     #[cfg(target_os = "linux")]
-    #[structopt(name = "binfmt")]
+    #[clap(name = "binfmt")]
     Binfmt(Binfmt),
 }
 
@@ -117,15 +118,15 @@ pub fn wasmer_main() {
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
             "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
-            | "self-update" | "validate" | "wast" | "binfmt" => WasmerCLIOptions::from_args(),
+            | "self-update" | "validate" | "wast" | "binfmt" => WasmerCLIOptions::parse(),
             _ => {
-                WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
-                    match e.kind {
+                WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
+                    match e.kind() {
                         // This fixes a issue that:
                         // 1. Shows the version twice when doing `wasmer -V`
                         // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
-                        ErrorKind::VersionDisplayed | ErrorKind::HelpDisplayed => e.exit(),
-                        _ => WasmerCLIOptions::Run(Run::from_args()),
+                        ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
+                        _ => WasmerCLIOptions::Run(Run::parse()),
                     }
                 })
             }

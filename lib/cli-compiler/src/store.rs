@@ -3,10 +3,10 @@
 
 use crate::common::WasmFeatures;
 use anyhow::Result;
+use clap::Parser;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use structopt::StructOpt;
 use wasmer_compiler::{CompilerConfig, Features, PointerWidth, Target};
 use wasmer_engine_universal_artifact::UniversalEngineBuilder;
 use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
@@ -84,39 +84,39 @@ impl SubsetTunables {
     }
 }
 
-#[derive(Debug, Clone, StructOpt, Default)]
+#[derive(Debug, Clone, Parser, Default)]
 /// The compiler and engine options
 pub struct StoreOptions {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     compiler: CompilerOptions,
 }
 
-#[derive(Debug, Clone, StructOpt, Default)]
+#[derive(Debug, Clone, Parser, Default)]
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[structopt(long, conflicts_with_all = &["cranelift", "llvm"])]
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "llvm"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "cranelift"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
     llvm: bool,
 
     /// Enable compiler internal verification.
-    #[structopt(long)]
+    #[clap(long)]
     #[allow(dead_code)]
     enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
     #[cfg(feature = "llvm")]
-    #[structopt(long, parse(from_os_str))]
+    #[clap(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     features: WasmFeatures,
 }
 

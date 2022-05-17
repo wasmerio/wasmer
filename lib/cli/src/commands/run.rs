@@ -11,7 +11,7 @@ use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 
-use structopt::StructOpt;
+use clap::Parser;
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -19,59 +19,59 @@ mod wasi;
 #[cfg(feature = "wasi")]
 use wasi::Wasi;
 
-#[derive(Debug, StructOpt, Clone, Default)]
+#[derive(Debug, Parser, Clone, Default)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
     /// Disable the cache
     #[cfg(feature = "cache")]
-    #[structopt(long = "disable-cache")]
+    #[clap(long = "disable-cache")]
     disable_cache: bool,
 
     /// File to run
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Invoke a specified function
-    #[structopt(long = "invoke", short = "i")]
+    #[clap(long = "invoke", short = 'i')]
     invoke: Option<String>,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
-    #[structopt(long = "command-name", hidden = true)]
+    #[clap(long = "command-name", hide = true)]
     command_name: Option<String>,
 
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
     /// as if no `cache-key` argument was passed.
     #[cfg(feature = "cache")]
-    #[structopt(long = "cache-key", hidden = true)]
+    #[clap(long = "cache-key", hide = true)]
     cache_key: Option<String>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     store: StoreOptions,
 
     // TODO: refactor WASI structure to allow shared options with Emscripten
     #[cfg(feature = "wasi")]
-    #[structopt(flatten)]
+    #[clap(flatten)]
     wasi: Wasi,
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
-    #[structopt(long = "enable-io-devices")]
+    #[clap(long = "enable-io-devices")]
     enable_experimental_io_devices: bool,
 
     /// Enable debug output
     #[cfg(feature = "debug")]
-    #[structopt(long = "debug", short = "d")]
+    #[clap(long = "debug", short = 'd')]
     debug: bool,
 
     #[cfg(feature = "debug")]
-    #[structopt(short, long, parse(from_occurrences))]
+    #[clap(short, long, parse(from_occurrences))]
     verbose: u8,
 
     /// Application arguments
-    #[structopt(value_name = "ARGS")]
+    #[clap(value_name = "ARGS")]
     args: Vec<String>,
 }
 

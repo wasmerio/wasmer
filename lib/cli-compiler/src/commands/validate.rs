@@ -1,19 +1,19 @@
 use crate::store::StoreOptions;
 use anyhow::{bail, Context, Result};
+use clap::Parser;
 use std::path::PathBuf;
 use std::str::FromStr;
-use structopt::StructOpt;
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_types::is_wasm;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
 pub struct Validate {
     /// File to validate as WebAssembly
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     store: StoreOptions,
 }
 

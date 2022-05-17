@@ -45,7 +45,7 @@ wasmer-vfs  = { version = "=2.3.0", path = "../vfs", default-features = false, f
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
-structopt = { version = "0.3", features = ["suggestions"] }
+clap = { version = "3.1", features = ["derive"] }
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
@@ -55,6 +55,7 @@ cfg-if = "1.0"
 fern = { version = "0.6", features = ["colored"], optional = true }
 log = { version = "0.4", optional = true }
 tempfile = "3"
+target-lexicon = { version = "0.12", features = ["std"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"

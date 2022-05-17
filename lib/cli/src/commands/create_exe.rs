@@ -2,39 +2,45 @@
 
 use crate::store::{CompilerOptions, EngineType};
 use anyhow::{Context, Result};
+use clap::Parser;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use structopt::StructOpt;
 use wasmer::*;
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Compilation Target triple
-    #[structopt(long = "target")]
+    #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     compiler: CompilerOptions,
 
-    #[structopt(short = "m", multiple = true, number_of_values = 1)]
+    // TODO: multiple_values or multiple_occurrences, or both?
+    // TODO: number_of_values = 1 required? need to read some more documentation
+    // before I can be sure
+    #[clap(short = 'm', multiple_occurrences = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
+    // TODO: multiple_values or multiple_occurrences, or both?
+    // TODO: number_of_values = 1 required? need to read some more documentation
+    // before I can be sure
     /// Additional libraries to link against.
     /// This is useful for fixing linker errors that may occur on some systems.
-    #[structopt(short = "l", multiple = true, number_of_values = 1)]
+    #[clap(short = 'l', multiple_occurrences = true, number_of_values = 1)]
     libraries: Vec<String>,
 }
 

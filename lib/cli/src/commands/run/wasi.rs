@@ -5,51 +5,60 @@ use std::path::PathBuf;
 use wasmer::{Instance, Module, RuntimeError, Val};
 use wasmer_wasi::{get_wasi_versions, WasiError, WasiState, WasiVersion};
 
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(Debug, StructOpt, Clone, Default)]
+#[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
+    // TODO: multiple_values or multiple_occurrences, or both?
+    // TODO: number_of_values = 1 required? need to read some more documentation
+    // before I can be sure
     /// WASI pre-opened directory
-    #[structopt(
+    #[clap(
         long = "dir",
         name = "DIR",
-        multiple = true,
+        multiple_occurrences = true,
         group = "wasi",
         number_of_values = 1
     )]
     pre_opened_directories: Vec<PathBuf>,
 
+    // TODO: multiple_values or multiple_occurrences, or both?
+    // TODO: number_of_values = 1 required? need to read some more documentation
+    // before I can be sure
     /// Map a host directory to a different location for the Wasm module
-    #[structopt(
+    #[clap(
         long = "mapdir",
         name = "GUEST_DIR:HOST_DIR",
-        multiple = true,
+        multiple_occurrences = true,
         parse(try_from_str = parse_mapdir),
         number_of_values = 1,
     )]
     mapped_dirs: Vec<(String, PathBuf)>,
 
+    // TODO: multiple_values or multiple_occurrences, or both?
+    // TODO: number_of_values = 1 required? need to read some more documentation
+    // before I can be sure
     /// Pass custom environment variables
-    #[structopt(
+    #[clap(
         long = "env",
         name = "KEY=VALUE",
-        multiple = true,
+        multiple_occurrences = true,
         parse(try_from_str = parse_envvar),
     )]
     env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices")]
+    #[clap(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
 
     /// Allow WASI modules to import multiple versions of WASI without a warning.
-    #[structopt(long = "allow-multiple-wasi-versions")]
+    #[clap(long = "allow-multiple-wasi-versions")]
     pub allow_multiple_wasi_versions: bool,
 
     /// Require WASI modules to only import 1 version of WASI.
-    #[structopt(long = "deny-multiple-wasi-versions")]
+    #[clap(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,
 }
 

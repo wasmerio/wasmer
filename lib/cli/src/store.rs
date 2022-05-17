@@ -5,74 +5,74 @@ use anyhow::Result;
 
 #[allow(unused_imports)]
 use crate::common::WasmFeatures;
+use clap::Parser;
 #[allow(unused_imports)]
 use std::path::PathBuf;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use structopt::StructOpt;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 
-#[derive(Debug, Clone, StructOpt, Default)]
+#[derive(Debug, Clone, Parser, Default)]
 /// The compiler and engine options
 pub struct StoreOptions {
     #[cfg(feature = "compiler")]
-    #[structopt(flatten)]
+    #[clap(flatten)]
     compiler: CompilerOptions,
 
     /// Use the Universal Engine.
-    #[structopt(long, conflicts_with_all = &["dylib", "staticlib", "jit", "native", "object_file"])]
+    #[clap(long, conflicts_with_all = &["dylib", "staticlib", "jit", "native", "object_file"])]
     universal: bool,
 
     /// Use the Dylib Engine.
-    #[structopt(long, conflicts_with_all = &["universal", "staticlib", "jit", "native", "object_file"])]
+    #[clap(long, conflicts_with_all = &["universal", "staticlib", "jit", "native", "object_file"])]
     dylib: bool,
 
     /// Use the Staticlib Engine.
-    #[structopt(long, conflicts_with_all = &["universal", "dylib", "jit", "native", "object_file"])]
+    #[clap(long, conflicts_with_all = &["universal", "dylib", "jit", "native", "object_file"])]
     staticlib: bool,
 
     /// Use the JIT (Universal) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "native", "object_file"])]
+    #[clap(long, hide = true, conflicts_with_all = &["universal", "dylib", "staticlib", "native", "object_file"])]
     jit: bool,
 
     /// Use the Native (Dylib) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "object_file"])]
+    #[clap(long, hide = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "object_file"])]
     native: bool,
 
     /// Use the ObjectFile (Staticlib) Engine.
-    #[structopt(long, hidden = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "native"])]
+    #[clap(long, hide = true, conflicts_with_all = &["universal", "dylib", "staticlib", "jit", "native"])]
     object_file: bool,
 }
 
 #[cfg(feature = "compiler")]
-#[derive(Debug, Clone, StructOpt, Default)]
+#[derive(Debug, Clone, Parser, Default)]
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[structopt(long, conflicts_with_all = &["cranelift", "llvm"])]
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "llvm"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "cranelift"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
     llvm: bool,
 
     /// Enable compiler internal verification.
-    #[structopt(long)]
+    #[clap(long)]
     enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
     #[cfg(feature = "llvm")]
-    #[structopt(long, parse(from_os_str))]
+    #[clap(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     features: WasmFeatures,
 }
 
