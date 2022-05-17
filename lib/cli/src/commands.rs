@@ -29,7 +29,7 @@ pub use wast::*;
 pub use {cache::*, config::*, inspect::*, run::*, self_update::*, validate::*};
 
 /// The kind of object format to emit.
-#[derive(Debug, Copy, Clone, structopt::StructOpt)]
+#[derive(Debug, Copy, Clone, clap::Parser)]
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 pub enum ObjectFormat {
     /// Serialize the entire module into an object file.

@@ -1,14 +1,14 @@
 use anyhow::{Context, Result};
+use clap::Parser;
 use std::env;
 use std::fs;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 use Action::*;
 
-#[derive(StructOpt, Clone, Copy)]
+#[derive(Parser, Clone, Copy)]
 enum Action {
     /// Register wasmer as binfmt interpreter
     Register,
@@ -22,14 +22,14 @@ enum Action {
 ///
 /// Check the wasmer repository for a systemd service definition example
 /// to automate the process at start-up.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct Binfmt {
     // Might be better to traverse the mount list
     /// Mount point of binfmt_misc fs
-    #[structopt(long, default_value = "/proc/sys/fs/binfmt_misc/")]
+    #[clap(long, default_value = "/proc/sys/fs/binfmt_misc/")]
     binfmt_misc: PathBuf,
 
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     action: Action,
 }
 

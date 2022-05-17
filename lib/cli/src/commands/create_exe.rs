@@ -3,6 +3,7 @@
 use super::ObjectFormat;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
+use clap::Parser;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -10,7 +11,6 @@ use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use structopt::StructOpt;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 
@@ -42,32 +42,32 @@ struct CrossCompileSetup {
     library: PathBuf,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Compilation Target triple
-    #[structopt(long = "target")]
+    #[clap(long = "target")]
     target_triple: Option<Triple>,
 
     // Cross-compile with `zig`
     /// Cross-compilation library path.
-    #[structopt(long = "library-path")]
+    #[clap(long = "library-path")]
     library_path: Option<PathBuf>,
 
     /// Cross-compilation tarball library path.
-    #[structopt(long = "tarball")]
+    #[clap(long = "tarball")]
     tarball: Option<PathBuf>,
 
     /// Specify `zig` binary path
-    #[structopt(long = "zig-binary-path")]
+    #[clap(long = "zig-binary-path")]
     zig_binary_path: Option<PathBuf>,
 
     /// Object format options
@@ -76,25 +76,31 @@ pub struct CreateExe {
     /// - (default) `symbols` creates an
     /// executable where all functions and metadata of the module are regular object symbols
     /// - `serialized` creates an executable where the module is zero-copy serialized as raw data
-    #[structopt(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
+    #[clap(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
 
     /// Header file for object input
     ///
     /// If given, the input `PATH` is assumed to be an object created with `wasmer create-obj` and
     /// this is its accompanying header file.
-    #[structopt(name = "HEADER", long = "header", verbatim_doc_comment)]
+    #[clap(name = "HEADER", long = "header", verbatim_doc_comment)]
     header: Option<PathBuf>,
 
-    #[structopt(short = "m", multiple = true, number_of_values = 1)]
+    // TODO: multiple_values or multiple_occurrences, or both?
+    // TODO: number_of_values = 1 required? need to read some more documentation
+    // before I can be sure
+    #[clap(short = 'm', multiple_occurrences = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
+    // TODO: multiple_values or multiple_occurrences, or both?
+    // TODO: number_of_values = 1 required? need to read some more documentation
+    // before I can be sure
     /// Additional libraries to link against.
     /// This is useful for fixing linker errors that may occur on some systems.
-    #[structopt(short = "l", multiple = true, number_of_values = 1)]
+    #[clap(short = 'l', multiple_occurrences = true, number_of_values = 1)]
     libraries: Vec<String>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     compiler: CompilerOptions,
 }
 
