@@ -10,6 +10,7 @@ documentation = "https://wasmerio.github.io/wasmer/c-api/"
 license = "MIT"
 readme = "README.md"
 edition = "2018"
+rust-version = "1.59"
 
 [lib]
 # The library name is `wasmer` so that we generate dylib like

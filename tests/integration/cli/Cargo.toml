@@ -6,6 +6,7 @@ description = "CLI integration tests"
 repository = "https://github.com/wasmerio/wasmer"
 edition = "2018"
 publish = false
+rust-version = "1.59"
 
 [dependencies]
 anyhow = "1"

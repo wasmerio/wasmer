@@ -9,6 +9,7 @@ repository = "https://github.com/wasmerio/wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception "
 readme = "README.md"
 edition = "2018"
+rust-version = "1.59"
 
 [dependencies]
 wasmer-artifact = { path = "../artifact", version = "=2.2.1" }

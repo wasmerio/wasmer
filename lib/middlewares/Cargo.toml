@@ -9,6 +9,7 @@ keywords = ["webassembly", "wasm"]
 repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
 edition = "2018"
+rust-version = "1.59"
 
 [dependencies]
 wasmer = { path = "../api", version = "=2.2.1", default-features = false, features = ["compiler"] }

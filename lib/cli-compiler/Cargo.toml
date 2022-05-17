@@ -11,6 +11,7 @@ readme = "README.md"
 edition = "2018"
 default-run = "wasmer-compiler"
 build = "build.rs"
+rust-version = "1.59"
 
 [[bin]]
 name = "wasmer-compiler"

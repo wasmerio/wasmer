@@ -6,6 +6,7 @@ license = "MIT"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 publish = false
+rust-version = "1.59"
 
 [dependencies]
 glob = "0.3"

@@ -5,6 +5,7 @@ description = "Wasmer Virtual FileSystem"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
 edition = "2018"
+rust-version = "1.59"
 
 [dependencies]
 libc = { version = "^0.2", default-features = false, optional = true }

@@ -13,6 +13,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Changed
 - #2864 wasmer-cli: remove wasi-experimental-io-devices from default builds
+- [#2891](https://github.com/wasmerio/wasmer/pull/2891) Declare MSRV in Cargo.toml instead of rust-toolchain file.
 
 ### Fixed
 - [#2829](https://github.com/wasmerio/wasmer/pull/2829) Improve error message oriented from JS object.

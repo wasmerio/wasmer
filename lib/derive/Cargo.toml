@@ -6,6 +6,7 @@ authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
 edition = "2018"
+rust-version = "1.59"
 
 [lib]
 proc-macro = true

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2018"
 publish = false
 license = "Apache-2.0 WITH LLVM-exception"
+rust-version = "1.59"
 
 [dependencies]
 anyhow = "1.0"

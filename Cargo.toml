@@ -8,6 +8,7 @@ license = "MIT"
 edition = "2018"
 publish = false
 autoexamples = false
+rust-version = "1.59"
 
 [dependencies]
 wasmer = { version = "=2.2.1", path = "lib/api", default-features = false }

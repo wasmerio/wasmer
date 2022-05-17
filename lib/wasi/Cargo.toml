@@ -9,6 +9,7 @@ repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
 readme = "README.md"
 edition = "2018"
+rust-version = "1.59"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
