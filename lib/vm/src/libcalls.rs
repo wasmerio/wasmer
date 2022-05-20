@@ -38,11 +38,11 @@
 #![allow(missing_docs)] // For some reason lint fails saying that `LibCall` is not documented, when it actually is
 
 use crate::func_data_registry::VMFuncRef;
+use crate::on_host_stack;
 use crate::probestack::PROBESTACK;
 use crate::table::{RawTableElement, TableElement};
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
-use crate::{on_host_stack, VMExternRef};
 pub use wasmer_types::LibCall;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
@@ -496,31 +496,6 @@ pub unsafe extern "C" fn wasmer_vm_func_ref(
     let function_index = FunctionIndex::from_u32(function_index);
 
     instance.func_ref(function_index).unwrap()
-}
-
-/// Implementation of externref increment
-///
-/// # Safety
-///
-/// `vmctx` must be dereferenceable.
-///
-/// This function must only be called at precise locations to prevent memory leaks.
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_vm_externref_inc(externref: VMExternRef) {
-    externref.ref_clone();
-}
-
-/// Implementation of externref decrement
-///
-/// # Safety
-///
-/// `vmctx` must be dereferenceable.
-///
-/// This function must only be called at precise locations, otherwise use-after-free
-/// and other serious memory bugs may occur.
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_vm_externref_dec(mut externref: VMExternRef) {
-    on_host_stack(|| externref.ref_drop())
 }
 
 /// Implementation of `elem.drop`.

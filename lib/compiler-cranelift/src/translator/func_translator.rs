@@ -238,8 +238,6 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
         environ.after_translate_operator(&op, builder, state)?;
     }
 
-    // When returning we drop all values in locals and on the stack.
-
     // The final `End` operator left us in the exit block where we need to manually add a return
     // instruction.
     //
@@ -248,23 +246,6 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     if state.reachable {
         debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
-            environ.translate_drop_locals(builder)?;
-
-            let _num_elems_to_drop = state.stack.len() - builder.func.signature.returns.len();
-            // drop elements on the stack that we're not returning
-            /*for val in state
-                .stack
-                .iter()
-                .zip(state.metadata_stack.iter())
-                .take(num_elems_to_drop)
-                .filter(|(_, metadata)| metadata.ref_counted)
-                .map(|(val, _)| val)
-            {
-                environ.translate_externref_dec(builder.cursor(), *val)?;
-            }*/
-
-            // TODO: look into what `state.reachable` check above does as well as `!builder.is_unreachable`, do we need that too for ref counting?
-
             match environ.return_mode() {
                 ReturnMode::NormalReturns => {
                     let return_types = wasm_param_types(&builder.func.signature.returns, |i| {
