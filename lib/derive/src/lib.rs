@@ -3,16 +3,7 @@ extern crate proc_macro;
 use proc_macro_error::proc_macro_error;
 use syn::{parse_macro_input, DeriveInput};
 
-mod env;
 mod value_type;
-
-#[proc_macro_error]
-#[proc_macro_derive(WasmerEnv, attributes(wasmer))]
-pub fn derive_wasmer_env(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let gen = env::impl_wasmer_env(&input);
-    gen.into()
-}
 
 #[proc_macro_error]
 #[proc_macro_derive(ValueType)]

@@ -631,19 +631,6 @@ impl fmt::Debug for Function {
     }
 }
 
-// This is needed for reference types
-impl wasmer_types::WasmValueType for Function {
-    /// Write the value.
-    unsafe fn write_value_to(&self, _p: *mut i128) {
-        unimplemented!();
-    }
-
-    /// Read the value.
-    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
-        unimplemented!();
-    }
-}
-
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {
@@ -655,8 +642,6 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
-    pub use wasmer_types::{ExternRef, VMExternRef};
     use wasmer_types::{FunctionType, NativeWasmType, Type};
     // use wasmer::{raise_user_trap, resume_panic};
 
@@ -748,18 +733,6 @@ mod inner {
         f32 => f32,
         f64 => f64
     );
-
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
-    unsafe impl FromToNativeWasmType for ExternRef {
-        type Native = VMExternRef;
-
-        fn to_native(self) -> Self::Native {
-            self.into()
-        }
-        fn from_native(n: Self::Native) -> Self {
-            n.into()
-        }
-    }
 
     #[cfg(test)]
     mod test_from_to_native_wasm_type {

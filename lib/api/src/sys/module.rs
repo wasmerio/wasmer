@@ -1,6 +1,4 @@
-use crate::sys::exports::Exportable;
 use crate::sys::store::Store;
-use crate::sys::types::{ExportType, ImportType};
 use crate::sys::InstantiationError;
 use std::fmt;
 use std::io;
@@ -13,7 +11,10 @@ use wasmer_types::WasmError;
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
+use wasmer_types::{ExportType, ImportType};
 use wasmer_vm::InstanceHandle;
+
+use super::context::AsContextMut;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -277,16 +278,24 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
+        mut ctx: impl AsContextMut,
         imports: &[crate::Extern],
     ) -> Result<InstanceHandle, InstantiationError> {
+        // Ensure all imports come from the same context.
+        for import in imports {
+            if !import.is_from_context(ctx.as_context_ref()) {
+                return Err(InstantiationError::BadContext);
+            }
+        }
+
         unsafe {
-            let instance_handle = self.artifact.instantiate(
+            let mut instance_handle = self.artifact.instantiate(
                 self.store.tunables(),
                 &imports
                     .iter()
-                    .map(crate::Extern::to_export)
+                    .map(crate::Extern::to_vm_extern)
                     .collect::<Vec<_>>(),
-                Box::new(self.clone()),
+                ctx.as_context_mut().objects_mut(),
             )?;
 
             // After the instance handle is created, we need to initialize
@@ -295,7 +304,7 @@ impl Module {
             // as some of the Instance elements may have placed in other
             // instance tables.
             self.artifact
-                .finish_instantiation(&self.store, &instance_handle)?;
+                .finish_instantiation(&self.store, &mut instance_handle)?;
 
             Ok(instance_handle)
         }
