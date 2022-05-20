@@ -24,6 +24,3 @@ default = ["std", "enable-serde"]
 std = []
 core = []
 enable-serde = ["serde", "serde/std", "serde_bytes"]
-
-# experimental / in-development features
-experimental-reference-types-extern-ref = []

@@ -1,11 +1,10 @@
 use crate::CpuFeature;
-use crate::{resolve_imports, Export, InstantiationError, RuntimeError, Tunables};
+use crate::{resolve_imports, InstantiationError, RuntimeError, Tunables};
 use crate::{ArtifactCreate, Upcastable};
-use std::any::Any;
 use wasmer_types::entity::BoxedSlice;
 use wasmer_types::{DataInitializer, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, TrapHandler,
+    ContextObjects, FunctionBodyPtr, InstanceAllocator, InstanceHandle, TrapHandler, VMExtern,
     VMSharedSignatureIndex, VMTrampoline,
 };
 
@@ -39,9 +38,6 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
     /// Returns the associated VM signatures for this `Artifact`.
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
 
-    /// Get the func data registry
-    fn func_data_registry(&self) -> &FuncDataRegistry;
-
     /// Do preinstantiation logic that is executed before instantiating
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())
@@ -54,8 +50,8 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
     unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
-        imports: &[Export],
-        host_state: Box<dyn Any>,
+        imports: &[VMExtern],
+        context: &mut ContextObjects,
     ) -> Result<InstanceHandle, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
         // host CPU features.
@@ -70,22 +66,15 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
         self.preinstantiate()?;
 
         let module = self.module();
-        let (imports, import_function_envs) = {
-            let mut imports = resolve_imports(
-                &module,
-                imports,
-                self.finished_dynamic_function_trampolines(),
-                self.memory_styles(),
-                self.table_styles(),
-            )
-            .map_err(InstantiationError::Link)?;
-
-            // Get the `WasmerEnv::init_with_instance` function pointers and the pointers
-            // to the envs to call it on.
-            let import_function_envs = imports.get_imported_function_envs();
-
-            (imports, import_function_envs)
-        };
+        let imports = resolve_imports(
+            &module,
+            imports,
+            context,
+            self.finished_dynamic_function_trampolines(),
+            self.memory_styles(),
+            self.table_styles(),
+        )
+        .map_err(InstantiationError::Link)?;
 
         // Get pointers to where metadata about local memories should live in VM memory.
         // Get pointers to where metadata about local tables should live in VM memory.
@@ -93,15 +82,25 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
         let (allocator, memory_definition_locations, table_definition_locations) =
             InstanceAllocator::new(&*module);
         let finished_memories = tunables
-            .create_memories(&module, self.memory_styles(), &memory_definition_locations)
+            .create_memories(
+                context,
+                &module,
+                self.memory_styles(),
+                &memory_definition_locations,
+            )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_tables = tunables
-            .create_tables(&module, self.table_styles(), &table_definition_locations)
+            .create_tables(
+                context,
+                &module,
+                self.table_styles(),
+                &table_definition_locations,
+            )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
-            .create_globals(&module)
+            .create_globals(context, &module)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
@@ -110,6 +109,7 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
         let handle = InstanceHandle::new(
             allocator,
             module,
+            context,
             self.finished_functions().clone(),
             self.finished_function_call_trampolines().clone(),
             finished_memories,
@@ -117,8 +117,6 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
             finished_globals,
             imports,
             self.signatures().clone(),
-            host_state,
-            import_function_envs,
         )
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
         Ok(handle)
@@ -131,7 +129,7 @@ pub trait Artifact: Send + Sync + Upcastable + ArtifactCreate {
     unsafe fn finish_instantiation(
         &self,
         trap_handler: &(dyn TrapHandler + 'static),
-        handle: &InstanceHandle,
+        handle: &mut InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
             .data_initializers()

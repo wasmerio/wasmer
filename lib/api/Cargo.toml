@@ -89,31 +89,13 @@ compiler = [
     "sys",
     "wasmer-compiler/translator",
 ]
-    singlepass = [
-        "compiler",
-        "wasmer-compiler-singlepass",
-    ]
-    cranelift = [
-        "compiler",
-        "wasmer-compiler-cranelift",
-    ]
-    llvm = [
-        "compiler",
-        "wasmer-compiler-llvm",
-    ]
+singlepass = ["compiler", "wasmer-compiler-singlepass"]
+cranelift = ["compiler", "wasmer-compiler-cranelift"]
+llvm = ["compiler", "wasmer-compiler-llvm"]
 default-compiler = []
-    default-singlepass = [
-        "default-compiler",
-        "singlepass",
-    ]
-    default-cranelift = [
-        "default-compiler",
-        "cranelift",
-    ]
-    default-llvm = [
-        "default-compiler",
-        "llvm",
-    ]
+default-singlepass = ["default-compiler", "singlepass"]
+default-cranelift = ["default-compiler", "cranelift"]
+default-llvm = ["default-compiler", "llvm"]
 # - Engines.
 engine = ["sys"]
 universal = [
@@ -123,11 +105,6 @@ default-engine = []
 default-universal = [
     "default-engine",
     "universal",
-]
-# - Experimental / in-development features
-experimental-reference-types-extern-ref = [
-    "sys",
-    "wasmer-types/experimental-reference-types-extern-ref",
 ]
 # - Deprecated features.
 jit = ["universal"]

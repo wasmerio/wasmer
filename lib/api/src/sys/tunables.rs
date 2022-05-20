@@ -1,12 +1,10 @@
 use crate::sys::{MemoryType, Pages, TableType};
 use std::ptr::NonNull;
-use std::sync::Arc;
 use target_lexicon::PointerWidth;
 use wasmer_compiler::{Target, Tunables};
 use wasmer_vm::MemoryError;
 use wasmer_vm::{
-    LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle, VMMemoryDefinition,
-    VMTableDefinition,
+    MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition,
 };
 
 /// Tunable parameters for WebAssembly compilation.
@@ -96,8 +94,8 @@ impl Tunables for BaseTunables {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-    ) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::new(ty, style)?))
+    ) -> Result<VMMemory, MemoryError> {
+        VMMemory::new(ty, style)
     }
 
     /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
@@ -110,21 +108,13 @@ impl Tunables for BaseTunables {
         ty: &MemoryType,
         style: &MemoryStyle,
         vm_definition_location: NonNull<VMMemoryDefinition>,
-    ) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::from_definition(
-            ty,
-            style,
-            vm_definition_location,
-        )?))
+    ) -> Result<VMMemory, MemoryError> {
+        VMMemory::from_definition(ty, style, vm_definition_location)
     }
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
-    fn create_host_table(
-        &self,
-        ty: &TableType,
-        style: &TableStyle,
-    ) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::new(ty, style)?))
+    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+        VMTable::new(ty, style)
     }
 
     /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
@@ -137,12 +127,8 @@ impl Tunables for BaseTunables {
         ty: &TableType,
         style: &TableStyle,
         vm_definition_location: NonNull<VMTableDefinition>,
-    ) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::from_definition(
-            ty,
-            style,
-            vm_definition_location,
-        )?))
+    ) -> Result<VMTable, String> {
+        VMTable::from_definition(ty, style, vm_definition_location)
     }
 }
 
