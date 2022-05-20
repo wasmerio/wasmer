@@ -609,7 +609,7 @@ mod inner {
     use std::convert::{Infallible, TryInto};
     use std::error::Error;
     use std::panic::{self, AssertUnwindSafe};
-    use wasmer_vm::{on_host_stack, VMTrampoline};
+    use wasmer_vm::{on_host_stack, VMContext, VMTrampoline};
 
     use wasmer_types::{RawValue, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
@@ -818,6 +818,9 @@ mod inner {
         /// tuple (list) of values.
         unsafe fn into_c_struct(self, ctx: &mut impl AsContextMut) -> Self::CStruct;
 
+        /// Writes the contents of a C struct to an array of `RawValue`.
+        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut RawValue);
+
         /// Get the Wasm types for the tuple (list) of currently
         /// represented values.
         fn wasm_types() -> &'static [Type];
@@ -1019,6 +1022,18 @@ mod inner {
                     )
                 }
 
+                #[allow(non_snake_case)]
+                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut RawValue) {
+                    // Unpack items of the tuple.
+                    let $c_struct_name( $( $x ),* ) = c_struct;
+
+                    let mut _n = 0;
+                    $(
+                        *_ptr.add(_n).cast() = $x;
+                        _n += 1;
+                    )*
+                }
+
                 fn wasm_types() -> &'static [Type] {
                     &[
                         $(
@@ -1045,7 +1060,7 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func>, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -1056,7 +1071,10 @@ mod inner {
 
                         let result = on_host_stack(|| {
                             panic::catch_unwind(AssertUnwindSafe(|| {
-                                (env.func)(ctx.as_context_mut(), $( FromToNativeWasmType::from_native($x) ),* ).into_result()
+                                $(
+                                    let $x = FromToNativeWasmType::from_native(NativeWasmType::from_abi(&mut ctx, $x));
+                                )*
+                                (env.func)(ctx.as_context_mut(), $($x),* ).into_result()
                             }))
                         });
 
@@ -1070,9 +1088,35 @@ mod inner {
                     func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
 
+                #[allow(non_snake_case)]
                 fn call_trampoline_address() -> VMTrampoline {
-                    todo!()
+                    unsafe extern "C" fn call_trampoline<
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                    >(
+                        vmctx: *mut VMContext,
+                        body: *const VMFunctionBody,
+                        args: *mut RawValue,
+                    ) {
+                            let body: unsafe extern "C" fn(
+                                vmctx: *mut VMContext,
+                                $( $x: <$x::Native as NativeWasmType>::Abi, )*
+                            ) -> Rets::CStruct
+                                = std::mem::transmute(body);
+
+                            let mut _n = 0;
+                            $(
+                                let $x = *args.add(_n).cast();
+                                _n += 1;
+                            )*
+
+                            let results = body(vmctx, $( $x ),*);
+                            Rets::write_c_struct_to_ptr(results, args);
+                    }
+
+                    call_trampoline::<$( $x, )* Rets>
                 }
+
             }
         };
     }
@@ -1153,6 +1197,8 @@ mod inner {
         unsafe fn into_c_struct(self, _: &mut impl AsContextMut) -> Self::CStruct {
             self
         }
+
+        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut RawValue) {}
 
         fn wasm_types() -> &'static [Type] {
             &[]

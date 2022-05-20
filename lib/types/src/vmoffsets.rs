@@ -117,7 +117,7 @@ impl VMBuiltinFunctionIndex {
     }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        26
+        24
     }
 
     /// Return the index as an u32 number.
