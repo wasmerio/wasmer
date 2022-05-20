@@ -16,7 +16,6 @@ use crate::js::types::param_from_js;
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
-use wasmer_types::NativeWasmType;
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).

@@ -2,13 +2,10 @@ use crate::js::{externals::Memory, FromToNativeWasmType};
 use crate::{MemoryAccessError, WasmRef, WasmSlice};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
-use wasmer_types::{NativeWasmType, ValueType};
-
-pub use wasmer_types::MemorySize;
-
 pub use wasmer_types::Memory32;
-
 pub use wasmer_types::Memory64;
+pub use wasmer_types::MemorySize;
+use wasmer_types::ValueType;
 
 /// Alias for `WasmPtr<T, Memory64>.
 pub type WasmPtr64<T> = WasmPtr<T, Memory64>;

@@ -1,12 +1,10 @@
+use crate::sys::context::{AsContextMut, AsContextRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
-use crate::sys::store::Store;
-use crate::sys::types::{Val, ValFuncRef};
 use crate::sys::RuntimeError;
 use crate::sys::TableType;
-use std::sync::Arc;
-use wasmer_compiler::Export;
-use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
+use crate::{ExternRef, Function, Value};
+use wasmer_vm::{ContextHandle, InternalContextHandle, TableElement, VMExtern, VMTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -17,17 +15,46 @@ use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
+#[derive(Debug, Clone)]
 pub struct Table {
-    store: Store,
-    vm_table: VMTable,
+    handle: ContextHandle<VMTable>,
 }
 
 fn set_table_item(
-    table: &dyn RuntimeTable,
+    table: &mut VMTable,
     item_index: u32,
     item: TableElement,
 ) -> Result<(), RuntimeError> {
     table.set(item_index, item).map_err(|e| e.into())
+}
+
+fn value_to_table_element(
+    ctx: impl AsContextMut,
+    val: Value,
+) -> Result<wasmer_vm::TableElement, RuntimeError> {
+    if !val.is_from_context(ctx.as_context_ref()) {
+        return Err(RuntimeError::new("cannot pass Value across contexts"));
+    }
+    Ok(match val {
+        Value::ExternRef(extern_ref) => {
+            wasmer_vm::TableElement::ExternRef(extern_ref.map(|e| e.vm_externref()))
+        }
+        Value::FuncRef(func_ref) => {
+            wasmer_vm::TableElement::FuncRef(func_ref.map(|f| f.vm_funcref(ctx)))
+        }
+        _ => return Err(RuntimeError::new("val is not reference")),
+    })
+}
+
+fn value_from_table_element(ctx: impl AsContextMut, item: wasmer_vm::TableElement) -> Value {
+    match item {
+        wasmer_vm::TableElement::FuncRef(funcref) => {
+            Value::FuncRef(funcref.map(|f| unsafe { Function::from_vm_funcref(ctx, f) }))
+        }
+        wasmer_vm::TableElement::ExternRef(extern_ref) => {
+            Value::ExternRef(extern_ref.map(|e| unsafe { ExternRef::from_vm_externref(ctx, e) }))
+        }
+    }
 }
 
 impl Table {
@@ -37,53 +64,58 @@ impl Table {
     ///
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::sys::BaseTunables].
-    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
-        let item = init.into_table_reference(store)?;
-        let tunables = store.tunables();
+    pub fn new(
+        mut ctx: impl AsContextMut,
+        ty: TableType,
+        init: Value,
+    ) -> Result<Self, RuntimeError> {
+        let mut ctx = ctx.as_context_mut();
+        let item = value_to_table_element(ctx.as_context_mut(), init)?;
+        let tunables = ctx.store().tunables();
         let style = tunables.table_style(&ty);
-        let table = tunables
+        let mut table = tunables
             .create_host_table(&ty, &style)
             .map_err(RuntimeError::new)?;
 
         let num_elements = table.size();
         for i in 0..num_elements {
-            set_table_item(table.as_ref(), i, item.clone())?;
+            set_table_item(&mut table, i, item.clone())?;
         }
 
         Ok(Self {
-            store: store.clone(),
-            vm_table: VMTable {
-                from: table,
-                instance_ref: None,
-            },
+            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), table),
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
-    pub fn ty(&self) -> &TableType {
-        self.vm_table.from.ty()
-    }
-
-    /// Returns the [`Store`] where the `Table` belongs.
-    pub fn store(&self) -> &Store {
-        &self.store
+    pub fn ty(&self, ctx: impl AsContextRef) -> TableType {
+        *self.handle.get(ctx.as_context_ref().objects()).ty()
     }
 
     /// Retrieves an element of the table at the provided `index`.
-    pub fn get(&self, index: u32) -> Option<Val> {
-        let item = self.vm_table.from.get(index)?;
-        Some(ValFuncRef::from_table_reference(item, &self.store))
+    pub fn get(&self, ctx: impl AsContextMut, index: u32) -> Option<Value> {
+        let item = self.handle.get(ctx.as_context_ref().objects()).get(index)?;
+        Some(value_from_table_element(ctx, item))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
-    pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
-        let item = val.into_table_reference(&self.store)?;
-        set_table_item(self.vm_table.from.as_ref(), index, item)
+    pub fn set(
+        &self,
+        mut ctx: impl AsContextMut,
+        index: u32,
+        val: Value,
+    ) -> Result<(), RuntimeError> {
+        let item = value_to_table_element(ctx.as_context_mut(), val)?;
+        set_table_item(
+            self.handle.get_mut(ctx.as_context_mut().objects_mut()),
+            index,
+            item,
+        )
     }
 
     /// Retrieves the size of the `Table` (in elements)
-    pub fn size(&self) -> u32 {
-        self.vm_table.from.size()
+    pub fn size(&self, ctx: impl AsContextRef) -> u32 {
+        self.handle.get(ctx.as_context_ref().objects()).size()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -95,10 +127,15 @@ impl Table {
     /// # Errors
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
-    pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
-        let item = init.into_table_reference(&self.store)?;
-        self.vm_table
-            .from
+    pub fn grow(
+        &self,
+        mut ctx: impl AsContextMut,
+        delta: u32,
+        init: Value,
+    ) -> Result<u32, RuntimeError> {
+        let item = value_to_table_element(ctx.as_context_mut(), init)?;
+        self.handle
+            .get_mut(ctx.as_context_mut().objects_mut())
             .grow(delta, item)
             .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
@@ -111,80 +148,59 @@ impl Table {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy(
+        mut ctx: impl AsContextMut,
         dst_table: &Self,
         dst_index: u32,
         src_table: &Self,
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
-        if !Store::same(&dst_table.store, &src_table.store) {
+        if dst_table.handle.context_id() != src_table.handle.context_id() {
             return Err(RuntimeError::new(
-                "cross-`Store` table copies are not supported",
+                "cross-`Context` table copies are not supported",
             ));
         }
-        RuntimeTable::copy(
-            dst_table.vm_table.from.as_ref(),
-            src_table.vm_table.from.as_ref(),
-            dst_index,
-            src_index,
-            len,
-        )
+        let mut ctx = ctx.as_context_mut();
+        if dst_table.handle.internal_handle() == src_table.handle.internal_handle() {
+            let table = dst_table.handle.get_mut(ctx.objects_mut());
+            table.copy_within(dst_index, src_index, len)
+        } else {
+            let (src_table, dst_table) = ctx.objects_mut().get_2_mut(
+                src_table.handle.internal_handle(),
+                dst_table.handle.internal_handle(),
+            );
+            VMTable::copy(dst_table, src_table, dst_index, src_index, len)
+        }
         .map_err(RuntimeError::from_trap)?;
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
+    pub(crate) fn from_vm_extern(
+        ctx: impl AsContextMut,
+        internal: InternalContextHandle<VMTable>,
+    ) -> Self {
         Self {
-            store: store.clone(),
-            vm_table,
+            handle: unsafe {
+                ContextHandle::from_internal(ctx.as_context_ref().objects().id(), internal)
+            },
         }
     }
 
-    /// Returns whether or not these two tables refer to the same data.
-    pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.vm_table.from, &other.vm_table.from)
+    /// Checks whether this `Table` can be used with the given context.
+    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+        self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 
-    /// Get access to the backing VM value for this extern. This function is for
-    /// tests it should not be called by users of the Wasmer API.
-    ///
-    /// # Safety
-    /// This function is unsafe to call outside of tests for the wasmer crate
-    /// because there is no stability guarantee for the returned type and we may
-    /// make breaking changes to it at any time or remove this method.
-    #[doc(hidden)]
-    pub unsafe fn get_vm_table(&self) -> &VMTable {
-        &self.vm_table
-    }
-}
-
-impl Clone for Table {
-    fn clone(&self) -> Self {
-        let mut vm_table = self.vm_table.clone();
-        vm_table.upgrade_instance_ref().unwrap();
-
-        Self {
-            store: self.store.clone(),
-            vm_table,
-        }
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        VMExtern::Table(self.handle.internal_handle())
     }
 }
 
 impl<'a> Exportable<'a> for Table {
-    fn to_export(&self) -> Export {
-        self.vm_table.clone().into()
-    }
-
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Table(table) => Ok(table),
             _ => Err(ExportError::IncompatibleType),
-        }
-    }
-
-    fn convert_to_weak_instance_ref(&mut self) {
-        if let Some(v) = self.vm_table.instance_ref.as_mut() {
-            *v = v.downgrade();
         }
     }
 }

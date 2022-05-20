@@ -1,7 +1,6 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::js::export::Export;
 use crate::js::exports::{Exportable, Exports};
 use crate::js::instance::InstantiationError;
 use crate::js::module::Module;
@@ -302,7 +301,7 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::js::export::Export;
     use crate::js::exports::Exportable;
     use crate::js::Type;
     use crate::js::{Global, Store, Val};

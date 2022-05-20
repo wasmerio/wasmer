@@ -1,14 +1,27 @@
-use crate::extern_ref::ExternRef;
-use crate::lib::std::convert::TryFrom;
-use crate::lib::std::fmt;
-use crate::lib::std::ptr;
-use crate::lib::std::string::{String, ToString};
-use crate::types::Type;
+use std::convert::TryFrom;
+use std::fmt;
+use std::string::{String, ToString};
 
-/// Possible runtime values that a WebAssembly module can either consume or
-/// produce.
-#[derive(Clone, PartialEq)]
-pub enum Value<T> {
+use wasmer_types::Type;
+use wasmer_vm::VMExternRef;
+use wasmer_vm::VMFuncRef;
+
+use crate::ExternRef;
+use crate::Function;
+
+use super::context::AsContextMut;
+use super::context::AsContextRef;
+
+pub use wasmer_types::RawValue;
+
+/// WebAssembly computations manipulate values of basic value types:
+/// * Integers (32 or 64 bit width)
+/// * Floating-point (32 or 64 bit width)
+/// * Vectors (128 bits, with 32 or 64 bit lanes)
+///
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#values>
+#[derive(Clone)]
+pub enum Value {
     /// A 32-bit integer.
     ///
     /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
@@ -26,12 +39,10 @@ pub enum Value<T> {
     F64(f64),
 
     /// An `externref` value which can hold opaque data to the wasm instance itself.
-    ///
-    /// Note that this is a nullable value as well.
-    ExternRef(ExternRef),
+    ExternRef(Option<ExternRef>),
 
     /// A first-class reference to a WebAssembly function.
-    FuncRef(Option<T>),
+    FuncRef(Option<Function>),
 
     /// A 128-bit number
     V128(u128),
@@ -61,40 +72,10 @@ macro_rules! accessors {
     )*)
 }
 
-/// Trait for reading and writing Wasm values into binary for use on the layer
-/// between the API and the VM internals, specifically with `wasmer_types::Value`.
-pub trait WasmValueType: std::fmt::Debug + 'static {
-    /// Write the value
-    ///
-    /// # Safety
-    /// You shouldn't use this method directly as it writes the value to a mutable pointer.
-    unsafe fn write_value_to(&self, p: *mut i128);
-
-    /// read the value
-    ///
-    /// # Safety
-    /// It reads the value directly from a memory pointer, you need to make sure is not corrupted
-    //
-    // TODO(reftypes): passing the store as `dyn Any` is a hack to work around the
-    // structure of our crates. We need to talk about the store in the rest of the
-    // VM (for example where this method is used) but cannot do so. Fixing this
-    // may be non-trivial.
-    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self;
-}
-
-impl WasmValueType for () {
-    unsafe fn write_value_to(&self, _p: *mut i128) {}
-
-    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {}
-}
-
-impl<T> Value<T>
-where
-    T: WasmValueType,
-{
+impl Value {
     /// Returns a null `externref` value.
     pub fn null() -> Self {
-        Self::ExternRef(ExternRef::null())
+        Self::ExternRef(None)
     }
 
     /// Returns the corresponding [`Type`] for this `Value`.
@@ -110,51 +91,60 @@ where
         }
     }
 
-    /// Writes it's value to a given pointer
-    ///
-    /// # Safety
-    /// `p` must be:
-    /// - Sufficiently aligned for the Rust equivalent of the type in `self`
-    /// - Non-null and pointing to valid, mutable memory
-    pub unsafe fn write_value_to(&self, p: *mut i128) {
-        match self {
-            Self::I32(i) => ptr::write(p as *mut i32, *i),
-            Self::I64(i) => ptr::write(p as *mut i64, *i),
-            Self::F32(u) => ptr::write(p as *mut f32, *u),
-            Self::F64(u) => ptr::write(p as *mut f64, *u),
-            Self::V128(b) => ptr::write(p as *mut u128, *b),
-            Self::FuncRef(Some(b)) => T::write_value_to(b, p),
-            Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
-            // TODO(reftypes): review clone here
-            Self::ExternRef(extern_ref) => ptr::write(p as *mut ExternRef, extern_ref.clone()),
+    /// Converts the `Value` into a `RawValue`.
+    pub fn as_raw(&self, ctx: impl AsContextRef) -> RawValue {
+        match *self {
+            Self::I32(i32) => RawValue { i32 },
+            Self::I64(i64) => RawValue { i64 },
+            Self::F32(f32) => RawValue { f32 },
+            Self::F64(f64) => RawValue { f64 },
+            Self::V128(u128) => RawValue { u128 },
+            Self::FuncRef(Some(ref f)) => f.vm_funcref(ctx).into_raw(),
+
+            Self::FuncRef(None) => RawValue { funcref: 0 },
+            Self::ExternRef(Some(ref e)) => e.vm_externref().into_raw(),
+            Self::ExternRef(None) => RawValue { externref: 0 },
         }
     }
 
-    /// Gets a `Value` given a pointer and a `Type`
+    /// Converts a `RawValue` to a `Value`.
     ///
     /// # Safety
-    /// `p` must be:
-    /// - Properly aligned to the specified `ty`'s Rust equivalent
-    /// - Non-null and pointing to valid memory
-    pub unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128, ty: Type) -> Self {
+    ///
+    pub unsafe fn from_raw(ctx: impl AsContextMut, ty: Type, raw: RawValue) -> Self {
         match ty {
-            Type::I32 => Self::I32(ptr::read(p as *const i32)),
-            Type::I64 => Self::I64(ptr::read(p as *const i64)),
-            Type::F32 => Self::F32(ptr::read(p as *const f32)),
-            Type::F64 => Self::F64(ptr::read(p as *const f64)),
-            Type::V128 => Self::V128(ptr::read(p as *const u128)),
+            Type::I32 => Self::I32(raw.i32),
+            Type::I64 => Self::I64(raw.i64),
+            Type::F32 => Self::F32(raw.f32),
+            Type::F64 => Self::F64(raw.f64),
+            Type::V128 => Self::V128(raw.u128),
             Type::FuncRef => {
-                // We do the null check ourselves
-                if (*(p as *const usize)) == 0 {
-                    Self::FuncRef(None)
-                } else {
-                    Self::FuncRef(Some(T::read_value_from(store, p)))
-                }
+                Self::FuncRef(VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(ctx, f)))
             }
-            Type::ExternRef => {
-                let extern_ref = (&*(p as *const ExternRef)).clone();
-                Self::ExternRef(extern_ref)
-            }
+            Type::ExternRef => Self::ExternRef(
+                VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(ctx, e)),
+            ),
+        }
+    }
+
+    /// Checks whether a value can be used with the given context.
+    ///
+    /// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not
+    /// tied to a context and can be freely shared between contexts.
+    ///
+    /// Externref and funcref values are tied to a context and can only be used
+    /// with that context.
+    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+        match self {
+            Self::I32(_)
+            | Self::I64(_)
+            | Self::F32(_)
+            | Self::F64(_)
+            | Self::V128(_)
+            | Self::ExternRef(None)
+            | Self::FuncRef(None) => true,
+            Self::ExternRef(Some(e)) => e.is_from_context(ctx),
+            Self::FuncRef(Some(f)) => f.is_from_context(ctx),
         }
     }
 
@@ -164,23 +154,21 @@ where
         (I64(i64) i64 unwrap_i64 *e)
         (F32(f32) f32 unwrap_f32 *e)
         (F64(f64) f64 unwrap_f64 *e)
-        (ExternRef(ExternRef) externref unwrap_externref e.clone())
-        (FuncRef(&Option<T>) funcref unwrap_funcref e)
+        (ExternRef(&Option<ExternRef>) externref unwrap_externref e)
+        (FuncRef(&Option<Function>) funcref unwrap_funcref e)
         (V128(u128) v128 unwrap_v128 *e)
     }
 }
 
-impl<T> fmt::Debug for Value<T>
-where
-    T: WasmValueType,
-{
+impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::I32(v) => write!(f, "I32({:?})", v),
             Self::I64(v) => write!(f, "I64({:?})", v),
             Self::F32(v) => write!(f, "F32({:?})", v),
             Self::F64(v) => write!(f, "F64({:?})", v),
-            Self::ExternRef(v) => write!(f, "ExternRef({:?})", v),
+            Self::ExternRef(None) => write!(f, "Null ExternRef"),
+            Self::ExternRef(Some(v)) => write!(f, "ExternRef({:?})", v),
             Self::FuncRef(None) => write!(f, "Null FuncRef"),
             Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
             Self::V128(v) => write!(f, "V128({:?})", v),
@@ -188,10 +176,7 @@ where
     }
 }
 
-impl<T> ToString for Value<T>
-where
-    T: WasmValueType,
-{
+impl ToString for Value {
     fn to_string(&self) -> String {
         match self {
             Self::I32(v) => v.to_string(),
@@ -205,145 +190,142 @@ where
     }
 }
 
-impl<T> From<i32> for Value<T>
-where
-    T: WasmValueType,
-{
+impl From<i32> for Value {
     fn from(val: i32) -> Self {
         Self::I32(val)
     }
 }
 
-impl<T> From<u32> for Value<T>
-where
-    T: WasmValueType,
-{
+impl From<u32> for Value {
     fn from(val: u32) -> Self {
         // In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
         Self::I32(val as i32)
     }
 }
 
-impl<T> From<i64> for Value<T>
-where
-    T: WasmValueType,
-{
+impl From<i64> for Value {
     fn from(val: i64) -> Self {
         Self::I64(val)
     }
 }
 
-impl<T> From<u64> for Value<T>
-where
-    T: WasmValueType,
-{
+impl From<u64> for Value {
     fn from(val: u64) -> Self {
         // In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
         Self::I64(val as i64)
     }
 }
 
-impl<T> From<f32> for Value<T>
-where
-    T: WasmValueType,
-{
+impl From<f32> for Value {
     fn from(val: f32) -> Self {
         Self::F32(val)
     }
 }
 
-impl<T> From<f64> for Value<T>
-where
-    T: WasmValueType,
-{
+impl From<f64> for Value {
     fn from(val: f64) -> Self {
         Self::F64(val)
     }
 }
 
-impl<T> From<ExternRef> for Value<T>
-where
-    T: WasmValueType,
-{
-    fn from(val: ExternRef) -> Self {
-        Self::ExternRef(val)
+impl From<Function> for Value {
+    fn from(val: Function) -> Self {
+        Self::FuncRef(Some(val))
     }
 }
 
-// impl<T> From<T> for Value<T> {
-//     fn from(val: T) -> Self {
-//         Self::FuncRef(val)
-//     }
-// }
+impl From<Option<Function>> for Value {
+    fn from(val: Option<Function>) -> Self {
+        Self::FuncRef(val)
+    }
+}
+
+impl From<ExternRef> for Value {
+    fn from(val: ExternRef) -> Self {
+        Self::ExternRef(Some(val))
+    }
+}
+
+impl From<Option<ExternRef>> for Value {
+    fn from(val: Option<ExternRef>) -> Self {
+        Self::ExternRef(val)
+    }
+}
 
 const NOT_I32: &str = "Value is not of Wasm type i32";
 const NOT_I64: &str = "Value is not of Wasm type i64";
 const NOT_F32: &str = "Value is not of Wasm type f32";
 const NOT_F64: &str = "Value is not of Wasm type f64";
+const NOT_FUNCREF: &str = "Value is not of Wasm type funcref";
+const NOT_EXTERNREF: &str = "Value is not of Wasm type externref";
 
-impl<T> TryFrom<Value<T>> for i32
-where
-    T: WasmValueType,
-{
+impl TryFrom<Value> for i32 {
     type Error = &'static str;
 
-    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         value.i32().ok_or(NOT_I32)
     }
 }
 
-impl<T> TryFrom<Value<T>> for u32
-where
-    T: WasmValueType,
-{
+impl TryFrom<Value> for u32 {
     type Error = &'static str;
 
-    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         value.i32().ok_or(NOT_I32).map(|int| int as Self)
     }
 }
 
-impl<T> TryFrom<Value<T>> for i64
-where
-    T: WasmValueType,
-{
+impl TryFrom<Value> for i64 {
     type Error = &'static str;
 
-    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         value.i64().ok_or(NOT_I64)
     }
 }
 
-impl<T> TryFrom<Value<T>> for u64
-where
-    T: WasmValueType,
-{
+impl TryFrom<Value> for u64 {
     type Error = &'static str;
 
-    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         value.i64().ok_or(NOT_I64).map(|int| int as Self)
     }
 }
 
-impl<T> TryFrom<Value<T>> for f32
-where
-    T: WasmValueType,
-{
+impl TryFrom<Value> for f32 {
     type Error = &'static str;
 
-    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         value.f32().ok_or(NOT_F32)
     }
 }
 
-impl<T> TryFrom<Value<T>> for f64
-where
-    T: WasmValueType,
-{
+impl TryFrom<Value> for f64 {
     type Error = &'static str;
 
-    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         value.f64().ok_or(NOT_F64)
+    }
+}
+
+impl TryFrom<Value> for Option<Function> {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::FuncRef(f) => Ok(f),
+            _ => Err(NOT_FUNCREF),
+        }
+    }
+}
+
+impl TryFrom<Value> for Option<ExternRef> {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::ExternRef(e) => Ok(e),
+            _ => Err(NOT_EXTERNREF),
+        }
     }
 }
 
