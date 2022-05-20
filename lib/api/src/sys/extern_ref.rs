@@ -2,8 +2,6 @@ use std::any::Any;
 
 use wasmer_vm::{ContextHandle, VMExternObj, VMExternRef};
 
-use crate::ContextRef;
-
 use super::context::{AsContextMut, AsContextRef};
 
 #[derive(Debug, Clone)]
@@ -25,11 +23,14 @@ impl ExternRef {
     }
 
     /// Try to downcast to the given value.
-    pub fn downcast<'a, T, U>(&self, ctx: ContextRef<'a, U>) -> Option<&'a T>
+    pub fn downcast<'a, T>(&self, ctx: &'a impl AsContextRef) -> Option<&'a T>
     where
         T: Any + Send + Sync + 'static + Sized,
     {
-        self.handle.get(ctx.objects()).as_ref().downcast_ref::<T>()
+        self.handle
+            .get(ctx.as_context_ref().objects())
+            .as_ref()
+            .downcast_ref::<T>()
     }
 
     pub(crate) fn vm_externref(&self) -> VMExternRef {
