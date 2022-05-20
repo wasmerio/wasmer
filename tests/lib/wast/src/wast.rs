@@ -1,7 +1,7 @@
 use crate::error::{DirectiveError, DirectiveErrors};
 use crate::spectest::spectest_importobject;
 use anyhow::{anyhow, bail, Result};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::str;
 use wasmer::*;
@@ -23,11 +23,8 @@ pub struct Wast {
     match_trap_messages: HashMap<String, String>,
     /// If the current module was an allowed failure, we allow test to fail
     current_is_allowed_failure: bool,
-    /// Extern-ref manager: used for testing extern refs: they're referred to by
-    /// number in WAST, so we map here.
-    extern_refs: BTreeMap<u32, ExternRef>,
-    /// The wasm Store
-    store: Store,
+    /// The context in which the tests are executing.
+    context: Context<()>,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
     pub fail_fast: bool,
     /// A flag indicating that assert_trap and assert_exhaustion should be skipped.
@@ -37,16 +34,15 @@ pub struct Wast {
 
 impl Wast {
     /// Construct a new instance of `Wast` with a given imports.
-    pub fn new(store: Store, import_object: Imports) -> Self {
+    pub fn new(context: Context<()>, import_object: Imports) -> Self {
         Self {
             current: None,
-            store,
+            context,
             import_object,
             allowed_instantiation_failures: HashSet::new(),
             match_trap_messages: HashMap::new(),
             current_is_allowed_failure: false,
             instances: HashMap::new(),
-            extern_refs: BTreeMap::new(),
             fail_fast: true,
             disable_assert_trap_exhaustion: false,
         }
@@ -72,9 +68,9 @@ impl Wast {
     }
 
     /// Construct a new instance of `Wast` with the spectests imports.
-    pub fn new_with_spectest(store: Store) -> Self {
-        let import_object = spectest_importobject(&store);
-        Self::new(store, import_object)
+    pub fn new_with_spectest(mut context: Context<()>) -> Self {
+        let import_object = spectest_importobject(&mut context);
+        Self::new(context, import_object)
     }
 
     fn get_instance(&self, instance_name: Option<&str>) -> Result<Instance> {
@@ -92,7 +88,7 @@ impl Wast {
     }
 
     /// Perform the action portion of a command.
-    fn perform_execute(&mut self, exec: wast::WastExecute<'_>) -> Result<Vec<Val>> {
+    fn perform_execute(&mut self, exec: wast::WastExecute<'_>) -> Result<Vec<Value>> {
         match exec {
             wast::WastExecute::Invoke(invoke) => self.perform_invoke(invoke),
             wast::WastExecute::Module(mut module) => {
@@ -104,7 +100,7 @@ impl Wast {
         }
     }
 
-    fn perform_invoke(&mut self, exec: wast::WastInvoke<'_>) -> Result<Vec<Val>> {
+    fn perform_invoke(&mut self, exec: wast::WastInvoke<'_>) -> Result<Vec<Value>> {
         let values = exec
             .args
             .iter()
@@ -115,7 +111,7 @@ impl Wast {
 
     fn assert_return(
         &self,
-        result: Result<Vec<Val>>,
+        result: Result<Vec<Value>>,
         results: &[wast::AssertExpression],
     ) -> Result<()> {
         let values = result?;
@@ -123,7 +119,7 @@ impl Wast {
             if self.val_matches(v, e)? {
                 continue;
             }
-            if let Val::V128(bits) = v {
+            if let Value::V128(bits) = v {
                 if let wast::AssertExpression::V128(pattern) = e {
                     bail!(
                         "expected {:?}, got {:?} (v128 bits: {})",
@@ -138,7 +134,7 @@ impl Wast {
         Ok(())
     }
 
-    fn assert_trap(&self, result: Result<Vec<Val>>, expected: &str) -> Result<()> {
+    fn assert_trap(&self, result: Result<Vec<Value>>, expected: &str) -> Result<()> {
         let actual = match result {
             Ok(values) => bail!("expected trap, got {:?}", values),
             Err(t) => format!("{}", t),
@@ -369,8 +365,8 @@ impl Wast {
         Ok(())
     }
 
-    fn instantiate(&self, module: &[u8]) -> Result<Instance> {
-        let module = Module::new(&self.store, module)?;
+    fn instantiate(&mut self, module: &[u8]) -> Result<Instance> {
+        let module = Module::new(self.context.store(), module)?;
         let mut imports = self.import_object.clone();
 
         for import in module.imports() {
@@ -385,7 +381,7 @@ impl Wast {
             imports.register_namespace(module_name, instance.exports.clone());
         }
 
-        let instance = Instance::new(&module, &imports)?;
+        let instance = Instance::new(&mut self.context, &module, &imports)?;
         Ok(instance)
     }
 
@@ -401,45 +397,39 @@ impl Wast {
         &mut self,
         instance_name: Option<&str>,
         field: &str,
-        args: &[Val],
-    ) -> Result<Vec<Val>> {
+        args: &[Value],
+    ) -> Result<Vec<Value>> {
         let instance = self.get_instance(instance_name)?;
         let func: &Function = instance.exports.get(field)?;
-        match func.call(args) {
+        match func.call(&mut self.context, args) {
             Ok(result) => Ok(result.into()),
             Err(e) => Err(e.into()),
         }
     }
 
     /// Get the value of an exported global from an instance.
-    fn get(&mut self, instance_name: Option<&str>, field: &str) -> Result<Vec<Val>> {
+    fn get(&mut self, instance_name: Option<&str>, field: &str) -> Result<Vec<Value>> {
         let instance = self.get_instance(instance_name)?;
         let global: &Global = instance.exports.get(field)?;
-        Ok(vec![global.get()])
+        Ok(vec![global.get(&mut self.context)])
     }
 
-    /// Translate from a `script::Value` to a `Val`.
-    fn runtime_value(&mut self, v: &wast::Expression<'_>) -> Result<Val> {
+    /// Translate from a `script::Value` to a `Value`.
+    fn runtime_value(&mut self, v: &wast::Expression<'_>) -> Result<Value> {
         use wast::Instruction::*;
 
         if v.instrs.len() != 1 {
             bail!("too many instructions in {:?}", v);
         }
         Ok(match &v.instrs[0] {
-            I32Const(x) => Val::I32(*x),
-            I64Const(x) => Val::I64(*x),
-            F32Const(x) => Val::F32(f32::from_bits(x.bits)),
-            F64Const(x) => Val::F64(f64::from_bits(x.bits)),
-            V128Const(x) => Val::V128(u128::from_le_bytes(x.to_le_bytes())),
-            RefNull(wast::HeapType::Func) => Val::FuncRef(None),
-            RefNull(wast::HeapType::Extern) => Val::null(),
-            RefExtern(number) => {
-                let extern_ref = self
-                    .extern_refs
-                    .entry(*number)
-                    .or_insert_with(|| ExternRef::new(*number));
-                Val::ExternRef(extern_ref.clone())
-            }
+            I32Const(x) => Value::I32(*x),
+            I64Const(x) => Value::I64(*x),
+            F32Const(x) => Value::F32(f32::from_bits(x.bits)),
+            F64Const(x) => Value::F64(f64::from_bits(x.bits)),
+            V128Const(x) => Value::V128(u128::from_le_bytes(x.to_le_bytes())),
+            RefNull(wast::HeapType::Func) => Value::FuncRef(None),
+            RefNull(wast::HeapType::Extern) => Value::null(),
+            RefExtern(number) => Value::ExternRef(Some(ExternRef::new(&mut self.context, *number))),
             other => bail!("couldn't convert {:?} to a runtime value", other),
         })
     }
@@ -476,38 +466,30 @@ impl Wast {
                 .map_or(false, |alternative| actual.contains(alternative))
     }
 
-    fn val_matches(&self, actual: &Val, expected: &wast::AssertExpression) -> Result<bool> {
+    fn val_matches(&self, actual: &Value, expected: &wast::AssertExpression) -> Result<bool> {
         Ok(match (actual, expected) {
-            (Val::I32(a), wast::AssertExpression::I32(b)) => a == b,
-            (Val::I64(a), wast::AssertExpression::I64(b)) => a == b,
+            (Value::I32(a), wast::AssertExpression::I32(b)) => a == b,
+            (Value::I64(a), wast::AssertExpression::I64(b)) => a == b,
             // Note that these float comparisons are comparing bits, not float
             // values, so we're testing for bit-for-bit equivalence
-            (Val::F32(a), wast::AssertExpression::F32(b)) => f32_matches(*a, b),
-            (Val::F64(a), wast::AssertExpression::F64(b)) => f64_matches(*a, b),
-            (Val::V128(a), wast::AssertExpression::V128(b)) => v128_matches(*a, b),
-            (Val::FuncRef(None), wast::AssertExpression::RefNull(Some(wast::HeapType::Func))) => {
+            (Value::F32(a), wast::AssertExpression::F32(b)) => f32_matches(*a, b),
+            (Value::F64(a), wast::AssertExpression::F64(b)) => f64_matches(*a, b),
+            (Value::V128(a), wast::AssertExpression::V128(b)) => v128_matches(*a, b),
+            (Value::FuncRef(None), wast::AssertExpression::RefNull(Some(wast::HeapType::Func))) => {
                 true
             }
-            (Val::FuncRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
-            (Val::FuncRef(None), wast::AssertExpression::RefFunc(None)) => true,
-            (Val::FuncRef(None), wast::AssertExpression::RefFunc(Some(_))) => false,
+            (Value::FuncRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
+            (Value::FuncRef(None), wast::AssertExpression::RefFunc(None)) => true,
+            (Value::FuncRef(None), wast::AssertExpression::RefFunc(Some(_))) => false,
             (
-                Val::ExternRef(extern_ref),
+                Value::ExternRef(None),
                 wast::AssertExpression::RefNull(Some(wast::HeapType::Extern)),
-            ) if extern_ref.is_null() => true,
-            (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(_))
-                if extern_ref.is_null() =>
-            {
-                false
-            }
+            ) => true,
+            (Value::ExternRef(None), wast::AssertExpression::RefExtern(_)) => false,
 
-            (Val::ExternRef(_), wast::AssertExpression::RefNull(_)) => false,
-            (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(num)) => {
-                if let Some(stored_extern_ref) = self.extern_refs.get(num) {
-                    extern_ref == stored_extern_ref
-                } else {
-                    false
-                }
+            (Value::ExternRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
+            (Value::ExternRef(Some(extern_ref)), wast::AssertExpression::RefExtern(num)) => {
+                extern_ref.downcast(&self.context) == Some(num)
             }
             _ => bail!(
                 "don't know how to compare {:?} and {:?} yet",

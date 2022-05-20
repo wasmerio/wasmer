@@ -117,7 +117,7 @@ impl VMBuiltinFunctionIndex {
     }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        26
+        24
     }
 
     /// Return the index as an u32 number.
@@ -213,9 +213,14 @@ impl VMOffsets {
         1 * self.pointer_size
     }
 
+    /// The offset of the `handle` field.
+    pub const fn vmfunction_import_handle(&self) -> u8 {
+        2 * self.pointer_size
+    }
+
     /// Return the size of `VMFunctionImport`.
     pub const fn size_of_vmfunction_import(&self) -> u8 {
-        2 * self.pointer_size
+        3 * self.pointer_size
     }
 }
 
@@ -264,7 +269,7 @@ impl VMOffsets {
 
     /// Return the size of `VMTableImport`.
     pub const fn size_of_vmtable_import(&self) -> u8 {
-        3 * self.pointer_size
+        2 * self.pointer_size
     }
 }
 
@@ -309,7 +314,7 @@ impl VMOffsets {
 
     /// Return the size of `VMMemoryImport`.
     pub const fn size_of_vmmemory_import(&self) -> u8 {
-        3 * self.pointer_size
+        2 * self.pointer_size
     }
 }
 
@@ -397,9 +402,14 @@ impl VMOffsets {
         2 * self.pointer_size
     }
 
+    /// The offset of the `call_trampoline` field.
+    pub const fn vmcaller_checked_anyfunc_call_trampoline(&self) -> u8 {
+        3 * self.pointer_size
+    }
+
     /// Return the size of `VMCallerCheckedAnyfunc`.
     pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
-        3 * self.pointer_size
+        4 * self.pointer_size
     }
 }
 
