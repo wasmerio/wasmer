@@ -104,10 +104,6 @@ impl<T> ContextMut<'_, T> {
         &mut self.inner.data
     }
 
-    pub(crate) fn objects(&self) -> &ContextObjects {
-        &self.inner.objects
-    }
-
     pub(crate) fn objects_mut(&mut self) -> &mut ContextObjects {
         &mut self.inner.objects
     }

@@ -74,7 +74,7 @@ impl Function {
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
-    pub fn new<FT, F, T>(mut ctx: impl AsContextMut<Data = T>, ty: FT, func: F) -> Self
+    pub fn new<FT, F, T>(ctx: &mut impl AsContextMut<Data = T>, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(ContextMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
@@ -91,11 +91,7 @@ impl Function {
                 let mut ctx = ContextMut::from_raw(raw_ctx as *mut ContextInner<T>);
                 let mut args = Vec::with_capacity(func_ty.params().len());
                 for (i, ty) in func_ty.params().iter().enumerate() {
-                    args.push(Value::from_raw(
-                        ctx.as_context_mut(),
-                        *ty,
-                        *values_vec.add(i),
-                    ));
+                    args.push(Value::from_raw(&mut ctx, *ty, *values_vec.add(i)));
                 }
                 let returns = func(ctx.as_context_mut(), &args)?;
 
@@ -110,7 +106,7 @@ impl Function {
                     )));
                 }
                 for (i, ret) in returns.iter().enumerate() {
-                    *values_vec.add(i) = ret.as_raw(ctx.as_context_mut());
+                    *values_vec.add(i) = ret.as_raw(&ctx);
                 }
             }
             Ok(())
@@ -165,7 +161,7 @@ impl Function {
     ///
     /// let f = Function::new_native(&store, sum);
     /// ```
-    pub fn new_native<T, F, Args, Rets>(mut ctx: impl AsContextMut<Data = T>, func: F) -> Self
+    pub fn new_native<T, F, Args, Rets>(ctx: &mut impl AsContextMut<Data = T>, func: F) -> Self
     where
         F: HostFunction<T, Args, Rets> + 'static + Send + Sync,
         Args: WasmTypeList,
@@ -219,7 +215,7 @@ impl Function {
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
-    pub fn ty(&self, ctx: impl AsContextRef) -> FunctionType {
+    pub fn ty(&self, ctx: &impl AsContextRef) -> FunctionType {
         self.handle
             .get(ctx.as_context_ref().objects())
             .signature
@@ -228,7 +224,7 @@ impl Function {
 
     fn call_wasm(
         &self,
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         trampoline: VMTrampoline,
         params: &[Value],
         results: &mut [Value],
@@ -241,7 +237,7 @@ impl Function {
                 .join(", ")
         };
         // TODO: Avoid cloning the signature here, it's expensive.
-        let signature = self.ty(ctx.as_context_ref());
+        let signature = self.ty(ctx);
         if signature.params().len() != params.len() {
             return Err(RuntimeError::new(format!(
                 "Parameters of type [{}] did not match signature {}",
@@ -269,12 +265,12 @@ impl Function {
                     param_types, &signature,
                 )));
             }
-            if !arg.is_from_context(ctx.as_context_ref()) {
+            if !arg.is_from_context(ctx) {
                 return Err(RuntimeError::new(
                     "cross-`Context` values are not supported",
                 ));
             }
-            *slot = arg.as_raw(ctx.as_context_mut());
+            *slot = arg.as_raw(ctx);
         }
 
         // Call the trampoline.
@@ -294,8 +290,7 @@ impl Function {
         // Load the return values out of `values_vec`.
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
-                results[index] =
-                    Value::from_raw(ctx.as_context_mut(), value_type, values_vec[index]);
+                results[index] = Value::from_raw(ctx, value_type, values_vec[index]);
             }
         }
 
@@ -318,7 +313,7 @@ impl Function {
     ///
     /// assert_eq!(f.param_arity(), 2);
     /// ```
-    pub fn param_arity(&self, ctx: impl AsContextRef) -> usize {
+    pub fn param_arity(&self, ctx: &impl AsContextRef) -> usize {
         self.ty(ctx).params().len()
     }
 
@@ -338,7 +333,7 @@ impl Function {
     ///
     /// assert_eq!(f.result_arity(), 1);
     /// ```
-    pub fn result_arity(&self, ctx: impl AsContextRef) -> usize {
+    pub fn result_arity(&self, ctx: &impl AsContextRef) -> usize {
         self.ty(ctx).results().len()
     }
 
@@ -373,7 +368,7 @@ impl Function {
     /// ```
     pub fn call(
         &self,
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
@@ -384,12 +379,12 @@ impl Function {
                 .as_ref()
                 .call_trampoline
         };
-        let mut results = vec![Value::null(); self.result_arity(ctx.as_context_ref())];
-        self.call_wasm(ctx.as_context_mut(), trampoline, params, &mut results)?;
+        let mut results = vec![Value::null(); self.result_arity(ctx)];
+        self.call_wasm(ctx, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn vm_funcref(&self, ctx: impl AsContextRef) -> VMFuncRef {
+    pub(crate) fn vm_funcref(&self, ctx: &impl AsContextRef) -> VMFuncRef {
         let vm_function = self.handle.get(ctx.as_context_ref().objects());
         if vm_function.kind == VMFunctionKind::Dynamic {
             panic!("dynamic functions cannot be used in tables or as funcrefs");
@@ -397,7 +392,7 @@ impl Function {
         VMFuncRef(vm_function.anyfunc.as_ptr())
     }
 
-    pub(crate) unsafe fn from_vm_funcref(mut ctx: impl AsContextMut, funcref: VMFuncRef) -> Self {
+    pub(crate) unsafe fn from_vm_funcref(ctx: &mut impl AsContextMut, funcref: VMFuncRef) -> Self {
         let signature = ctx
             .as_context_mut()
             .store()
@@ -494,7 +489,7 @@ impl Function {
     /// ```
     pub fn native<Args, Rets>(
         &self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
     ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
@@ -534,7 +529,7 @@ impl Function {
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         internal: InternalContextHandle<VMFunction>,
     ) -> Self {
         Self {
@@ -545,7 +540,7 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 
@@ -613,7 +608,7 @@ mod inner {
     use std::convert::{Infallible, TryInto};
     use std::error::Error;
     use std::panic::{self, AssertUnwindSafe};
-    use wasmer_vm::{on_host_stack, VMTrampoline};
+    use wasmer_vm::{on_host_stack, VMContext, VMTrampoline};
 
     use wasmer_types::{NativeWasmType, RawValue, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
@@ -660,7 +655,7 @@ mod inner {
         ///
         /// This always returns true for primitive types that can be used with
         /// any context.
-        fn is_from_context(&self, _ctx: impl AsContextRef) -> bool {
+        fn is_from_context(&self, _ctx: &impl AsContextRef) -> bool {
             true
         }
     }
@@ -732,10 +727,8 @@ mod inner {
         fn from_native(n: Self::Native) -> Self {
             n
         }
-        fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
-            self.as_ref()
-                .map(|e| e.is_from_context(ctx))
-                .unwrap_or(true)
+        fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+            self.as_ref().map_or(true, |e| e.is_from_context(ctx))
         }
     }
 
@@ -748,10 +741,8 @@ mod inner {
         fn from_native(n: Self::Native) -> Self {
             n
         }
-        fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
-            self.as_ref()
-                .map(|f| f.is_from_context(ctx))
-                .unwrap_or(true)
+        fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
+            self.as_ref().map_or(true, |f| f.is_from_context(ctx))
         }
     }
 
@@ -798,7 +789,7 @@ mod inner {
         /// Constructs `Self` based on an array of values.
         ///
         /// # Safety
-        unsafe fn from_array(ctx: impl AsContextMut, array: Self::Array) -> Self;
+        unsafe fn from_array(ctx: &mut impl AsContextMut, array: Self::Array) -> Self;
 
         /// Constructs `Self` based on a slice of values.
         ///
@@ -809,7 +800,7 @@ mod inner {
         ///
         /// # Safety
         unsafe fn from_slice(
-            ctx: impl AsContextMut,
+            ctx: &mut impl AsContextMut,
             slice: &[RawValue],
         ) -> Result<Self, TryFromSliceError>;
 
@@ -817,7 +808,7 @@ mod inner {
         /// (list) of values.
         ///
         /// # Safety
-        unsafe fn into_array(self, ctx: impl AsContextMut) -> Self::Array;
+        unsafe fn into_array(self, ctx: &mut impl AsContextMut) -> Self::Array;
 
         /// Allocates and return an empty array of type `Array` that
         /// will hold a tuple (list) of values, usually to hold the
@@ -828,13 +819,18 @@ mod inner {
         /// `CStruct`.
         ///
         /// # Safety
-        unsafe fn from_c_struct(ctx: impl AsContextMut, c_struct: Self::CStruct) -> Self;
+        unsafe fn from_c_struct(ctx: &mut impl AsContextMut, c_struct: Self::CStruct) -> Self;
 
         /// Builds and returns a C struct of type `CStruct` from a
         /// tuple (list) of values.
         ///
         /// # Safety
-        unsafe fn into_c_struct(self, ctx: impl AsContextMut) -> Self::CStruct;
+        unsafe fn into_c_struct(self, ctx: &mut impl AsContextMut) -> Self::CStruct;
+
+        /// Writes the contents of a C struct to an array of `RawValue`.
+        ///
+        /// # Safety
+        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut RawValue);
 
         /// Get the Wasm types for the tuple (list) of currently
         /// represented values.
@@ -977,7 +973,7 @@ mod inner {
                 #[allow(unused_mut)]
                 #[allow(clippy::unused_unit)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_array(mut _ctx: impl AsContextMut, array: Self::Array) -> Self {
+                unsafe fn from_array(mut _ctx: &mut impl AsContextMut, array: Self::Array) -> Self {
                     // Unpack items of the array.
                     #[allow(non_snake_case)]
                     let [ $( $x ),* ] = array;
@@ -985,19 +981,19 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_ctx.as_context_mut(), $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_ctx, $x))
                         ),*
                     )
                 }
 
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_slice(ctx: impl AsContextMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
+                unsafe fn from_slice(ctx: &mut impl AsContextMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
                     Ok(Self::from_array(ctx, slice.try_into()?))
                 }
 
                 #[allow(unused_mut)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_array(self, mut _ctx: impl AsContextMut) -> Self::Array {
+                unsafe fn into_array(self, mut _ctx: &mut impl AsContextMut) -> Self::Array {
                     // Unpack items of the tuple.
                     #[allow(non_snake_case)]
                     let ( $( $x ),* ) = self;
@@ -1005,7 +1001,7 @@ mod inner {
                     // Build the array.
                     [
                         $(
-                            FromToNativeWasmType::to_native($x).into_raw(_ctx.as_context_mut())
+                            FromToNativeWasmType::to_native($x).into_raw(_ctx)
                         ),*
                     ]
                 }
@@ -1018,30 +1014,42 @@ mod inner {
                 #[allow(unused_mut)]
                 #[allow(clippy::unused_unit)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_c_struct(mut _ctx: impl AsContextMut, c_struct: Self::CStruct) -> Self {
+                unsafe fn from_c_struct(mut _ctx: &mut impl AsContextMut, c_struct: Self::CStruct) -> Self {
                     // Unpack items of the C structure.
                     #[allow(non_snake_case)]
                     let $c_struct_name( $( $x ),* ) = c_struct;
 
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_ctx.as_context_mut(), $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_ctx, $x))
                         ),*
                     )
                 }
 
                 #[allow(unused_parens, non_snake_case, unused_mut)]
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_c_struct(self, mut _ctx: impl AsContextMut) -> Self::CStruct {
+                unsafe fn into_c_struct(self, mut _ctx: &mut impl AsContextMut) -> Self::CStruct {
                     // Unpack items of the tuple.
                     let ( $( $x ),* ) = self;
 
                     // Build the C structure.
                     $c_struct_name(
                         $(
-                            FromToNativeWasmType::to_native($x).into_abi(_ctx.as_context_mut())
+                            FromToNativeWasmType::to_native($x).into_abi(_ctx)
                         ),*
                     )
+                }
+
+                #[allow(non_snake_case)]
+                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut RawValue) {
+                    // Unpack items of the tuple.
+                    let $c_struct_name( $( $x ),* ) = c_struct;
+
+                    let mut _n = 0;
+                    $(
+                        *_ptr.add(_n).cast() = $x;
+                        _n += 1;
+                    )*
                 }
 
                 fn wasm_types() -> &'static [Type] {
@@ -1070,7 +1078,7 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func>, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -1081,12 +1089,15 @@ mod inner {
 
                         let result = on_host_stack(|| {
                             panic::catch_unwind(AssertUnwindSafe(|| {
-                                (env.func)(ctx.as_context_mut(), $( FromToNativeWasmType::from_native($x) ),* ).into_result()
+                                $(
+                                    let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut ctx, $x));
+                                )*
+                                (env.func)(ctx.as_context_mut(), $($x),* ).into_result()
                             }))
                         });
 
                         match result {
-                            Ok(Ok(result)) => return result.into_c_struct(ctx),
+                            Ok(Ok(result)) => return result.into_c_struct(&mut ctx),
                             Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
                             Err(panic) => resume_panic(panic) ,
                         }
@@ -1095,9 +1106,35 @@ mod inner {
                     func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
 
+                #[allow(non_snake_case)]
                 fn call_trampoline_address() -> VMTrampoline {
-                    todo!()
+                    unsafe extern "C" fn call_trampoline<
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                    >(
+                        vmctx: *mut VMContext,
+                        body: *const VMFunctionBody,
+                        args: *mut RawValue,
+                    ) {
+                            let body: unsafe extern "C" fn(
+                                vmctx: *mut VMContext,
+                                $( $x: <$x::Native as NativeWasmType>::Abi, )*
+                            ) -> Rets::CStruct
+                                = std::mem::transmute(body);
+
+                            let mut _n = 0;
+                            $(
+                                let $x = *args.add(_n).cast();
+                                _n += 1;
+                            )*
+
+                            let results = body(vmctx, $( $x ),*);
+                            Rets::write_c_struct_to_ptr(results, args);
+                    }
+
+                    call_trampoline::<$( $x, )* Rets>
                 }
+
             }
         };
     }
@@ -1152,18 +1189,18 @@ mod inner {
         type CStruct = Self;
         type Array = [RawValue; 0];
 
-        unsafe fn from_array(_: impl AsContextMut, _: Self::Array) -> Self {
+        unsafe fn from_array(_: &mut impl AsContextMut, _: Self::Array) -> Self {
             unreachable!()
         }
 
         unsafe fn from_slice(
-            _: impl AsContextMut,
+            _: &mut impl AsContextMut,
             _: &[RawValue],
         ) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }
 
-        unsafe fn into_array(self, _: impl AsContextMut) -> Self::Array {
+        unsafe fn into_array(self, _: &mut impl AsContextMut) -> Self::Array {
             []
         }
 
@@ -1171,13 +1208,15 @@ mod inner {
             []
         }
 
-        unsafe fn from_c_struct(_: impl AsContextMut, self_: Self::CStruct) -> Self {
+        unsafe fn from_c_struct(_: &mut impl AsContextMut, self_: Self::CStruct) -> Self {
             self_
         }
 
-        unsafe fn into_c_struct(self, _: impl AsContextMut) -> Self::CStruct {
+        unsafe fn into_c_struct(self, _: &mut impl AsContextMut) -> Self::CStruct {
             self
         }
+
+        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut RawValue) {}
 
         fn wasm_types() -> &'static [Type] {
             &[]

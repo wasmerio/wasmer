@@ -64,7 +64,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     #[inline]
     pub fn new(ctx: &'a impl AsContextRef, memory: &'a Memory, offset: u64) -> Self {
         Self {
-            buffer: memory.buffer(ctx.as_context_ref()),
+            buffer: memory.buffer(ctx),
             offset,
             marker: PhantomData,
         }
@@ -173,7 +173,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         Ok(Self {
-            buffer: memory.buffer(ctx.as_context_ref()),
+            buffer: memory.buffer(ctx),
             offset,
             len,
             marker: PhantomData,
