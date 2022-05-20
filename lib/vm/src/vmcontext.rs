@@ -910,10 +910,6 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_func_ref as usize;
         ptrs[VMBuiltinFunctionIndex::get_table_fill_index().index() as usize] =
             wasmer_vm_table_fill as usize;
-        ptrs[VMBuiltinFunctionIndex::get_externref_inc_index().index() as usize] =
-            wasmer_vm_externref_inc as usize;
-        ptrs[VMBuiltinFunctionIndex::get_externref_dec_index().index() as usize] =
-            wasmer_vm_externref_dec as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

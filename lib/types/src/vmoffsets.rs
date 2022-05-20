@@ -115,14 +115,6 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_table_fill_index() -> Self {
         Self(23)
     }
-    /// Returns an index for a function to increment the externref count.
-    pub const fn get_externref_inc_index() -> Self {
-        Self(24)
-    }
-    /// Returns an index for a function to decrement the externref count.
-    pub const fn get_externref_dec_index() -> Self {
-        Self(25)
-    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
         26

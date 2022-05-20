@@ -11,7 +11,7 @@ use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Signature};
 use cranelift_codegen::isa::TargetFrontendConfig;
-use cranelift_frontend::{FunctionBuilder, Variable};
+use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::Type;
 use wasmer_compiler::{WasmError, WasmResult};
@@ -104,11 +104,6 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `table.fill`.
     table_fill_sig: Option<ir::SigRef>,
 
-    /// The external function signature for implementing reference increment for `extern.ref`.
-    externref_inc_sig: Option<ir::SigRef>,
-
-    /// The external function signature for implementing reference decrement for `extern.ref`.
-    externref_dec_sig: Option<ir::SigRef>,
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
@@ -148,8 +143,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             data_drop_sig: None,
             func_ref_sig: None,
             table_fill_sig: None,
-            externref_inc_sig: None,
-            externref_dec_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
             table_styles,
@@ -199,50 +192,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.get_table_fill_sig(func),
             table_index.index(),
             VMBuiltinFunctionIndex::get_table_fill_index(),
-        )
-    }
-
-    fn get_externref_inc_sig(&mut self, func: &mut Function) -> ir::SigRef {
-        let sig = self.externref_inc_sig.unwrap_or_else(|| {
-            func.import_signature(Signature {
-                params: vec![AbiParam::new(R64)],
-                returns: vec![],
-                call_conv: self.target_config.default_call_conv,
-            })
-        });
-        self.externref_inc_sig = Some(sig);
-        sig
-    }
-
-    fn get_externref_inc_func(
-        &mut self,
-        func: &mut Function,
-    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
-        (
-            self.get_externref_inc_sig(func),
-            VMBuiltinFunctionIndex::get_externref_inc_index(),
-        )
-    }
-
-    fn get_externref_dec_sig(&mut self, func: &mut Function) -> ir::SigRef {
-        let sig = self.externref_dec_sig.unwrap_or_else(|| {
-            func.import_signature(Signature {
-                params: vec![AbiParam::new(R64)],
-                returns: vec![],
-                call_conv: self.target_config.default_call_conv,
-            })
-        });
-        self.externref_dec_sig = Some(sig);
-        sig
-    }
-
-    fn get_externref_dec_func(
-        &mut self,
-        func: &mut Function,
-    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
-        (
-            self.get_externref_dec_sig(func),
-            VMBuiltinFunctionIndex::get_externref_dec_index(),
         )
     }
 
@@ -905,32 +854,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         Ok(())
     }
 
-    fn translate_externref_inc(
-        &mut self,
-        mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        externref: ir::Value,
-    ) -> WasmResult<()> {
-        let (func_sig, func_idx) = self.get_externref_inc_func(&mut pos.func);
-        let (_vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-
-        pos.ins().call_indirect(func_sig, func_addr, &[externref]);
-
-        Ok(())
-    }
-
-    fn translate_externref_dec(
-        &mut self,
-        mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        externref: ir::Value,
-    ) -> WasmResult<()> {
-        let (func_sig, func_idx) = self.get_externref_dec_func(&mut pos.func);
-        let (_vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-
-        pos.ins().call_indirect(func_sig, func_addr, &[externref]);
-
-        Ok(())
-    }
-
     fn translate_ref_null(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor,
@@ -1529,17 +1452,5 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType> {
         self.module.signatures.get(sig_index)
-    }
-
-    fn translate_drop_locals(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()> {
-        // TODO: this allocation can be removed without too much effort but it will require
-        //       maneuvering around the borrow checker
-        for (local_index, local_type) in self.type_stack.to_vec().iter().enumerate() {
-            if *local_type == WasmerType::ExternRef {
-                let val = builder.use_var(Variable::with_u32(local_index as _));
-                self.translate_externref_dec(builder.cursor(), val)?;
-            }
-        }
-        Ok(())
     }
 }

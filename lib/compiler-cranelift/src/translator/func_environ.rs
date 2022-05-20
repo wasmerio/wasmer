@@ -336,20 +336,6 @@ pub trait FuncEnvironment: TargetEnvironment {
         len: ir::Value,
     ) -> WasmResult<()>;
 
-    /// Translates an externref ref count increment.
-    fn translate_externref_inc(
-        &mut self,
-        pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        externref: ir::Value,
-    ) -> WasmResult<()>;
-
-    /// Translates an externref ref count decrement.
-    fn translate_externref_dec(
-        &mut self,
-        pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        externref: ir::Value,
-    ) -> WasmResult<()>;
-
     /// Translate a `table.init` WebAssembly instruction.
     #[allow(clippy::too_many_arguments)]
     fn translate_table_init(
@@ -505,7 +491,4 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Get the type of a function with the given signature index.
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
-
-    /// Drops all locals that need to be dropped. Useful for returning from functions.
-    fn translate_drop_locals(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()>;
 }

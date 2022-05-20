@@ -213,13 +213,6 @@ impl ControlStackFrame {
     }
 }
 
-/// Extra info about values. For example, on the stack.
-#[derive(Debug, Clone, Default)]
-pub struct ValueExtraInfo {
-    /// Whether or not the value should be ref counted.
-    pub ref_counted: bool,
-}
-
 /// Contains information passed along during a function's translation and that records:
 ///
 /// - The current value and control stacks.
@@ -309,63 +302,40 @@ impl FuncTranslationState {
         );
     }
 
-    /// Push a value with extra info attached.
-    pub(crate) fn push1_extra(&mut self, val: (Value, ValueExtraInfo)) {
-        self.stack.push(val.0);
-        // TODO(reftypes):
-        //self.metadata_stack.push(val.1);
-    }
-
-    /// Push a value with default extra info.
+    /// Push a value.
     pub(crate) fn push1(&mut self, val: Value) {
         self.stack.push(val);
-        // TODO(reftypes):
-        //self.metadata_stack.push(ValueExtraInfo::default());
     }
 
     /// Push multiple values.
-    pub(crate) fn pushn(&mut self, vals: &[Value], _vals_metadata: &[ValueExtraInfo]) {
-        assert_eq!(vals.len(), _vals_metadata.len());
+    pub(crate) fn pushn(&mut self, vals: &[Value]) {
         self.stack.extend_from_slice(vals);
-        // TODO(reftypes):
-        //self.metadata_stack.extend_from_slice(vals_metadata);
     }
 
     /// Pop one value.
-    pub(crate) fn pop1(&mut self) -> (Value, ValueExtraInfo) {
-        let val = self
-            .stack
+    pub(crate) fn pop1(&mut self) -> Value {
+        self.stack
             .pop()
-            .expect("attempted to pop a value from an empty stack");
-        let val_metadata = Default::default();
-        (val, val_metadata)
+            .expect("attempted to pop a value from an empty stack")
     }
 
     /// Peek at the top of the stack without popping it.
-    pub(crate) fn peek1(&self) -> (Value, ValueExtraInfo) {
-        let val = *self
+    pub(crate) fn peek1(&self) -> Value {
+        *self
             .stack
             .last()
-            .expect("attempted to peek at a value on an empty stack");
-        let val_metadata = Default::default();
-        (val, val_metadata)
+            .expect("attempted to peek at a value on an empty stack")
     }
 
     /// Pop two values. Return them in the order they were pushed.
-    pub(crate) fn pop2(&mut self) -> ((Value, ValueExtraInfo), (Value, ValueExtraInfo)) {
+    pub(crate) fn pop2(&mut self) -> (Value, Value) {
         let v2 = self.pop1();
         let v1 = self.pop1();
         (v1, v2)
     }
 
     /// Pop three values. Return them in the order they were pushed.
-    pub(crate) fn pop3(
-        &mut self,
-    ) -> (
-        (Value, ValueExtraInfo),
-        (Value, ValueExtraInfo),
-        (Value, ValueExtraInfo),
-    ) {
+    pub(crate) fn pop3(&mut self) -> (Value, Value, Value) {
         let v3 = self.pop1();
         let v2 = self.pop1();
         let v1 = self.pop1();
@@ -382,13 +352,6 @@ impl FuncTranslationState {
             n,
             self.stack.len()
         );
-        // TODO(reftypes):
-        /*debug_assert!(
-            n <= self.metadata_stack.len(),
-            "attempted to access {} values but stack only has {} values",
-            n,
-            self.metadata_stack.len()
-        );*/
     }
 
     /// Pop the top `n` values on the stack.
@@ -401,25 +364,17 @@ impl FuncTranslationState {
     }
 
     /// Peek at the top `n` values on the stack in the order they were pushed.
-    pub(crate) fn peekn(&self, n: usize) -> (&[Value], &[ValueExtraInfo]) {
+    pub(crate) fn peekn(&self, n: usize) -> &[Value] {
         self.ensure_length_is_at_least(n);
         let vals = &self.stack[self.stack.len() - n..];
-        // TODO(reftypes):
-        let vals_metadata = &[]; //&self.metadata_stack[self.metadata_stack.len() - n..];
-        (vals, vals_metadata)
+        vals
     }
 
     /// Peek at the top `n` values on the stack in the order they were pushed.
-    pub(crate) fn peekn_mut(&mut self, n: usize) -> (&mut [Value], &mut [ValueExtraInfo]) {
+    pub(crate) fn peekn_mut(&mut self, n: usize) -> &mut [Value] {
         self.ensure_length_is_at_least(n);
         let len = self.stack.len();
-        // TODO(reftypes):
-        //let metadata_len = self.metadata_stack.len();
-        //assert_eq!(len, metadata_len);
-        let vals = &mut self.stack[len - n..];
-        // TODO(reftypes):
-        let vals_metadata = &mut []; //&mut self.metadata_stack[metadata_len - n..];
-        (vals, vals_metadata)
+        &mut self.stack[len - n..]
     }
 
     /// Push a block on the control stack.
