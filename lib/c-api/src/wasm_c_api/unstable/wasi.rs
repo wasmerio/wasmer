@@ -178,7 +178,7 @@ fn wasi_get_unordered_imports_inner(
             .map(|((module, name), extern_)| {
                 let module = module.into();
                 let name = name.into();
-                let extern_inner = Extern::from_vm_export(store, extern_.to_export());
+                let extern_inner = Extern::from_vm_export(store, extern_.to_vm_extern());
 
                 Some(Box::new(wasmer_named_extern_t {
                     module,

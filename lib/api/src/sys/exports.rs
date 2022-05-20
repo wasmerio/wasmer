@@ -1,3 +1,4 @@
+use super::context::AsContextRef;
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
 use crate::sys::native::TypedFunction;
 use crate::sys::WasmTypeList;
@@ -5,7 +6,6 @@ use indexmap::IndexMap;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use thiserror::Error;
-use wasmer_compiler::Export;
 
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.
@@ -137,6 +137,7 @@ impl Exports {
     /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
+        ctx: impl AsContextRef,
         name: &str,
     ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
@@ -144,7 +145,7 @@ impl Exports {
         Rets: WasmTypeList,
     {
         self.get_function(name)?
-            .native()
+            .native(ctx)
             .map_err(|_| ExportError::IncompatibleType)
     }
 
@@ -169,8 +170,7 @@ impl Exports {
         Rets: WasmTypeList,
         T: ExportableWithGenerics<'a, Args, Rets>,
     {
-        let mut out: T = self.get_with_generics(name)?;
-        out.convert_to_weak_instance_ref();
+        let out: T = self.get_with_generics(name)?;
         Ok(out)
     }
 
@@ -296,22 +296,11 @@ impl<'a> IntoIterator for &'a Exports {
 ///
 /// [`Instance`]: crate::Instance
 pub trait Exportable<'a>: Sized {
-    /// This function is used when providedd the [`Extern`] as exportable, so it
-    /// can be used while instantiating the [`Module`].
-    ///
-    /// [`Module`]: crate::Module
-    fn to_export(&self) -> Export;
-
     /// Implementation of how to get the export corresponding to the implementing type
     /// from an [`Instance`] by name.
     ///
     /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
-
-    /// Convert the extern internally to hold a weak reference to the `InstanceRef`.
-    /// This is useful for preventing cycles, for example for data stored in a
-    /// type implementing `WasmerEnv`.
-    fn convert_to_weak_instance_ref(&mut self);
 }
 
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
@@ -320,10 +309,6 @@ pub trait Exportable<'a>: Sized {
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
-    /// Convert the extern internally to hold a weak reference to the `InstanceRef`.
-    /// This is useful for preventing cycles, for example for data stored in a
-    /// type implementing `WasmerEnv`.
-    fn convert_to_weak_instance_ref(&mut self);
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)
@@ -331,9 +316,5 @@ pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Si
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())
-    }
-
-    fn convert_to_weak_instance_ref(&mut self) {
-        <Self as Exportable>::convert_to_weak_instance_ref(self);
     }
 }

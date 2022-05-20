@@ -4,9 +4,11 @@ use crate::js::imports::Imports;
 use crate::js::store::Store;
 use crate::js::types::{ExportType, ImportType};
 // use crate::js::InstantiationError;
+use crate::js::error::CompileError;
 #[cfg(feature = "wat")]
 use crate::js::error::WasmError;
-use crate::js::error::{CompileError, DeserializeError, SerializeError};
+#[cfg(feature = "js-serializable-module")]
+use crate::js::error::{DeserializeError, SerializeError};
 use crate::js::RuntimeError;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::fmt;

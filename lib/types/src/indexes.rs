@@ -219,7 +219,17 @@ entity_impl!(ArchivedCustomSectionIndex);
 
 /// An entity to export.
 #[derive(
-    Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, RkyvSerialize, RkyvDeserialize, Archive,
+    Copy,
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive_attr(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))]
