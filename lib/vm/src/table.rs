@@ -228,10 +228,10 @@ impl VMTable {
         match self.vec.get_mut(index as usize) {
             Some(slot) => {
                 match (self.table.ty, reference) {
-                    (
-                        ValType::ExternRef,
-                        r @ TableElement::ExternRef(_) | r @ TableElement::FuncRef(_),
-                    ) => {
+                    (ValType::ExternRef, r @ TableElement::ExternRef(_)) => {
+                        *slot = r.into();
+                    }
+                    (ValType::FuncRef, r @ TableElement::FuncRef(_)) => {
                         *slot = r.into();
                     }
                     // This path should never be hit by the generated code due to Wasm

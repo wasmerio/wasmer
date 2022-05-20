@@ -32,7 +32,7 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Const);
     /// ```
-    pub fn new(ctx: impl AsContextMut, val: Value) -> Self {
+    pub fn new(ctx: &mut impl AsContextMut, val: Value) -> Self {
         Self::from_value(ctx, val, Mutability::Const).unwrap()
     }
 
@@ -49,17 +49,17 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// assert_eq!(g.ty().mutability, Mutability::Var);
     /// ```
-    pub fn new_mut(ctx: impl AsContextMut, val: Value) -> Self {
+    pub fn new_mut(ctx: &mut impl AsContextMut, val: Value) -> Self {
         Self::from_value(ctx, val, Mutability::Var).unwrap()
     }
 
     /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
     fn from_value(
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        if !val.is_from_context(ctx.as_context_mut()) {
+        if !val.is_from_context(ctx) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
@@ -69,7 +69,7 @@ impl Global {
             ty: val.ty(),
         });
         unsafe {
-            global.vmglobal().as_mut().val = val.as_raw(ctx.as_context_mut());
+            global.vmglobal().as_mut().val = val.as_raw(ctx);
         }
 
         Ok(Self {
@@ -91,7 +91,7 @@ impl Global {
     /// assert_eq!(c.ty(), &GlobalType::new(Type::I32, Mutability::Const));
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
-    pub fn ty(&self, ctx: impl AsContextRef) -> GlobalType {
+    pub fn ty(&self, ctx: &impl AsContextRef) -> GlobalType {
         *self.handle.get(ctx.as_context_ref().objects()).ty()
     }
 
@@ -107,11 +107,15 @@ impl Global {
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
-    pub fn get(&self, mut ctx: impl AsContextMut) -> Value {
+    pub fn get(&self, ctx: &mut impl AsContextMut) -> Value {
         unsafe {
-            let ctx = ctx.as_context_mut();
-            let raw = self.handle.get(ctx.objects()).vmglobal().as_ref().val;
-            let ty = self.handle.get(ctx.objects()).ty().ty;
+            let raw = self
+                .handle
+                .get(ctx.as_context_ref().objects())
+                .vmglobal()
+                .as_ref()
+                .val;
+            let ty = self.handle.get(ctx.as_context_ref().objects()).ty().ty;
             Value::from_raw(ctx, ty, raw)
         }
     }
@@ -157,19 +161,19 @@ impl Global {
     /// // This results in an error: `RuntimeError`.
     /// g.set(Value::I64(2)).unwrap();
     /// ```
-    pub fn set(&self, mut ctx: impl AsContextMut, val: Value) -> Result<(), RuntimeError> {
-        if !val.is_from_context(ctx.as_context_mut()) {
+    pub fn set(&self, ctx: &mut impl AsContextMut, val: Value) -> Result<(), RuntimeError> {
+        if !val.is_from_context(ctx) {
             return Err(RuntimeError::new(
                 "cross-`Context` values are not supported",
             ));
         }
-        if self.ty(ctx.as_context_mut()).mutability != Mutability::Var {
+        if self.ty(ctx).mutability != Mutability::Var {
             return Err(RuntimeError::new("Attempted to set an immutable global"));
         }
-        if val.ty() != self.ty(ctx.as_context_mut()).ty {
+        if val.ty() != self.ty(ctx).ty {
             return Err(RuntimeError::new(format!(
                 "Attempted to operate on a global of type {expected} as a global of type {found}",
-                expected = self.ty(ctx.as_context_mut()).ty,
+                expected = self.ty(ctx).ty,
                 found = val.ty(),
             )));
         }
@@ -178,13 +182,13 @@ impl Global {
                 .get_mut(ctx.as_context_mut().objects_mut())
                 .vmglobal()
                 .as_mut()
-                .val = val.as_raw(ctx.as_context_mut());
+                .val = val.as_raw(ctx);
         }
         Ok(())
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         internal: InternalContextHandle<VMGlobal>,
     ) -> Self {
         Self {
@@ -195,7 +199,7 @@ impl Global {
     }
 
     /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 
