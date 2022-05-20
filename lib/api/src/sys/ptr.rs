@@ -191,7 +191,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, ctx: impl AsContextRef, memory: &Memory) -> Result<T, MemoryAccessError> {
+    pub fn read(self, ctx: &impl AsContextRef, memory: &Memory) -> Result<T, MemoryAccessError> {
         self.deref(&ctx, memory).read()
     }
 
@@ -199,7 +199,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn write(
         self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         memory: &Memory,
         val: T,
     ) -> Result<(), MemoryAccessError> {
@@ -228,7 +228,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     #[inline]
     pub fn read_until(
         self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         memory: &Memory,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
@@ -253,7 +253,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string<'a>(
         self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         memory: &'a Memory,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
@@ -268,7 +268,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     #[inline]
     pub fn read_utf8_string_with_nul<'a>(
         self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         memory: &'a Memory,
     ) -> Result<String, MemoryAccessError> {
         let vec = self.read_until(ctx, memory, |&byte| byte == 0)?;

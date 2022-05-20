@@ -138,7 +138,7 @@ impl Exports {
     /// Get an export as a `NativeFunc`.
     pub fn get_native_function<Args, Rets>(
         &self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         name: &str,
     ) -> Result<NativeFunc<Args, Rets>, ExportError>
     where

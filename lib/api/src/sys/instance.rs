@@ -108,20 +108,20 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
         let imports = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let mut handle = module.instantiate(ctx.as_context_mut(), &imports)?;
+        let mut handle = module.instantiate(ctx, &imports)?;
         let exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_extern(ctx.as_context_mut(), export);
+                let extern_ = Extern::from_vm_extern(ctx, export);
                 (name, extern_)
             })
             .collect::<Exports>();
@@ -146,18 +146,18 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new_by_index(
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
         let imports = externs.iter().cloned().collect::<Vec<_>>();
-        let mut handle = module.instantiate(ctx.as_context_mut(), &imports)?;
+        let mut handle = module.instantiate(ctx, &imports)?;
         let exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_extern(ctx.as_context_mut(), export);
+                let extern_ = Extern::from_vm_extern(ctx, export);
                 (name, extern_)
             })
             .collect::<Exports>();

@@ -92,7 +92,7 @@ impl Value {
     }
 
     /// Converts the `Value` into a `RawValue`.
-    pub fn as_raw(&self, ctx: impl AsContextRef) -> RawValue {
+    pub fn as_raw(&self, ctx: &impl AsContextRef) -> RawValue {
         match *self {
             Self::I32(i32) => RawValue { i32 },
             Self::I64(i64) => RawValue { i64 },
@@ -108,7 +108,7 @@ impl Value {
     }
 
     /// Converts a `RawValue` to a `Value`.
-    pub unsafe fn from_raw(ctx: impl AsContextMut, ty: Type, raw: RawValue) -> Self {
+    pub unsafe fn from_raw(ctx: &mut impl AsContextMut, ty: Type, raw: RawValue) -> Self {
         match ty {
             Type::I32 => Self::I32(raw.i32),
             Type::I64 => Self::I64(raw.i64),
@@ -131,7 +131,7 @@ impl Value {
     ///
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
-    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
         match self {
             Self::I32(_)
             | Self::I64(_)

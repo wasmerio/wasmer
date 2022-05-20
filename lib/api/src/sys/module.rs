@@ -278,12 +278,12 @@ impl Module {
 
     pub(crate) fn instantiate(
         &self,
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         imports: &[crate::Extern],
     ) -> Result<InstanceHandle, InstantiationError> {
         // Ensure all imports come from the same context.
         for import in imports {
-            if !import.is_from_context(ctx.as_context_ref()) {
+            if !import.is_from_context(ctx) {
                 return Err(InstantiationError::BadContext);
             }
         }
