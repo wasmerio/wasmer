@@ -2,7 +2,7 @@ use crate::sys::context::{AsContextMut, AsContextRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::MemoryType;
-use crate::{ContextRef, MemoryAccessError};
+use crate::MemoryAccessError;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem;
@@ -46,7 +46,7 @@ impl Memory {
     /// #
     /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
     /// ```
-    pub fn new(mut ctx: impl AsContextMut, ty: MemoryType) -> Result<Self, MemoryError> {
+    pub fn new(ctx: &mut impl AsContextMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let mut ctx = ctx.as_context_mut();
         let tunables = ctx.store().tunables();
         let style = tunables.memory_style(&ty);
@@ -70,7 +70,7 @@ impl Memory {
     ///
     /// assert_eq!(m.ty(), mt);
     /// ```
-    pub fn ty(&self, ctx: impl AsContextRef) -> MemoryType {
+    pub fn ty(&self, ctx: &impl AsContextRef) -> MemoryType {
         self.handle.get(ctx.as_context_ref().objects()).ty()
     }
 
@@ -79,13 +79,13 @@ impl Memory {
     // This used by wasmer-emscripten and wasmer-c-api, but should be treated
     // as deprecated and not used in future code.
     #[doc(hidden)]
-    pub fn data_ptr(&self, ctx: impl AsContextRef) -> *mut u8 {
-        self.buffer(ctx.as_context_ref()).base
+    pub fn data_ptr(&self, ctx: &impl AsContextRef) -> *mut u8 {
+        self.buffer(ctx).base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self, ctx: impl AsContextRef) -> u64 {
-        self.buffer(ctx.as_context_ref()).len.try_into().unwrap()
+    pub fn data_size(&self, ctx: &impl AsContextRef) -> u64 {
+        self.buffer(ctx).len.try_into().unwrap()
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -100,7 +100,7 @@ impl Memory {
     ///
     /// assert_eq!(m.size(), Pages(1));
     /// ```
-    pub fn size(&self, ctx: impl AsContextRef) -> Pages {
+    pub fn size(&self, ctx: &impl AsContextRef) -> Pages {
         self.handle.get(ctx.as_context_ref().objects()).size()
     }
 
@@ -136,7 +136,7 @@ impl Memory {
     /// ```
     pub fn grow<IntoPages>(
         &self,
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         delta: IntoPages,
     ) -> Result<Pages, MemoryError>
     where
@@ -156,11 +156,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read(
         &self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         offset: u64,
         buf: &mut [u8],
     ) -> Result<(), MemoryAccessError> {
-        self.buffer(ctx.as_context_ref()).read(offset, buf)
+        self.buffer(ctx).read(offset, buf)
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -175,11 +175,11 @@ impl Memory {
     /// concurrent writes.
     pub fn read_uninit<'a>(
         &self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         offset: u64,
         buf: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], MemoryAccessError> {
-        self.buffer(ctx.as_context_ref()).read_uninit(offset, buf)
+        self.buffer(ctx).read_uninit(offset, buf)
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -191,15 +191,15 @@ impl Memory {
     /// concurrent reads/writes.
     pub fn write(
         &self,
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         offset: u64,
         data: &[u8],
     ) -> Result<(), MemoryAccessError> {
-        self.buffer(ctx.as_context_ref()).write(offset, data)
+        self.buffer(ctx).write(offset, data)
     }
 
-    pub(crate) fn buffer<'a, U>(&'a self, ctx: ContextRef<'a, U>) -> MemoryBuffer<'a> {
-        let definition = self.handle.get(ctx.objects()).vmmemory();
+    pub(crate) fn buffer<'a>(&'a self, ctx: &'a impl AsContextRef) -> MemoryBuffer<'a> {
+        let definition = self.handle.get(ctx.as_context_ref().objects()).vmmemory();
         let def = unsafe { definition.as_ref() };
         MemoryBuffer {
             base: def.base,
@@ -209,7 +209,7 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: impl AsContextRef,
+        ctx: &impl AsContextRef,
         internal: InternalContextHandle<VMMemory>,
     ) -> Self {
         Self {
@@ -220,7 +220,7 @@ impl Memory {
     }
 
     /// Checks whether this `Memory` can be used with the given context.
-    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 

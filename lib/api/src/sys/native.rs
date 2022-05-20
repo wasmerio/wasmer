@@ -66,7 +66,7 @@ macro_rules! impl_native_traits {
             /// Call the typed func and return results.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
-            pub fn call(&self, mut ctx: impl AsContextMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+            pub fn call(&self, ctx: &mut impl AsContextMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
                     *self.func
                         .handle
@@ -76,14 +76,14 @@ macro_rules! impl_native_traits {
                         .as_ref()
                 };
                 // Ensure all parameters come from the same context.
-                if $(!FromToNativeWasmType::is_from_context(&$x, ctx.as_context_ref()) ||)* false {
+                if $(!FromToNativeWasmType::is_from_context(&$x, ctx) ||)* false {
                     return Err(RuntimeError::new(
                         "cross-`Context` values are not supported",
                     ));
                 }
                 // TODO: when `const fn` related features mature more, we can declare a single array
                 // of the correct size here.
-                let mut params_list = [ $( $x.to_native().into_raw(ctx.as_context_mut()) ),* ];
+                let mut params_list = [ $( $x.to_native().into_raw(ctx) ),* ];
                 let mut rets_list_array = Rets::empty_array();
                 let rets_list: &mut [RawValue] = rets_list_array.as_mut();
                 let using_rets_array;

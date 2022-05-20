@@ -29,10 +29,10 @@ fn set_table_item(
 }
 
 fn value_to_table_element(
-    ctx: impl AsContextMut,
+    ctx: &mut impl AsContextMut,
     val: Value,
 ) -> Result<wasmer_vm::TableElement, RuntimeError> {
-    if !val.is_from_context(ctx.as_context_ref()) {
+    if !val.is_from_context(ctx) {
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     Ok(match val {
@@ -46,7 +46,7 @@ fn value_to_table_element(
     })
 }
 
-fn value_from_table_element(ctx: impl AsContextMut, item: wasmer_vm::TableElement) -> Value {
+fn value_from_table_element(ctx: &mut impl AsContextMut, item: wasmer_vm::TableElement) -> Value {
     match item {
         wasmer_vm::TableElement::FuncRef(funcref) => {
             Value::FuncRef(funcref.map(|f| unsafe { Function::from_vm_funcref(ctx, f) }))
@@ -65,12 +65,12 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::sys::BaseTunables].
     pub fn new(
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
         let mut ctx = ctx.as_context_mut();
-        let item = value_to_table_element(ctx.as_context_mut(), init)?;
+        let item = value_to_table_element(&mut ctx, init)?;
         let tunables = ctx.store().tunables();
         let style = tunables.table_style(&ty);
         let mut table = tunables
@@ -83,17 +83,17 @@ impl Table {
         }
 
         Ok(Self {
-            handle: ContextHandle::new(ctx.as_context_mut().objects_mut(), table),
+            handle: ContextHandle::new(ctx.objects_mut(), table),
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
-    pub fn ty(&self, ctx: impl AsContextRef) -> TableType {
+    pub fn ty(&self, ctx: &impl AsContextRef) -> TableType {
         *self.handle.get(ctx.as_context_ref().objects()).ty()
     }
 
     /// Retrieves an element of the table at the provided `index`.
-    pub fn get(&self, ctx: impl AsContextMut, index: u32) -> Option<Value> {
+    pub fn get(&self, ctx: &mut impl AsContextMut, index: u32) -> Option<Value> {
         let item = self.handle.get(ctx.as_context_ref().objects()).get(index)?;
         Some(value_from_table_element(ctx, item))
     }
@@ -101,11 +101,11 @@ impl Table {
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(
         &self,
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         index: u32,
         val: Value,
     ) -> Result<(), RuntimeError> {
-        let item = value_to_table_element(ctx.as_context_mut(), val)?;
+        let item = value_to_table_element(ctx, val)?;
         set_table_item(
             self.handle.get_mut(ctx.as_context_mut().objects_mut()),
             index,
@@ -114,7 +114,7 @@ impl Table {
     }
 
     /// Retrieves the size of the `Table` (in elements)
-    pub fn size(&self, ctx: impl AsContextRef) -> u32 {
+    pub fn size(&self, ctx: &impl AsContextRef) -> u32 {
         self.handle.get(ctx.as_context_ref().objects()).size()
     }
 
@@ -129,11 +129,11 @@ impl Table {
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(
         &self,
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         delta: u32,
         init: Value,
     ) -> Result<u32, RuntimeError> {
-        let item = value_to_table_element(ctx.as_context_mut(), init)?;
+        let item = value_to_table_element(ctx, init)?;
         self.handle
             .get_mut(ctx.as_context_mut().objects_mut())
             .grow(delta, item)
@@ -148,7 +148,7 @@ impl Table {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy(
-        mut ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         dst_table: &Self,
         dst_index: u32,
         src_table: &Self,
@@ -176,7 +176,7 @@ impl Table {
     }
 
     pub(crate) fn from_vm_extern(
-        ctx: impl AsContextMut,
+        ctx: &mut impl AsContextMut,
         internal: InternalContextHandle<VMTable>,
     ) -> Self {
         Self {
@@ -187,7 +187,7 @@ impl Table {
     }
 
     /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+    pub fn is_from_context(&self, ctx: &impl AsContextRef) -> bool {
         self.handle.context_id() == ctx.as_context_ref().objects().id()
     }
 
