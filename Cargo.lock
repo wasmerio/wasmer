@@ -3230,8 +3230,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "wasmer",
- "wasmer-vfs",
- "wasmer-wasi",
  "wast 38.0.1",
 ]
 
@@ -3253,22 +3251,16 @@ dependencies = [
  "test-log",
  "tracing",
  "tracing-subscriber",
- "wasi-test-generator",
  "wasmer",
- "wasmer-cache",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",
  "wasmer-engine-dylib",
  "wasmer-engine-staticlib",
  "wasmer-engine-universal",
- "wasmer-middlewares",
- "wasmer-types",
- "wasmer-wasi",
  "wasmer-wast",
 ]
 
