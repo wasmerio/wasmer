@@ -269,6 +269,11 @@ impl Function {
                     param_types, &signature,
                 )));
             }
+            if !arg.is_from_context(ctx.as_context_ref()) {
+                return Err(RuntimeError::new(
+                    "cross-`Context` values are not supported",
+                ));
+            }
             *slot = arg.as_raw(ctx.as_context_mut());
         }
 
@@ -618,7 +623,7 @@ mod inner {
 
     use crate::sys::context::{ContextInner, ContextMut};
     use crate::sys::NativeWasmTypeInto;
-    use crate::{AsContextMut, ExternRef, Function};
+    use crate::{AsContextMut, AsContextRef, ExternRef, Function};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
@@ -653,6 +658,14 @@ mod inner {
         /// This method panics if `self` cannot fit in the
         /// `Self::Native` type.
         fn to_native(self) -> Self::Native;
+
+        /// Returns whether the given value is from the given context.
+        ///
+        /// This always returns true for primitive types that can be used with
+        /// any context.
+        fn is_from_context(&self, _ctx: impl AsContextRef) -> bool {
+            true
+        }
     }
 
     macro_rules! from_to_native_wasm_type {
@@ -722,6 +735,11 @@ mod inner {
         fn from_native(n: Self::Native) -> Self {
             n
         }
+        fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+            self.as_ref()
+                .map(|e| e.is_from_context(ctx))
+                .unwrap_or(true)
+        }
     }
 
     unsafe impl FromToNativeWasmType for Option<Function> {
@@ -732,6 +750,11 @@ mod inner {
         }
         fn from_native(n: Self::Native) -> Self {
             n
+        }
+        fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+            self.as_ref()
+                .map(|f| f.is_from_context(ctx))
+                .unwrap_or(true)
         }
     }
 
