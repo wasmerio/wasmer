@@ -14,11 +14,11 @@ use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tun
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    RawValue, SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, TableStyle, VMContext, VMFunctionBody,
-    VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, MemoryStyle, TableStyle, VMContext, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// Serializable struct for the artifact
@@ -43,7 +43,6 @@ pub struct DummyArtifact {
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    func_data_registry: Arc<FuncDataRegistry>,
 }
 
 extern "C" fn dummy_function(_context: *mut VMContext) {
@@ -53,7 +52,7 @@ extern "C" fn dummy_function(_context: *mut VMContext) {
 extern "C" fn dummy_trampoline(
     _context: *mut VMContext,
     _callee: *const VMFunctionBody,
-    _values: *mut u128,
+    _values: *mut RawValue,
 ) {
     panic!("Dummy engine can't generate trampolines")
 }
@@ -185,7 +184,6 @@ impl DummyArtifact {
             finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             signatures,
-            func_data_registry: engine.func_data().clone(),
         })
     }
 }
@@ -259,9 +257,5 @@ impl Artifact for DummyArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
-    }
-
-    fn func_data_registry(&self) -> &FuncDataRegistry {
-        &self.func_data_registry
     }
 }

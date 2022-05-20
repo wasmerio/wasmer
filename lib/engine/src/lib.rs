@@ -26,7 +26,6 @@
 mod artifact;
 mod engine;
 mod error;
-mod export;
 mod resolver;
 mod trap;
 mod tunables;
@@ -34,7 +33,6 @@ mod tunables;
 pub use crate::artifact::Artifact;
 pub use crate::engine::{Engine, EngineId};
 pub use crate::error::{InstantiationError, LinkError};
-pub use crate::export::{Export, ExportFunction, ExportFunctionMetadata};
 pub use crate::resolver::resolve_imports;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;

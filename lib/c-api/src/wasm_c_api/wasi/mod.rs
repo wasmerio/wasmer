@@ -360,7 +360,7 @@ fn wasi_get_imports_inner(
                         import_type.name()
                     )
                 })?;
-            let inner = Extern::from_vm_export(store, ext.to_export());
+            let inner = Extern::from_vm_export(store, ext.to_vm_extern());
 
             Ok(Some(Box::new(inner.into())))
         })

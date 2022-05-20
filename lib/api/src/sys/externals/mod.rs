@@ -1,21 +1,20 @@
 pub(crate) mod function;
-mod global;
-mod memory;
-mod table;
+pub(crate) mod global;
+pub(crate) mod memory;
+pub(crate) mod table;
 
-pub use self::function::{
-    FromToNativeWasmType, Function, HostFunction, WasmTypeList, WithEnv, WithoutEnv,
-};
+pub use self::function::{FromToNativeWasmType, Function, HostFunction, WasmTypeList};
 
 pub use self::global::Global;
 pub use self::memory::Memory;
 pub use self::table::Table;
 
 use crate::sys::exports::{ExportError, Exportable};
-use crate::sys::store::{Store, StoreObject};
 use crate::sys::ExternType;
 use std::fmt;
-use wasmer_engine::Export;
+use wasmer_vm::VMExtern;
+
+use super::context::{AsContextMut, AsContextRef};
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
@@ -35,60 +34,49 @@ pub enum Extern {
 
 impl Extern {
     /// Return the underlying type of the inner `Extern`.
-    pub fn ty(&self) -> ExternType {
+    pub fn ty(&self, ctx: impl AsContextRef) -> ExternType {
         match self {
-            Self::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Self::Memory(ft) => ExternType::Memory(ft.ty()),
-            Self::Table(tt) => ExternType::Table(*tt.ty()),
-            Self::Global(gt) => ExternType::Global(*gt.ty()),
+            Self::Function(ft) => ExternType::Function(ft.ty(ctx).clone()),
+            Self::Memory(ft) => ExternType::Memory(ft.ty(ctx)),
+            Self::Table(tt) => ExternType::Table(tt.ty(ctx)),
+            Self::Global(gt) => ExternType::Global(gt.ty(ctx)),
         }
     }
 
     /// Create an `Extern` from an `wasmer_engine::Export`.
-    pub fn from_vm_export(store: &Store, export: Export) -> Self {
-        match export {
-            Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
-            Export::Memory(m) => Self::Memory(Memory::from_vm_export(store, m)),
-            Export::Global(g) => Self::Global(Global::from_vm_export(store, g)),
-            Export::Table(t) => Self::Table(Table::from_vm_export(store, t)),
+    pub(crate) fn from_vm_extern(ctx: impl AsContextMut, vm_extern: VMExtern) -> Self {
+        match vm_extern {
+            VMExtern::Function(f) => Self::Function(Function::from_vm_extern(ctx, f)),
+            VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(ctx, m)),
+            VMExtern::Global(g) => Self::Global(Global::from_vm_extern(ctx, g)),
+            VMExtern::Table(t) => Self::Table(Table::from_vm_extern(ctx, t)),
+        }
+    }
+
+    /// Checks whether this `Extern` can be used with the given context.
+    pub fn is_from_context(&self, ctx: impl AsContextRef) -> bool {
+        match self {
+            Self::Function(f) => f.is_from_context(ctx),
+            Self::Global(g) => g.is_from_context(ctx),
+            Self::Memory(m) => m.is_from_context(ctx),
+            Self::Table(t) => t.is_from_context(ctx),
+        }
+    }
+
+    pub(crate) fn to_vm_extern(&self) -> VMExtern {
+        match self {
+            Self::Function(f) => f.to_vm_extern(),
+            Self::Global(g) => g.to_vm_extern(),
+            Self::Memory(m) => m.to_vm_extern(),
+            Self::Table(t) => t.to_vm_extern(),
         }
     }
 }
 
 impl<'a> Exportable<'a> for Extern {
-    fn to_export(&self) -> Export {
-        match self {
-            Self::Function(f) => f.to_export(),
-            Self::Global(g) => g.to_export(),
-            Self::Memory(m) => m.to_export(),
-            Self::Table(t) => t.to_export(),
-        }
-    }
-
     fn get_self_from_extern(_extern: &'a Self) -> Result<&'a Self, ExportError> {
         // Since this is already an extern, we can just return it.
         Ok(_extern)
-    }
-
-    fn into_weak_instance_ref(&mut self) {
-        match self {
-            Self::Function(f) => f.into_weak_instance_ref(),
-            Self::Global(g) => g.into_weak_instance_ref(),
-            Self::Memory(m) => m.into_weak_instance_ref(),
-            Self::Table(t) => t.into_weak_instance_ref(),
-        }
-    }
-}
-
-impl StoreObject for Extern {
-    fn comes_from_same_store(&self, store: &Store) -> bool {
-        let my_store = match self {
-            Self::Function(f) => f.store(),
-            Self::Global(g) => g.store(),
-            Self::Memory(m) => m.store(),
-            Self::Table(t) => t.store(),
-        };
-        Store::same(my_store, store)
     }
 }
 

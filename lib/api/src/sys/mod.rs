@@ -1,33 +1,21 @@
-mod env;
+mod context;
 mod exports;
+mod extern_ref;
 mod externals;
 mod imports;
 mod instance;
 mod mem_access;
 mod module;
 mod native;
+mod native_type;
 mod ptr;
 mod store;
 mod tunables;
-mod types;
+mod value;
 
-/// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.
-///
-/// See the [`WasmerEnv`] trait for more information.
-pub use wasmer_derive::WasmerEnv;
-
-#[doc(hidden)]
-pub mod internals {
-    //! We use the internals module for exporting types that are only
-    //! intended to use in internal crates such as the compatibility crate
-    //! `wasmer-vm`. Please don't use any of this types directly, as
-    //! they might change frequently or be removed in the future.
-
-    pub use crate::sys::externals::{WithEnv, WithoutEnv};
-}
-
-pub use crate::sys::env::{HostEnvInitError, LazyInit, WasmerEnv};
+pub use crate::sys::context::{AsContextMut, AsContextRef, Context, ContextMut, ContextRef};
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
+pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
@@ -36,14 +24,11 @@ pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::sys::module::Module;
 pub use crate::sys::native::NativeFunc;
+pub use crate::sys::native_type::NativeWasmType;
 pub use crate::sys::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use crate::sys::store::{Store, StoreObject};
+pub use crate::sys::store::Store;
 pub use crate::sys::tunables::BaseTunables;
-pub use crate::sys::types::{
-    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Val, ValType,
-};
-pub use crate::sys::types::{Val as Value, ValType as Type};
+pub use crate::sys::value::Value;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
@@ -55,11 +40,14 @@ pub use wasmer_compiler::{
 };
 pub use wasmer_derive::ValueType;
 pub use wasmer_engine::{
-    DeserializeError, Engine, Export, FrameInfo, LinkError, RuntimeError, SerializeError, Tunables,
+    DeserializeError, Engine, FrameInfo, LinkError, RuntimeError, SerializeError, Tunables,
 };
 pub use wasmer_types::is_wasm;
-#[cfg(feature = "experimental-reference-types-extern-ref")]
-pub use wasmer_types::ExternRef;
+pub use wasmer_types::{
+    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
+    TableType, Type,
+};
+
 pub use wasmer_types::{
     Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
     WASM_MIN_PAGES, WASM_PAGE_SIZE,
@@ -71,7 +59,7 @@ pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMExtern, VMMemoryDefinition,
+        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition, VMTable,
         VMTableDefinition,
     };
 }

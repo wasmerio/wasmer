@@ -179,7 +179,7 @@ entity_impl!(CustomSectionIndex);
 entity_impl!(ArchivedCustomSectionIndex);
 
 /// An entity to export.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "enable-rkyv",

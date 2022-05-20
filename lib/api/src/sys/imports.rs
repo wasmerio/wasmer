@@ -285,7 +285,7 @@ mod test {
         let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
 
         assert!(
-            if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
+            if let Export::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
                 happy_dog_global.from.ty().ty == Type::I32
             } else {
                 false
@@ -398,7 +398,7 @@ mod test {
         let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
 
         assert!(
-            if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
+            if let Export::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
                 happy_dog_global.from.ty().ty == Type::I64
             } else {
                 false
@@ -426,7 +426,7 @@ mod test {
         let happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
 
         assert!(
-            if let Export::Global(happy_dog_global) = happy_dog_entry.to_export() {
+            if let Export::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
                 happy_dog_global.from.ty().ty == Type::I32
             } else {
                 false

@@ -12,6 +12,9 @@ use std::{
 use thiserror::Error;
 use wasmer_types::ValueType;
 
+use super::context::AsContextRef;
+use super::externals::memory::MemoryBuffer;
+
 /// Error for invalid [`Memory`] access.
 #[derive(Clone, Copy, Debug, Error)]
 #[non_exhaustive]
@@ -51,7 +54,7 @@ impl From<FromUtf8Error> for MemoryAccessError {
 /// thread.
 #[derive(Clone, Copy)]
 pub struct WasmRef<'a, T: ValueType> {
-    memory: &'a Memory,
+    buffer: MemoryBuffer<'a>,
     offset: u64,
     marker: PhantomData<*mut T>,
 }
@@ -59,9 +62,9 @@ pub struct WasmRef<'a, T: ValueType> {
 impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Creates a new `WasmRef` at the given offset in a memory.
     #[inline]
-    pub fn new(memory: &'a Memory, offset: u64) -> Self {
+    pub fn new(ctx: &'a impl AsContextRef, memory: &'a Memory, offset: u64) -> Self {
         Self {
-            memory,
+            buffer: memory.buffer(ctx.as_context_ref()),
             offset,
             marker: PhantomData,
         }
@@ -85,19 +88,13 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
         WasmPtr::new(self.offset)
     }
 
-    /// Get a reference to the Wasm memory backing this reference.
-    #[inline]
-    pub fn memory(self) -> &'a Memory {
-        self.memory
-    }
-
     /// Reads the location pointed to by this `WasmRef`.
     #[inline]
     pub fn read(self) -> Result<T, MemoryAccessError> {
         let mut out = MaybeUninit::uninit();
         let buf =
             unsafe { slice::from_raw_parts_mut(out.as_mut_ptr() as *mut u8, mem::size_of::<T>()) };
-        self.memory.read(self.offset, buf)?;
+        self.buffer.read(self.offset, buf)?;
         Ok(unsafe { out.assume_init() })
     }
 
@@ -113,7 +110,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
         };
         val.zero_padding_bytes(data);
         let data = unsafe { slice::from_raw_parts(data.as_ptr() as *const _, data.len()) };
-        self.memory.write(self.offset, data)
+        self.buffer.write(self.offset, data)
     }
 }
 
@@ -140,7 +137,7 @@ impl<'a, T: ValueType> fmt::Debug for WasmRef<'a, T> {
 /// thread.
 #[derive(Clone, Copy)]
 pub struct WasmSlice<'a, T: ValueType> {
-    memory: &'a Memory,
+    buffer: MemoryBuffer<'a>,
     offset: u64,
     len: u64,
     marker: PhantomData<*mut T>,
@@ -152,7 +149,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     ///
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
-    pub fn new(memory: &'a Memory, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
+    pub fn new(
+        ctx: &'a impl AsContextRef,
+        memory: &'a Memory,
+        offset: u64,
+        len: u64,
+    ) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
@@ -160,7 +162,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         Ok(Self {
-            memory,
+            buffer: memory.buffer(ctx.as_context_ref()),
             offset,
             len,
             marker: PhantomData,
@@ -191,12 +193,6 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         self.len
     }
 
-    /// Get a reference to the Wasm memory backing this reference.
-    #[inline]
-    pub fn memory(self) -> &'a Memory {
-        self.memory
-    }
-
     /// Get a `WasmRef` to an element in the slice.
     #[inline]
     pub fn index(self, idx: u64) -> WasmRef<'a, T> {
@@ -205,7 +201,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         }
         let offset = self.offset + idx * mem::size_of::<T>() as u64;
         WasmRef {
-            memory: self.memory,
+            buffer: self.buffer,
             offset,
             marker: PhantomData,
         }
@@ -219,7 +215,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         }
         let offset = self.offset + range.start * mem::size_of::<T>() as u64;
         Self {
-            memory: self.memory,
+            buffer: self.buffer,
             offset,
             len: range.end - range.start,
             marker: PhantomData,
@@ -260,7 +256,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
                 buf.len() * mem::size_of::<T>(),
             )
         };
-        self.memory.read_uninit(self.offset, bytes)?;
+        self.buffer.read_uninit(self.offset, bytes)?;
         Ok(())
     }
 
@@ -285,7 +281,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
                 buf.len() * mem::size_of::<T>(),
             )
         };
-        self.memory.read_uninit(self.offset, bytes)?;
+        self.buffer.read_uninit(self.offset, bytes)?;
         Ok(unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut T, buf.len()) })
     }
 
@@ -302,7 +298,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         let bytes = unsafe {
             slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
         };
-        self.memory.write(self.offset, bytes)
+        self.buffer.write(self.offset, bytes)
     }
 
     /// Reads this `WasmSlice` into a `Vec`.
@@ -316,7 +312,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
                 len * mem::size_of::<T>(),
             )
         };
-        self.memory.read_uninit(self.offset, bytes)?;
+        self.buffer.read_uninit(self.offset, bytes)?;
         unsafe {
             vec.set_len(len);
         }

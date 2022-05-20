@@ -55,25 +55,22 @@ pub mod lib {
 
 #[cfg(feature = "enable-rkyv")]
 mod archives;
-mod extern_ref;
 mod features;
 mod indexes;
 mod initializers;
 mod libcalls;
 mod memory;
 mod module;
-mod native;
 mod table;
 mod trapcode;
 mod types;
 mod units;
 mod utils;
-mod values;
+mod value;
 mod vmoffsets;
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;
-pub use crate::extern_ref::{ExternRef, VMExternRef};
 pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
@@ -84,15 +81,14 @@ pub use crate::initializers::{
     DataInitializer, DataInitializerLocation, OwnedDataInitializer, TableInitializer,
 };
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
-pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
-pub use crate::values::{Value, WasmValueType};
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,
 };
+pub use value::{RawValue, ValueType};
 
 #[cfg(feature = "enable-rkyv")]
 pub use archives::ArchivableIndexMap;

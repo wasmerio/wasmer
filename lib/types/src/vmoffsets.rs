@@ -256,9 +256,9 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `from` field.
+    /// The offset of the `handle` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmtable_import_from(&self) -> u8 {
+    pub const fn vmtable_import_handle(&self) -> u8 {
         1 * self.pointer_size
     }
 
@@ -301,9 +301,9 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `from` field.
+    /// The offset of the `handle` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmmemory_import_from(&self) -> u8 {
+    pub const fn vmmemory_import_handle(&self) -> u8 {
         1 * self.pointer_size
     }
 
@@ -346,9 +346,9 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `from` field.
+    /// The offset of the `handle` field.
     #[allow(clippy::identity_op)]
-    pub const fn vmglobal_import_from(&self) -> u8 {
+    pub const fn vmglobal_import_handle(&self) -> u8 {
         1 * self.pointer_size
     }
 
@@ -674,9 +674,9 @@ impl VMOffsets {
     }
 
     /// Return the offset to the `vmctx` field in `VMMemoryImport` index `index`.
-    pub fn vmctx_vmmemory_import_from(&self, index: MemoryIndex) -> u32 {
+    pub fn vmctx_vmmemory_import_handle(&self, index: MemoryIndex) -> u32 {
         self.vmctx_vmmemory_import(index)
-            .checked_add(u32::from(self.vmmemory_import_from()))
+            .checked_add(u32::from(self.vmmemory_import_handle()))
             .unwrap()
     }
 

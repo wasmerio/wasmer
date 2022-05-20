@@ -5,7 +5,6 @@ use crate::lib::std::format;
 use crate::lib::std::string::{String, ToString};
 use crate::lib::std::vec::Vec;
 use crate::units::Pages;
-use crate::values::{Value, WasmValueType};
 
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -437,31 +436,6 @@ pub enum GlobalInit {
     RefNullConst,
     /// A `ref.func <index>`.
     RefFunc(FunctionIndex),
-}
-
-impl Eq for GlobalInit {}
-
-impl GlobalInit {
-    /// Get the `GlobalInit` from a given `Value`
-    pub fn from_value<T: WasmValueType>(value: Value<T>) -> Self {
-        match value {
-            Value::I32(i) => Self::I32Const(i),
-            Value::I64(i) => Self::I64Const(i),
-            Value::F32(f) => Self::F32Const(f),
-            Value::F64(f) => Self::F64Const(f),
-            _ => unimplemented!("GlobalInit from_value for {:?}", value),
-        }
-    }
-    /// Get the `Value` from the Global init value
-    pub fn to_value<T: WasmValueType>(&self) -> Value<T> {
-        match self {
-            Self::I32Const(i) => Value::I32(*i),
-            Self::I64Const(i) => Value::I64(*i),
-            Self::F32Const(f) => Value::F32(*f),
-            Self::F64Const(f) => Value::F64(*f),
-            _ => unimplemented!("GlobalInit to_value for {:?}", self),
-        }
-    }
 }
 
 // Table Types

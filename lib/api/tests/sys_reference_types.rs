@@ -124,7 +124,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
     fn extern_ref_passed_and_returned() -> Result<()> {
         let store = Store::default();
@@ -211,7 +210,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
     // TODO(reftypes): reenable this test
     #[ignore]
@@ -234,7 +232,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
     fn refs_in_globals() -> Result<()> {
         let store = Store::default();
@@ -300,7 +297,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
     fn extern_ref_ref_counting_table_basic() -> Result<()> {
         let store = Store::default();
@@ -341,7 +337,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
     // TODO(reftypes): reenable this test
     #[ignore]
@@ -373,7 +368,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
     // TODO(reftypes): reenable this test
     #[ignore]
@@ -400,7 +394,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(feature = "experimental-reference-types-extern-ref")]
     #[test]
     fn extern_ref_ref_counting_table_instructions() -> Result<()> {
         let store = Store::default();

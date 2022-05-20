@@ -14,8 +14,8 @@ use wasmer_types::{
     Features, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo, SignatureIndex,
 };
 use wasmer_vm::{
-    FuncDataRegistry, FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMCallerCheckedAnyfunc,
-    VMFuncRef, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// A WebAssembly `Universal` Engine.
@@ -36,7 +36,6 @@ impl UniversalEngine {
                 builder: UniversalEngineBuilder::new(Some(compiler), features),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
-                func_data: Arc::new(FuncDataRegistry::new()),
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
@@ -62,7 +61,6 @@ impl UniversalEngine {
                 builder: UniversalEngineBuilder::new(None, Features::default()),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
-                func_data: Arc::new(FuncDataRegistry::new()),
             })),
             target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
@@ -88,11 +86,6 @@ impl Engine for UniversalEngine {
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.inner();
         compiler.signatures().register(func_type)
-    }
-
-    fn register_function_metadata(&self, func_data: VMCallerCheckedAnyfunc) -> VMFuncRef {
-        let compiler = self.inner();
-        compiler.func_data().register(func_data)
     }
 
     /// Lookup a signature
@@ -153,10 +146,6 @@ pub struct UniversalEngineInner {
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
-    /// The backing storage of `VMFuncRef`s. This centralized store ensures that 2
-    /// functions with the same `VMCallerCheckedAnyfunc` will have the same `VMFuncRef`.
-    /// It also guarantees that the `VMFuncRef`s stay valid until the engine is dropped.
-    func_data: Arc<FuncDataRegistry>,
 }
 
 impl UniversalEngineInner {
@@ -293,10 +282,5 @@ impl UniversalEngineInner {
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
-    }
-
-    /// Shared func metadata registry.
-    pub(crate) fn func_data(&self) -> &Arc<FuncDataRegistry> {
-        &self.func_data
     }
 }
