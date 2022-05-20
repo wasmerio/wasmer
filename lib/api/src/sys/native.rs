@@ -74,6 +74,12 @@ macro_rules! impl_native_traits {
                         .as_ptr()
                         .as_ref()
                 };
+                // Ensure all parameters come from the same context.
+                if $(!FromToNativeWasmType::is_from_context(&$x, ctx.as_context_ref()) ||)* false {
+                    return Err(RuntimeError::new(
+                        "cross-`Context` values are not supported",
+                    ));
+                }
                 // TODO: when `const fn` related features mature more, we can declare a single array
                 // of the correct size here.
                 let mut params_list = [ $( $x.to_native().into_raw(ctx.as_context_mut()) ),* ];
