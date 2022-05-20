@@ -75,7 +75,7 @@
 //!     ("Relax verification to allow I8X16 to act as a default vector type")
 
 use super::func_environ::{FuncEnvironment, GlobalVariable, ReturnMode};
-use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState, ValueExtraInfo};
+use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
 use crate::{hash_map, HashMap};
 use core::cmp;
@@ -92,11 +92,10 @@ use cranelift_frontend::{FunctionBuilder, Variable};
 use smallvec::SmallVec;
 use std::vec::Vec;
 
-use wasmer_compiler::wasmparser::{MemoryImmediate, Operator, Type as WPType};
+use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, Type as WasmerType,
-    WasmResult,
+    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
 };
 
 // Clippy warns about "align: _" but its important to document that the align field is ignored
@@ -126,25 +125,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          ***********************************************************************************/
         Operator::LocalGet { local_index } => {
             let val = builder.use_var(Variable::with_u32(*local_index));
-            let local_type = environ.get_local_type(*local_index).unwrap();
-            let ref_counted = local_type == WasmerType::ExternRef;
-            state.push1_extra((val, ValueExtraInfo { ref_counted }));
+            state.push1(val);
             let label = ValueLabel::from_u32(*local_index);
             builder.set_val_label(val, label);
-
-            if ref_counted {
-                environ.translate_externref_inc(builder.cursor(), val)?;
-            }
         }
         Operator::LocalSet { local_index } => {
-            let (mut val, _metadata) = state.pop1();
+            let mut val = state.pop1();
 
-            let local_type = environ.get_local_type(*local_index).unwrap();
-            if local_type == WasmerType::ExternRef {
-                debug_assert!(_metadata.ref_counted);
-                let existing_val = builder.use_var(Variable::with_u32(*local_index));
-                environ.translate_externref_dec(builder.cursor(), existing_val)?;
-            }
             // Ensure SIMD values are cast to their default Cranelift type, I8x16.
             let ty = builder.func.dfg.value_type(val);
             if ty.is_vector() {
@@ -156,16 +143,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             builder.set_val_label(val, label);
         }
         Operator::LocalTee { local_index } => {
-            let (mut val, _metadata) = state.peek1();
+            let mut val = state.peek1();
 
-            // ref count if we need to
-            let local_type = environ.get_local_type(*local_index).unwrap();
-            if local_type == WasmerType::ExternRef {
-                debug_assert!(_metadata.ref_counted);
-                let existing_val = builder.use_var(Variable::with_u32(*local_index));
-                environ.translate_externref_dec(builder.cursor(), existing_val)?;
-                environ.translate_externref_inc(builder.cursor(), val)?;
-            }
             // Ensure SIMD values are cast to their default Cranelift type, I8x16.
             let ty = builder.func.dfg.value_type(val);
             if ty.is_vector() {
@@ -182,25 +161,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::GlobalGet { global_index } => {
             let global_index = GlobalIndex::from_u32(*global_index);
             let stack_elem = match state.get_global(builder.func, global_index.as_u32(), environ)? {
-                GlobalVariable::Const(val) => (val, ValueExtraInfo::default()),
+                GlobalVariable::Const(val) => val,
                 GlobalVariable::Memory { gv, offset, ty } => {
-                    let global_type = environ.get_global_type(global_index).unwrap();
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
                     let flags = ir::MemFlags::trusted();
-                    let value = builder.ins().load(ty, flags, addr, offset);
-                    let ref_counted = global_type == WasmerType::ExternRef;
-                    if ref_counted {
-                        environ.translate_externref_inc(builder.cursor(), value)?;
-                    }
-
-                    (value, ValueExtraInfo { ref_counted })
+                    builder.ins().load(ty, flags, addr, offset)
                 }
-                GlobalVariable::Custom => (
-                    environ.translate_custom_global_get(builder.cursor(), global_index)?,
-                    ValueExtraInfo::default(),
-                ),
+                GlobalVariable::Custom => {
+                    environ.translate_custom_global_get(builder.cursor(), global_index)?
+                }
             };
-            state.push1_extra(stack_elem);
+            state.push1(stack_elem);
         }
         Operator::GlobalSet { global_index } => {
             let global_index = GlobalIndex::from_u32(*global_index);
@@ -209,23 +180,18 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     panic!("global #{} is a constant", global_index.as_u32())
                 }
                 GlobalVariable::Memory { gv, offset, ty } => {
-                    let global_type = environ.get_global_type(global_index).unwrap();
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
                     let flags = ir::MemFlags::trusted();
-                    let (mut val, _) = state.pop1();
+                    let mut val = state.pop1();
                     // Ensure SIMD values are cast to their default Cranelift type, I8x16.
                     if ty.is_vector() {
                         val = optionally_bitcast_vector(val, I8X16, builder);
                     }
                     debug_assert_eq!(ty, builder.func.dfg.value_type(val));
-                    if global_type == WasmerType::ExternRef {
-                        let value = builder.ins().load(ty, flags, addr, offset);
-                        environ.translate_externref_dec(builder.cursor(), value)?;
-                    }
                     builder.ins().store(flags, val, addr, offset);
                 }
                 GlobalVariable::Custom => {
-                    let (val, _) = state.pop1();
+                    let val = state.pop1();
                     environ.translate_custom_global_set(builder.cursor(), global_index, val)?;
                 }
             }
@@ -234,14 +200,11 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          *  `drop`, `nop`, `unreachable` and `select`.
          ***********************************************************************************/
         Operator::Drop => {
-            let (val, metadata) = state.pop1();
-            if metadata.ref_counted {
-                environ.translate_externref_dec(builder.cursor(), val)?;
-            }
+            state.pop1();
         }
         Operator::Select => {
             // we can ignore metadata because extern ref must use TypedSelect
-            let ((mut arg1, _), (mut arg2, _), (cond, _)) = state.pop3();
+            let (mut arg1, mut arg2, cond) = state.pop3();
             if builder.func.dfg.value_type(arg1).is_vector() {
                 arg1 = optionally_bitcast_vector(arg1, I8X16, builder);
             }
@@ -250,20 +213,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             }
             state.push1(builder.ins().select(cond, arg1, arg2));
         }
-        Operator::TypedSelect { ty } => {
-            let ((arg1, _), (arg2, _), (cond, _)) = state.pop3();
-            let ref_counted = *ty == WPType::ExternRef;
-            if ref_counted {
-                let selected_ref = builder.ins().select(cond, arg1, arg2);
-                let not_selected_ref = builder.ins().select(cond, arg2, arg1);
-                state.push1_extra((selected_ref, ValueExtraInfo { ref_counted }));
-                environ.translate_externref_dec(builder.cursor(), not_selected_ref)?;
-            } else {
-                state.push1_extra((
-                    builder.ins().select(cond, arg1, arg2),
-                    ValueExtraInfo::default(),
-                ));
-            }
+        Operator::TypedSelect { ty: _ } => {
+            let (arg1, arg2, cond) = state.pop3();
+            state.push1(builder.ins().select(cond, arg1, arg2));
         }
         Operator::Nop => {
             // We do nothing
@@ -306,7 +258,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             environ.translate_loop_header(builder.cursor())?;
         }
         Operator::If { ty } => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
 
             let (params, results) = module_translation_state.blocktype_params_results(*ty)?;
             let (destination, else_data) = if params == results {
@@ -331,7 +283,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             };
 
             let next_block = builder.create_block();
-            canonicalise_then_jump(builder, next_block, (&[], &[]));
+            canonicalise_then_jump(builder, next_block, &[]);
             builder.seal_block(next_block); // Only predecessor is the current block.
             builder.switch_to_block(next_block);
 
@@ -500,7 +452,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     min_depth_frame.num_return_values()
                 }
             };
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             let mut data = JumpTableData::with_capacity(table.len() as usize);
             if jump_args_count == 0 {
                 // No jump arguments
@@ -576,7 +528,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 (return_count, frame.br_destination())
             };
             {
-                let (return_args, return_args_metadata) = state.peekn_mut(return_count);
+                let return_args = state.peekn_mut(return_count);
                 // TODO(reftypes): maybe ref count here?
                 let return_types = wasm_param_types(&builder.func.signature.returns, |i| {
                     environ.is_wasm_return(&builder.func.signature, i)
@@ -584,11 +536,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 bitcast_arguments(return_args, &return_types, builder);
                 match environ.return_mode() {
                     ReturnMode::NormalReturns => builder.ins().return_(return_args),
-                    ReturnMode::FallthroughReturn => canonicalise_then_jump(
-                        builder,
-                        br_destination,
-                        (&*return_args, &*return_args_metadata),
-                    ),
+                    ReturnMode::FallthroughReturn => {
+                        canonicalise_then_jump(builder, br_destination, return_args)
+                    }
                 };
             }
             state.popn(return_count);
@@ -614,7 +564,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::Call { function_index } => {
             let (fref, num_args) = state.get_direct_func(builder.func, *function_index, environ)?;
 
-            let (args, _args_metadata) = state.peekn_mut(num_args);
+            let args = state.peekn_mut(num_args);
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
             let callee_signature =
@@ -634,34 +584,25 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     .len(),
                 "translate_call results should match the call signature"
             );
-            let func_type = environ.get_function_type(func_index).unwrap();
-            let mut results_metadata = Vec::with_capacity(func_type.results().len());
-            for result in func_type.results() {
-                results_metadata.push(if *result == WasmerType::ExternRef {
-                    ValueExtraInfo { ref_counted: true }
-                } else {
-                    Default::default()
-                });
-            }
             state.popn(num_args);
-            state.pushn(inst_results, &results_metadata);
+            state.pushn(inst_results);
         }
         Operator::CallIndirect { index, table_index } => {
             // `index` is the index of the function's signature and `table_index` is the index of
             // the table to search the function in.
             let (sigref, num_args) = state.get_indirect_sig(builder.func, *index, environ)?;
             let table = state.get_or_create_table(builder.func, *table_index, environ)?;
-            let (callee, _) = state.pop1();
+            let callee = state.pop1();
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
             let callee_signature = &builder.func.dfg.signatures[sigref];
-            let (args, _) = state.peekn_mut(num_args);
+            let args = state.peekn_mut(num_args);
             let types = wasm_param_types(&callee_signature.params, |i| {
                 environ.is_wasm_parameter(callee_signature, i)
             });
             bitcast_arguments(args, &types, builder);
 
-            let (args, _args_metadata) = state.peekn(num_args);
+            let args = state.peekn(num_args);
             let sig_idx = SignatureIndex::from_u32(*index);
 
             let call = environ.translate_call_indirect(
@@ -679,17 +620,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 builder.func.dfg.signatures[sigref].returns.len(),
                 "translate_call_indirect results should match the call signature"
             );
-            let func_type = environ.get_function_sig(sig_idx).unwrap();
-            let mut results_metadata = Vec::with_capacity(func_type.results().len());
-            for result in func_type.results() {
-                results_metadata.push(if *result == WasmerType::ExternRef {
-                    ValueExtraInfo { ref_counted: true }
-                } else {
-                    Default::default()
-                });
-            }
             state.popn(num_args);
-            state.pushn(inst_results, &results_metadata);
+            state.pushn(inst_results);
         }
         /******************************* Memory management ***********************************
          * Memory management is handled by environment. It is usually translated into calls to
@@ -700,7 +632,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // argument to be a memory index.
             let heap_index = MemoryIndex::from_u32(*mem);
             let heap = state.get_heap(builder.func, *mem, environ)?;
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(environ.translate_memory_grow(builder.cursor(), heap_index, heap, val)?)
         }
         Operator::MemorySize { mem, mem_byte: _ } => {
@@ -820,246 +752,246 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         /******************************* Unary Operators *************************************/
         Operator::I32Clz | Operator::I64Clz => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().clz(arg));
         }
         Operator::I32Ctz | Operator::I64Ctz => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().ctz(arg));
         }
         Operator::I32Popcnt | Operator::I64Popcnt => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().popcnt(arg));
         }
         Operator::I64ExtendI32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().sextend(I64, val));
         }
         Operator::I64ExtendI32U => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().uextend(I64, val));
         }
         Operator::I32WrapI64 => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().ireduce(I32, val));
         }
         Operator::F32Sqrt | Operator::F64Sqrt => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().sqrt(arg));
         }
         Operator::F32Ceil | Operator::F64Ceil => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().ceil(arg));
         }
         Operator::F32Floor | Operator::F64Floor => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().floor(arg));
         }
         Operator::F32Trunc | Operator::F64Trunc => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().trunc(arg));
         }
         Operator::F32Nearest | Operator::F64Nearest => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().nearest(arg));
         }
         Operator::F32Abs | Operator::F64Abs => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fabs(val));
         }
         Operator::F32Neg | Operator::F64Neg => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             state.push1(builder.ins().fneg(arg));
         }
         Operator::F64ConvertI64U | Operator::F64ConvertI32U => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_from_uint(F64, val));
         }
         Operator::F64ConvertI64S | Operator::F64ConvertI32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_from_sint(F64, val));
         }
         Operator::F32ConvertI64S | Operator::F32ConvertI32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_from_sint(F32, val));
         }
         Operator::F32ConvertI64U | Operator::F32ConvertI32U => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_from_uint(F32, val));
         }
         Operator::F64PromoteF32 => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fpromote(F64, val));
         }
         Operator::F32DemoteF64 => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fdemote(F32, val));
         }
         Operator::I64TruncF64S | Operator::I64TruncF32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_sint(I64, val));
         }
         Operator::I32TruncF64S | Operator::I32TruncF32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_sint(I32, val));
         }
         Operator::I64TruncF64U | Operator::I64TruncF32U => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_uint(I64, val));
         }
         Operator::I32TruncF64U | Operator::I32TruncF32U => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_uint(I32, val));
         }
         Operator::I64TruncSatF64S | Operator::I64TruncSatF32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_sint_sat(I64, val));
         }
         Operator::I32TruncSatF64S | Operator::I32TruncSatF32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_sint_sat(I32, val));
         }
         Operator::I64TruncSatF64U | Operator::I64TruncSatF32U => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_uint_sat(I64, val));
         }
         Operator::I32TruncSatF64U | Operator::I32TruncSatF32U => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().fcvt_to_uint_sat(I32, val));
         }
         Operator::F32ReinterpretI32 => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().bitcast(F32, val));
         }
         Operator::F64ReinterpretI64 => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().bitcast(F64, val));
         }
         Operator::I32ReinterpretF32 => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().bitcast(I32, val));
         }
         Operator::I64ReinterpretF64 => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().bitcast(I64, val));
         }
         Operator::I32Extend8S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().ireduce(I8, val));
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().sextend(I32, val));
         }
         Operator::I32Extend16S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().ireduce(I16, val));
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().sextend(I32, val));
         }
         Operator::I64Extend8S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().ireduce(I8, val));
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().sextend(I64, val));
         }
         Operator::I64Extend16S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().ireduce(I16, val));
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().sextend(I64, val));
         }
         Operator::I64Extend32S => {
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().ireduce(I32, val));
-            let (val, _) = state.pop1();
+            let val = state.pop1();
             state.push1(builder.ins().sextend(I64, val));
         }
         /****************************** Binary Operators ************************************/
         Operator::I32Add | Operator::I64Add => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().iadd(arg1, arg2));
         }
         Operator::I32And | Operator::I64And => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().band(arg1, arg2));
         }
         Operator::I32Or | Operator::I64Or => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().bor(arg1, arg2));
         }
         Operator::I32Xor | Operator::I64Xor => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().bxor(arg1, arg2));
         }
         Operator::I32Shl | Operator::I64Shl => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().ishl(arg1, arg2));
         }
         Operator::I32ShrS | Operator::I64ShrS => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().sshr(arg1, arg2));
         }
         Operator::I32ShrU | Operator::I64ShrU => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().ushr(arg1, arg2));
         }
         Operator::I32Rotl | Operator::I64Rotl => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().rotl(arg1, arg2));
         }
         Operator::I32Rotr | Operator::I64Rotr => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().rotr(arg1, arg2));
         }
         Operator::F32Add | Operator::F64Add => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().fadd(arg1, arg2));
         }
         Operator::I32Sub | Operator::I64Sub => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().isub(arg1, arg2));
         }
         Operator::F32Sub | Operator::F64Sub => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().fsub(arg1, arg2));
         }
         Operator::I32Mul | Operator::I64Mul => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().imul(arg1, arg2));
         }
         Operator::F32Mul | Operator::F64Mul => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().fmul(arg1, arg2));
         }
         Operator::F32Div | Operator::F64Div => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().fdiv(arg1, arg2));
         }
         Operator::I32DivS | Operator::I64DivS => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().sdiv(arg1, arg2));
         }
         Operator::I32DivU | Operator::I64DivU => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().udiv(arg1, arg2));
         }
         Operator::I32RemS | Operator::I64RemS => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().srem(arg1, arg2));
         }
         Operator::I32RemU | Operator::I64RemU => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().urem(arg1, arg2));
         }
         Operator::F32Min | Operator::F64Min => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().fmin(arg1, arg2));
         }
         Operator::F32Max | Operator::F64Max => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().fmax(arg1, arg2));
         }
         Operator::F32Copysign | Operator::F64Copysign => {
-            let ((arg1, _), (arg2, _)) = state.pop2();
+            let (arg1, arg2) = state.pop2();
             state.push1(builder.ins().fcopysign(arg1, arg2));
         }
         /**************************** Comparison Operators **********************************/
@@ -1088,7 +1020,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             translate_icmp(IntCC::UnsignedGreaterThanOrEqual, builder, state)
         }
         Operator::I32Eqz | Operator::I64Eqz => {
-            let (arg, _) = state.pop1();
+            let arg = state.pop1();
             let val = builder.ins().icmp_imm(IntCC::Equal, arg, 0);
             state.push1(builder.ins().bint(I32, val));
         }
@@ -1106,7 +1038,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::RefNull { ty } => state.push1(environ.translate_ref_null(builder.cursor(), *ty)?),
         Operator::RefIsNull => {
-            let (value, _) = state.pop1();
+            let value = state.pop1();
             state.push1(environ.translate_ref_is_null(builder.cursor(), value)?);
         }
         Operator::RefFunc { function_index } => {
@@ -1124,9 +1056,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             };
             let heap_index = MemoryIndex::from_u32(memarg.memory);
             let heap = state.get_heap(builder.func, memarg.memory, environ)?;
-            let (timeout, _) = state.pop1(); // 64 (fixed)
-            let (expected, _) = state.pop1(); // 32 or 64 (per the `Ixx` in `IxxAtomicWait`)
-            let (addr, _) = state.pop1(); // 32 (fixed)
+            let timeout = state.pop1(); // 64 (fixed)
+            let expected = state.pop1(); // 32 or 64 (per the `Ixx` in `IxxAtomicWait`)
+            let addr = state.pop1(); // 32 (fixed)
             let addr = fold_atomic_mem_addr(addr, memarg, implied_ty, builder);
             assert!(builder.func.dfg.value_type(expected) == implied_ty);
             // `fn translate_atomic_wait` can inspect the type of `expected` to figure out what
@@ -1144,8 +1076,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::MemoryAtomicNotify { memarg } => {
             let heap_index = MemoryIndex::from_u32(memarg.memory);
             let heap = state.get_heap(builder.func, memarg.memory, environ)?;
-            let (count, _) = state.pop1(); // 32 (fixed)
-            let (addr, _) = state.pop1(); // 32 (fixed)
+            let count = state.pop1(); // 32 (fixed)
+            let addr = state.pop1(); // 32 (fixed)
             let addr = fold_atomic_mem_addr(addr, memarg, I32, builder);
             let res =
                 environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count)?;
@@ -1357,9 +1289,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let dst_index = MemoryIndex::from_u32(*dst);
             let src_heap = state.get_heap(builder.func, *src, environ)?;
             let dst_heap = state.get_heap(builder.func, *dst, environ)?;
-            let (len, _) = state.pop1();
-            let (src_pos, _) = state.pop1();
-            let (dst_pos, _) = state.pop1();
+            let len = state.pop1();
+            let src_pos = state.pop1();
+            let dst_pos = state.pop1();
             environ.translate_memory_copy(
                 builder.cursor(),
                 src_index,
@@ -1374,17 +1306,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::MemoryFill { mem } => {
             let heap_index = MemoryIndex::from_u32(*mem);
             let heap = state.get_heap(builder.func, *mem, environ)?;
-            let (len, _) = state.pop1();
-            let (val, _) = state.pop1();
-            let (dest, _) = state.pop1();
+            let len = state.pop1();
+            let val = state.pop1();
+            let dest = state.pop1();
             environ.translate_memory_fill(builder.cursor(), heap_index, heap, dest, val, len)?;
         }
         Operator::MemoryInit { segment, mem } => {
             let heap_index = MemoryIndex::from_u32(*mem);
             let heap = state.get_heap(builder.func, *mem, environ)?;
-            let (len, _) = state.pop1();
-            let (src, _) = state.pop1();
-            let (dest, _) = state.pop1();
+            let len = state.pop1();
+            let src = state.pop1();
+            let dest = state.pop1();
             environ.translate_memory_init(
                 builder.cursor(),
                 heap_index,
@@ -1409,8 +1341,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::TableGrow { table: index } => {
             let table_index = TableIndex::from_u32(*index);
             let table = state.get_or_create_table(builder.func, *index, environ)?;
-            let (delta, _) = state.pop1();
-            let (init_value, _) = state.pop1();
+            let delta = state.pop1();
+            let init_value = state.pop1();
             state.push1(environ.translate_table_grow(
                 builder.cursor(),
                 table_index,
@@ -1422,7 +1354,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::TableGet { table: index } => {
             let table_index = TableIndex::from_u32(*index);
             let table = state.get_or_create_table(builder.func, *index, environ)?;
-            let (index, _) = state.pop1();
+            let index = state.pop1();
             state.push1(environ.translate_table_get(builder, table_index, table, index)?);
         }
         Operator::TableSet { table: index } => {
@@ -1430,8 +1362,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let table = state.get_or_create_table(builder.func, *index, environ)?;
             // We don't touch the ref count here because we're passing it to the host
             // then dropping it from the stack. Thus 1 + -1 = 0.
-            let (value, _) = state.pop1();
-            let (index, _) = state.pop1();
+            let value = state.pop1();
+            let index = state.pop1();
             environ.translate_table_set(builder, table_index, table, value, index)?;
         }
         Operator::TableCopy {
@@ -1440,9 +1372,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         } => {
             let dst_table = state.get_or_create_table(builder.func, *dst_table_index, environ)?;
             let src_table = state.get_or_create_table(builder.func, *src_table_index, environ)?;
-            let (len, _) = state.pop1();
-            let (src, _) = state.pop1();
-            let (dest, _) = state.pop1();
+            let len = state.pop1();
+            let src = state.pop1();
+            let dest = state.pop1();
             environ.translate_table_copy(
                 builder.cursor(),
                 TableIndex::from_u32(*dst_table_index),
@@ -1456,9 +1388,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::TableFill { table } => {
             let table_index = TableIndex::from_u32(*table);
-            let (len, _) = state.pop1();
-            let (val, _) = state.pop1();
-            let (dest, _) = state.pop1();
+            let len = state.pop1();
+            let val = state.pop1();
+            let dest = state.pop1();
             environ.translate_table_fill(builder.cursor(), table_index, dest, val, len)?;
         }
         Operator::TableInit {
@@ -1466,9 +1398,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             table: table_index,
         } => {
             let table = state.get_or_create_table(builder.func, *table_index, environ)?;
-            let (len, _) = state.pop1();
-            let (src, _) = state.pop1();
-            let (dest, _) = state.pop1();
+            let len = state.pop1();
+            let src = state.pop1();
+            let dest = state.pop1();
             environ.translate_table_init(
                 builder.cursor(),
                 *segment,
@@ -1491,9 +1423,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(value)
         }
         Operator::I8x16Splat | Operator::I16x8Splat => {
-            let reduced = builder
-                .ins()
-                .ireduce(type_of(op).lane_type(), state.pop1().0);
+            let reduced = builder.ins().ireduce(type_of(op).lane_type(), state.pop1());
             let splatted = builder.ins().splat(type_of(op), reduced);
             state.push1(splatted)
         }
@@ -1501,7 +1431,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I64x2Splat
         | Operator::F32x4Splat
         | Operator::F64x2Splat => {
-            let splatted = builder.ins().splat(type_of(op), state.pop1().0);
+            let splatted = builder.ins().splat(type_of(op), state.pop1());
             state.push1(splatted)
         }
         Operator::V128Load8Splat { memarg }
@@ -1516,7 +1446,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 state,
                 environ,
             )?;
-            let splatted = builder.ins().splat(type_of(op), state.pop1().0);
+            let splatted = builder.ins().splat(type_of(op), state.pop1());
             state.push1(splatted)
         }
         Operator::V128Load32Zero { memarg } | Operator::V128Load64Zero { memarg } => {
@@ -1528,7 +1458,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 state,
                 environ,
             )?;
-            let as_vector = builder.ins().scalar_to_vector(type_of(op), state.pop1().0);
+            let as_vector = builder.ins().scalar_to_vector(type_of(op), state.pop1());
             state.push1(as_vector)
         }
         Operator::V128Load8Lane { memarg, lane }
@@ -1544,7 +1474,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 state,
                 environ,
             )?;
-            let replacement = state.pop1().0;
+            let replacement = state.pop1();
             state.push1(builder.ins().insertlane(vector, replacement, *lane))
         }
         Operator::V128Store8Lane { memarg, lane }
@@ -1576,7 +1506,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(builder.ins().extractlane(vector, *lane))
         }
         Operator::I8x16ReplaceLane { lane } | Operator::I16x8ReplaceLane { lane } => {
-            let ((vector, _), (replacement, _)) = state.pop2();
+            let (vector, replacement) = state.pop2();
             let ty = type_of(op);
             let reduced = builder.ins().ireduce(ty.lane_type(), replacement);
             let vector = optionally_bitcast_vector(vector, ty, builder);
@@ -1586,7 +1516,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I64x2ReplaceLane { lane }
         | Operator::F32x4ReplaceLane { lane }
         | Operator::F64x2ReplaceLane { lane } => {
-            let ((vector, _), (replacement, _)) = state.pop2();
+            let (vector, replacement) = state.pop2();
             let vector = optionally_bitcast_vector(vector, type_of(op), builder);
             state.push1(builder.ins().insertlane(vector, replacement, *lane))
         }
@@ -1678,11 +1608,11 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(builder.ins().band_not(a, b))
         }
         Operator::V128Not => {
-            let (a, _) = state.pop1();
+            let a = state.pop1();
             state.push1(builder.ins().bnot(a));
         }
         Operator::I8x16Shl | Operator::I16x8Shl | Operator::I32x4Shl | Operator::I64x2Shl => {
-            let ((a, _), (b, _)) = state.pop2();
+            let (a, b) = state.pop2();
             let bitcast_a = optionally_bitcast_vector(a, type_of(op), builder);
             let bitwidth = i64::from(type_of(op).lane_bits());
             // The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width
@@ -1691,7 +1621,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(builder.ins().ishl(bitcast_a, b_mod_bitwidth))
         }
         Operator::I8x16ShrU | Operator::I16x8ShrU | Operator::I32x4ShrU | Operator::I64x2ShrU => {
-            let ((a, _), (b, _)) = state.pop2();
+            let (a, b) = state.pop2();
             let bitcast_a = optionally_bitcast_vector(a, type_of(op), builder);
             let bitwidth = i64::from(type_of(op).lane_bits());
             // The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width
@@ -1700,7 +1630,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(builder.ins().ushr(bitcast_a, b_mod_bitwidth))
         }
         Operator::I8x16ShrS | Operator::I16x8ShrS | Operator::I32x4ShrS | Operator::I64x2ShrS => {
-            let ((a, _), (b, _)) = state.pop2();
+            let (a, b) = state.pop2();
             let bitcast_a = optionally_bitcast_vector(a, type_of(op), builder);
             let bitwidth = i64::from(type_of(op).lane_bits());
             // The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width
@@ -1709,7 +1639,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(builder.ins().sshr(bitcast_a, b_mod_bitwidth))
         }
         Operator::V128Bitselect => {
-            let ((a, _), (b, _), (c, _)) = state.pop3();
+            let (a, b, c) = state.pop3();
             let bitcast_a = optionally_bitcast_vector(a, I8X16, builder);
             let bitcast_b = optionally_bitcast_vector(b, I8X16, builder);
             let bitcast_c = optionally_bitcast_vector(c, I8X16, builder);
@@ -2322,7 +2252,7 @@ fn prepare_load<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<(MemFlags, Value, Offset32)> {
-    let (addr32, _) = state.pop1();
+    let addr32 = state.pop1();
 
     let heap = state.get_heap(builder.func, memarg.memory, environ)?;
     let (base, offset) = get_heap_addr(
@@ -2373,7 +2303,7 @@ fn translate_store<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<()> {
-    let ((addr32, _), (val, _)) = state.pop2();
+    let (addr32, val) = state.pop2();
     let val_ty = builder.func.dfg.value_type(val);
 
     let heap = state.get_heap(builder.func, memarg.memory, environ)?;
@@ -2405,7 +2335,7 @@ fn mem_op_size(opcode: ir::Opcode, ty: Type) -> u32 {
 }
 
 fn translate_icmp(cc: IntCC, builder: &mut FunctionBuilder, state: &mut FuncTranslationState) {
-    let ((arg0, _), (arg1, _)) = state.pop2();
+    let (arg0, arg1) = state.pop2();
     let val = builder.ins().icmp(cc, arg0, arg1);
     state.push1(builder.ins().bint(I32, val));
 }
@@ -2498,7 +2428,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<()> {
-    let ((linear_mem_addr, _), (mut arg2, _)) = state.pop2();
+    let (linear_mem_addr, mut arg2) = state.pop2();
     let arg2_ty = builder.func.dfg.value_type(arg2);
 
     // The operation is performed at type `access_ty`, and the old value is zero-extended
@@ -2544,7 +2474,7 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<()> {
-    let ((linear_mem_addr, _), (mut expected, _), (mut replacement, _)) = state.pop3();
+    let (linear_mem_addr, mut expected, mut replacement) = state.pop3();
     let expected_ty = builder.func.dfg.value_type(expected);
     let replacement_ty = builder.func.dfg.value_type(replacement);
 
@@ -2595,7 +2525,7 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<()> {
-    let (linear_mem_addr, _) = state.pop1();
+    let linear_mem_addr = state.pop1();
 
     // The load is performed at type `access_ty`, and the loaded value is zero extended
     // to `widened_ty`.
@@ -2634,7 +2564,7 @@ fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<()> {
-    let ((linear_mem_addr, _), (mut data, _)) = state.pop2();
+    let (linear_mem_addr, mut data) = state.pop2();
     let data_ty = builder.func.dfg.value_type(data);
 
     // The operation is performed at type `access_ty`, and the data to be stored may first
@@ -2673,14 +2603,14 @@ fn translate_vector_icmp(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
 ) {
-    let ((a, _), (b, _)) = state.pop2();
+    let (a, b) = state.pop2();
     let bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
     let bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
     state.push1(builder.ins().icmp(cc, bitcast_a, bitcast_b))
 }
 
 fn translate_fcmp(cc: FloatCC, builder: &mut FunctionBuilder, state: &mut FuncTranslationState) {
-    let ((arg0, _), (arg1, _)) = state.pop2();
+    let (arg0, arg1) = state.pop2();
     let val = builder.ins().fcmp(cc, arg0, arg1);
     state.push1(builder.ins().bint(I32, val));
 }
@@ -2691,7 +2621,7 @@ fn translate_vector_fcmp(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
 ) {
-    let ((a, _), (b, _)) = state.pop2();
+    let (a, b) = state.pop2();
     let bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
     let bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
     state.push1(builder.ins().fcmp(cc, bitcast_a, bitcast_b))
@@ -2702,13 +2632,12 @@ fn translate_br_if(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
 ) {
-    let (val, _) = state.pop1();
+    let val = state.pop1();
     let (br_destination, inputs) = translate_br_if_args(relative_depth, state);
-    let inputs = (&*inputs.0, &*inputs.1);
     canonicalise_then_brnz(builder, val, br_destination, inputs);
 
     let next_block = builder.create_block();
-    canonicalise_then_jump(builder, next_block, (&[], &[]));
+    canonicalise_then_jump(builder, next_block, &[]);
     builder.seal_block(next_block); // The only predecessor is the current block.
     builder.switch_to_block(next_block);
 }
@@ -2716,7 +2645,7 @@ fn translate_br_if(
 fn translate_br_if_args(
     relative_depth: u32,
     state: &mut FuncTranslationState,
-) -> (ir::Block, (&mut [ir::Value], &mut [ValueExtraInfo])) {
+) -> (ir::Block, &mut [ir::Value]) {
     let i = state.control_stack.len() - 1 - (relative_depth as usize);
     let (return_count, br_destination) = {
         let frame = &mut state.control_stack[i];
@@ -2998,10 +2927,10 @@ fn canonicalise_v128_values<'a>(
 fn canonicalise_then_jump(
     builder: &mut FunctionBuilder,
     destination: ir::Block,
-    params: (&[ir::Value], &[ValueExtraInfo]),
+    params: &[ir::Value],
 ) -> ir::Inst {
     let mut tmp_canonicalised = SmallVec::<[ir::Value; 16]>::new();
-    let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params.0);
+    let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params);
     builder.ins().jump(destination, canonicalised)
 }
 
@@ -3010,10 +2939,10 @@ fn canonicalise_then_brz(
     builder: &mut FunctionBuilder,
     cond: ir::Value,
     destination: ir::Block,
-    params: (&[ir::Value], &[ValueExtraInfo]),
+    params: &[ir::Value],
 ) -> ir::Inst {
     let mut tmp_canonicalised = SmallVec::<[ir::Value; 16]>::new();
-    let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params.0);
+    let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params);
     builder.ins().brz(cond, destination, canonicalised)
 }
 
@@ -3022,10 +2951,10 @@ fn canonicalise_then_brnz(
     builder: &mut FunctionBuilder,
     cond: ir::Value,
     destination: ir::Block,
-    params: (&[ir::Value], &[ValueExtraInfo]),
+    params: &[ir::Value],
 ) -> ir::Inst {
     let mut tmp_canonicalised = SmallVec::<[ir::Value; 16]>::new();
-    let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params.0);
+    let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params);
     builder.ins().brnz(cond, destination, canonicalised)
 }
 
@@ -3037,7 +2966,7 @@ fn pop1_with_bitcast(
     needed_type: Type,
     builder: &mut FunctionBuilder,
 ) -> Value {
-    optionally_bitcast_vector(state.pop1().0, needed_type, builder)
+    optionally_bitcast_vector(state.pop1(), needed_type, builder)
 }
 
 /// A helper for popping and bitcasting two values; since SIMD values can lose their type by
@@ -3048,7 +2977,7 @@ fn pop2_with_bitcast(
     needed_type: Type,
     builder: &mut FunctionBuilder,
 ) -> (Value, Value) {
-    let ((a, _), (b, _)) = state.pop2();
+    let (a, b) = state.pop2();
     let bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
     let bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
     (bitcast_a, bitcast_b)
