@@ -106,7 +106,6 @@ CARGO_TARGET ?=
 ENABLE_CRANELIFT ?=
 ENABLE_LLVM ?=
 ENABLE_SINGLEPASS ?=
-LLVM_VERSION ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers := 
@@ -130,11 +129,11 @@ endif
 ifneq ($(ENABLE_LLVM), 0)
 	# … then maybe the user forced to enable the LLVM compiler.
 	ifeq ($(ENABLE_LLVM), 1)
-		LLVM_VERSION ?= $(shell llvm-config --version)
+		LLVM_VERSION := $(shell llvm-config --version)
 		compilers += llvm
 	# … otherwise, we try to autodetect LLVM from `llvm-config`
 	else ifneq (, $(shell which llvm-config 2>/dev/null))
-		LLVM_VERSION ?= $(shell llvm-config --version)
+		LLVM_VERSION := $(shell llvm-config --version)
 
 		# If findstring is not empty, then it have found the value
 		ifneq (, $(findstring 13,$(LLVM_VERSION)))
@@ -145,10 +144,10 @@ ifneq ($(ENABLE_LLVM), 0)
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
 	else
 		ifneq (, $(shell which llvm-config-13 2>/dev/null))
-			LLVM_VERSION ?= $(shell llvm-config-13 --version)
+			LLVM_VERSION := $(shell llvm-config-13 --version)
 			compilers += llvm
 		else ifneq (, $(shell which llvm-config-12 2>/dev/null))
-			LLVM_VERSION ?= $(shell llvm-config-12 --version)
+			LLVM_VERSION := $(shell llvm-config-12 --version)
 			compilers += llvm
 		endif
 	endif
