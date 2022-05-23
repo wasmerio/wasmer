@@ -343,9 +343,7 @@ impl Compiler for CraneliftCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|sig| {
-                make_trampoline_function_call(&*isa, &mut cx, sig)
-            })
+            .map(|sig| make_trampoline_function_call(&*isa, &mut cx, sig))
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
@@ -372,9 +370,7 @@ impl Compiler for CraneliftCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|func_type| {
-                make_trampoline_dynamic_function(&*isa, &offsets, &mut cx, &func_type)
-            })
+            .map(|func_type| make_trampoline_dynamic_function(&*isa, &offsets, &mut cx, &func_type))
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
