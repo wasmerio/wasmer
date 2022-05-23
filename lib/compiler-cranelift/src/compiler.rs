@@ -19,6 +19,7 @@ use cranelift_codegen::{Context, MachTrap};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
 use loupe::MemoryUsage;
+#[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
@@ -109,6 +110,110 @@ impl Compiler for CraneliftCompiler {
 
         let mut custom_sections = PrimaryMap::new();
 
+        #[cfg(not(feature = "rayon"))]
+        let mut func_translator = FuncTranslator::new();
+        #[cfg(not(feature = "rayon"))]
+        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+            .iter()
+            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+            .into_iter()
+            .map(|(i, input)| {
+                let func_index = module.func_index(i);
+                let mut context = Context::new();
+                let mut func_env = FuncEnvironment::new(
+                    isa.frontend_config(),
+                    module,
+                    &signatures,
+                    &memory_styles,
+                    &table_styles,
+                );
+                context.func.name = get_function_name(func_index);
+                context.func.signature = signatures[module.functions[func_index]].clone();
+                // if generate_debug_info {
+                //     context.func.collect_debug_info();
+                // }
+                let mut reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(
+                    self.config
+                        .middlewares
+                        .generate_function_middleware_chain(i),
+                );
+
+                func_translator.translate(
+                    module_translation_state,
+                    &mut reader,
+                    &mut context.func,
+                    &mut func_env,
+                    i,
+                )?;
+
+                let mut code_buf: Vec<u8> = Vec::new();
+                context
+                    .compile_and_emit(&*isa, &mut code_buf)
+                    .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
+
+                let result = context.mach_compile_result.as_ref().unwrap();
+                let func_relocs = result
+                    .buffer
+                    .relocs()
+                    .into_iter()
+                    .map(|r| mach_reloc_to_reloc(module, r))
+                    .collect::<Vec<_>>();
+
+                let traps = result
+                    .buffer
+                    .traps()
+                    .into_iter()
+                    .map(mach_trap_to_trap)
+                    .collect::<Vec<_>>();
+
+                let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
+                    #[cfg(feature = "unwind")]
+                    CraneliftUnwindInfo::FDE(fde) => {
+                        if dwarf_frametable.is_some() {
+                            let fde = fde.to_fde(Address::Symbol {
+                                // The symbol is the kind of relocation.
+                                // "0" is used for functions
+                                symbol: WriterRelocate::FUNCTION_SYMBOL,
+                                // We use the addend as a way to specify the
+                                // function index
+                                addend: i.index() as _,
+                            });
+                            // The unwind information is inserted into the dwarf section
+                            (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+                        } else {
+                            (None, None)
+                        }
+                    }
+                    #[cfg(feature = "unwind")]
+                    other => (other.maybe_into_to_windows_unwind(), None),
+
+                    // This is a bit hacky, but necessary since gimli is not
+                    // available when the "unwind" feature is disabled.
+                    #[cfg(not(feature = "unwind"))]
+                    other => (other.maybe_into_to_windows_unwind(), None::<()>),
+                };
+
+                let range = reader.range();
+                let address_map = get_function_address_map(&context, range, code_buf.len());
+
+                Ok((
+                    CompiledFunction {
+                        body: FunctionBody {
+                            body: code_buf,
+                            unwind_info,
+                        },
+                        relocations: func_relocs,
+                        frame_info: CompiledFunctionFrameInfo { address_map, traps },
+                    },
+                    fde,
+                ))
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .unzip();
+        #[cfg(feature = "rayon")]
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -230,6 +335,21 @@ impl Compiler for CraneliftCompiler {
         let dwarf = None;
 
         // function call trampolines (only for local functions, by signature)
+        #[cfg(not(feature = "rayon"))]
+        let mut cx = FunctionBuilderContext::new();
+        #[cfg(not(feature = "rayon"))]
+        let function_call_trampolines = module
+            .signatures
+            .values()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|sig| {
+                make_trampoline_function_call(&*isa, &mut cx, sig)
+            })
+            .collect::<Result<Vec<FunctionBody>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
+        #[cfg(feature = "rayon")]
         let function_call_trampolines = module
             .signatures
             .values()
@@ -245,6 +365,20 @@ impl Compiler for CraneliftCompiler {
         use wasmer_vm::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
         // dynamic function trampolines (only for imported functions)
+        #[cfg(not(feature = "rayon"))]
+        let mut cx = FunctionBuilderContext::new();
+        #[cfg(not(feature = "rayon"))]
+        let dynamic_function_trampolines = module
+            .imported_function_types()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|func_type| {
+                make_trampoline_dynamic_function(&*isa, &offsets, &mut cx, &func_type)
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+        #[cfg(feature = "rayon")]
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()

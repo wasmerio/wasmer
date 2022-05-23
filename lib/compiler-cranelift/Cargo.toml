@@ -20,7 +20,7 @@ cranelift-codegen = { version = "0.82", default-features = false, features = ["x
 cranelift-frontend = { version = "0.82", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.11", optional = true }
-rayon = "1.5"
+rayon = { version = "1.5", optional = true }
 more-asserts = "0.2"
 gimli = { version = "0.26", optional = true }
 smallvec = "1.6"
@@ -35,7 +35,7 @@ lazy_static = "1.4"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "unwind"]
+default = ["std", "unwind", "rayon"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
