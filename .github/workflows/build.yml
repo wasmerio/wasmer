@@ -11,6 +11,9 @@ on:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
+    inputs:
+      release:
+          description: 'Make release'
 jobs:
   setup:
     name: Set up
@@ -43,29 +46,34 @@ jobs:
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: true
+            use_llvm: true
           - build: macos-x64
             os: macos-11
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             use_sccache: true
+            use_llvm: true
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: true
+            use_llvm: false
           - build: windows-x64
             os: windows-2019
             artifact_name: 'wasmer-windows-amd64'
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
-            llvm_choco_version: 13.0.0
+            #llvm_choco_version: 13.0.0
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             use_sccache: true
+            use_llvm: false
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
             container: alpine:latest
             use_sccache: false
+            use_llvm: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -183,7 +191,14 @@ jobs:
       - name: Build C API
         run: |
           make build-capi
-      - name: Build Wasmer binary
+      - name: Build Wasmer binary with LLVM
+        if: matrix.use_llvm
+        run: |
+          make build-wasmer
+        env:
+          ENABLE_LLVM: 1
+      - name: Build Wasmer binary without LLVM
+        if: matrix.use_llvm != true
         run: |
           make build-wasmer
       - name: Build Wapm binary
@@ -246,17 +261,17 @@ jobs:
           docker build -t wasmer/aarch64 /home/runner/work/wasmer/wasmer/.github/cross-linux-aarch64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
-      - name: Install LLVM
-        shell: bash
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf "https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-aarch64-linux-gnu.tar.xz" -L -o llvm.tar.xz
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-        env:
-          LLVM_DIR: .llvm
+            #- name: Install LLVM
+            #  shell: bash
+            #  run: |
+            #    curl --proto '=https' --tlsv1.2 -sSf "https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-aarch64-linux-gnu.tar.xz" -L -o llvm.tar.xz
+            #    LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+            #    mkdir ${LLVM_DIR}
+            #    tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+            #    echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+            #    echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+            #  env:
+            #    LLVM_DIR: .llvm
       - name: Build Wasmer binary
         run: |
           make build-wasmer
@@ -266,6 +281,7 @@ jobs:
           CARGO_TARGET: --target aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
       - name: Build C API
         run: |
           make build-capi
@@ -275,6 +291,7 @@ jobs:
           CARGO_TARGET: --target aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
       - name: Dist
         run: |
           make distribution
@@ -289,7 +306,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: wasmer-linux-aarch64.tar.gz
+          name: wasmer-linux-aarch64
           path: dist
           if-no-files-found: error
           retention-days: 2
@@ -297,7 +314,7 @@ jobs:
   release:
     needs: [setup, build, linux_aarch64]
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.DOING_RELEASE == '1'
+    if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
     steps:
       - name: Download the Artifacts
         uses: actions/download-artifact@v2

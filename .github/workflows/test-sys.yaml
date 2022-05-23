@@ -4,15 +4,21 @@ env:
   RUST_BACKTRACE: 1
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - 'master'
       - 'staging'
       - 'trying'
+    paths:
+      - 'lib/**'
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
   pull_request:
+    paths:
+      - 'lib/**'
+
 jobs:
   setup:
     name: Set up
