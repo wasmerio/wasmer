@@ -33,8 +33,8 @@ use wasmer_compiler::{
 };
 use wasmer_compiler::{CompileError, Relocation};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::TrapCode;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex};
-use wasmer_vm::TrapCode;
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
@@ -360,7 +360,7 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
 
-        use wasmer_vm::VMOffsets;
+        use wasmer_types::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
         // dynamic function trampolines (only for imported functions)
         #[cfg(not(feature = "rayon"))]

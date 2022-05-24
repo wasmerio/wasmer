@@ -13,7 +13,6 @@ edition = "2018"
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=2.2.1", features = ["translator"], default-features = false }
-wasmer-vm = { path = "../vm", version = "=2.2.1" }
 wasmer-types = { path = "../types", version = "=2.2.1", default-features = false, features = ["std"] }
 cranelift-entity = { version = "0.82", default-features = false }
 cranelift-codegen = { version = "0.82", default-features = false, features = ["x86", "arm64"] }
@@ -36,6 +35,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["std", "unwind", "rayon"]
+wasm = ["std", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
