@@ -47,6 +47,7 @@ pub use crate::state::{
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
+pub use wasmer::{Context, ContextMut};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
@@ -55,7 +56,7 @@ pub use wasmer_vfs::{FsError, VirtualFile};
 
 use thiserror::Error;
 use wasmer::{
-    imports, Function, Imports, LazyInit, Memory, MemoryAccessError, Module, Store, WasmerEnv,
+    imports, AsContextMut, Function, Imports, Memory, MemoryAccessError, MemoryType, Store,
 };
 
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -71,200 +72,148 @@ pub enum WasiError {
 }
 
 /// The environment provided to the WASI imports.
-#[derive(Debug, Clone, WasmerEnv)]
+#[derive(Debug, Clone)]
 pub struct WasiEnv {
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
-    ///
-    /// Be careful when using this in host functions that call into Wasm:
-    /// if the lock is held and the Wasm calls into a host function that tries
-    /// to lock this mutex, the program will deadlock.
     pub state: Arc<Mutex<WasiState>>,
-    #[wasmer(export)]
-    memory: LazyInit<Memory>,
+    pub memory: Option<Memory>,
 }
 
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
-        Self {
+        WasiEnv {
             state: Arc::new(Mutex::new(state)),
-            memory: LazyInit::new(),
+            memory: None,
         }
     }
-
-    /// Get an `Imports` for a specific version of WASI detected in the module.
-    pub fn import_object(&mut self, module: &Module) -> Result<Imports, WasiError> {
-        let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        Ok(generate_import_object_from_env(
-            module.store(),
-            self.clone(),
-            wasi_version,
-        ))
+    pub fn memory(&self) -> &Memory {
+        self.memory.as_ref().unwrap()
     }
-
-    /// Like `import_object` but containing all the WASI versions detected in
-    /// the module.
-    pub fn import_object_for_all_wasi_versions(
-        &mut self,
-        module: &Module,
-    ) -> Result<Imports, WasiError> {
-        let wasi_versions =
-            get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-
-        let mut resolver = Imports::new();
-        for version in wasi_versions.iter() {
-            let new_import_object =
-                generate_import_object_from_env(module.store(), self.clone(), *version);
-            for ((n, m), e) in new_import_object.into_iter() {
-                resolver.define(&n, &m, e);
-            }
-        }
-        Ok(resolver)
-    }
-
     /// Get the WASI state
-    ///
-    /// Be careful when using this in host functions that call into Wasm:
-    /// if the lock is held and the Wasm calls into a host function that tries
-    /// to lock this mutex, the program will deadlock.
     pub fn state(&self) -> MutexGuard<WasiState> {
         self.state.lock().unwrap()
     }
-
-    /// Get a reference to the memory
-    pub fn memory(&self) -> &Memory {
-        self.memory_ref()
-            .expect("Memory should be set on `WasiEnv` first")
-    }
-
-    pub(crate) fn get_memory_and_wasi_state(
-        &self,
-        _mem_index: u32,
-    ) -> (&Memory, MutexGuard<WasiState>) {
+    pub fn get_memory_and_wasi_state(&self, _mem_index: u32) -> (&Memory, MutexGuard<WasiState>) {
         let memory = self.memory();
         let state = self.state.lock().unwrap();
         (memory, state)
     }
 }
 
-/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
-/// needs a [`WasiState`], that can be constructed from a
-/// [`WasiStateBuilder`](state::WasiStateBuilder).
-pub fn generate_import_object_from_env(
-    store: &Store,
-    wasi_env: WasiEnv,
+/// Create an [`Imports`]  from a [`Context`]
+pub fn generate_import_object_from_ctx(
+    ctx: &mut ContextMut<'_, WasiEnv>,
     version: WasiVersion,
 ) -> Imports {
     match version {
-        WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, wasi_env),
-        WasiVersion::Snapshot1 | WasiVersion::Latest => {
-            generate_import_object_snapshot1(store, wasi_env)
-        }
+        WasiVersion::Snapshot0 => generate_import_object_snapshot0(ctx),
+        WasiVersion::Snapshot1 | WasiVersion::Latest => generate_import_object_snapshot1(ctx),
     }
 }
 
 /// Combines a state generating function with the import list for legacy WASI
-fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> Imports {
+fn generate_import_object_snapshot0(ctx: &mut ContextMut<'_, WasiEnv>) -> Imports {
     imports! {
         "wasi_unstable" => {
-            "args_get" => Function::new_native_with_env(store, env.clone(), args_get),
-            "args_sizes_get" => Function::new_native_with_env(store, env.clone(), args_sizes_get),
-            "clock_res_get" => Function::new_native_with_env(store, env.clone(), clock_res_get),
-            "clock_time_get" => Function::new_native_with_env(store, env.clone(), clock_time_get),
-            "environ_get" => Function::new_native_with_env(store, env.clone(), environ_get),
-            "environ_sizes_get" => Function::new_native_with_env(store, env.clone(), environ_sizes_get),
-            "fd_advise" => Function::new_native_with_env(store, env.clone(), fd_advise),
-            "fd_allocate" => Function::new_native_with_env(store, env.clone(), fd_allocate),
-            "fd_close" => Function::new_native_with_env(store, env.clone(), fd_close),
-            "fd_datasync" => Function::new_native_with_env(store, env.clone(), fd_datasync),
-            "fd_fdstat_get" => Function::new_native_with_env(store, env.clone(), fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_times),
-            "fd_pread" => Function::new_native_with_env(store, env.clone(), fd_pread),
-            "fd_prestat_get" => Function::new_native_with_env(store, env.clone(), fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native_with_env(store, env.clone(), fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native_with_env(store, env.clone(), fd_pwrite),
-            "fd_read" => Function::new_native_with_env(store, env.clone(), fd_read),
-            "fd_readdir" => Function::new_native_with_env(store, env.clone(), fd_readdir),
-            "fd_renumber" => Function::new_native_with_env(store, env.clone(), fd_renumber),
-            "fd_seek" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::fd_seek),
-            "fd_sync" => Function::new_native_with_env(store, env.clone(), fd_sync),
-            "fd_tell" => Function::new_native_with_env(store, env.clone(), fd_tell),
-            "fd_write" => Function::new_native_with_env(store, env.clone(), fd_write),
-            "path_create_directory" => Function::new_native_with_env(store, env.clone(), path_create_directory),
-            "path_filestat_get" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::path_filestat_get),
-            "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
-            "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
-            "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
-            "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
-            "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
-            "path_symlink" => Function::new_native_with_env(store, env.clone(), path_symlink),
-            "path_unlink_file" => Function::new_native_with_env(store, env.clone(), path_unlink_file),
-            "poll_oneoff" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::poll_oneoff),
-            "proc_exit" => Function::new_native_with_env(store, env.clone(), proc_exit),
-            "proc_raise" => Function::new_native_with_env(store, env.clone(), proc_raise),
-            "random_get" => Function::new_native_with_env(store, env.clone(), random_get),
-            "sched_yield" => Function::new_native_with_env(store, env.clone(), sched_yield),
-            "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
-            "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
-            "sock_shutdown" => Function::new_native_with_env(store, env, sock_shutdown),
+            "args_get" => Function::new_native(ctx, args_get),
+            "args_sizes_get" => Function::new_native(ctx, args_sizes_get),
+            "clock_res_get" => Function::new_native(ctx, clock_res_get),
+            "clock_time_get" => Function::new_native(ctx, clock_time_get),
+            "environ_get" => Function::new_native(ctx, environ_get),
+            "environ_sizes_get" => Function::new_native(ctx, environ_sizes_get),
+            "fd_advise" => Function::new_native(ctx, fd_advise),
+            "fd_allocate" => Function::new_native(ctx, fd_allocate),
+            "fd_close" => Function::new_native(ctx, fd_close),
+            "fd_datasync" => Function::new_native(ctx, fd_datasync),
+            "fd_fdstat_get" => Function::new_native(ctx, fd_fdstat_get),
+            "fd_fdstat_set_flags" => Function::new_native(ctx, fd_fdstat_set_flags),
+            "fd_fdstat_set_rights" => Function::new_native(ctx, fd_fdstat_set_rights),
+            "fd_filestat_get" => Function::new_native(ctx, legacy::snapshot0::fd_filestat_get),
+            "fd_filestat_set_size" => Function::new_native(ctx, fd_filestat_set_size),
+            "fd_filestat_set_times" => Function::new_native(ctx, fd_filestat_set_times),
+            "fd_pread" => Function::new_native(ctx, fd_pread),
+            "fd_prestat_get" => Function::new_native(ctx, fd_prestat_get),
+            "fd_prestat_dir_name" => Function::new_native(ctx, fd_prestat_dir_name),
+            "fd_pwrite" => Function::new_native(ctx, fd_pwrite),
+            "fd_read" => Function::new_native(ctx, fd_read),
+            "fd_readdir" => Function::new_native(ctx, fd_readdir),
+            "fd_renumber" => Function::new_native(ctx, fd_renumber),
+            "fd_seek" => Function::new_native(ctx, legacy::snapshot0::fd_seek),
+            "fd_sync" => Function::new_native(ctx, fd_sync),
+            "fd_tell" => Function::new_native(ctx, fd_tell),
+            "fd_write" => Function::new_native(ctx, fd_write),
+            "path_create_directory" => Function::new_native(ctx, path_create_directory),
+            "path_filestat_get" => Function::new_native(ctx, legacy::snapshot0::path_filestat_get),
+            "path_filestat_set_times" => Function::new_native(ctx, path_filestat_set_times),
+            "path_link" => Function::new_native(ctx, path_link),
+            "path_open" => Function::new_native(ctx, path_open),
+            "path_readlink" => Function::new_native(ctx, path_readlink),
+            "path_remove_directory" => Function::new_native(ctx, path_remove_directory),
+            "path_rename" => Function::new_native(ctx, path_rename),
+            "path_symlink" => Function::new_native(ctx, path_symlink),
+            "path_unlink_file" => Function::new_native(ctx, path_unlink_file),
+            "poll_oneoff" => Function::new_native(ctx, legacy::snapshot0::poll_oneoff),
+            "proc_exit" => Function::new_native(ctx, proc_exit),
+            "proc_raise" => Function::new_native(ctx, proc_raise),
+            "random_get" => Function::new_native(ctx, random_get),
+            "sched_yield" => Function::new_native(ctx, sched_yield),
+            "sock_recv" => Function::new_native(ctx, sock_recv),
+            "sock_send" => Function::new_native(ctx, sock_send),
+            "sock_shutdown" => Function::new_native(ctx, sock_shutdown),
         },
     }
 }
 
 /// Combines a state generating function with the import list for snapshot 1
-fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> Imports {
+fn generate_import_object_snapshot1(ctx: &mut ContextMut<'_, WasiEnv>) -> Imports {
     imports! {
         "wasi_snapshot_preview1" => {
-            "args_get" => Function::new_native_with_env(store, env.clone(), args_get),
-            "args_sizes_get" => Function::new_native_with_env(store, env.clone(), args_sizes_get),
-            "clock_res_get" => Function::new_native_with_env(store, env.clone(), clock_res_get),
-            "clock_time_get" => Function::new_native_with_env(store, env.clone(), clock_time_get),
-            "environ_get" => Function::new_native_with_env(store, env.clone(), environ_get),
-            "environ_sizes_get" => Function::new_native_with_env(store, env.clone(), environ_sizes_get),
-            "fd_advise" => Function::new_native_with_env(store, env.clone(), fd_advise),
-            "fd_allocate" => Function::new_native_with_env(store, env.clone(), fd_allocate),
-            "fd_close" => Function::new_native_with_env(store, env.clone(), fd_close),
-            "fd_datasync" => Function::new_native_with_env(store, env.clone(), fd_datasync),
-            "fd_fdstat_get" => Function::new_native_with_env(store, env.clone(), fd_fdstat_get),
-            "fd_fdstat_set_flags" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_flags),
-            "fd_fdstat_set_rights" => Function::new_native_with_env(store, env.clone(), fd_fdstat_set_rights),
-            "fd_filestat_get" => Function::new_native_with_env(store, env.clone(), fd_filestat_get),
-            "fd_filestat_set_size" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_size),
-            "fd_filestat_set_times" => Function::new_native_with_env(store, env.clone(), fd_filestat_set_times),
-            "fd_pread" => Function::new_native_with_env(store, env.clone(), fd_pread),
-            "fd_prestat_get" => Function::new_native_with_env(store, env.clone(), fd_prestat_get),
-            "fd_prestat_dir_name" => Function::new_native_with_env(store, env.clone(), fd_prestat_dir_name),
-            "fd_pwrite" => Function::new_native_with_env(store, env.clone(), fd_pwrite),
-            "fd_read" => Function::new_native_with_env(store, env.clone(), fd_read),
-            "fd_readdir" => Function::new_native_with_env(store, env.clone(), fd_readdir),
-            "fd_renumber" => Function::new_native_with_env(store, env.clone(), fd_renumber),
-            "fd_seek" => Function::new_native_with_env(store, env.clone(), fd_seek),
-            "fd_sync" => Function::new_native_with_env(store, env.clone(), fd_sync),
-            "fd_tell" => Function::new_native_with_env(store, env.clone(), fd_tell),
-            "fd_write" => Function::new_native_with_env(store, env.clone(), fd_write),
-            "path_create_directory" => Function::new_native_with_env(store, env.clone(), path_create_directory),
-            "path_filestat_get" => Function::new_native_with_env(store, env.clone(), path_filestat_get),
-            "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
-            "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
-            "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
-            "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
-            "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
-            "path_symlink" => Function::new_native_with_env(store, env.clone(), path_symlink),
-            "path_unlink_file" => Function::new_native_with_env(store, env.clone(), path_unlink_file),
-            "poll_oneoff" => Function::new_native_with_env(store, env.clone(), poll_oneoff),
-            "proc_exit" => Function::new_native_with_env(store, env.clone(), proc_exit),
-            "proc_raise" => Function::new_native_with_env(store, env.clone(), proc_raise),
-            "random_get" => Function::new_native_with_env(store, env.clone(), random_get),
-            "sched_yield" => Function::new_native_with_env(store, env.clone(), sched_yield),
-            "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
-            "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
-            "sock_shutdown" => Function::new_native_with_env(store, env, sock_shutdown),
+            "args_get" => Function::new_native(ctx, args_get),
+            "args_sizes_get" => Function::new_native(ctx, args_sizes_get),
+            "clock_res_get" => Function::new_native(ctx, clock_res_get),
+            "clock_time_get" => Function::new_native(ctx, clock_time_get),
+            "environ_get" => Function::new_native(ctx, environ_get),
+            "environ_sizes_get" => Function::new_native(ctx, environ_sizes_get),
+            "fd_advise" => Function::new_native(ctx, fd_advise),
+            "fd_allocate" => Function::new_native(ctx, fd_allocate),
+            "fd_close" => Function::new_native(ctx, fd_close),
+            "fd_datasync" => Function::new_native(ctx, fd_datasync),
+            "fd_fdstat_get" => Function::new_native(ctx, fd_fdstat_get),
+            "fd_fdstat_set_flags" => Function::new_native(ctx, fd_fdstat_set_flags),
+            "fd_fdstat_set_rights" => Function::new_native(ctx, fd_fdstat_set_rights),
+            "fd_filestat_get" => Function::new_native(ctx, fd_filestat_get),
+            "fd_filestat_set_size" => Function::new_native(ctx, fd_filestat_set_size),
+            "fd_filestat_set_times" => Function::new_native(ctx, fd_filestat_set_times),
+            "fd_pread" => Function::new_native(ctx, fd_pread),
+            "fd_prestat_get" => Function::new_native(ctx, fd_prestat_get),
+            "fd_prestat_dir_name" => Function::new_native(ctx, fd_prestat_dir_name),
+            "fd_pwrite" => Function::new_native(ctx, fd_pwrite),
+            "fd_read" => Function::new_native(ctx, fd_read),
+            "fd_readdir" => Function::new_native(ctx, fd_readdir),
+            "fd_renumber" => Function::new_native(ctx, fd_renumber),
+            "fd_seek" => Function::new_native(ctx, fd_seek),
+            "fd_sync" => Function::new_native(ctx, fd_sync),
+            "fd_tell" => Function::new_native(ctx, fd_tell),
+            "fd_write" => Function::new_native(ctx, fd_write),
+            "path_create_directory" => Function::new_native(ctx, path_create_directory),
+            "path_filestat_get" => Function::new_native(ctx, path_filestat_get),
+            "path_filestat_set_times" => Function::new_native(ctx, path_filestat_set_times),
+            "path_link" => Function::new_native(ctx, path_link),
+            "path_open" => Function::new_native(ctx, path_open),
+            "path_readlink" => Function::new_native(ctx, path_readlink),
+            "path_remove_directory" => Function::new_native(ctx, path_remove_directory),
+            "path_rename" => Function::new_native(ctx, path_rename),
+            "path_symlink" => Function::new_native(ctx, path_symlink),
+            "path_unlink_file" => Function::new_native(ctx, path_unlink_file),
+            "poll_oneoff" => Function::new_native(ctx, poll_oneoff),
+            "proc_exit" => Function::new_native(ctx, proc_exit),
+            "proc_raise" => Function::new_native(ctx, proc_raise),
+            "random_get" => Function::new_native(ctx, random_get),
+            "sched_yield" => Function::new_native(ctx, sched_yield),
+            "sock_recv" => Function::new_native(ctx, sock_recv),
+            "sock_send" => Function::new_native(ctx, sock_send),
+            "sock_shutdown" => Function::new_native(ctx, sock_shutdown),
         }
     }
 }

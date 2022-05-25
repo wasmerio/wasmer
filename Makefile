@@ -585,7 +585,7 @@ test-wasi-unit:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/wasi/Cargo.toml --release
 
 test-wasi:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- wasi::wasitests
+	$(CARGO_BINARY) ltest $(CARGO_TARGET) --release --tests $(compiler_features) -- wasi::wasitests
 
 test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
