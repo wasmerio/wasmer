@@ -3,11 +3,12 @@ use std::fs::{read_dir, File, OpenOptions, ReadDir};
 use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
-use wasmer::{Imports, Instance, Module, Store};
+use wasmer::Context as WasmerContext;
+use wasmer::{AsContextMut, ContextMut, Imports, Instance, Module, Store};
 use wasmer_vfs::{host_fs, mem_fs, FileSystem};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
+    generate_import_object_from_ctx, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
     WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
@@ -83,10 +84,13 @@ impl<'a> WasiTest<'a> {
         };
         let module = Module::new(store, &wasm_bytes)?;
         let (env, _tempdirs, stdout_rx, stderr_rx) = self.create_wasi_env(filesystem_kind)?;
-        let imports = self.get_imports(store, &module, env.clone())?;
-        let instance = Instance::new(&module, &imports)?;
+        let mut ctx = WasmerContext::new(store, env.clone());
+        let imports = self.get_imports(&mut ctx.as_context_mut(), &module)?;
+        let instance = Instance::new(&mut ctx, &module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;
+        let memory = instance.exports.get_memory("memory")?;
+        ctx.data_mut().set_memory(memory.clone());
 
         if let Some(stdin) = &self.stdin {
             let state = env.state();
@@ -96,7 +100,7 @@ impl<'a> WasiTest<'a> {
         }
 
         // TODO: handle errors here when the error fix gets shipped
-        match start.call(&[]) {
+        match start.call(&mut ctx, &[]) {
             Ok(_) => {}
             Err(e) => {
                 let stdout_str = get_stdio_output(&stdout_rx)?;
@@ -227,9 +231,13 @@ impl<'a> WasiTest<'a> {
 
     /// Get the correct WASI import object for the given module and set it up with the
     /// [`WasiEnv`].
-    fn get_imports(&self, store: &Store, module: &Module, env: WasiEnv) -> anyhow::Result<Imports> {
+    fn get_imports(
+        &self,
+        ctx: &mut ContextMut<'_, WasiEnv>,
+        module: &Module,
+    ) -> anyhow::Result<Imports> {
         let version = self.get_version(module)?;
-        Ok(generate_import_object_from_env(store, env, version))
+        Ok(generate_import_object_from_ctx(ctx, version))
     }
 }
 
