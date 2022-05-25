@@ -98,13 +98,13 @@ macro_rules! wasi_try_mem_ok {
 
 /// Reads a string from Wasm memory.
 macro_rules! get_input_str {
-    ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try_mem!($data.read_utf8_string($memory, $len))
+    ($ctx:expr, $memory:expr, $data:expr, $len:expr) => {{
+        wasi_try_mem!($data.read_utf8_string($ctx, $memory, $len))
     }};
 }
 
 macro_rules! get_input_str_bus {
-    ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try_mem_bus!($data.read_utf8_string($memory, $len))
+    ($ctx:expr, $memory:expr, $data:expr, $len:expr) => {{
+        wasi_try_mem_bus!($data.read_utf8_string($ctx, $memory, $len))
     }};
 }
