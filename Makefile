@@ -382,7 +382,7 @@ bench:
 	$(CARGO_BINARY) bench $(CARGO_TARGET) $(compiler_features)
 
 build-wasmer-wasm:
-	cargo build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,universal --bin wasmer-compiler
+	cargo build --release --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,cranelift,universal --bin wasmer-compiler
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
