@@ -234,7 +234,7 @@ set defaults.</p>
 (enabled),
 enables Wasmer’s [Cranelift compiler][wasmer-compiler-cranelift],</li>
 <li><code>llvm</code>
-(disabled),
+(enabled),
 enables Wasmer’s [LLVM compiler][wasmer-compiler-lvm],</li>
 <li><code>singlepass</code>
 (enabled),
@@ -359,7 +359,7 @@ in a Wasm module or exposed to Wasm by the host.</p>
 instance of a WebAssembly <a href="sys/module/struct.Module.html" title="Module"><code>Module</code></a>.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Item.html" title="wasmer::Item struct">Item</a></div><div class="item-right docblock-short"><p>The <code>Item</code> marker type. This is the default and does not usually need to be
 specified.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.LazyInit.html" title="wasmer::LazyInit struct">LazyInit</a></div><div class="item-right docblock-short"><p>Lazily init an item</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.LLVM.html" title="wasmer::LLVM struct">LLVM</a></div><div class="item-right docblock-short"></div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.LazyInit.html" title="wasmer::LazyInit struct">LazyInit</a></div><div class="item-right docblock-short"><p>Lazily init an item</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.LocalFunctionIndex.html" title="wasmer::LocalFunctionIndex struct">LocalFunctionIndex</a></div><div class="item-right docblock-short"><p>Index type of a function defined locally inside the WebAssembly module.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Memory.html" title="wasmer::Memory struct">Memory</a></div><div class="item-right docblock-short"><p>A WebAssembly <code>memory</code> instance.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.MemoryType.html" title="wasmer::MemoryType struct">MemoryType</a></div><div class="item-right docblock-short"><p>A descriptor for a WebAssembly memory type.</p>
@@ -415,6 +415,7 @@ WebAssembly module.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.GlobalInit.html" title="wasmer::GlobalInit enum">GlobalInit</a></div><div class="item-right docblock-short"><p>Globals are initialized via the <code>const</code> operators or by referring to another import.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.HostEnvInitError.html" title="wasmer::HostEnvInitError enum">HostEnvInitError</a></div><div class="item-right docblock-short"><p>An error while initializing the user supplied host env with the <code>WasmerEnv</code> trait.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.InstantiationError.html" title="wasmer::InstantiationError enum">InstantiationError</a></div><div class="item-right docblock-short"><p>An error while instantiating a module.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.LLVMOptLevel.html" title="wasmer::LLVMOptLevel enum">LLVMOptLevel</a></div><div class="item-right docblock-short"><p>Defines the optimization level used to compile a <code>Module</code>.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.LinkError.html" title="wasmer::LinkError enum">LinkError</a></div><div class="item-right docblock-short"><p>The WebAssembly.LinkError object indicates an error during
 module instantiation (besides traps from the start function).</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.MemoryError.html" title="wasmer::MemoryError enum">MemoryError</a></div><div class="item-right docblock-short"><p>Error type describing things that can go wrong when operating on Wasm Memories.</p>

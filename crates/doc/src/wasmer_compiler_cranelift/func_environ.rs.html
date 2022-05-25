@@ -1564,13 +1564,13 @@
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::VMBuiltinFunctionIndex</span>;
+<span class="kw">use</span> <span class="ident">wasmer_types::VMOffsets</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>,
     <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WasmerType</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_vm::VMBuiltinFunctionIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm::VMOffsets</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>};
 
 <span class="doccomment">/// Compute an `ir::ExternalName` for a given wasm function index.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_name</span>(<span class="ident">func_index</span>: <span class="ident">FunctionIndex</span>) -&gt; <span class="ident">ir::ExternalName</span> {
