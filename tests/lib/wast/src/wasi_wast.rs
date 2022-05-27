@@ -104,7 +104,7 @@ impl<'a> WasiTest<'a> {
 
         let start = instance.exports.get_function("_start")?;
         let memory = instance.exports.get_memory("memory")?;
-        ctx.data_mut().memory = Some(memory.clone());
+        ctx.data_mut().set_memory(memory.clone());
 
         if let Some(stdin) = &self.stdin {
             let mut state = env.state();

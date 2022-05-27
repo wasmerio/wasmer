@@ -47,7 +47,7 @@ pub use crate::state::{
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
-use wasmer::{Context, ContextMut};
+use wasmer::ContextMut;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
@@ -55,9 +55,7 @@ pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
 
 use thiserror::Error;
-use wasmer::{
-    imports, AsContextMut, Function, Imports, Memory, MemoryAccessError, MemoryType, Store,
-};
+use wasmer::{imports, Function, Imports, Memory, MemoryAccessError};
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -77,16 +75,26 @@ pub struct WasiEnv {
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
     pub state: Arc<Mutex<WasiState>>,
-    pub memory: Option<Memory>,
+    /// The memory of the Wasm object
+    memory: Option<Memory>,
 }
 
 impl WasiEnv {
+    /// Create a new WasiEnv from a WasiState (memory will be set to None)
     pub fn new(state: WasiState) -> Self {
         WasiEnv {
             state: Arc::new(Mutex::new(state)),
             memory: None,
         }
     }
+    /// Set the memory of the WasiEnv (can only be done once)
+    pub fn set_memory(&mut self, memory: Memory) {
+        if !self.memory.is_none() {
+            panic!("Memory of a WasiEnv can only be set once!");
+        }
+        self.memory = Some(memory);
+    }
+    /// Get memory, that needs to have been set fist
     pub fn memory(&self) -> &Memory {
         self.memory.as_ref().unwrap()
     }
@@ -94,6 +102,7 @@ impl WasiEnv {
     pub fn state(&self) -> MutexGuard<WasiState> {
         self.state.lock().unwrap()
     }
+    /// Get both WasiState and Memory from the WasiEnv
     pub fn get_memory_and_wasi_state(&self, _mem_index: u32) -> (&Memory, MutexGuard<WasiState>) {
         let memory = self.memory();
         let state = self.state.lock().unwrap();

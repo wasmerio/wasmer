@@ -5,7 +5,6 @@ use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_S
 use crate::WasiEnv;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use wasmer::{Context, Store};
 use wasmer_vfs::{FsError, VirtualFile};
 
 /// Creates an empty [`WasiStateBuilder`].
