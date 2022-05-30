@@ -11,6 +11,7 @@
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
 		"rust-lang.rust-analyzer",
+		"dtsvet.vscode-wasm",
 		"bungcip.better-toml",
 		"vadimcn.vscode-lldb"
 	]
