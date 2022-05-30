@@ -3230,6 +3230,8 @@ dependencies = [
  "tempfile",
  "thiserror",
  "wasmer",
+ "wasmer-vfs",
+ "wasmer-wasi",
  "wast 38.0.1",
 ]
 
@@ -3261,6 +3263,7 @@ dependencies = [
  "wasmer-engine-dylib",
  "wasmer-engine-staticlib",
  "wasmer-engine-universal",
+ "wasmer-wasi",
  "wasmer-wast",
 ]
 

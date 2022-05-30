@@ -20,7 +20,7 @@ wasmer-engine = { version = "=2.2.1", path = "lib/engine" }
 wasmer-engine-universal = { version = "=2.2.1", path = "lib/engine-universal", optional = true }
 wasmer-engine-dylib = { version = "=2.2.1", path = "lib/engine-dylib", optional = true }
 wasmer-engine-staticlib = { version = "=2.2.1", path = "lib/engine-staticlib", optional = true }
-#wasmer-wasi = { version = "=2.2.1", path = "lib/wasi", optional = true }
+wasmer-wasi = { version = "=2.2.1", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "=2.2.1", path = "tests/lib/wast", optional = true }
 #wasi-test-generator = { version = "=2.2.1", path = "tests/wasi-wast", optional = true }
 #wasmer-cache = { version = "=2.2.1", path = "lib/cache", optional = true }
@@ -94,7 +94,7 @@ default = [
     "dylib",
     "staticlib",
     #"cache",
-    #"wasi",
+    "wasi",
     #"emscripten",
     #"middlewares",
 ]
@@ -104,7 +104,7 @@ dylib = ["wasmer-engine-dylib", "engine"]
 staticlib = ["wasmer-engine-staticlib", "engine"]
 #cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
-#wasi = ["wasmer-wasi"]
+wasi = ["wasmer-wasi"]
 #emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [

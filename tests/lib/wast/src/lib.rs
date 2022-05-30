@@ -19,12 +19,12 @@
 
 mod error;
 mod spectest;
-//mod wasi_wast;
+mod wasi_wast;
 mod wast;
 
 pub use crate::error::{DirectiveError, DirectiveErrors};
 pub use crate::spectest::spectest_importobject;
-//pub use crate::wasi_wast::{WasiFileSystemKind, WasiTest};
+pub use crate::wasi_wast::{WasiFileSystemKind, WasiTest};
 pub use crate::wast::Wast;
 
 /// Version number of this crate.

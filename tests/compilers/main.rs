@@ -15,10 +15,10 @@ mod config;
 //mod native_functions;
 //mod serialize;
 //mod traps;
-//mod wasi;
+mod wasi;
 mod wast;
 
 pub use crate::config::{Compiler, Config, Engine};
-//pub use crate::wasi::run_wasi;
+pub use crate::wasi::run_wasi;
 pub use crate::wast::run_wast;
-//pub use wasmer_wast::WasiFileSystemKind;
+pub use wasmer_wast::WasiFileSystemKind;
