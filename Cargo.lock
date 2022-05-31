@@ -3018,6 +3018,7 @@ dependencies = [
  "log",
  "time",
  "wasmer",
+ "wasmer-types",
 ]
 
 [[package]]
