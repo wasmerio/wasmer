@@ -13,7 +13,13 @@ pub fn ___unlock(mut _ctx: ContextMut<'_, EmEnv>, _what: c_int) {
 }
 
 // NOTE: Not implemented by Emscripten
-pub fn ___wait(mut _ctx: ContextMut<'_, EmEnv>, _which: u32, _varargs: u32, _three: u32, _four: u32) {
+pub fn ___wait(
+    mut _ctx: ContextMut<'_, EmEnv>,
+    _which: u32,
+    _varargs: u32,
+    _three: u32,
+    _four: u32,
+) {
     debug!("emscripten::___wait");
 }
 

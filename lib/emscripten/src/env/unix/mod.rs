@@ -89,13 +89,15 @@ pub fn _getpwnam(mut ctx: ContextMut<'_, EmEnv>, name_ptr: c_int) -> c_int {
 
     unsafe {
         let passwd = &*libc_getpwnam(name.as_ptr());
-        let passwd_struct_offset = call_malloc(ctx.as_context_mut(), mem::size_of::<GuestPasswd>() as _);
+        let passwd_struct_offset =
+            call_malloc(ctx.as_context_mut(), mem::size_of::<GuestPasswd>() as _);
 
         let memory = ctx.data().memory(0);
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx, memory, passwd_struct_offset) as *mut GuestPasswd;
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx.as_context_mut(), passwd.pw_name);
-        (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx.as_context_mut(), passwd.pw_passwd);
+        (*passwd_struct_ptr).pw_passwd =
+            copy_cstr_into_wasm(ctx.as_context_mut(), passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx.as_context_mut(), passwd.pw_gecos);
         (*passwd_struct_ptr).pw_dir = copy_cstr_into_wasm(ctx.as_context_mut(), passwd.pw_dir);
         (*passwd_struct_ptr).pw_shell = copy_cstr_into_wasm(ctx.as_context_mut(), passwd.pw_shell);
@@ -119,16 +121,19 @@ pub fn _getgrnam(mut ctx: ContextMut<'_, EmEnv>, name_ptr: c_int) -> c_int {
     }
 
     let name = unsafe {
-        let memory_name_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), name_ptr) as *const c_char;
+        let memory_name_ptr =
+            emscripten_memory_pointer!(ctx, ctx.data().memory(0), name_ptr) as *const c_char;
         CStr::from_ptr(memory_name_ptr)
     };
 
     unsafe {
         let group = &*libc_getgrnam(name.as_ptr());
-        let group_struct_offset = call_malloc(ctx.as_context_mut(), mem::size_of::<GuestGroup>() as _);
+        let group_struct_offset =
+            call_malloc(ctx.as_context_mut(), mem::size_of::<GuestGroup>() as _);
 
         let group_struct_ptr =
-            emscripten_memory_pointer!(ctx, ctx.data().memory(0), group_struct_offset) as *mut GuestGroup;
+            emscripten_memory_pointer!(ctx, ctx.data().memory(0), group_struct_offset)
+                as *mut GuestGroup;
         (*group_struct_ptr).gr_name = copy_cstr_into_wasm(ctx.as_context_mut(), group.gr_name);
         (*group_struct_ptr).gr_passwd = copy_cstr_into_wasm(ctx.as_context_mut(), group.gr_passwd);
         (*group_struct_ptr).gr_gid = group.gr_gid;
@@ -150,10 +155,13 @@ pub fn _gai_strerror(mut ctx: ContextMut<'_, EmEnv>, ecode: i32) -> i32 {
 
     let cstr = unsafe { std::ffi::CStr::from_ptr(libc::gai_strerror(ecode)) };
     let bytes = cstr.to_bytes_with_nul();
-    let string_on_guest: WasmPtr<c_char> = call_malloc_with_cast(ctx.as_context_mut(), bytes.len() as _);
+    let string_on_guest: WasmPtr<c_char> =
+        call_malloc_with_cast(ctx.as_context_mut(), bytes.len() as _);
     let memory = ctx.data().memory(0);
 
-    let writer = string_on_guest.slice(&ctx, &memory, bytes.len() as _).unwrap();
+    let writer = string_on_guest
+        .slice(&ctx, &memory, bytes.len() as _)
+        .unwrap();
     for (i, byte) in bytes.iter().enumerate() {
         writer.index(i as u64).write(*byte as _).unwrap();
     }
@@ -312,7 +320,10 @@ pub fn _getaddrinfo(
         head_of_list.unwrap_or_else(|| WasmPtr::new(0))
     };
 
-    res_val_ptr.deref(&ctx, &memory).write(head_of_list).unwrap();
+    res_val_ptr
+        .deref(&ctx, &memory)
+        .write(head_of_list)
+        .unwrap();
 
     0
 }

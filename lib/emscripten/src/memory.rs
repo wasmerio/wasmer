@@ -3,10 +3,12 @@ use super::process::abort_with_message;
 use crate::EmEnv;
 use libc::{c_int, c_void, memcpy, size_t};
 // TODO: investigate max pages etc. probably in Wasm Common, maybe reexport
-use wasmer::{ContextMut, Pages, WasmPtr, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
+use wasmer::{
+    AsContextMut, ContextMut, Pages, WasmPtr, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+};
 
 /// emscripten: _emscripten_memcpy_big
-pub fn _emscripten_memcpy_big(mut ctx: ContextMut<'_, EmEnv>, dest: u32, src: u32, len: u32) -> u32 {
+pub fn _emscripten_memcpy_big(ctx: ContextMut<'_, EmEnv>, dest: u32, src: u32, len: u32) -> u32 {
     debug!(
         "emscripten::_emscripten_memcpy_big {}, {}, {}",
         dest, src, len
@@ -19,10 +21,14 @@ pub fn _emscripten_memcpy_big(mut ctx: ContextMut<'_, EmEnv>, dest: u32, src: u3
     dest
 }
 
+fn get_heap_size(ctx: &ContextMut<'_, EmEnv>) -> u32 {
+    ctx.data().memory(0).size(&ctx).bytes().0 as u32
+}
+
 /// emscripten: _emscripten_get_heap_size
-pub fn _emscripten_get_heap_size(mut ctx: ContextMut<'_, EmEnv>) -> u32 {
+pub fn _emscripten_get_heap_size(ctx: ContextMut<'_, EmEnv>) -> u32 {
     trace!("emscripten::_emscripten_get_heap_size");
-    let result = ctx.data().memory(0).size(&ctx).bytes().0 as u32;
+    let result = get_heap_size(&ctx);
     trace!("=> {}", result);
 
     result
@@ -36,9 +42,7 @@ fn align_up(mut val: usize, multiple: usize) -> usize {
     val
 }
 
-/// emscripten: _emscripten_resize_heap
-/// Note: this function only allows growing the size of heap
-pub fn _emscripten_resize_heap(mut ctx: ContextMut<'_, EmEnv>, requested_size: u32) -> u32 {
+fn resize_heap(ctx: &mut ContextMut<'_, EmEnv>, requested_size: u32) -> u32 {
     debug!("emscripten::_emscripten_resize_heap {}", requested_size);
     let current_memory_pages = ctx.data().memory(0).size(&ctx);
     let current_memory = current_memory_pages.bytes().0 as u32;
@@ -60,12 +64,22 @@ pub fn _emscripten_resize_heap(mut ctx: ContextMut<'_, EmEnv>, requested_size: u
     }
 
     let amount_to_grow = (new_size - current_memory as usize) / WASM_PAGE_SIZE;
-    if let Ok(_pages_allocated) = ctx.data().memory(0).grow(&mut ctx, Pages(amount_to_grow as u32)) {
+    if let Ok(_pages_allocated) = ctx
+        .data()
+        .memory(0)
+        .grow(&mut ctx.as_context_mut(), Pages(amount_to_grow as u32))
+    {
         debug!("{} pages allocated", _pages_allocated.0);
         1
     } else {
         0
     }
+}
+
+/// emscripten: _emscripten_resize_heap
+/// Note: this function only allows growing the size of heap
+pub fn _emscripten_resize_heap(mut ctx: ContextMut<'_, EmEnv>, requested_size: u32) -> u32 {
+    resize_heap(&mut ctx, requested_size)
 }
 
 /// emscripten: sbrk
@@ -74,13 +88,11 @@ pub fn sbrk(mut ctx: ContextMut<'_, EmEnv>, increment: i32) -> i32 {
     // let old_dynamic_top = 0;
     // let new_dynamic_top = 0;
     let memory = ctx.data().memory(0);
-    let dynamictop_ptr = {
-        let globals = &get_emscripten_data(&ctx).globals;
-        WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&ctx, &memory)
-    };
+    let top_ptr = get_emscripten_data(&ctx).globals.dynamictop_ptr;
+    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref(&ctx, &memory);
     let old_dynamic_top = dynamictop_ptr.read().unwrap();
     let new_dynamic_top: i32 = old_dynamic_top + increment;
-    let total_memory = _emscripten_get_heap_size(ctx) as i32;
+    let total_memory = get_heap_size(&ctx) as i32;
     debug!(
         " => PTR {}, old: {}, new: {}, increment: {}, total: {}",
         dynamictop_ptr.offset(),
@@ -94,17 +106,19 @@ pub fn sbrk(mut ctx: ContextMut<'_, EmEnv>, increment: i32) -> i32 {
         return -1;
     }
     if new_dynamic_top > total_memory {
-        let resized = _emscripten_resize_heap(ctx, new_dynamic_top as u32);
+        let resized = resize_heap(&mut ctx, new_dynamic_top as u32);
         if resized == 0 {
             return -1;
         }
     }
+    // re-borrow the top ptr
+    let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref(&ctx, &memory);
     dynamictop_ptr.write(new_dynamic_top).unwrap();
     old_dynamic_top as _
 }
 
 /// emscripten: getTotalMemory
-pub fn get_total_memory(mut ctx: ContextMut<'_, EmEnv>) -> u32 {
+pub fn get_total_memory(ctx: ContextMut<'_, EmEnv>) -> u32 {
     debug!("emscripten::get_total_memory");
     // instance.memories[0].current_pages()
     // TODO: Fix implementation
@@ -112,7 +126,7 @@ pub fn get_total_memory(mut ctx: ContextMut<'_, EmEnv>) -> u32 {
 }
 
 /// emscripten: enlargeMemory
-pub fn enlarge_memory(mut _ctx: ContextMut<'_, EmEnv>) -> u32 {
+pub fn enlarge_memory(_ctx: ContextMut<'_, EmEnv>) -> u32 {
     debug!("emscripten::enlarge_memory");
     // instance.memories[0].grow(100);
     // TODO: Fix implementation
@@ -120,7 +134,7 @@ pub fn enlarge_memory(mut _ctx: ContextMut<'_, EmEnv>) -> u32 {
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub fn abort_on_cannot_grow_memory(mut ctx: ContextMut<'_, EmEnv>, _requested_size: u32) -> u32 {
+pub fn abort_on_cannot_grow_memory(ctx: ContextMut<'_, EmEnv>, _requested_size: u32) -> u32 {
     debug!(
         "emscripten::abort_on_cannot_grow_memory {}",
         _requested_size
@@ -130,32 +144,32 @@ pub fn abort_on_cannot_grow_memory(mut ctx: ContextMut<'_, EmEnv>, _requested_si
 }
 
 /// emscripten: abortOnCannotGrowMemory
-pub fn abort_on_cannot_grow_memory_old(mut ctx: ContextMut<'_, EmEnv>) -> u32 {
+pub fn abort_on_cannot_grow_memory_old(ctx: ContextMut<'_, EmEnv>) -> u32 {
     debug!("emscripten::abort_on_cannot_grow_memory");
     abort_with_message(ctx, "Cannot enlarge memory arrays!");
     0
 }
 
 /// emscripten: segfault
-pub fn segfault(mut ctx: ContextMut<'_, EmEnv>) {
+pub fn segfault(ctx: ContextMut<'_, EmEnv>) {
     debug!("emscripten::segfault");
     abort_with_message(ctx, "segmentation fault");
 }
 
 /// emscripten: alignfault
-pub fn alignfault(mut ctx: ContextMut<'_, EmEnv>) {
+pub fn alignfault(ctx: ContextMut<'_, EmEnv>) {
     debug!("emscripten::alignfault");
     abort_with_message(ctx, "alignment fault");
 }
 
 /// emscripten: ftfault
-pub fn ftfault(mut ctx: ContextMut<'_, EmEnv>) {
+pub fn ftfault(ctx: ContextMut<'_, EmEnv>) {
     debug!("emscripten::ftfault");
     abort_with_message(ctx, "Function table mask error");
 }
 
 /// emscripten: ___map_file
-pub fn ___map_file(mut _ctx: ContextMut<'_, EmEnv>, _one: u32, _two: u32) -> c_int {
+pub fn ___map_file(_ctx: ContextMut<'_, EmEnv>, _one: u32, _two: u32) -> c_int {
     debug!("emscripten::___map_file");
     // NOTE: TODO: Em returns -1 here as well. May need to implement properly
     -1

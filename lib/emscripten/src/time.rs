@@ -13,7 +13,7 @@ use std::ffi::CString;
 #[cfg(target_os = "windows")]
 use libc::time_t;
 
-use wasmer::ContextMut;
+use wasmer::{AsContextMut, ContextMut};
 
 #[cfg(target_os = "windows")]
 #[allow(non_camel_case_types)]
@@ -52,7 +52,7 @@ const CLOCK_MONOTONIC_COARSE: clockid_t = 6;
 
 /// emscripten: _gettimeofday
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _gettimeofday(mut ctx: ContextMut<'_, EmEnv>, tp: c_int, tz: c_int) -> c_int {
+pub fn _gettimeofday(ctx: ContextMut<'_, EmEnv>, tp: c_int, tz: c_int) -> c_int {
     debug!("emscripten::_gettimeofday {} {}", tp, tz);
     #[repr(C)]
     struct GuestTimeVal {
@@ -67,7 +67,8 @@ pub fn _gettimeofday(mut ctx: ContextMut<'_, EmEnv>, tp: c_int, tz: c_int) -> c_
     unsafe {
         let now = SystemTime::now();
         let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
-        let timeval_struct_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), tp) as *mut GuestTimeVal;
+        let timeval_struct_ptr =
+            emscripten_memory_pointer!(ctx, ctx.data().memory(0), tp) as *mut GuestTimeVal;
 
         (*timeval_struct_ptr).tv_sec = since_epoch.as_secs() as _;
         (*timeval_struct_ptr).tv_usec = since_epoch.subsec_nanos() as _;
@@ -83,7 +84,7 @@ pub fn _clock_getres(mut _ctx: ContextMut<'_, EmEnv>, _clk_id: i32, _tp: i32) ->
 
 /// emscripten: _clock_gettime
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _clock_gettime(mut ctx: ContextMut<'_, EmEnv>, clk_id: clockid_t, tp: c_int) -> c_int {
+pub fn _clock_gettime(ctx: ContextMut<'_, EmEnv>, clk_id: clockid_t, tp: c_int) -> c_int {
     debug!("emscripten::_clock_gettime {} {}", clk_id, tp);
     // debug!("Memory {:?}", ctx.memory(0)[..]);
     #[repr(C)]
@@ -122,7 +123,7 @@ pub fn _clock_settime(mut _ctx: ContextMut<'_, EmEnv>, _clk_id: i32, _tp: i32) -
 }
 
 /// emscripten: ___clock_gettime
-pub fn ___clock_gettime(mut ctx: ContextMut<'_, EmEnv>, clk_id: clockid_t, tp: c_int) -> c_int {
+pub fn ___clock_gettime(ctx: ContextMut<'_, EmEnv>, clk_id: clockid_t, tp: c_int) -> c_int {
     debug!("emscripten::___clock_gettime {} {}", clk_id, tp);
     _clock_gettime(ctx, clk_id, tp)
 }
@@ -176,7 +177,7 @@ pub fn _tvset(mut _ctx: ContextMut<'_, EmEnv>) {
 
 /// formats time as a C string
 #[allow(clippy::cast_ptr_alignment)]
-unsafe fn fmt_time(mut ctx: ContextMut<'_, EmEnv>, time: u32) -> *const c_char {
+unsafe fn fmt_time(ctx: ContextMut<'_, EmEnv>, time: u32) -> *const c_char {
     let date = &*(emscripten_memory_pointer!(ctx, ctx.data().memory(0), time) as *mut guest_tm);
 
     let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -205,7 +206,7 @@ pub fn _asctime(mut ctx: ContextMut<'_, EmEnv>, time: u32) -> u32 {
     debug!("emscripten::_asctime {}", time);
 
     unsafe {
-        let time_str_ptr = fmt_time(ctx, time);
+        let time_str_ptr = fmt_time(ctx.as_context_mut(), time);
         copy_cstr_into_wasm(ctx, time_str_ptr)
 
         // let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;
@@ -223,7 +224,7 @@ pub fn _asctime_r(mut ctx: ContextMut<'_, EmEnv>, time: u32, buf: u32) -> u32 {
         //      to write out more than 26 bytes (including the null terminator).
         //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
         //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
-        let time_str_ptr = fmt_time(ctx, time);
+        let time_str_ptr = fmt_time(ctx.as_context_mut(), time);
         write_to_buf(ctx, time_str_ptr, buf, 26)
 
         // let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;
@@ -246,9 +247,10 @@ pub fn _localtime(mut ctx: ContextMut<'_, EmEnv>, time_p: u32) -> c_int {
     };
 
     unsafe {
-        let tm_struct_offset = env::call_malloc(ctx, mem::size_of::<guest_tm>() as _);
-        let tm_struct_ptr =
-            emscripten_memory_pointer!(ctx, ctx.data().memory(0), tm_struct_offset) as *mut guest_tm;
+        let tm_struct_offset =
+            env::call_malloc(ctx.as_context_mut(), mem::size_of::<guest_tm>() as _);
+        let tm_struct_ptr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), tm_struct_offset)
+            as *mut guest_tm;
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
         //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
@@ -271,7 +273,7 @@ pub fn _localtime(mut ctx: ContextMut<'_, EmEnv>, time_p: u32) -> c_int {
 }
 /// emscripten: _localtime_r
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _localtime_r(mut ctx: ContextMut<'_, EmEnv>, time_p: u32, result: u32) -> c_int {
+pub fn _localtime_r(ctx: ContextMut<'_, EmEnv>, time_p: u32, result: u32) -> c_int {
     debug!("emscripten::_localtime_r {}", time_p);
 
     // NOTE: emscripten seems to want tzset() called in this function
@@ -287,7 +289,8 @@ pub fn _localtime_r(mut ctx: ContextMut<'_, EmEnv>, time_p: u32, result: u32) ->
         //     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
         // );
 
-        let result_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), result) as *mut guest_tm;
+        let result_addr =
+            emscripten_memory_pointer!(ctx, ctx.data().memory(0), result) as *mut guest_tm;
 
         (*result_addr).tm_sec = timespec.second() as _;
         (*result_addr).tm_min = timespec.minute() as _;
@@ -307,7 +310,7 @@ pub fn _localtime_r(mut ctx: ContextMut<'_, EmEnv>, time_p: u32, result: u32) ->
 
 /// emscripten: _time
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _time(mut ctx: ContextMut<'_, EmEnv>, time_p: u32) -> i32 {
+pub fn _time(ctx: ContextMut<'_, EmEnv>, time_p: u32) -> i32 {
     debug!("emscripten::_time {}", time_p);
 
     unsafe {
@@ -320,14 +323,15 @@ pub fn _ctime_r(mut ctx: ContextMut<'_, EmEnv>, time_p: u32, buf: u32) -> u32 {
     debug!("emscripten::_ctime_r {} {}", time_p, buf);
 
     // var stack = stackSave();
-    let (result_offset, _result_slice): (u32, &mut [u8]) = unsafe { allocate_on_stack(&ctx, 44) };
-    let time = _localtime_r(ctx, time_p, result_offset) as u32;
+    let (result_offset, _result_slice): (u32, &mut [u8]) =
+        unsafe { allocate_on_stack(&mut ctx.as_context_mut(), 44) };
+    let time = _localtime_r(ctx.as_context_mut(), time_p, result_offset) as u32;
     let rv = _asctime_r(ctx, time, buf);
     // stackRestore(stack);
     rv
 }
 
-pub fn _ctime(mut ctx: ContextMut<'_, EmEnv>, time_p: u32) -> u32 {
+pub fn _ctime(ctx: ContextMut<'_, EmEnv>, time_p: u32) -> u32 {
     debug!("emscripten::_ctime {}", time_p);
     let tm_current = 2414544;
     _ctime_r(ctx, time_p, tm_current)
@@ -336,11 +340,12 @@ pub fn _ctime(mut ctx: ContextMut<'_, EmEnv>, time_p: u32) -> u32 {
 /// emscripten: _timegm
 #[cfg(not(target_os = "windows"))]
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _timegm(mut ctx: ContextMut<'_, EmEnv>, time_ptr: u32) -> i32 {
+pub fn _timegm(ctx: ContextMut<'_, EmEnv>, time_ptr: u32) -> i32 {
     debug!("emscripten::_timegm {}", time_ptr);
 
     unsafe {
-        let time_p_addr = emscripten_memory_pointer!(ctx, ctx.data().memory(0), time_ptr) as *mut guest_tm;
+        let time_p_addr =
+            emscripten_memory_pointer!(ctx, ctx.data().memory(0), time_ptr) as *mut guest_tm;
 
         let x: *mut c_char = CString::new("").expect("CString::new failed").into_raw();
         let mut rust_tm = libc_tm {
@@ -385,7 +390,13 @@ pub fn _timegm(mut _ctx: ContextMut<'_, EmEnv>, _time_ptr: c_int) -> i32 {
 }
 
 /// emscripten: _strftime
-pub fn _strftime(mut ctx: ContextMut<'_, EmEnv>, s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_ptr: c_int) -> i32 {
+pub fn _strftime(
+    ctx: ContextMut<'_, EmEnv>,
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
+) -> i32 {
     debug!(
         "emscripten::_strftime {} {} {} {}",
         s_ptr, maxsize, format_ptr, tm_ptr
@@ -433,7 +444,7 @@ pub fn _strftime(mut ctx: ContextMut<'_, EmEnv>, s_ptr: c_int, maxsize: u32, for
 
 /// emscripten: _strftime_l
 pub fn _strftime_l(
-    mut ctx: ContextMut<'_, EmEnv>,
+    ctx: ContextMut<'_, EmEnv>,
     s_ptr: c_int,
     maxsize: u32,
     format_ptr: c_int,

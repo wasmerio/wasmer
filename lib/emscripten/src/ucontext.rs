@@ -5,7 +5,13 @@ pub fn _getcontext(mut _ctx: ContextMut<'_, EmEnv>, _ucp: i32) -> i32 {
     debug!("emscripten::_getcontext({})", _ucp);
     0
 }
-pub fn _makecontext(mut _ctx: ContextMut<'_, EmEnv>, _ucp: i32, _func: i32, _argc: i32, _argv: i32) {
+pub fn _makecontext(
+    mut _ctx: ContextMut<'_, EmEnv>,
+    _ucp: i32,
+    _func: i32,
+    _argc: i32,
+    _argv: i32,
+) {
     debug!(
         "emscripten::_makecontext({}, {}, {}, {})",
         _ucp, _func, _argc, _argv
