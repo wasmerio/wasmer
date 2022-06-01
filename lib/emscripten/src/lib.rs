@@ -76,15 +76,22 @@ pub use self::utils::{
 /// The environment provided to the Emscripten imports.
 pub struct EmEnv {
     memory: Arc<RwLock<Option<Memory>>>,
-    data: Arc<Mutex<EmscriptenData>>,
+    data: Arc<Mutex<Option<EmscriptenData>>>,
     funcs: Arc<Mutex<EmscriptenFunctions>>,
 }
 
+impl Default for EmEnv {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EmEnv {
-    pub fn new(data: &EmscriptenGlobalsData, mapped_dirs: HashMap<String, PathBuf>) -> Self {
+    /// Create a new EmEnv, with default value to be set later (set_memory, set_functions and set_data)
+    pub fn new() -> Self {
         Self {
             memory: Arc::new(RwLock::new(None)),
-            data: Arc::new(Mutex::new(EmscriptenData::new(data.clone(), mapped_dirs))),
+            data: Arc::new(Mutex::new(None)),
             funcs: Arc::new(Mutex::new(EmscriptenFunctions::new())),
         }
     }
@@ -103,11 +110,14 @@ impl EmEnv {
         self.funcs = Arc::new(Mutex::new(funcs));
     }
 
-    //    pub fn init_with_instance(&mut self, instance: &Instance) -> Result<(), wasmer::HostEnvInitError> {
-    //        let mut ed = self.data.lock().unwrap();
-    //        ed.init_with_instance(instance)?;
-    //        Ok(())
-    //    }
+    pub fn set_data(
+        &mut self,
+        data: &EmscriptenGlobalsData,
+        mapped_dirs: HashMap<String, PathBuf>,
+    ) {
+        let mut w = self.data.lock().unwrap();
+        *w = Some(EmscriptenData::new(data.clone(), mapped_dirs));
+    }
 }
 
 #[derive(Debug, Clone)]
