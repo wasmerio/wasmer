@@ -254,6 +254,8 @@ pub fn get_cstr_path(ctx: ContextMut<'_, EmEnv>, path: *const i8) -> Option<std:
     for c in components.into_iter() {
         cumulative_path.push(c);
         if let Some(val) = data
+            .as_ref()
+            .unwrap()
             .mapped_dirs
             .get(&cumulative_path.to_string_lossy().to_string())
         {
@@ -272,12 +274,19 @@ pub fn get_cstr_path(ctx: ContextMut<'_, EmEnv>, path: *const i8) -> Option<std:
 /// gets the current directory
 /// handles mapdir logic
 pub fn get_current_directory(ctx: ContextMut<'_, EmEnv>) -> Option<PathBuf> {
-    if let Some(val) = get_emscripten_data(&ctx).mapped_dirs.get(".") {
+    if let Some(val) = get_emscripten_data(&ctx)
+        .as_ref()
+        .unwrap()
+        .mapped_dirs
+        .get(".")
+    {
         return Some(val.clone());
     }
     std::env::current_dir()
         .map(|cwd| {
             if let Some(val) = get_emscripten_data(&ctx)
+                .as_ref()
+                .unwrap()
                 .mapped_dirs
                 .get(&cwd.to_string_lossy().to_string())
             {

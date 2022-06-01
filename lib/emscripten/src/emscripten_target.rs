@@ -17,12 +17,12 @@ pub fn exit_with_live_runtime(_ctx: ContextMut<'_, EmEnv>) {
 
 pub fn setTempRet0(ctx: ContextMut<'_, EmEnv>, val: i32) {
     trace!("emscripten::setTempRet0: {}", val);
-    get_emscripten_data(&ctx).temp_ret_0 = val;
+    get_emscripten_data(&ctx).as_mut().unwrap().temp_ret_0 = val;
 }
 
 pub fn getTempRet0(ctx: ContextMut<'_, EmEnv>) -> i32 {
     trace!("emscripten::getTempRet0");
-    get_emscripten_data(&ctx).temp_ret_0
+    get_emscripten_data(&ctx).as_ref().unwrap().temp_ret_0
 }
 
 pub fn _alarm(_ctx: ContextMut<'_, EmEnv>, _seconds: u32) -> i32 {
