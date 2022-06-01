@@ -108,12 +108,6 @@ impl EmEnv {
         let mut w = self.data.lock().unwrap();
         *w = Some(EmscriptenData::new(data.clone(), mapped_dirs));
     }
-
-    //    pub fn init_with_instance(&mut self, instance: &Instance) -> Result<(), wasmer::HostEnvInitError> {
-    //        let mut ed = self.data.lock().unwrap();
-    //        ed.init_with_instance(instance)?;
-    //        Ok(())
-    //    }
 }
 
 #[derive(Debug, Clone)]
