@@ -88,7 +88,11 @@ pub fn sbrk(mut ctx: ContextMut<'_, EmEnv>, increment: i32) -> i32 {
     // let old_dynamic_top = 0;
     // let new_dynamic_top = 0;
     let memory = ctx.data().memory(0);
-    let top_ptr = get_emscripten_data(&ctx).globals.dynamictop_ptr;
+    let top_ptr = get_emscripten_data(&ctx)
+        .as_ref()
+        .unwrap()
+        .globals
+        .dynamictop_ptr;
     let dynamictop_ptr = WasmPtr::<i32>::new(top_ptr).deref(&ctx, &memory);
     let old_dynamic_top = dynamictop_ptr.read().unwrap();
     let new_dynamic_top: i32 = old_dynamic_top + increment;

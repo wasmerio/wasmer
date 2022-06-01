@@ -1059,7 +1059,8 @@ pub fn ___syscall220(ctx: ContextMut<'_, EmEnv>, _which: i32, mut varargs: VarAr
 
     let dirp = emscripten_memory_pointer!(ctx, ctx.data().memory(0), dirp_addr) as *mut u8;
 
-    let opened_dirs = &mut get_emscripten_data(&ctx).opened_dirs;
+    let data = &mut get_emscripten_data(&ctx);
+    let opened_dirs = &mut data.as_mut().unwrap().opened_dirs;
 
     // need to persist stream across calls?
     // let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };
