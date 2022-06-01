@@ -1,0 +1,66 @@
+.Dd $Mdocdate$
+.Dt WASMER 1
+.Os
+.Sh NAME
+.Nm wasmer
+.Nd WebAssembly standalone runtime
+.Sh SYNOPSIS
+.Nm wasmer
+.Op SUBCOMMAND
+.\" .Fl h -help V -version
+.Sh DESCRIPTION
+The
+.Nm
+utility processes files ...
+.Sh SUBCOMMANDS
+.Bl -tag -width "self-update" -compact -offset indent
+.It Ic cache
+Wasmer cache.
+.It Ic compile
+Compile a WebAssembly binary.
+.It Ic config
+Get various configuration information needed to compile programs which use Wasmer.
+.It Ic create-exe
+Compile a WebAssembly binary into a native executable.
+.It Ic help
+Prints this message or the help of the given subcommand(s).
+.It Ic inspect
+Inspect a WebAssembly file.
+.It Ic run
+Run a WebAssembly file. Formats accepted: wasm, wat.
+.It Ic self-update
+Update wasmer to the latest version.
+.It Ic validate
+Validate a WebAssembly binary.
+.It Ic wast
+Run spec testsuite.
+.El
+.\" .Sh IMPLEMENTATION NOTES
+.\" Not used in OpenBSD.
+.\" .Sh ENVIRONMENT
+.\" For sections 1, 6, 7, and 8 only.
+.\" .Sh FILES
+.Sh EXIT STATUS
+.Pp
+.Sh EXAMPLES
+.Ss Executing a wasm file
+.Bd -literal -compact
+wasmer qjs.wasm
+.Ed
+.Ss Compiling and executing a wasm file
+.Bd -literal -compact
+wasmer compile qjs.wasm -o qjs.wasmu
+wasmer run qjs.wasmu
+.Ed
+.\" .Sh DIAGNOSTICS
+.\" For sections 1, 4, 6, 7, 8, and 9 printf/stderr messages only.
+.\" .Sh ERRORS
+.\" For sections 2, 3, 4, and 9 errno settings only.
+.Sh SEE ALSO
+.Xr wapm 1
+.Sh STANDARDS
+.\" .Sh HISTORY
+.\" .Sh AUTHORS
+.\" .Sh CAVEATS
+.\" .Sh BUGS
+.\" .Sh SECURITY CONSIDERATIONS
