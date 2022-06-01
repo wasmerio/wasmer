@@ -39,13 +39,23 @@ pub fn execvp(ctx: ContextMut<'_, EmEnv>, command_name_offset: u32, argv_offset:
 }
 
 /// execl
-pub fn execl(_ctx: ContextMut<'_, EmEnv>, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
+pub fn execl(
+    _ctx: ContextMut<'_, EmEnv>,
+    _path_ptr: i32,
+    _arg0_ptr: i32,
+    _varargs: VarArgs,
+) -> i32 {
     debug!("emscripten::execl");
     -1
 }
 
 /// execle
-pub fn execle(_ctx: ContextMut<'_, EmEnv>, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
+pub fn execle(
+    _ctx: ContextMut<'_, EmEnv>,
+    _path_ptr: i32,
+    _arg0_ptr: i32,
+    _varargs: VarArgs,
+) -> i32 {
     debug!("emscripten::execle");
     -1
 }

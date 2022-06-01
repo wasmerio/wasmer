@@ -374,7 +374,7 @@ endif
 all: build-wasmer build-capi
 
 build-wasmer:
-	$(CARGO_BINARY) lbuild $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "debug"  --bin wasmer

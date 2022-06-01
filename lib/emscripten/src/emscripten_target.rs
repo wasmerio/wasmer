@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use crate::env::get_emscripten_data;
+use crate::env::{get_emscripten_data, get_emscripten_funcs};
 use crate::EmEnv;
 #[cfg(target_os = "linux")]
 use libc::getdtablesize;
@@ -140,16 +140,17 @@ pub fn _getnameinfo(
 // Macro definitions
 macro_rules! invoke {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
-        let sp = get_emscripten_data(&$ctx).stack_save_ref().expect("stack_save is None").call(&mut $ctx.as_context_mut()).expect("stack_save call failed");
-        let call = get_emscripten_data(&$ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
+        let funcs = get_emscripten_funcs(&$ctx).clone();
+        let sp = funcs.stack_save_ref().expect("stack_save is None").call(&mut $ctx.as_context_mut()).expect("stack_save call failed");
+        let call = funcs.$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
         match call.call(&mut $ctx, $($arg),*) {
             Ok(v) => v,
             Err(_e) => {
-                let stack = get_emscripten_data(&$ctx).stack_restore_ref().expect("stack_restore is None");
+                let stack = funcs.stack_restore_ref().expect("stack_restore is None");
                 stack.call(&mut $ctx, sp).expect("stack_restore call failed");
                 // TODO: We should check if _e != "longjmp" and if that's the case, re-throw the error
                 // JS version is: if (e !== e+0 && e !== 'longjmp') throw e;
-                let threw = get_emscripten_data(&$ctx).set_threw_ref().expect("set_threw is None");
+                let threw = funcs.set_threw_ref().expect("set_threw is None");
                 threw.call(&mut $ctx, 1, 0).expect("set_threw call failed");
                 0 as _
             }
@@ -158,17 +159,18 @@ macro_rules! invoke {
 }
 macro_rules! invoke_no_return {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
-        let stack = get_emscripten_data(&$ctx).stack_save_ref().expect("stack_save is None");
+        let funcs = get_emscripten_funcs(&$ctx).clone();
+        let stack = funcs.stack_save_ref().expect("stack_save is None");
         let sp = stack.call(&mut $ctx).expect("stack_save call failed");
-        let call = get_emscripten_data(&$ctx).$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
+        let call = funcs.$name_ref().expect(concat!("Dynamic call is None: ", stringify!($name))).clone();
         match call.call(&mut $ctx, $($arg),*) {
             Ok(v) => v,
             Err(_e) => {
-                let stack = get_emscripten_data(&$ctx).stack_restore_ref().expect("stack_restore is None");
+                let stack = funcs.stack_restore_ref().expect("stack_restore is None");
                 stack.call(&mut $ctx, sp).expect("stack_restore call failed");
                 // TODO: We should check if _e != "longjmp" and if that's the case, re-throw the error
                 // JS version is: if (e !== e+0 && e !== 'longjmp') throw e;
-                let threw = get_emscripten_data(&$ctx).set_threw_ref().expect("set_threw is None");
+                let threw = funcs.set_threw_ref().expect("set_threw is None");
                 threw.call(&mut $ctx, 1, 0).expect("set_threw call failed");
             }
         }
@@ -177,7 +179,8 @@ macro_rules! invoke_no_return {
 // The invoke_j functions do not save the stack
 macro_rules! invoke_no_stack_save {
     ($ctx: ident, $name:ident, $name_ref:ident, $( $arg:ident ),*) => {{
-        let call = get_emscripten_data(&$ctx).$name_ref().expect(concat!(stringify!($name), " is set to None")).clone();
+        let funcs = get_emscripten_funcs(&$ctx).clone();
+        let call = funcs.$name_ref().expect(concat!(stringify!($name), " is set to None")).clone();
 
         call.call(&mut $ctx.as_context_mut(), $($arg),*).unwrap()
     }}
@@ -221,7 +224,14 @@ pub fn invoke_viii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32,
     debug!("emscripten::invoke_viii");
     invoke_no_return!(ctx, dyn_call_viii, dyn_call_viii_ref, index, a1, a2, a3);
 }
-pub fn invoke_viiii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
+pub fn invoke_viiii(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) {
     debug!("emscripten::invoke_viiii");
     invoke_no_return!(
         ctx,
@@ -238,7 +248,14 @@ pub fn invoke_dii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32) 
     debug!("emscripten::invoke_dii");
     invoke!(ctx, dyn_call_dii, dyn_call_dii_ref, index, a1, a2)
 }
-pub fn invoke_diiii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> f64 {
+pub fn invoke_diiii(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -> f64 {
     debug!("emscripten::invoke_diiii");
     invoke!(
         ctx,
@@ -251,7 +268,14 @@ pub fn invoke_diiii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32
         a4
     )
 }
-pub fn invoke_iiiii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
+pub fn invoke_iiiii(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -> i32 {
     debug!("emscripten::invoke_iiiii");
     invoke!(
         ctx,
@@ -264,7 +288,15 @@ pub fn invoke_iiiii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32
         a4
     )
 }
-pub fn invoke_iiiiii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) -> i32 {
+pub fn invoke_iiiiii(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+) -> i32 {
     debug!("emscripten::invoke_iiiiii");
     invoke!(
         ctx,
@@ -422,7 +454,15 @@ pub fn invoke_vd(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: f64) {
     debug!("emscripten::invoke_vd");
     invoke_no_return!(ctx, dyn_call_vd, dyn_call_vd_ref, index, a1)
 }
-pub fn invoke_viiiii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
+pub fn invoke_viiiii(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+) {
     debug!("emscripten::invoke_viiiii");
     invoke_no_return!(
         ctx,
@@ -587,7 +627,14 @@ pub fn invoke_iji(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, 
     invoke!(ctx, dyn_call_iji, dyn_call_iji_ref, index, a1, a2, a3)
 }
 
-pub fn invoke_iiji(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
+pub fn invoke_iiji(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -> i32 {
     debug!("emscripten::invoke_iiji");
     invoke!(ctx, dyn_call_iiji, dyn_call_iiji_ref, index, a1, a2, a3, a4)
 }
@@ -633,11 +680,26 @@ pub fn invoke_jij(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, 
     debug!("emscripten::invoke_jij");
     invoke_no_stack_save!(ctx, dyn_call_jij, dyn_call_jij_ref, index, a1, a2, a3)
 }
-pub fn invoke_jjj(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
+pub fn invoke_jjj(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -> i32 {
     debug!("emscripten::invoke_jjj");
     invoke_no_stack_save!(ctx, dyn_call_jjj, dyn_call_jjj_ref, index, a1, a2, a3, a4)
 }
-pub fn invoke_viiij(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
+pub fn invoke_viiij(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+) {
     debug!("emscripten::invoke_viiij");
     invoke_no_stack_save!(
         ctx,
@@ -719,7 +781,15 @@ pub fn invoke_viij(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32,
     debug!("emscripten::invoke_viij");
     invoke_no_stack_save!(ctx, dyn_call_viij, dyn_call_viij_ref, index, a1, a2, a3, a4)
 }
-pub fn invoke_viiji(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
+pub fn invoke_viiji(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+) {
     debug!("emscripten::invoke_viiji");
     invoke_no_stack_save!(
         ctx,
@@ -759,7 +829,16 @@ pub fn invoke_viijiii(
         a7
     )
 }
-pub fn invoke_viijj(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32, a6: i32) {
+pub fn invoke_viijj(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+) {
     debug!("emscripten::invoke_viijj");
     invoke_no_stack_save!(
         ctx,
@@ -778,7 +857,15 @@ pub fn invoke_vj(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32) {
     debug!("emscripten::invoke_vj");
     invoke_no_stack_save!(ctx, dyn_call_vj, dyn_call_vj_ref, index, a1, a2)
 }
-pub fn invoke_vjji(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
+pub fn invoke_vjji(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+) {
     debug!("emscripten::invoke_vjji");
     invoke_no_return!(
         ctx,
@@ -824,7 +911,15 @@ pub fn invoke_vijiii(
         a6
     )
 }
-pub fn invoke_vijj(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
+pub fn invoke_vijj(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+) {
     debug!("emscripten::invoke_vijj");
     invoke_no_stack_save!(
         ctx,
@@ -846,7 +941,15 @@ pub fn invoke_viid(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32,
     debug!("emscripten::invoke_viid");
     invoke_no_return!(ctx, dyn_call_viid, dyn_call_viid_ref, index, a1, a2, a3);
 }
-pub fn invoke_viidii(mut ctx: ContextMut<'_, EmEnv>, index: i32, a1: i32, a2: i32, a3: f64, a4: i32, a5: i32) {
+pub fn invoke_viidii(
+    mut ctx: ContextMut<'_, EmEnv>,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: f64,
+    a4: i32,
+    a5: i32,
+) {
     debug!("emscripten::invoke_viidii");
     invoke_no_return!(
         ctx,

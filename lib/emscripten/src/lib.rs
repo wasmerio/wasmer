@@ -19,9 +19,9 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, ContextMut, Exports, Function, FunctionType, Global,
-    Imports, Instance, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError,
-    Table, TableType, Value, WasmPtr
+    imports, namespace, AsContextMut, ContextMut, Exports, Function, FunctionType, Global, Imports,
+    Instance, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Table, TableType, Value,
+    WasmPtr,
 };
 use wasmer_types::Type as ValType;
 
@@ -73,6 +73,7 @@ pub use self::utils::{
 pub struct EmEnv {
     memory: Arc<RwLock<Option<Memory>>>,
     data: Arc<Mutex<EmscriptenData>>,
+    funcs: Arc<Mutex<EmscriptenFunctions>>,
 }
 
 impl EmEnv {
@@ -80,24 +81,29 @@ impl EmEnv {
         Self {
             memory: Arc::new(RwLock::new(None)),
             data: Arc::new(Mutex::new(EmscriptenData::new(data.clone(), mapped_dirs))),
+            funcs: Arc::new(Mutex::new(EmscriptenFunctions::new())),
         }
     }
-    
+
     pub fn set_memory(&mut self, memory: Memory) {
         let mut w = self.memory.write().unwrap();
         *w = Some(memory);
     }
-    
+
     /// Get a reference to the memory
     pub fn memory(&self, _mem_idx: u32) -> Memory {
         (&*self.memory.read().unwrap()).as_ref().cloned().unwrap()
     }
 
-//    pub fn init_with_instance(&mut self, instance: &Instance) -> Result<(), wasmer::HostEnvInitError> {
-//        let mut ed = self.data.lock().unwrap();
-//        ed.init_with_instance(instance)?;
-//        Ok(())
-//    }
+    pub fn set_functions(&mut self, funcs: EmscriptenFunctions) {
+        self.funcs = Arc::new(Mutex::new(funcs));
+    }
+
+    //    pub fn init_with_instance(&mut self, instance: &Instance) -> Result<(), wasmer::HostEnvInitError> {
+    //        let mut ed = self.data.lock().unwrap();
+    //        ed.init_with_instance(instance)?;
+    //        Ok(())
+    //    }
 }
 
 #[derive(Debug, Clone)]
@@ -132,16 +138,12 @@ const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
 #[derive(Clone, Default)]
-pub struct EmscriptenData {
-    pub globals: EmscriptenGlobalsData,
-
+pub struct EmscriptenFunctions {
     pub malloc: Option<NativeFunc<u32, u32>>,
     pub free: Option<NativeFunc<u32, ()>>,
     pub memalign: Option<NativeFunc<(u32, u32), u32>>,
     pub memset: Option<NativeFunc<(u32, u32, u32), u32>>,
     pub stack_alloc: Option<NativeFunc<u32, u32>>,
-    pub jumps: Arc<Mutex<Vec<[u32; 27]>>>,
-    pub opened_dirs: HashMap<i32, Box<LibcDirWrapper>>,
 
     pub dyn_call_i: Option<NativeFunc<i32, i32>>,
     pub dyn_call_ii: Option<NativeFunc<(i32, i32), i32>>,
@@ -162,15 +164,19 @@ pub struct EmscriptenData {
     pub dyn_call_iiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiiii:
+        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiiiii:
+        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_vd: Option<NativeFunc<(i32, f64), ()>>,
     pub dyn_call_viiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiiiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiiiiiiii:
+        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiiiiiiiii:
+        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_iij: Option<NativeFunc<(i32, i32, i32, i32), i32>>,
     pub dyn_call_iji: Option<NativeFunc<(i32, i32, i32, i32), i32>>,
     pub dyn_call_iiji: Option<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
@@ -181,8 +187,10 @@ pub struct EmscriptenData {
     pub dyn_call_jij: Option<NativeFunc<(i32, i32, i32, i32), i32>>,
     pub dyn_call_jjj: Option<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_viiij: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiijiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiijiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiijiiii:
+        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiijiiiiii:
+        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viij: Option<NativeFunc<(i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiji: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viijiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
@@ -196,12 +204,23 @@ pub struct EmscriptenData {
     pub dyn_call_viid: Option<NativeFunc<(i32, i32, i32, f64), ()>>,
     pub dyn_call_vidd: Option<NativeFunc<(i32, i32, f64, f64), ()>>,
     pub dyn_call_viidii: Option<NativeFunc<(i32, i32, i32, f64, i32, i32), ()>>,
-    pub dyn_call_viidddddddd: Option<NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>>,
-    pub temp_ret_0: i32,
+    pub dyn_call_viidddddddd:
+        Option<NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>>,
 
     pub stack_save: Option<NativeFunc<(), i32>>,
     pub stack_restore: Option<NativeFunc<i32, ()>>,
     pub set_threw: Option<NativeFunc<(i32, i32), ()>>,
+}
+
+#[derive(Clone, Default)]
+pub struct EmscriptenData {
+    pub globals: EmscriptenGlobalsData,
+
+    pub jumps: Arc<Mutex<Vec<[u32; 27]>>>,
+    pub opened_dirs: HashMap<i32, Box<LibcDirWrapper>>,
+
+    pub temp_ret_0: i32,
+
     pub mapped_dirs: HashMap<String, PathBuf>,
 }
 
@@ -214,6 +233,14 @@ impl EmscriptenData {
             globals,
             temp_ret_0: 0,
             mapped_dirs,
+            ..Default::default()
+        }
+    }
+}
+
+impl EmscriptenFunctions {
+    pub fn new() -> EmscriptenFunctions {
+        EmscriptenFunctions {
             ..Default::default()
         }
     }
@@ -275,19 +302,29 @@ impl EmscriptenData {
     pub fn dyn_call_iiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiii.as_ref()
     }
-    pub fn dyn_call_iiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiii.as_ref()
     }
-    pub fn dyn_call_iiiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiii.as_ref()
     }
-    pub fn dyn_call_iiiiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiiiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiiii.as_ref()
     }
-    pub fn dyn_call_iiiiiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiiiiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiiiii.as_ref()
     }
-    pub fn dyn_call_iiiiiiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiiiiiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiiiiii.as_ref()
     }
     pub fn dyn_call_vd_ref(&self) -> Option<&NativeFunc<(i32, f64), ()>> {
@@ -296,19 +333,29 @@ impl EmscriptenData {
     pub fn dyn_call_viiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiii.as_ref()
     }
-    pub fn dyn_call_viiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiii.as_ref()
     }
-    pub fn dyn_call_viiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiii.as_ref()
     }
-    pub fn dyn_call_viiiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiiii.as_ref()
     }
-    pub fn dyn_call_viiiiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiiiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiiiii.as_ref()
     }
-    pub fn dyn_call_viiiiiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiiiiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiiiiii.as_ref()
     }
     pub fn dyn_call_iij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32), i32>> {
@@ -320,7 +367,9 @@ impl EmscriptenData {
     pub fn dyn_call_iiji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiji.as_ref()
     }
-    pub fn dyn_call_iiijj_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiijj_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiijj.as_ref()
     }
     pub fn dyn_call_j_ref(&self) -> Option<&NativeFunc<i32, i32>> {
@@ -341,10 +390,14 @@ impl EmscriptenData {
     pub fn dyn_call_viiij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiij.as_ref()
     }
-    pub fn dyn_call_viiijiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiijiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiijiiii.as_ref()
     }
-    pub fn dyn_call_viiijiiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiijiiiiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiijiiiiii.as_ref()
     }
     pub fn dyn_call_viij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), ()>> {
@@ -353,10 +406,14 @@ impl EmscriptenData {
     pub fn dyn_call_viiji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiji.as_ref()
     }
-    pub fn dyn_call_viijiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viijiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viijiii.as_ref()
     }
-    pub fn dyn_call_viijj_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viijj_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viijj.as_ref()
     }
     pub fn dyn_call_vj_ref(&self) -> Option<&NativeFunc<(i32, i32, i32), ()>> {
@@ -371,7 +428,9 @@ impl EmscriptenData {
     pub fn dyn_call_viji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viji.as_ref()
     }
-    pub fn dyn_call_vijiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_vijiii_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_vijiii.as_ref()
     }
     pub fn dyn_call_vijj_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
@@ -386,7 +445,9 @@ impl EmscriptenData {
     pub fn dyn_call_viidii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, f64, i32, i32), ()>> {
         self.dyn_call_viidii.as_ref()
     }
-    pub fn dyn_call_viidddddddd_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>> {
+    pub fn dyn_call_viidddddddd_ref(
+        &self,
+    ) -> Option<&NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>> {
         self.dyn_call_viidddddddd.as_ref()
     }
 
@@ -406,18 +467,21 @@ impl EmscriptenData {
 /// Note that this function does not completely set up Emscripten to be called.
 /// before calling this function, please initialize `Ctx::data` with a pointer
 /// to [`EmscriptenData`].
-pub fn set_up_emscripten(mut ctx: ContextMut<'_, EmEnv>, instance: &mut Instance) -> Result<(), RuntimeError> {
+pub fn set_up_emscripten(
+    ctx: &mut ContextMut<'_, EmEnv>,
+    instance: &mut Instance,
+) -> Result<(), RuntimeError> {
     // ATINIT
     // (used by C++)
     if let Ok(func) = instance.exports.get_function("globalCtors") {
-        func.call(&mut ctx, &[])?;
+        func.call(&mut ctx.as_context_mut(), &[])?;
     }
 
     if let Ok(func) = instance
         .exports
         .get_function("___emscripten_environ_constructor")
     {
-        func.call(&mut ctx, &[])?;
+        func.call(&mut ctx.as_context_mut(), &[])?;
     }
     Ok(())
 }
@@ -445,12 +509,15 @@ pub fn emscripten_call_main(
         2 => {
             let mut new_args = vec![path];
             new_args.extend(args);
-            let (argc, argv) = store_module_arguments(ctx, new_args);
+            let (argc, argv) = store_module_arguments(ctx.as_context_mut(), new_args);
             let func: &Function = instance
                 .exports
                 .get(function_name)
                 .map_err(|e| RuntimeError::new(e.to_string()))?;
-            func.call(&mut ctx, &[Value::I32(argc as i32), Value::I32(argv as i32)])?;
+            func.call(
+                &mut ctx,
+                &[Value::I32(argc as i32), Value::I32(argv as i32)],
+            )?;
         }
         0 => {
             let func: &Function = instance
@@ -479,206 +546,249 @@ pub fn run_emscripten_instance(
     args: Vec<&str>,
     entrypoint: Option<String>,
 ) -> Result<(), RuntimeError> {
-    let mut env = &ctx.data_mut();
+    let env = &mut ctx.data_mut();
     env.set_memory(globals.memory.clone());
     // get emscripten export
-    let mut emdata = &env.data.lock().unwrap();
+    let mut emfuncs = EmscriptenFunctions::new();
     if let Ok(func) = instance.exports.get_native_function(&ctx, "malloc") {
-        emdata.malloc = Some(func);
+        emfuncs.malloc = Some(func);
     } else if let Ok(func) = instance.exports.get_native_function(&ctx, "_malloc") {
-        emdata.malloc = Some(func);
+        emfuncs.malloc = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "free") {
-        emdata.free = Some(func);
+        emfuncs.free = Some(func);
     } else if let Ok(func) = instance.exports.get_native_function(&ctx, "_free") {
-        emdata.free = Some(func);
+        emfuncs.free = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "memalign") {
-        emdata.memalign = Some(func);
+        emfuncs.memalign = Some(func);
     } else if let Ok(func) = instance.exports.get_native_function(&ctx, "_memalign") {
-        emdata.memalign = Some(func);
+        emfuncs.memalign = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "memset") {
-        emdata.memset = Some(func);
+        emfuncs.memset = Some(func);
     } else if let Ok(func) = instance.exports.get_native_function(&ctx, "_memset") {
-        emdata.memset = Some(func);
+        emfuncs.memset = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "stackAlloc") {
-        emdata.stack_alloc = Some(func);
+        emfuncs.stack_alloc = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_i") {
-        emdata.dyn_call_i = Some(func);
+        emfuncs.dyn_call_i = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_ii") {
-        emdata.dyn_call_ii = Some(func);
+        emfuncs.dyn_call_ii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iii") {
-        emdata.dyn_call_iii = Some(func);
+        emfuncs.dyn_call_iii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiii") {
-        emdata.dyn_call_iiii = Some(func);
+        emfuncs.dyn_call_iiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iifi") {
-        emdata.dyn_call_iifi = Some(func);
+        emfuncs.dyn_call_iifi = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_v") {
-        emdata.dyn_call_v = Some(func);
+        emfuncs.dyn_call_v = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vi") {
-        emdata.dyn_call_vi = Some(func);
+        emfuncs.dyn_call_vi = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vii") {
-        emdata.dyn_call_vii = Some(func);
+        emfuncs.dyn_call_vii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viii") {
-        emdata.dyn_call_viii = Some(func);
+        emfuncs.dyn_call_viii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiii") {
-        emdata.dyn_call_viiii = Some(func);
+        emfuncs.dyn_call_viiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_dii") {
-        emdata.dyn_call_dii = Some(func);
+        emfuncs.dyn_call_dii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_diiii") {
-        emdata.dyn_call_diiii = Some(func);
+        emfuncs.dyn_call_diiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiiii") {
-        emdata.dyn_call_iiiii = Some(func);
+        emfuncs.dyn_call_iiiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiiiii") {
-        emdata.dyn_call_iiiiii = Some(func);
+        emfuncs.dyn_call_iiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiiiiii") {
-        emdata.dyn_call_iiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_iiiiiii")
+    {
+        emfuncs.dyn_call_iiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiiiiiii") {
-        emdata.dyn_call_iiiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_iiiiiiii")
+    {
+        emfuncs.dyn_call_iiiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiiiiiiii") {
-        emdata.dyn_call_iiiiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_iiiiiiiii")
+    {
+        emfuncs.dyn_call_iiiiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiiiiiiiii") {
-        emdata.dyn_call_iiiiiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_iiiiiiiiii")
+    {
+        emfuncs.dyn_call_iiiiiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiiiiiiiiii") {
-        emdata.dyn_call_iiiiiiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_iiiiiiiiiii")
+    {
+        emfuncs.dyn_call_iiiiiiiiiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vd") {
-        emdata.dyn_call_vd = Some(func);
+        emfuncs.dyn_call_vd = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiiii") {
-        emdata.dyn_call_viiiii = Some(func);
+        emfuncs.dyn_call_viiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiiiii") {
-        emdata.dyn_call_viiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viiiiii")
+    {
+        emfuncs.dyn_call_viiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiiiiii") {
-        emdata.dyn_call_viiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viiiiiii")
+    {
+        emfuncs.dyn_call_viiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiiiiiii") {
-        emdata.dyn_call_viiiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viiiiiiii")
+    {
+        emfuncs.dyn_call_viiiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiiiiiiii") {
-        emdata.dyn_call_viiiiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viiiiiiiii")
+    {
+        emfuncs.dyn_call_viiiiiiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiiiiiiiii") {
-        emdata.dyn_call_viiiiiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viiiiiiiiii")
+    {
+        emfuncs.dyn_call_viiiiiiiiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iij") {
-        emdata.dyn_call_iij = Some(func);
+        emfuncs.dyn_call_iij = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iji") {
-        emdata.dyn_call_iji = Some(func);
+        emfuncs.dyn_call_iji = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiji") {
-        emdata.dyn_call_iiji = Some(func);
+        emfuncs.dyn_call_iiji = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_iiijj") {
-        emdata.dyn_call_iiijj = Some(func);
+        emfuncs.dyn_call_iiijj = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_j") {
-        emdata.dyn_call_j = Some(func);
+        emfuncs.dyn_call_j = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_ji") {
-        emdata.dyn_call_ji = Some(func);
+        emfuncs.dyn_call_ji = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_jii") {
-        emdata.dyn_call_jii = Some(func);
+        emfuncs.dyn_call_jii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_jij") {
-        emdata.dyn_call_jij = Some(func);
+        emfuncs.dyn_call_jij = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_jjj") {
-        emdata.dyn_call_jjj = Some(func);
+        emfuncs.dyn_call_jjj = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiij") {
-        emdata.dyn_call_viiij = Some(func);
+        emfuncs.dyn_call_viiij = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiijiiii") {
-        emdata.dyn_call_viiijiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viiijiiii")
+    {
+        emfuncs.dyn_call_viiijiiii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiijiiiiii") {
-        emdata.dyn_call_viiijiiiiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viiijiiiiii")
+    {
+        emfuncs.dyn_call_viiijiiiiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viij") {
-        emdata.dyn_call_viij = Some(func);
+        emfuncs.dyn_call_viij = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viiji") {
-        emdata.dyn_call_viiji = Some(func);
+        emfuncs.dyn_call_viiji = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viijiii") {
-        emdata.dyn_call_viijiii = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viijiii")
+    {
+        emfuncs.dyn_call_viijiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viijj") {
-        emdata.dyn_call_viijj = Some(func);
+        emfuncs.dyn_call_viijj = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vj") {
-        emdata.dyn_call_vj = Some(func);
+        emfuncs.dyn_call_vj = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vjji") {
-        emdata.dyn_call_vjji = Some(func);
+        emfuncs.dyn_call_vjji = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vij") {
-        emdata.dyn_call_vij = Some(func);
+        emfuncs.dyn_call_vij = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viji") {
-        emdata.dyn_call_viji = Some(func);
+        emfuncs.dyn_call_viji = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vijiii") {
-        emdata.dyn_call_vijiii = Some(func);
+        emfuncs.dyn_call_vijiii = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vijj") {
-        emdata.dyn_call_vijj = Some(func);
+        emfuncs.dyn_call_vijj = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viid") {
-        emdata.dyn_call_viid = Some(func);
+        emfuncs.dyn_call_viid = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_vidd") {
-        emdata.dyn_call_vidd = Some(func);
+        emfuncs.dyn_call_vidd = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viidii") {
-        emdata.dyn_call_viidii = Some(func);
+        emfuncs.dyn_call_viidii = Some(func);
     }
-    if let Ok(func) = instance.exports.get_native_function(&ctx, "dynCall_viidddddddd") {
-        emdata.dyn_call_viidddddddd = Some(func);
+    if let Ok(func) = instance
+        .exports
+        .get_native_function(&ctx, "dynCall_viidddddddd")
+    {
+        emfuncs.dyn_call_viidddddddd = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "stackSave") {
-        emdata.stack_save = Some(func);
+        emfuncs.stack_save = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "stackRestore") {
-        emdata.stack_restore = Some(func);
+        emfuncs.stack_restore = Some(func);
     }
     if let Ok(func) = instance.exports.get_native_function(&ctx, "setThrew") {
-        emdata.set_threw = Some(func);
+        emfuncs.set_threw = Some(func);
     }
-    
-    set_up_emscripten(ctx, instance)?;
+    ctx.data_mut().set_functions(emfuncs);
+
+    set_up_emscripten(&mut ctx.as_context_mut(), instance)?;
 
     // println!("running emscripten instance");
 
     if let Some(ep) = entrypoint {
         debug!("Running entry point: {}", &ep);
-        let arg = unsafe { allocate_cstr_on_stack(ctx, args[0]).0 };
+        let arg = unsafe { allocate_cstr_on_stack(&mut ctx.as_context_mut(), args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
         let func: &Function = instance
             .exports
@@ -699,11 +809,11 @@ fn store_module_arguments(mut ctx: ContextMut<'_, EmEnv>, args: Vec<&str>) -> (u
 
     let mut args_slice = vec![0; argc];
     for (slot, arg) in args_slice[0..argc].iter_mut().zip(args.iter()) {
-        *slot = unsafe { allocate_cstr_on_stack(ctx, &arg).0 };
+        *slot = unsafe { allocate_cstr_on_stack(&mut ctx.as_context_mut(), &arg).0 };
     }
 
     let (argv_offset, argv_slice): (_, &mut [u32]) =
-        unsafe { allocate_on_stack(&ctx, ((argc) * 4) as u32) };
+        unsafe { allocate_on_stack(&mut ctx, ((argc) * 4) as u32) };
     assert!(!argv_slice.is_empty());
     for (slot, arg) in argv_slice[0..argc].iter_mut().zip(args_slice.iter()) {
         *slot = *arg
@@ -718,10 +828,10 @@ pub fn emscripten_set_up_memory(
     memory: &Memory,
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
-    ctx.data_mut().set_memory(*memory);
+    ctx.data_mut().set_memory(memory.clone());
     let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&ctx, memory);
     let dynamic_base = globals.dynamic_base;
-    
+
     if dynamictop_ptr.offset() >= memory.data_size(&ctx) {
         return Err("dynamictop_ptr beyond memory len".to_string());
     }
@@ -847,15 +957,9 @@ pub fn generate_emscripten_env(
     globals: &mut EmscriptenGlobals,
 ) -> Imports {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
-        Function::new_native(
-            ctx,
-            crate::memory::abort_on_cannot_grow_memory_old,
-        )
+        Function::new_native(ctx, crate::memory::abort_on_cannot_grow_memory_old)
     } else {
-        Function::new_native(
-            ctx,
-            crate::memory::abort_on_cannot_grow_memory,
-        )
+        Function::new_native(ctx, crate::memory::abort_on_cannot_grow_memory)
     };
 
     let mut env_ns: Exports = namespace! {
@@ -863,17 +967,17 @@ pub fn generate_emscripten_env(
         "table" => globals.table.clone(),
 
         // Globals
-        "STACKTOP" => Global::new(&mut ctx, Value::I32(globals.data.stacktop as i32)),
-        "STACK_MAX" => Global::new(&mut ctx, Value::I32(globals.data.stack_max as i32)),
-        "DYNAMICTOP_PTR" => Global::new(&mut ctx, Value::I32(globals.data.dynamictop_ptr as i32)),
-        "fb" => Global::new(&mut ctx, Value::I32(globals.data.table_base as i32)),
-        "tableBase" => Global::new(&mut ctx, Value::I32(globals.data.table_base as i32)),
-        "__table_base" => Global::new(&mut ctx, Value::I32(globals.data.table_base as i32)),
-        "ABORT" => Global::new(&mut ctx, Value::I32(globals.data.abort as i32)),
-        "gb" => Global::new(&mut ctx, Value::I32(globals.data.memory_base as i32)),
-        "memoryBase" => Global::new(&mut ctx, Value::I32(globals.data.memory_base as i32)),
-        "__memory_base" => Global::new(&mut ctx, Value::I32(globals.data.memory_base as i32)),
-        "tempDoublePtr" => Global::new(&mut ctx, Value::I32(globals.data.temp_double_ptr as i32)),
+        "STACKTOP" => Global::new(ctx, Value::I32(globals.data.stacktop as i32)),
+        "STACK_MAX" => Global::new(ctx, Value::I32(globals.data.stack_max as i32)),
+        "DYNAMICTOP_PTR" => Global::new(ctx, Value::I32(globals.data.dynamictop_ptr as i32)),
+        "fb" => Global::new(ctx, Value::I32(globals.data.table_base as i32)),
+        "tableBase" => Global::new(ctx, Value::I32(globals.data.table_base as i32)),
+        "__table_base" => Global::new(ctx, Value::I32(globals.data.table_base as i32)),
+        "ABORT" => Global::new(ctx, Value::I32(globals.data.abort as i32)),
+        "gb" => Global::new(ctx, Value::I32(globals.data.memory_base as i32)),
+        "memoryBase" => Global::new(ctx, Value::I32(globals.data.memory_base as i32)),
+        "__memory_base" => Global::new(ctx, Value::I32(globals.data.memory_base as i32)),
+        "tempDoublePtr" => Global::new(ctx, Value::I32(globals.data.temp_double_ptr as i32)),
 
         // inet
         "_inet_addr" => Function::new_native(ctx, crate::inet::addr),
@@ -1340,7 +1444,7 @@ pub fn generate_emscripten_env(
     import_object
 }
 
-pub fn nullfunc(mut ctx: ContextMut<'_, EmEnv>, _x: u32) {
+pub fn nullfunc(ctx: ContextMut<'_, EmEnv>, _x: u32) {
     use crate::process::abort_with_message;
     debug!("emscripten::nullfunc_i {}", _x);
     abort_with_message(

@@ -1,4 +1,4 @@
-use super::env::get_emscripten_data;
+use super::env::get_emscripten_funcs;
 use super::process::abort_with_message;
 use libc::c_int;
 // use std::cell::UnsafeCell;
@@ -58,12 +58,18 @@ impl Error for LongJumpRet {}
 /// _longjmp
 // This function differs from the js implementation, it should return Result<(), &'static str>
 #[allow(unreachable_code)]
-pub fn _longjmp(mut ctx: ContextMut<'_, EmEnv>, env_addr: i32, val: c_int) -> Result<(), LongJumpRet> {
+pub fn _longjmp(
+    mut ctx: ContextMut<'_, EmEnv>,
+    env_addr: i32,
+    val: c_int,
+) -> Result<(), LongJumpRet> {
     let val = if val == 0 { 1 } else { val };
-    let threw = get_emscripten_data(&ctx)
+    let threw = get_emscripten_funcs(&ctx)
         .set_threw_ref()
-        .expect("set_threw is None");
-    threw.call(&mut ctx.as_context_mut(), env_addr, val)
+        .expect("set_threw is None")
+        .clone();
+    threw
+        .call(&mut ctx.as_context_mut(), env_addr, val)
         .expect("set_threw failed to call");
     Err(LongJumpRet)
 }
