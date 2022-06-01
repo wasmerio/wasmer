@@ -45,7 +45,7 @@ pub fn call_memset(mut ctx: ContextMut<'_, EmEnv>, pointer: u32, value: u32, siz
 
 pub(crate) fn get_emscripten_data<'a>(
     ctx: &'a ContextMut<'_, EmEnv>,
-) -> MutexGuard<'a, EmscriptenData> {
+) -> MutexGuard<'a, Option<EmscriptenData>> {
     ctx.data().data.lock().unwrap()
 }
 

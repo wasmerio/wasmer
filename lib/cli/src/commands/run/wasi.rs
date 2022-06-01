@@ -2,8 +2,11 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use wasmer::{Instance, Module, RuntimeError, Val};
-use wasmer_wasi::{get_wasi_versions, is_wasix_module, WasiError, WasiState, WasiVersion};
+use wasmer::{AsContextMut, Context, Instance, Module, RuntimeError, Value};
+use wasmer_wasi::{
+    get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module, WasiEnv, WasiError,
+    WasiState, WasiVersion,
+};
 
 use structopt::StructOpt;
 
@@ -78,7 +81,7 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<Instance> {
+    ) -> Result<(Context<WasiEnv>, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
         let mut wasi_state_builder = WasiState::new(program_name);
@@ -96,19 +99,21 @@ impl Wasi {
             }
         }
 
-        let mut wasi_env = wasi_state_builder.finalize()?;
+        let wasi_env = wasi_state_builder.finalize()?;
         wasi_env.state.fs.is_wasix.store(
             is_wasix_module(module),
             std::sync::atomic::Ordering::Release,
         );
-
-        let import_object = wasi_env.import_object_for_all_wasi_versions(module)?;
-        let instance = Instance::new(module, &import_object)?;
-        Ok(instance)
+        let mut ctx = Context::new(module.store(), wasi_env.clone());
+        let import_object = import_object_for_all_wasi_versions(&mut ctx.as_context_mut());
+        let instance = Instance::new(&mut ctx, &module, &import_object)?;
+        let memory = instance.exports.get_memory("memory")?;
+        ctx.data_mut().set_memory(memory.clone());
+        Ok((ctx, instance))
     }
 
     /// Helper function for handling the result of a Wasi _start function.
-    pub fn handle_result(&self, result: Result<Box<[Val]>, RuntimeError>) -> Result<()> {
+    pub fn handle_result(&self, result: Result<Box<[Value]>, RuntimeError>) -> Result<()> {
         match result {
             Ok(_) => Ok(()),
             Err(err) => {
