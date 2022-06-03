@@ -9,7 +9,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 
-## 2.3.0 - 2022/06/01
+## 2.3.0 - (release pending)
 
 ### Added
 - [#2862](https://github.com/wasmerio/wasmer/pull/2862) Added CI builds for linux-aarch64 target.
