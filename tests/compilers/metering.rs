@@ -25,7 +25,7 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
     f.call(4, 6)?;
     Ok(())
 }
@@ -56,7 +56,7 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<i32, ()> = instance.exports.get_native_function("test")?;
+    let f: TypedFunction<i32, ()> = instance.exports.get_native_function("test")?;
     f.call(iter_count)?;
     Ok(())
 }
@@ -159,7 +159,7 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add_to")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add_to")?;
 
     // FIXME: Since now a metering error is signaled with an `unreachable`, it is impossible to verify
     // the error type. Fix this later.

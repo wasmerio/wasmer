@@ -337,32 +337,32 @@ mod js {
     fn native_function_works() {
         let store = Store::default();
         let function = Function::new_native(&store, || {});
-        let native_function: NativeFunc<(), ()> = function.native().unwrap();
-        let result = native_function.call();
+        let typed_function: TypedFunction<(), ()> = function.native().unwrap();
+        let result = typed_function.call();
         assert!(result.is_ok());
 
         let function = Function::new_native(&store, |a: i32| -> i32 { a + 1 });
-        let native_function: NativeFunc<i32, i32> = function.native().unwrap();
-        assert_eq!(native_function.call(3).unwrap(), 4);
+        let typed_function: TypedFunction<i32, i32> = function.native().unwrap();
+        assert_eq!(typed_function.call(3).unwrap(), 4);
 
         // fn rust_abi(a: i32, b: i64, c: f32, d: f64) -> u64 {
         //     (a as u64 * 1000) + (b as u64 * 100) + (c as u64 * 10) + (d as u64)
         // }
         // let function = Function::new_native(&store, rust_abi);
-        // let native_function: NativeFunc<(i32, i64, f32, f64), u64> = function.native().unwrap();
-        // assert_eq!(native_function.call(8, 4, 1.5, 5.).unwrap(), 8415);
+        // let typed_function: TypedFunction<(i32, i64, f32, f64), u64> = function.native().unwrap();
+        // assert_eq!(typed_function.call(8, 4, 1.5, 5.).unwrap(), 8415);
 
         let function = Function::new_native(&store, || -> i32 { 1 });
-        let native_function: NativeFunc<(), i32> = function.native().unwrap();
-        assert_eq!(native_function.call().unwrap(), 1);
+        let typed_function: TypedFunction<(), i32> = function.native().unwrap();
+        assert_eq!(typed_function.call().unwrap(), 1);
 
         let function = Function::new_native(&store, |_a: i32| {});
-        let native_function: NativeFunc<i32, ()> = function.native().unwrap();
-        assert!(native_function.call(4).is_ok());
+        let typed_function: TypedFunction<i32, ()> = function.native().unwrap();
+        assert!(typed_function.call(4).is_ok());
 
         // let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
-        // let native_function: NativeFunc<(), (i32, i64, f32, f64)> = function.native().unwrap();
-        // assert_eq!(native_function.call().unwrap(), (1, 2, 3.0, 4.0));
+        // let typed_function: TypedFunction<(), (i32, i64, f32, f64)> = function.native().unwrap();
+        // assert_eq!(typed_function.call().unwrap(), (1, 2, 3.0, 4.0));
     }
 
     #[wasm_bindgen_test]
