@@ -14,6 +14,7 @@ import subprocess
 import time
 
 from typing import Optional
+
 try:
     from toposort import toposort_flatten
 except ImportError:
@@ -27,42 +28,126 @@ target_version = "2.3.0"
 dep_graph = {
     "wasmer-types": set([]),
     "wasmer-derive": set([]),
-    "wasmer-vm": set(["wasmer-types"]),
-    "wasmer-compiler": set(["wasmer-vm", "wasmer-types"]),
+    "wasmer-vm": set(["wasmer-types", "wasmer-artifact"]),
+    "wasmer-compiler": set(["wasmer-types"]),
+    "wasmer-compiler-cli": set(
+        [
+            "wasmer-engine-universal-artifact",
+            "wasmer-compiler",
+            "wasmer-types",
+            "wasmer-compiler-singlepass",
+            "wasmer-compiler-cranelift",
+        ]
+    ),
+    "wasmer-engine-universal-artifact": set(
+        ["wasmer-artifact", "wasmer-types", "wasmer-compiler"]
+    ),
+    "wasmer-artifact": set(["wasmer-types", "wasmer-compiler"]),
     "wasmer-object": set(["wasmer-types", "wasmer-compiler"]),
-    "wasmer-engine": set(["wasmer-types", "wasmer-vm", "wasmer-compiler"]),
-    "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-vm", "wasmer-compiler"]),
-    "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-vm", "wasmer-compiler"]),
-    "wasmer-compiler-llvm": set(["wasmer-types", "wasmer-vm", "wasmer-compiler"]),
-    "wasmer-engine-universal": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine"]),
-    "wasmer-engine-dylib": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
-                                 "wasmer-object"]),
-    "wasmer-engine-staticlib": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
-                                      "wasmer-object"]),
-    "wasmer": set(["wasmer-vm", "wasmer-compiler-singlepass", "wasmer-compiler-cranelift",
-                   "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-universal",
-                   "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-types", "wasmer-derive"]),
+    "wasmer-engine": set(
+        ["wasmer-types", "wasmer-compiler", "wasmer-artifact", "wasmer-vm"]
+    ),
+    "wasmer-compiler-singlepass": set(["wasmer-types", "wasmer-compiler"]),
+    "wasmer-compiler-cranelift": set(["wasmer-types", "wasmer-compiler"]),
+    "wasmer-compiler-llvm": set(["wasmer-compiler", "wasmer-vm", "wasmer-types"]),
+    "wasmer-engine-universal": set(
+        [
+            "wasmer-engine-universal-artifact",
+            "wasmer-types",
+            "wasmer-compiler",
+            "wasmer-vm",
+            "wasmer-engine",
+        ]
+    ),
+    "wasmer-engine-dylib": set(
+        [
+            "wasmer-artifact",
+            "wasmer-types",
+            "wasmer-compiler",
+            "wasmer-vm",
+            "wasmer-engine",
+            "wasmer-object",
+        ]
+    ),
+    "wasmer-engine-staticlib": set(
+        [
+            "wasmer-artifact",
+            "wasmer-types",
+            "wasmer-compiler",
+            "wasmer-vm",
+            "wasmer-engine",
+            "wasmer-object",
+        ]
+    ),
+    "wasmer": set(
+        [
+            "wasmer-artifact",
+            "wasmer-vm",
+            "wasmer-compiler",
+            "wasmer-derive",
+            "wasmer-engine",
+            "wasmer-types",
+            "wasmer-compiler-singlepass",
+            "wasmer-compiler-cranelift",
+            "wasmer-compiler-llvm",
+            "wasmer-engine-universal",
+            "wasmer-engine-dylib",
+        ]
+    ),
     "wasmer-vfs": set([]),
     "wasmer-cache": set(["wasmer"]),
     "wasmer-wasi": set(["wasmer", "wasmer-wasi-types", "wasmer-vfs"]),
     "wasmer-wasi-types": set(["wasmer-types"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
-    "wasmer-c-api": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
-                         "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-universal",
-                         "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-wasi", "wasmer-types"]),
+    "wasmer-c-api": set(
+        [
+            "wasmer",
+            "wasmer-compiler",
+            "wasmer-compiler-cranelift",
+            "wasmer-compiler-singlepass",
+            "wasmer-compiler-llvm",
+            "wasmer-emscripten",
+            "wasmer-engine",
+            "wasmer-engine-universal",
+            "wasmer-engine-dylib",
+            "wasmer-engine-staticlib",
+            "wasmer-middlewares",
+            "wasmer-wasi",
+            "wasmer-types",
+        ]
+    ),
     "wasmer-middlewares": set(["wasmer", "wasmer-types", "wasmer-vm"]),
     "wasmer-wast": set(["wasmer", "wasmer-wasi", "wasmer-vfs"]),
-    "wasmer-cli": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
-                       "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-universal",
-                       "wasmer-engine-dylib", "wasmer-engine-staticlib", "wasmer-vm", "wasmer-wasi",
-                       "wasmer-wasi-experimental-io-devices", "wasmer-wast", "wasmer-cache", "wasmer-types",
-                       "wasmer-vfs"]),
+    "wasmer-cli": set(
+        [
+            "wasmer",
+            "wasmer-compiler",
+            "wasmer-compiler-cranelift",
+            "wasmer-compiler-singlepass",
+            "wasmer-compiler-llvm",
+            "wasmer-emscripten",
+            "wasmer-engine",
+            "wasmer-engine-universal",
+            "wasmer-engine-dylib",
+            "wasmer-engine-staticlib",
+            "wasmer-vm",
+            "wasmer-wasi",
+            "wasmer-wasi-experimental-io-devices",
+            "wasmer-wast",
+            "wasmer-cache",
+            "wasmer-types",
+            "wasmer-vfs",
+        ]
+    ),
 }
 
 # where each crate is located in the `lib` directory
 # TODO: this could also be generated from the toml files
 location = {
+    "wasmer-artifact": "artifact",
+    "wasmer-engine-universal-artifact": "universal-artifact",
+    "wasmer-compiler-cli": "cli-compiler",
     "wasmer-types": "types",
     "wasmer-derive": "derive",
     "wasmer-vm": "vm",
@@ -91,6 +176,7 @@ location = {
 
 no_dry_run = False
 
+
 def get_latest_version_for_crate(crate_name: str) -> Optional[str]:
     output = subprocess.run(["cargo", "search", crate_name], capture_output=True)
     rexp_src = '^{} = "([^"]+)"'.format(crate_name)
@@ -101,12 +187,14 @@ def get_latest_version_for_crate(crate_name: str) -> Optional[str]:
         if result:
             return result.group(1)
 
+
 def is_crate_already_published(crate_name: str) -> bool:
     found_string = get_latest_version_for_crate(crate_name)
     if found_string is None:
         return False
 
     return target_version == found_string
+
 
 def publish_crate(crate: str):
     starting_dir = os.getcwd()
@@ -117,18 +205,26 @@ def publish_crate(crate: str):
         output = subprocess.run(["cargo", "publish"])
     else:
         print("In dry-run: not publishing crate `{}`".format(crate))
+        output = subprocess.run(["cargo", "publish", "--dry-run"])
 
     os.chdir(starting_dir)
 
+
 def main():
-    os.environ['WASMER_PUBLISH_SCRIPT_IS_RUNNING'] = '1'
-    parser = argparse.ArgumentParser(description='Publish the Wasmer crates to crates.io')
-    parser.add_argument('--no-dry-run', default=False, action='store_true',
-                        help='Run the script without actually publishing anything to crates.io')
+    os.environ["WASMER_PUBLISH_SCRIPT_IS_RUNNING"] = "1"
+    parser = argparse.ArgumentParser(
+        description="Publish the Wasmer crates to crates.io"
+    )
+    parser.add_argument(
+        "--no-dry-run",
+        default=False,
+        action="store_true",
+        help="Run the script without actually publishing anything to crates.io",
+    )
     args = vars(parser.parse_args())
 
     global no_dry_run
-    no_dry_run = args['no_dry_run']
+    no_dry_run = args["no_dry_run"]
 
     # get the order to publish the crates in
     order = list(toposort_flatten(dep_graph, sort=True))
