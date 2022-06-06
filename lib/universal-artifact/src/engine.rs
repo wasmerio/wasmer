@@ -2,7 +2,6 @@
 
 use loupe::MemoryUsage;
 use wasmer_compiler::CompileError;
-#[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_types::Features;
 
@@ -18,6 +17,7 @@ pub struct UniversalEngineBuilder {
 
 impl UniversalEngineBuilder {
     /// Create a new builder with pre-made components
+    #[cfg(feature = "compiler")]
     pub fn new(compiler: Option<Box<dyn Compiler>>, features: Features) -> Self {
         UniversalEngineBuilder { compiler, features }
     }
