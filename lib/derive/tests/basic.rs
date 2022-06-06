@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use wasmer::{Function, Global, LazyInit, Memory, NativeFunc, Table, WasmerEnv};
+use wasmer::{Function, Global, LazyInit, Memory, Table, TypedFunction, WasmerEnv};
 
 #[derive(WasmerEnv, Clone)]
 struct MyEnv {
@@ -36,7 +36,7 @@ struct MyEnvWithFuncs {
     #[wasmer(export)]
     memory: LazyInit<Memory>,
     #[wasmer(export)]
-    sum: LazyInit<NativeFunc<(i32, i32), i32>>,
+    sum: LazyInit<TypedFunction<(i32, i32), i32>>,
 }
 
 #[derive(WasmerEnv, Clone)]
@@ -46,7 +46,7 @@ struct MyEnvWithEverything {
     #[wasmer(export)]
     memory: LazyInit<Memory>,
     #[wasmer(export)]
-    sum: LazyInit<NativeFunc<(), i32>>,
+    sum: LazyInit<TypedFunction<(), i32>>,
     #[wasmer(export)]
     multiply: LazyInit<Function>,
     #[wasmer(export)]

@@ -55,7 +55,7 @@ fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
     let instance = Instance::new(&module, &import_object)?;
 
     {
-        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+        let f: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("add")?;
         let result = f.call(4, 6)?;
         assert_eq!(result, 10);
     }
@@ -68,7 +68,7 @@ fn native_function_works_for_wasm(config: crate::Config) -> anyhow::Result<()> {
 
     {
         let dyn_f: &Function = instance.exports.get("double_then_add")?;
-        let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
+        let f: TypedFunction<(i32, i32), i32> = dyn_f.native().unwrap();
         let result = f.call(4, 6)?;
         assert_eq!(result, 20);
     }
@@ -151,7 +151,7 @@ fn non_native_functions_and_closures_with_no_env_work(config: crate::Config) -> 
 
     let instance = Instance::new(&module, &import_object)?;
 
-    let test: NativeFunc<(i32, i32, i32, i32, i32), i32> =
+    let test: TypedFunction<(i32, i32, i32, i32, i32), i32> =
         instance.exports.get_native_function("test")?;
 
     let result = test.call(2, 3, 4, 5, 6)?;
@@ -182,14 +182,14 @@ fn native_function_works_for_wasm_function_manyparams(config: crate::Config) -> 
 
     {
         let dyn_f: &Function = instance.exports.get("longf")?;
-        let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
+        let f: TypedFunction<(), i64> = dyn_f.native().unwrap();
         let result = f.call()?;
         assert_eq!(result, 1234567890);
     }
 
     {
         let dyn_f: &Function = instance.exports.get("longf_pure")?;
-        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
+        let f: TypedFunction<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
             dyn_f.native().unwrap();
         let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, 1234567890);
@@ -222,14 +222,14 @@ fn native_function_works_for_wasm_function_manyparams_dynamic(
 
     {
         let dyn_f: &Function = instance.exports.get("longf")?;
-        let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
+        let f: TypedFunction<(), i64> = dyn_f.native().unwrap();
         let result = f.call()?;
         assert_eq!(result, 1234567890);
     }
 
     {
         let dyn_f: &Function = instance.exports.get("longf_pure")?;
-        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
+        let f: TypedFunction<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
             dyn_f.native().unwrap();
         let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, 1234567890);
@@ -272,7 +272,8 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
     // Native static host function that returns a tuple.
     {
         let f = Function::new_native(&store, f);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+        let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+            f.native().unwrap();
         let result = f_native.call(1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
     }
@@ -280,7 +281,7 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
     // Native static host function that returns a tuple.
     {
         let long_f = Function::new_native(&store, long_f);
-        let long_f_native: NativeFunc<
+        let long_f_native: TypedFunction<
             (u32, u32, u32, u32, u32, u16, u64, u64, u16, u32),
             (u32, u64, u32),
         > = long_f.native().unwrap();
@@ -291,7 +292,8 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
     // Native static host function that returns a result of a tuple.
     {
         let f = Function::new_native(&store, f_ok);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+        let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+            f.native().unwrap();
         let result = f_native.call(1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
     }
@@ -334,7 +336,8 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         let env = Env(Arc::new(Mutex::new(100)));
 
         let f = Function::new_native_with_env(&store, env.clone(), f);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+        let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+            f.native().unwrap();
 
         assert_eq!(*env.0.lock().unwrap(), 100);
 
@@ -349,7 +352,8 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         let env = Env(Arc::new(Mutex::new(100)));
 
         let f = Function::new_native_with_env(&store, env.clone(), f_ok);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+        let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+            f.native().unwrap();
 
         assert_eq!(*env.0.lock().unwrap(), 100);
 
@@ -381,7 +385,7 @@ fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()
             ])
         },
     );
-    let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+    let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
     let result = f_native.call(1, 3, 5.0, 7.0)?;
 
     assert_eq!(result, (28.0, 15.0, 6, 1));
@@ -426,7 +430,7 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         },
     );
 
-    let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+    let f_native: TypedFunction<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
     assert_eq!(*env.0.lock().unwrap(), 100);
 

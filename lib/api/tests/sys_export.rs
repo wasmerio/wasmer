@@ -89,7 +89,7 @@ mod sys {
     }
 
     fn is_native_function_instance_ref_strong<Args, Rets>(
-        f: &NativeFunc<Args, Rets>,
+        f: &TypedFunction<Args, Rets>,
     ) -> Option<bool>
     where
         Args: WasmTypeList,
@@ -120,7 +120,7 @@ mod sys {
             assert_eq!(is_memory_instance_ref_strong(&mem), Some(false));
         };
 
-        let f: NativeFunc<(), ()> = {
+        let f: TypedFunction<(), ()> = {
             let store = Store::default();
             let module = Module::new(&store, MEM_WAT)?;
             let env = MemEnv::default();
@@ -139,7 +139,7 @@ mod sys {
                 assert_eq!(is_memory_instance_ref_strong(&mem), Some(true));
             }
 
-            let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -164,7 +164,7 @@ mod sys {
             assert_eq!(is_global_instance_ref_strong(&global), Some(false));
         };
 
-        let f: NativeFunc<(), ()> = {
+        let f: TypedFunction<(), ()> = {
             let store = Store::default();
             let module = Module::new(&store, GLOBAL_WAT)?;
             let env = GlobalEnv::default();
@@ -183,7 +183,7 @@ mod sys {
                 assert_eq!(is_global_instance_ref_strong(&global), Some(true));
             }
 
-            let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -208,7 +208,7 @@ mod sys {
             assert_eq!(is_table_instance_ref_strong(&table), Some(false));
         };
 
-        let f: NativeFunc<(), ()> = {
+        let f: TypedFunction<(), ()> = {
             let store = Store::default();
             let module = Module::new(&store, TABLE_WAT)?;
             let env = TableEnv::default();
@@ -227,7 +227,7 @@ mod sys {
                 assert_eq!(is_table_instance_ref_strong(&table), Some(true));
             }
 
-            let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -252,7 +252,7 @@ mod sys {
             assert_eq!(is_function_instance_ref_strong(&function), Some(false));
         };
 
-        let f: NativeFunc<(), ()> = {
+        let f: TypedFunction<(), ()> = {
             let store = Store::default();
             let module = Module::new(&store, FUNCTION_WAT)?;
             let env = FunctionEnv::default();
@@ -271,7 +271,7 @@ mod sys {
                 assert_eq!(is_function_instance_ref_strong(&function), Some(true));
             }
 
-            let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
             f.call()?;
             f
         };
@@ -285,7 +285,7 @@ mod sys {
         #[derive(Clone, WasmerEnv, Default)]
         struct FunctionEnv {
             #[wasmer(export)]
-            call_host_fn: LazyInit<NativeFunc<(), ()>>,
+            call_host_fn: LazyInit<TypedFunction<(), ()>>,
         }
 
         let host_fn = |env: &FunctionEnv| {
@@ -305,7 +305,7 @@ mod sys {
             );
         };
 
-        let f: NativeFunc<(), ()> = {
+        let f: TypedFunction<(), ()> = {
             let store = Store::default();
             let module = Module::new(&store, FUNCTION_WAT)?;
             let env = FunctionEnv::default();
@@ -320,7 +320,7 @@ mod sys {
             )?;
 
             {
-                let function: NativeFunc<(), ()> =
+                let function: TypedFunction<(), ()> =
                     instance.exports.get_native_function("call_host_fn")?;
                 assert_eq!(
                     is_native_function_instance_ref_strong(&function),
@@ -328,7 +328,7 @@ mod sys {
                 );
             }
 
-            let f: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_fn")?;
+            let f: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_fn")?;
             f.call()?;
             f
         };
