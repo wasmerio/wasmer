@@ -60,7 +60,7 @@ pub use crate::js::instance::{Instance, InstantiationError};
 pub use crate::js::js_import_object::JsImportObject;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
-pub use crate::js::native::NativeFunc;
+pub use crate::js::native::TypedFunction;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::js::trap::RuntimeError;
 
@@ -82,3 +82,10 @@ pub use wat::parse_bytes as wat2wasm;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// This type is deprecated, it has been replaced by TypedFunction.
+#[deprecated(
+    since = "3.0.0",
+    note = "NativeFunc has been replaced by TypedFunction"
+)]
+pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;

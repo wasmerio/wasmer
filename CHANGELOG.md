@@ -13,6 +13,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ### Changed
 - #2864 wasmer-cli: remove wasi-experimental-io-devices from default builds
+- [#2933](https://github.com/wasmerio/wasmer/pull/2933) Rename NativeFunc to TypedFunction.
 ### Changed
 - #2868 Removed loupe crate dependency
 

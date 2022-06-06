@@ -609,7 +609,7 @@ mod js {
         };
         let instance = Instance::new(&module, &import_object).unwrap();
 
-        let add_one: NativeFunc<i32, i32> =
+        let add_one: TypedFunction<i32, i32> =
             instance.exports.get_native_function("add_one").unwrap();
         assert_eq!(add_one.call(1), Ok(2));
     }
@@ -645,7 +645,7 @@ mod js {
         };
         let instance = Instance::new(&module, &import_object).unwrap();
 
-        let run_func: NativeFunc<(i32, i32), i32> =
+        let run_func: TypedFunction<(i32, i32), i32> =
             instance.exports.get_native_function("run").unwrap();
 
         assert!(run_func.call(1, 7).is_err(), "Expected early termination",);
@@ -724,7 +724,7 @@ mod js {
             }
         }
 
-        let run_func: NativeFunc<(i32, i32), i32> =
+        let run_func: TypedFunction<(i32, i32), i32> =
             instance.exports.get_native_function("run").unwrap();
         test_result(run_func.call(1, 7));
 

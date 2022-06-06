@@ -1,5 +1,5 @@
 use crate::sys::externals::{Extern, Function, Global, Memory, Table};
-use crate::sys::native::NativeFunc;
+use crate::sys::native::TypedFunction;
 use crate::sys::WasmTypeList;
 use indexmap::IndexMap;
 use std::fmt;
@@ -134,11 +134,11 @@ impl Exports {
         self.get(name)
     }
 
-    /// Get an export as a `NativeFunc`.
+    /// Get an export as a `TypedFunction`.
     pub fn get_native_function<Args, Rets>(
         &self,
         name: &str,
-    ) -> Result<NativeFunc<Args, Rets>, ExportError>
+    ) -> Result<TypedFunction<Args, Rets>, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -315,7 +315,7 @@ pub trait Exportable<'a>: Sized {
 }
 
 /// A trait for accessing exports (like [`Exportable`]) but it takes generic
-/// `Args` and `Rets` parameters so that `NativeFunc` can be accessed directly
+/// `Args` and `Rets` parameters so that `TypedFunction` can be accessed directly
 /// as well.
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
