@@ -108,6 +108,7 @@ pub struct CompilerOptions {
 
     /// Enable compiler internal verification.
     #[structopt(long)]
+    #[allow(dead_code)]
     enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
