@@ -2,8 +2,8 @@ use crate::sys::context::{AsContextMut, AsContextRef, ContextInner, ContextMut};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::FunctionType;
-use crate::sys::NativeFunc;
 use crate::sys::RuntimeError;
+use crate::sys::TypedFunction;
 
 use crate::Value;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
@@ -414,7 +414,7 @@ impl Function {
     }
 
     /// Transform this WebAssembly function into a function with the
-    /// native ABI. See [`NativeFunc`] to learn more.
+    /// native ABI. See [`TypedFunction`] to learn more.
     ///
     /// # Examples
     ///
@@ -491,7 +491,7 @@ impl Function {
     pub fn native<Args, Rets>(
         &self,
         ctx: &impl AsContextRef,
-    ) -> Result<NativeFunc<Args, Rets>, RuntimeError>
+    ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -526,7 +526,7 @@ impl Function {
             }
         }
 
-        Ok(NativeFunc::new(self.clone()))
+        Ok(TypedFunction::new(self.clone()))
     }
 
     pub(crate) fn from_vm_extern(

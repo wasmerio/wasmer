@@ -228,14 +228,14 @@ mod sys {
         };
         let instance = Instance::new(&module, &imports)?;
 
-        let f1: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func1")?;
-        let f2: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func2")?;
-        let f3: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func3")?;
-        let f4: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func4")?;
-        let f5: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func5")?;
-        let f6: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func6")?;
-        let f7: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func7")?;
-        let f8: NativeFunc<(), ()> = instance.exports.get_native_function("call_host_func8")?;
+        let f1: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func1")?;
+        let f2: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func2")?;
+        let f3: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func3")?;
+        let f4: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func4")?;
+        let f5: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func5")?;
+        let f6: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func6")?;
+        let f7: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func7")?;
+        let f8: TypedFunction<(), ()> = instance.exports.get_native_function("call_host_func8")?;
 
         f1.call()?;
         f2.call()?;

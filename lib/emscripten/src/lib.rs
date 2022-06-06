@@ -20,8 +20,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
     imports, namespace, AsContextMut, ContextMut, Exports, Function, FunctionType, Global, Imports,
-    Instance, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Table, TableType, Value,
-    WasmPtr,
+    Instance, Memory, MemoryType, Module, Pages, RuntimeError, Table, TableType, TypedFunction,
+    Value, WasmPtr,
 };
 use wasmer_types::Type as ValType;
 
@@ -143,77 +143,79 @@ const STATIC_BASE: u32 = GLOBAL_BASE;
 
 #[derive(Clone, Default)]
 pub struct EmscriptenFunctions {
-    pub malloc: Option<NativeFunc<u32, u32>>,
-    pub free: Option<NativeFunc<u32, ()>>,
-    pub memalign: Option<NativeFunc<(u32, u32), u32>>,
-    pub memset: Option<NativeFunc<(u32, u32, u32), u32>>,
-    pub stack_alloc: Option<NativeFunc<u32, u32>>,
+    pub malloc: Option<TypedFunction<u32, u32>>,
+    pub free: Option<TypedFunction<u32, ()>>,
+    pub memalign: Option<TypedFunction<(u32, u32), u32>>,
+    pub memset: Option<TypedFunction<(u32, u32, u32), u32>>,
+    pub stack_alloc: Option<TypedFunction<u32, u32>>,
 
-    pub dyn_call_i: Option<NativeFunc<i32, i32>>,
-    pub dyn_call_ii: Option<NativeFunc<(i32, i32), i32>>,
-    pub dyn_call_iii: Option<NativeFunc<(i32, i32, i32), i32>>,
-    pub dyn_call_iiii: Option<NativeFunc<(i32, i32, i32, i32), i32>>,
-    pub dyn_call_iifi: Option<NativeFunc<(i32, i32, f64, i32), i32>>,
-    pub dyn_call_v: Option<NativeFunc<i32, ()>>,
-    pub dyn_call_vi: Option<NativeFunc<(i32, i32), ()>>,
-    pub dyn_call_vii: Option<NativeFunc<(i32, i32, i32), ()>>,
-    pub dyn_call_viii: Option<NativeFunc<(i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiii: Option<NativeFunc<(i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_i: Option<TypedFunction<i32, i32>>,
+    pub dyn_call_ii: Option<TypedFunction<(i32, i32), i32>>,
+    pub dyn_call_iii: Option<TypedFunction<(i32, i32, i32), i32>>,
+    pub dyn_call_iiii: Option<TypedFunction<(i32, i32, i32, i32), i32>>,
+    pub dyn_call_iifi: Option<TypedFunction<(i32, i32, f64, i32), i32>>,
+    pub dyn_call_v: Option<TypedFunction<i32, ()>>,
+    pub dyn_call_vi: Option<TypedFunction<(i32, i32), ()>>,
+    pub dyn_call_vii: Option<TypedFunction<(i32, i32, i32), ()>>,
+    pub dyn_call_viii: Option<TypedFunction<(i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiii: Option<TypedFunction<(i32, i32, i32, i32, i32), ()>>,
 
     // round 2
-    pub dyn_call_dii: Option<NativeFunc<(i32, i32, i32), f64>>,
-    pub dyn_call_diiii: Option<NativeFunc<(i32, i32, i32, i32, i32), f64>>,
-    pub dyn_call_iiiii: Option<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_dii: Option<TypedFunction<(i32, i32, i32), f64>>,
+    pub dyn_call_diiii: Option<TypedFunction<(i32, i32, i32, i32, i32), f64>>,
+    pub dyn_call_iiiii: Option<TypedFunction<(i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiiiiiiii:
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiiiiiii:
-        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
     pub dyn_call_iiiiiiiiiii:
-        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_vd: Option<NativeFunc<(i32, f64), ()>>,
-    pub dyn_call_viiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiiiiiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_vd: Option<TypedFunction<(i32, f64), ()>>,
+    pub dyn_call_viiiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiiiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiiiiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiiiiiii:
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiiiiiiii:
-        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiiiiiiiii:
-        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_iij: Option<NativeFunc<(i32, i32, i32, i32), i32>>,
-    pub dyn_call_iji: Option<NativeFunc<(i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiji: Option<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiijj: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_j: Option<NativeFunc<i32, i32>>,
-    pub dyn_call_ji: Option<NativeFunc<(i32, i32), i32>>,
-    pub dyn_call_jii: Option<NativeFunc<(i32, i32, i32), i32>>,
-    pub dyn_call_jij: Option<NativeFunc<(i32, i32, i32, i32), i32>>,
-    pub dyn_call_jjj: Option<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_viiij: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_iij: Option<TypedFunction<(i32, i32, i32, i32), i32>>,
+    pub dyn_call_iji: Option<TypedFunction<(i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiji: Option<TypedFunction<(i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_iiijj: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_j: Option<TypedFunction<i32, i32>>,
+    pub dyn_call_ji: Option<TypedFunction<(i32, i32), i32>>,
+    pub dyn_call_jii: Option<TypedFunction<(i32, i32, i32), i32>>,
+    pub dyn_call_jij: Option<TypedFunction<(i32, i32, i32, i32), i32>>,
+    pub dyn_call_jjj: Option<TypedFunction<(i32, i32, i32, i32, i32), i32>>,
+    pub dyn_call_viiij: Option<TypedFunction<(i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiijiiii:
-        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
     pub dyn_call_viiijiiiiii:
-        Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viij: Option<NativeFunc<(i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viiji: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viijiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viijj: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_vj: Option<NativeFunc<(i32, i32, i32), ()>>,
-    pub dyn_call_vjji: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_vij: Option<NativeFunc<(i32, i32, i32, i32), ()>>,
-    pub dyn_call_viji: Option<NativeFunc<(i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_vijiii: Option<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_vijj: Option<NativeFunc<(i32, i32, i32, i32, i32, i32), ()>>,
-    pub dyn_call_viid: Option<NativeFunc<(i32, i32, i32, f64), ()>>,
-    pub dyn_call_vidd: Option<NativeFunc<(i32, i32, f64, f64), ()>>,
-    pub dyn_call_viidii: Option<NativeFunc<(i32, i32, i32, f64, i32, i32), ()>>,
+        Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viij: Option<TypedFunction<(i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viiji: Option<TypedFunction<(i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viijiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viijj: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_vj: Option<TypedFunction<(i32, i32, i32), ()>>,
+    pub dyn_call_vjji: Option<TypedFunction<(i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_vij: Option<TypedFunction<(i32, i32, i32, i32), ()>>,
+    pub dyn_call_viji: Option<TypedFunction<(i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_vijiii: Option<TypedFunction<(i32, i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_vijj: Option<TypedFunction<(i32, i32, i32, i32, i32, i32), ()>>,
+    pub dyn_call_viid: Option<TypedFunction<(i32, i32, i32, f64), ()>>,
+    pub dyn_call_vidd: Option<TypedFunction<(i32, i32, f64, f64), ()>>,
+    pub dyn_call_viidii: Option<TypedFunction<(i32, i32, i32, f64, i32, i32), ()>>,
     pub dyn_call_viidddddddd:
-        Option<NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>>,
+        Option<TypedFunction<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>>,
 
-    pub stack_save: Option<NativeFunc<(), i32>>,
-    pub stack_restore: Option<NativeFunc<i32, ()>>,
-    pub set_threw: Option<NativeFunc<(i32, i32), ()>>,
+    pub stack_save: Option<TypedFunction<(), i32>>,
+    pub stack_restore: Option<TypedFunction<i32, ()>>,
+    pub set_threw: Option<TypedFunction<(i32, i32), ()>>,
 }
 
 #[derive(Clone, Default)]
@@ -248,220 +250,227 @@ impl EmscriptenFunctions {
             ..Default::default()
         }
     }
-    pub fn malloc_ref(&self) -> Option<&NativeFunc<u32, u32>> {
+    pub fn malloc_ref(&self) -> Option<&TypedFunction<u32, u32>> {
         self.malloc.as_ref()
     }
-    pub fn free_ref(&self) -> Option<&NativeFunc<u32, ()>> {
+    pub fn free_ref(&self) -> Option<&TypedFunction<u32, ()>> {
         self.free.as_ref()
     }
-    pub fn memalign_ref(&self) -> Option<&NativeFunc<(u32, u32), u32>> {
+    pub fn memalign_ref(&self) -> Option<&TypedFunction<(u32, u32), u32>> {
         self.memalign.as_ref()
     }
-    pub fn memset_ref(&self) -> Option<&NativeFunc<(u32, u32, u32), u32>> {
+    pub fn memset_ref(&self) -> Option<&TypedFunction<(u32, u32, u32), u32>> {
         self.memset.as_ref()
     }
-    pub fn stack_alloc_ref(&self) -> Option<&NativeFunc<u32, u32>> {
+    pub fn stack_alloc_ref(&self) -> Option<&TypedFunction<u32, u32>> {
         self.stack_alloc.as_ref()
     }
 
-    pub fn dyn_call_i_ref(&self) -> Option<&NativeFunc<i32, i32>> {
+    pub fn dyn_call_i_ref(&self) -> Option<&TypedFunction<i32, i32>> {
         self.dyn_call_i.as_ref()
     }
-    pub fn dyn_call_ii_ref(&self) -> Option<&NativeFunc<(i32, i32), i32>> {
+    pub fn dyn_call_ii_ref(&self) -> Option<&TypedFunction<(i32, i32), i32>> {
         self.dyn_call_ii.as_ref()
     }
-    pub fn dyn_call_iii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32), i32>> {
+    pub fn dyn_call_iii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32), i32>> {
         self.dyn_call_iii.as_ref()
     }
-    pub fn dyn_call_iiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32), i32>> {
         self.dyn_call_iiii.as_ref()
     }
-    pub fn dyn_call_iifi_ref(&self) -> Option<&NativeFunc<(i32, i32, f64, i32), i32>> {
+    pub fn dyn_call_iifi_ref(&self) -> Option<&TypedFunction<(i32, i32, f64, i32), i32>> {
         self.dyn_call_iifi.as_ref()
     }
-    pub fn dyn_call_v_ref(&self) -> Option<&NativeFunc<i32, ()>> {
+    pub fn dyn_call_v_ref(&self) -> Option<&TypedFunction<i32, ()>> {
         self.dyn_call_v.as_ref()
     }
-    pub fn dyn_call_vi_ref(&self) -> Option<&NativeFunc<(i32, i32), ()>> {
+    pub fn dyn_call_vi_ref(&self) -> Option<&TypedFunction<(i32, i32), ()>> {
         self.dyn_call_vi.as_ref()
     }
-    pub fn dyn_call_vii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32), ()>> {
+    pub fn dyn_call_vii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32), ()>> {
         self.dyn_call_vii.as_ref()
     }
-    pub fn dyn_call_viii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32), ()>> {
         self.dyn_call_viii.as_ref()
     }
-    pub fn dyn_call_viiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiii.as_ref()
     }
-    pub fn dyn_call_dii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32), f64>> {
+    pub fn dyn_call_dii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32), f64>> {
         self.dyn_call_dii.as_ref()
     }
-    pub fn dyn_call_diiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), f64>> {
+    pub fn dyn_call_diiii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32), f64>> {
         self.dyn_call_diiii.as_ref()
     }
-    pub fn dyn_call_iiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiiii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiii.as_ref()
     }
-    pub fn dyn_call_iiiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiiiii_ref(
+        &self,
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiii.as_ref()
     }
     pub fn dyn_call_iiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiii.as_ref()
     }
     pub fn dyn_call_iiiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiii.as_ref()
     }
     pub fn dyn_call_iiiiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiiii.as_ref()
     }
     pub fn dyn_call_iiiiiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiiiii.as_ref()
     }
     pub fn dyn_call_iiiiiiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiiiiiiiiii.as_ref()
     }
-    pub fn dyn_call_vd_ref(&self) -> Option<&NativeFunc<(i32, f64), ()>> {
+    pub fn dyn_call_vd_ref(&self) -> Option<&TypedFunction<(i32, f64), ()>> {
         self.dyn_call_vd.as_ref()
     }
-    pub fn dyn_call_viiiii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiiii_ref(
+        &self,
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiii.as_ref()
     }
     pub fn dyn_call_viiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiii.as_ref()
     }
     pub fn dyn_call_viiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiii.as_ref()
     }
     pub fn dyn_call_viiiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiiii.as_ref()
     }
     pub fn dyn_call_viiiiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiiiii.as_ref()
     }
     pub fn dyn_call_viiiiiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiiiiiiiii.as_ref()
     }
-    pub fn dyn_call_iij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iij_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32), i32>> {
         self.dyn_call_iij.as_ref()
     }
-    pub fn dyn_call_iji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iji_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32), i32>> {
         self.dyn_call_iji.as_ref()
     }
-    pub fn dyn_call_iiji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_iiji_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiji.as_ref()
     }
     pub fn dyn_call_iiijj_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_iiijj.as_ref()
     }
-    pub fn dyn_call_j_ref(&self) -> Option<&NativeFunc<i32, i32>> {
+    pub fn dyn_call_j_ref(&self) -> Option<&TypedFunction<i32, i32>> {
         self.dyn_call_j.as_ref()
     }
-    pub fn dyn_call_ji_ref(&self) -> Option<&NativeFunc<(i32, i32), i32>> {
+    pub fn dyn_call_ji_ref(&self) -> Option<&TypedFunction<(i32, i32), i32>> {
         self.dyn_call_ji.as_ref()
     }
-    pub fn dyn_call_jii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32), i32>> {
+    pub fn dyn_call_jii_ref(&self) -> Option<&TypedFunction<(i32, i32, i32), i32>> {
         self.dyn_call_jii.as_ref()
     }
-    pub fn dyn_call_jij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_jij_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32), i32>> {
         self.dyn_call_jij.as_ref()
     }
-    pub fn dyn_call_jjj_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), i32>> {
+    pub fn dyn_call_jjj_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32), i32>> {
         self.dyn_call_jjj.as_ref()
     }
-    pub fn dyn_call_viiij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiij_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiij.as_ref()
     }
     pub fn dyn_call_viiijiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiijiiii.as_ref()
     }
     pub fn dyn_call_viiijiiiiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), ()>>
+    {
         self.dyn_call_viiijiiiiii.as_ref()
     }
-    pub fn dyn_call_viij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viij_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viij.as_ref()
     }
-    pub fn dyn_call_viiji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viiji_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viiji.as_ref()
     }
     pub fn dyn_call_viijiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viijiii.as_ref()
     }
     pub fn dyn_call_viijj_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viijj.as_ref()
     }
-    pub fn dyn_call_vj_ref(&self) -> Option<&NativeFunc<(i32, i32, i32), ()>> {
+    pub fn dyn_call_vj_ref(&self) -> Option<&TypedFunction<(i32, i32, i32), ()>> {
         self.dyn_call_vj.as_ref()
     }
-    pub fn dyn_call_vjji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_vjji_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_vjji.as_ref()
     }
-    pub fn dyn_call_vij_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_vij_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32), ()>> {
         self.dyn_call_vij.as_ref()
     }
-    pub fn dyn_call_viji_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_viji_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_viji.as_ref()
     }
     pub fn dyn_call_vijiii_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32, i32), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_vijiii.as_ref()
     }
-    pub fn dyn_call_vijj_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, i32, i32, i32), ()>> {
+    pub fn dyn_call_vijj_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, i32, i32, i32), ()>> {
         self.dyn_call_vijj.as_ref()
     }
-    pub fn dyn_call_viid_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, f64), ()>> {
+    pub fn dyn_call_viid_ref(&self) -> Option<&TypedFunction<(i32, i32, i32, f64), ()>> {
         self.dyn_call_viid.as_ref()
     }
-    pub fn dyn_call_vidd_ref(&self) -> Option<&NativeFunc<(i32, i32, f64, f64), ()>> {
+    pub fn dyn_call_vidd_ref(&self) -> Option<&TypedFunction<(i32, i32, f64, f64), ()>> {
         self.dyn_call_vidd.as_ref()
     }
-    pub fn dyn_call_viidii_ref(&self) -> Option<&NativeFunc<(i32, i32, i32, f64, i32, i32), ()>> {
+    pub fn dyn_call_viidii_ref(
+        &self,
+    ) -> Option<&TypedFunction<(i32, i32, i32, f64, i32, i32), ()>> {
         self.dyn_call_viidii.as_ref()
     }
     pub fn dyn_call_viidddddddd_ref(
         &self,
-    ) -> Option<&NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>> {
+    ) -> Option<&TypedFunction<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64), ()>> {
         self.dyn_call_viidddddddd.as_ref()
     }
 
-    pub fn stack_save_ref(&self) -> Option<&NativeFunc<(), i32>> {
+    pub fn stack_save_ref(&self) -> Option<&TypedFunction<(), i32>> {
         self.stack_save.as_ref()
     }
-    pub fn stack_restore_ref(&self) -> Option<&NativeFunc<i32, ()>> {
+    pub fn stack_restore_ref(&self) -> Option<&TypedFunction<i32, ()>> {
         self.stack_restore.as_ref()
     }
-    pub fn set_threw_ref(&self) -> Option<&NativeFunc<(i32, i32), ()>> {
+    pub fn set_threw_ref(&self) -> Option<&TypedFunction<(i32, i32), ()>> {
         self.set_threw.as_ref()
     }
 }

@@ -16,7 +16,7 @@
 
 use anyhow::bail;
 use std::fmt;
-use wasmer::{imports, wat2wasm, Function, Instance, Module, NativeFunc, Store};
+use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_universal::Universal;
 
@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
     //
     // Get the `run` function which we'll use as our entrypoint.
     println!("Calling `run` function...");
-    let run_func: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("run")?;
+    let run_func: TypedFunction<(i32, i32), i32> = instance.exports.get_native_function("run")?;
 
     // When we call a function it can either succeed or fail. We expect it to fail.
     match run_func.call(1, 7) {
