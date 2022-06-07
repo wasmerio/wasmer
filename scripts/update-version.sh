@@ -4,8 +4,8 @@
 : "${FD:=fd}"
 
 # A script to update the version of all the crates at the same time
-PREVIOUS_VERSION='2.2.0'
-NEXT_VERSION='2.2.1'
+PREVIOUS_VERSION='2.2.1'
+NEXT_VERSION='2.3.0'
 
 # quick hack
 ${FD} Cargo.toml --exec sed -i '{}' -e "s/version = \"$PREVIOUS_VERSION\"/version = \"$NEXT_VERSION\"/"
@@ -20,7 +20,6 @@ echo "manually check changes to publish.py"
 
 # Re-generate lock files
 cargo generate-lockfile
-cargo generate-lockfile --manifest-path wasmer-test/Cargo.toml
 
 # Order to upload packages in
 ## wasmer-types

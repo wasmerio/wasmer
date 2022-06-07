@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-universal-artifact"
-version = "2.2.1"
+version = "2.3.0"
 description = "Wasmer Engine Universal Artifact abstraction"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "engine"]
@@ -11,9 +11,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-artifact = { path = "../artifact", version = "=2.2.1" }
-wasmer-types = { path = "../types", version = "=2.2.1" }
-wasmer-compiler = { path = "../compiler", version = "=2.2.1" }
+wasmer-artifact = { path = "../artifact", version = "=2.3.0" }
+wasmer-types = { path = "../types", version = "=2.3.0" }
+wasmer-compiler = { path = "../compiler", version = "=2.3.0", features = ["translator", ] }
 loupe = "0.1"
 thiserror = "1.0"
 enumset = "1.0"

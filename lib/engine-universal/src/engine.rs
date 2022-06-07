@@ -164,6 +164,7 @@ pub struct UniversalEngineInner {
 
 impl UniversalEngineInner {
     /// Gets the compiler associated to this engine.
+    #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         self.builder.compiler()
     }
