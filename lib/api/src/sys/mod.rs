@@ -35,7 +35,8 @@ pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::sys::module::Module;
-pub use crate::sys::native::NativeFunc;
+pub use crate::sys::native::TypedFunction;
+
 pub use crate::sys::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::sys::store::{Store, StoreObject};
 pub use crate::sys::tunables::BaseTunables;
@@ -126,3 +127,10 @@ pub type JIT = Universal;
 #[cfg(feature = "native")]
 #[deprecated(since = "2.0.0", note = "Please use the `native` feature instead")]
 pub type Native = Dylib;
+
+/// This type is deprecated, it has been replaced by TypedFunction.
+#[deprecated(
+    since = "3.0.0",
+    note = "NativeFunc has been replaced by TypedFunction"
+)]
+pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;

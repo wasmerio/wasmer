@@ -3765,11 +3765,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::Unreachable => {
                 self.mark_trappable();
-                let offset = self
-                    .machine
-                    .mark_instruction_with_trap_code(TrapCode::UnreachableCodeReached);
-                self.machine.emit_illegal_op();
-                self.machine.mark_instruction_address_end(offset);
+                self.machine
+                    .emit_illegal_op(TrapCode::UnreachableCodeReached);
                 self.unreachable_depth = 1;
             }
             Operator::Return => {
@@ -5861,36 +5858,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero);
         self.machine
-            .mark_address_with_trap_code(TrapCode::IntegerDivisionByZero);
-        self.machine.emit_illegal_op();
+            .emit_illegal_op(TrapCode::IntegerDivisionByZero);
 
         self.machine
             .emit_label(self.special_labels.integer_overflow);
-        self.machine
-            .mark_address_with_trap_code(TrapCode::IntegerOverflow);
-        self.machine.emit_illegal_op();
+        self.machine.emit_illegal_op(TrapCode::IntegerOverflow);
 
         self.machine.emit_label(self.special_labels.heap_access_oob);
         self.machine
-            .mark_address_with_trap_code(TrapCode::HeapAccessOutOfBounds);
-        self.machine.emit_illegal_op();
+            .emit_illegal_op(TrapCode::HeapAccessOutOfBounds);
 
         self.machine
             .emit_label(self.special_labels.table_access_oob);
         self.machine
-            .mark_address_with_trap_code(TrapCode::TableAccessOutOfBounds);
-        self.machine.emit_illegal_op();
+            .emit_illegal_op(TrapCode::TableAccessOutOfBounds);
 
         self.machine
             .emit_label(self.special_labels.indirect_call_null);
-        self.machine
-            .mark_address_with_trap_code(TrapCode::IndirectCallToNull);
-        self.machine.emit_illegal_op();
+        self.machine.emit_illegal_op(TrapCode::IndirectCallToNull);
 
         self.machine.emit_label(self.special_labels.bad_signature);
-        self.machine
-            .mark_address_with_trap_code(TrapCode::BadSignature);
-        self.machine.emit_illegal_op();
+        self.machine.emit_illegal_op(TrapCode::BadSignature);
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.machine.finalize_function();

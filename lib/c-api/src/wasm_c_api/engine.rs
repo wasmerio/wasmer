@@ -289,7 +289,7 @@ pub struct wasm_engine_t {
 #[cfg(feature = "compiler")]
 use wasmer_api::CompilerConfig;
 
-#[cfg(feature = "compiler")]
+#[cfg(all(feature = "compiler", any(feature = "universal", feature = "dylib")))]
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
         if #[cfg(feature = "cranelift")] {

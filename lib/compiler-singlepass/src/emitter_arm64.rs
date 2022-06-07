@@ -170,7 +170,7 @@ pub trait EmitterARM64 {
     fn emit_call_register(&mut self, reg: GPR);
     fn emit_ret(&mut self);
 
-    fn emit_udf(&mut self);
+    fn emit_udf(&mut self, payload: u16);
     fn emit_dmb(&mut self);
     fn emit_brk(&mut self);
 
@@ -2015,8 +2015,8 @@ impl EmitterARM64 for Assembler {
         dynasm!(self ; ret);
     }
 
-    fn emit_udf(&mut self) {
-        dynasm!(self ; udf 0x1234);
+    fn emit_udf(&mut self, payload: u16) {
+        dynasm!(self ; udf (payload as u32));
     }
     fn emit_dmb(&mut self) {
         dynasm!(self ; dmb ish);

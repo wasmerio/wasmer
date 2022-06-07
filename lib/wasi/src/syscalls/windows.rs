@@ -4,7 +4,6 @@ use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
     clock_id: __wasi_clockid_t,
-    resolution: WasmRef<__wasi_timestamp_t>,
 ) -> Result<i64, __wasi_errno_t> {
     let resolution_val = match clock_id {
         // resolution of monotonic clock at 10ms, from:

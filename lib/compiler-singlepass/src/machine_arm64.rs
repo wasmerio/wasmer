@@ -1206,20 +1206,10 @@ impl MachineARM64 {
         self.assembler.emit_fcmp(sz, f, f);
         self.assembler.emit_bcond_label(Condition::Vs, trap_badconv);
         // fallthru: trap_overflow
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::IntegerOverflow);
-        self.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
+        self.emit_illegal_op_internal(TrapCode::IntegerOverflow);
 
         self.emit_label(trap_badconv);
-        let offset = self.assembler.get_offset().0;
-        self.trap_table
-            .offset_to_code
-            .insert(offset, TrapCode::BadConversionToInteger);
-        self.emit_illegal_op();
-        self.mark_instruction_address_end(offset);
+        self.emit_illegal_op_internal(TrapCode::BadConversionToInteger);
 
         self.emit_label(end);
         self.restore_fpcr(old_fpcr);
@@ -1249,6 +1239,9 @@ impl MachineARM64 {
     }
     fn emit_unwind_op(&mut self, op: UnwindOps) {
         self.unwind_ops.push((self.get_offset().0, op));
+    }
+    fn emit_illegal_op_internal(&mut self, trap: TrapCode) {
+        self.assembler.emit_udf(0xc0 | (trap as u8) as u16);
     }
 }
 
@@ -2179,8 +2172,10 @@ impl Machine for MachineARM64 {
         }
     }
 
-    fn emit_illegal_op(&mut self) {
-        self.assembler.emit_udf();
+    fn emit_illegal_op(&mut self, trap: TrapCode) {
+        let offset = self.assembler.get_offset().0;
+        self.assembler.emit_udf(0xc0 | (trap as u8) as u16);
+        self.mark_instruction_address_end(offset);
     }
     fn get_label(&mut self) -> Label {
         self.assembler.new_dynamic_label()

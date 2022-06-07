@@ -1,11 +1,11 @@
 //! Native Functions.
 //!
-//! This module creates the helper `NativeFunc` that let us call WebAssembly
+//! This module creates the helper `TypedFunction` that let us call WebAssembly
 //! functions with the native ABI, that is:
 //!
 //! ```ignore
 //! let add_one = instance.exports.get_function("function_name")?;
-//! let add_one_native: NativeFunc<i32, i32> = add_one.native().unwrap();
+//! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
 use std::marker::PhantomData;
 
@@ -21,16 +21,16 @@ use wasmer_types::NativeWasmType;
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
 #[derive(Clone)]
-pub struct NativeFunc<Args = (), Rets = ()> {
+pub struct TypedFunction<Args = (), Rets = ()> {
     store: Store,
     exported: VMFunction,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
-unsafe impl<Args, Rets> Send for NativeFunc<Args, Rets> {}
-unsafe impl<Args, Rets> Sync for NativeFunc<Args, Rets> {}
+unsafe impl<Args, Rets> Send for TypedFunction<Args, Rets> {}
+unsafe impl<Args, Rets> Sync for TypedFunction<Args, Rets> {}
 
-impl<Args, Rets> NativeFunc<Args, Rets>
+impl<Args, Rets> TypedFunction<Args, Rets>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
@@ -44,22 +44,22 @@ where
     }
 }
 
-impl<Args, Rets> From<&NativeFunc<Args, Rets>> for VMFunction
+impl<Args, Rets> From<&TypedFunction<Args, Rets>> for VMFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn from(other: &NativeFunc<Args, Rets>) -> Self {
+    fn from(other: &TypedFunction<Args, Rets>) -> Self {
         other.exported.clone()
     }
 }
 
-impl<Args, Rets> From<NativeFunc<Args, Rets>> for Function
+impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn from(other: NativeFunc<Args, Rets>) -> Self {
+    fn from(other: TypedFunction<Args, Rets>) -> Self {
         Self {
             store: other.store,
             exported: other.exported,
@@ -70,7 +70,7 @@ where
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
         #[allow(unused_parens, non_snake_case)]
-        impl<$( $x , )* Rets> NativeFunc<( $( $x ),* ), Rets>
+        impl<$( $x , )* Rets> TypedFunction<( $( $x ),* ), Rets>
         where
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
@@ -108,7 +108,7 @@ macro_rules! impl_native_traits {
         }
 
         #[allow(unused_parens)]
-        impl<'a, $( $x, )* Rets> crate::js::exports::ExportableWithGenerics<'a, ($( $x ),*), Rets> for NativeFunc<( $( $x ),* ), Rets>
+        impl<'a, $( $x, )* Rets> crate::js::exports::ExportableWithGenerics<'a, ($( $x ),*), Rets> for TypedFunction<( $( $x ),* ), Rets>
         where
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,

@@ -16,7 +16,7 @@ Wasmer provides multiple documentations. Here are some pointers:
   commented examples,
 * [Documentations for all embeddings/language
   integrations](https://github.com/wasmerio/wasmer/blob/master/README.md):
-  the Wasmer runtime can be embeddeded in various languages or
+  the Wasmer runtime can be embedded in various languages or
   environments, each embedding provides its own documentation, book
   etc.,
 * [OS distro packaging

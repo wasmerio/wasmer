@@ -17,13 +17,13 @@ use wasmer_compiler::wasmparser::Type;
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::VMBuiltinFunctionIndex;
+use wasmer_types::VMOffsets;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     SignatureIndex, TableIndex, Type as WasmerType,
 };
-use wasmer_vm::VMBuiltinFunctionIndex;
-use wasmer_vm::VMOffsets;
-use wasmer_vm::{MemoryStyle, TableStyle};
+use wasmer_types::{MemoryStyle, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {

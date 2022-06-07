@@ -4,15 +4,21 @@ env:
   RUST_BACKTRACE: 1
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - 'master'
       - 'staging'
       - 'trying'
+    paths:
+      - 'lib/**'
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
   pull_request:
+    paths:
+      - 'lib/**'
+
 jobs:
   setup:
     name: Set up
@@ -100,7 +106,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++ libxkbcommon-dev wayland-dev
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++ libxkbcommon-dev wayland-dev
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:

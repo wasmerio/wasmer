@@ -7,6 +7,7 @@
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use crate::Trap;
 use backtrace::Backtrace;
+use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
 use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
@@ -23,6 +24,11 @@ use std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
 use std::sync::{Mutex, Once};
 use wasmer_types::TrapCode;
 
+// TrapInformation can be stored in the "Undefined Instruction" itself.
+// On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
+// On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
+static MAGIC: u8 = 0xc0;
+
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
@@ -30,6 +36,54 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_os = "windows")] {
         /// Function which may handle custom signals while processing traps.
         pub type TrapHandlerFn = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
+    }
+}
+
+// Process an IllegalOpcode to see if it has a TrapCode payload
+unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
+    let mut val: Option<u8> = None;
+    if cfg!(target_arch = "x86_64") {
+        val = if read(addr as *mut u8) & 0xf0 == 0x40
+            && read((addr + 1) as *mut u8) == 0x0f
+            && read((addr + 2) as *mut u8) == 0xb9
+        {
+            Some(read((addr + 3) as *mut u8))
+        } else if read(addr as *mut u8) == 0x0f && read((addr + 1) as *mut u8) == 0xb9 {
+            Some(read((addr + 2) as *mut u8))
+        } else {
+            None
+        }
+    }
+    if cfg!(target_arch = "aarch64") {
+        val = if read_unaligned(addr as *mut u32) & 0xffff0000 == 0 {
+            Some(read(addr as *mut u8))
+        } else {
+            None
+        }
+    }
+    match val.and_then(|val| {
+        if val & MAGIC == MAGIC {
+            Some(val & 0xf)
+        } else {
+            None
+        }
+    }) {
+        None => None,
+        Some(val) => match val {
+            0 => Some(TrapCode::StackOverflow),
+            1 => Some(TrapCode::HeapAccessOutOfBounds),
+            2 => Some(TrapCode::HeapMisaligned),
+            3 => Some(TrapCode::TableAccessOutOfBounds),
+            4 => Some(TrapCode::OutOfBounds),
+            5 => Some(TrapCode::IndirectCallToNull),
+            6 => Some(TrapCode::BadSignature),
+            7 => Some(TrapCode::IntegerOverflow),
+            8 => Some(TrapCode::IntegerDivisionByZero),
+            9 => Some(TrapCode::BadConversionToInteger),
+            10 => Some(TrapCode::UnreachableCodeReached),
+            11 => Some(TrapCode::UnalignedAtomic),
+            _ => None,
+        },
     }
 }
 
@@ -154,13 +208,21 @@ cfg_if::cfg_if! {
                 }
                 _ => None,
             };
-
+            let trap_code = match signum {
+                // check if it was cased by a UD and if the Trap info is a payload to it
+                libc::SIGILL => {
+                    let addr = (*siginfo).si_addr() as usize;
+                    process_illegal_op(addr)
+                }
+                _ => None,
+            };
             let ucontext = &mut *(context as *mut libc::ucontext_t);
             let (pc, sp) = get_pc_sp(ucontext);
             let handled = TrapHandlerContext::handle_trap(
                 pc,
                 sp,
                 maybe_fault_address,
+                trap_code,
                 |regs| update_context(ucontext, regs),
                 |handler| handler(signum, siginfo, context),
             );
@@ -408,13 +470,20 @@ cfg_if::cfg_if! {
                 EXCEPTION_STACK_OVERFLOW => Some(sp),
                 _ => None,
             };
-
+            let trap_code = match record.ExceptionCode {
+                // check if it was cased by a UD and if the Trap info is a payload to it
+                EXCEPTION_ILLEGAL_INSTRUCTION => {
+                    process_illegal_op(pc)
+                }
+                _ => None,
+            };
             // This is basically the same as the unix version above, only with a
             // few parameters tweaked here and there.
             let handled = TrapHandlerContext::handle_trap(
                 pc,
                 sp,
                 maybe_fault_address,
+                trap_code,
                 |regs| update_context(context, regs),
                 |handler| handler(exception_info),
             );
@@ -587,8 +656,14 @@ thread_local! {
 /// from traps.
 struct TrapHandlerContext {
     inner: *const u8,
-    handle_trap:
-        fn(*const u8, usize, usize, Option<usize>, &mut dyn FnMut(TrapHandlerRegs)) -> bool,
+    handle_trap: fn(
+        *const u8,
+        usize,
+        usize,
+        Option<usize>,
+        Option<TrapCode>,
+        &mut dyn FnMut(TrapHandlerRegs),
+    ) -> bool,
     custom_trap: *const dyn TrapHandler,
 }
 struct TrapHandlerContextInner<T> {
@@ -611,6 +686,7 @@ impl TrapHandlerContext {
             pc: usize,
             sp: usize,
             maybe_fault_address: Option<usize>,
+            trap_code: Option<TrapCode>,
             update_regs: &mut dyn FnMut(TrapHandlerRegs),
         ) -> bool {
             unsafe {
@@ -618,6 +694,7 @@ impl TrapHandlerContext {
                     pc,
                     sp,
                     maybe_fault_address,
+                    trap_code,
                     update_regs,
                 )
             }
@@ -652,6 +729,7 @@ impl TrapHandlerContext {
         pc: usize,
         sp: usize,
         maybe_fault_address: Option<usize>,
+        trap_code: Option<TrapCode>,
         mut update_regs: impl FnMut(TrapHandlerRegs),
         call_handler: impl Fn(&TrapHandlerFn) -> bool,
     ) -> bool {
@@ -667,7 +745,14 @@ impl TrapHandlerContext {
             return true;
         }
 
-        (ctx.handle_trap)(ctx.inner, pc, sp, maybe_fault_address, &mut update_regs)
+        (ctx.handle_trap)(
+            ctx.inner,
+            pc,
+            sp,
+            maybe_fault_address,
+            trap_code,
+            &mut update_regs,
+        )
     }
 }
 
@@ -677,6 +762,7 @@ impl<T> TrapHandlerContextInner<T> {
         pc: usize,
         sp: usize,
         maybe_fault_address: Option<usize>,
+        trap_code: Option<TrapCode>,
         update_regs: &mut dyn FnMut(TrapHandlerRegs),
     ) -> bool {
         // Check if this trap occurred while executing on the Wasm stack. We can
@@ -685,12 +771,14 @@ impl<T> TrapHandlerContextInner<T> {
             return false;
         }
 
-        let signal_trap = maybe_fault_address.map(|addr| {
-            if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
-                TrapCode::StackOverflow
-            } else {
-                TrapCode::HeapAccessOutOfBounds
-            }
+        let signal_trap = trap_code.or_else(|| {
+            maybe_fault_address.map(|addr| {
+                if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
+                    TrapCode::StackOverflow
+                } else {
+                    TrapCode::HeapAccessOutOfBounds
+                }
+            })
         });
 
         // Don't try to generate a backtrace for stack overflows: unwinding

@@ -249,35 +249,35 @@ mod js {
     //     };
     //     let instance = Instance::new(&module, &imports).unwrap();
 
-    //     let f1: NativeFunc<(), ()> = instance
+    //     let f1: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func1")
     //         .unwrap();
-    //     let f2: NativeFunc<(), ()> = instance
+    //     let f2: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func2")
     //         .unwrap();
-    //     let f3: NativeFunc<(), ()> = instance
+    //     let f3: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func3")
     //         .unwrap();
-    //     let f4: NativeFunc<(), ()> = instance
+    //     let f4: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func4")
     //         .unwrap();
-    //     let f5: NativeFunc<(), ()> = instance
+    //     let f5: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func5")
     //         .unwrap();
-    //     let f6: NativeFunc<(), ()> = instance
+    //     let f6: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func6")
     //         .unwrap();
-    //     let f7: NativeFunc<(), ()> = instance
+    //     let f7: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func7")
     //         .unwrap();
-    //     let f8: NativeFunc<(), ()> = instance
+    //     let f8: TypedFunction<(), ()> = instance
     //         .exports
     //         .get_native_function("call_host_func8")
     //         .unwrap();

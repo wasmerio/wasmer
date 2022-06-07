@@ -8,17 +8,30 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+
+## 2.3.0 - (release pending)
+
 ### Added
 - [#2862](https://github.com/wasmerio/wasmer/pull/2862) Added CI builds for linux-aarch64 target.
+- [#2811](https://github.com/wasmerio/wasmer/pull/2811) Added support for EH Frames in singlepass
+- [#2851](https://github.com/wasmerio/wasmer/pull/2851) Allow Wasmer to compile to Wasm/WASI
 
 ### Changed
+- [#2807](https://github.com/wasmerio/wasmer/pull/2807) Run Wasm code in a separate stack
+- [#2802](https://github.com/wasmerio/wasmer/pull/2802) Support Dylib engine with Singlepass
+- [#2836](https://github.com/wasmerio/wasmer/pull/2836) Improve TrapInformation data stored at runtime
+- [#2864](https://github.com/wasmerio/wasmer/pull/2864) `wasmer-cli`: remove wasi-experimental-io-devices from default builds
 - #2864 wasmer-cli: remove wasi-experimental-io-devices from default builds
+- [#2933](https://github.com/wasmerio/wasmer/pull/2933) Rename NativeFunc to TypedFunction.
+
 ### Changed
 - #2868 Removed loupe crate dependency
 
 ### Fixed
 - [#2829](https://github.com/wasmerio/wasmer/pull/2829) Improve error message oriented from JS object.
 - [#2828](https://github.com/wasmerio/wasmer/pull/2828) Fix JsImportObject resolver.
+- [#2872](https://github.com/wasmerio/wasmer/pull/2872) Fix `WasmerEnv` finalizer
+- [#2821](https://github.com/wasmerio/wasmer/pull/2821) Opt in `sys` feature
 
 ## 2.2.1 - 2022/03/15
 

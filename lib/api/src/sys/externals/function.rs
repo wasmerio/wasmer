@@ -3,8 +3,8 @@ use crate::sys::externals::Extern;
 use crate::sys::store::Store;
 use crate::sys::types::{Val, ValFuncRef};
 use crate::sys::FunctionType;
-use crate::sys::NativeFunc;
 use crate::sys::RuntimeError;
+use crate::sys::TypedFunction;
 use crate::sys::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 
@@ -561,7 +561,7 @@ impl Function {
     }
 
     /// Transform this WebAssembly function into a function with the
-    /// native ABI. See [`NativeFunc`] to learn more.
+    /// native ABI. See [`TypedFunction`] to learn more.
     ///
     /// # Examples
     ///
@@ -635,7 +635,7 @@ impl Function {
     /// // This results in an error: `RuntimeError`
     /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
     /// ```
-    pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
+    pub fn native<Args, Rets>(&self) -> Result<TypedFunction<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -668,7 +668,10 @@ impl Function {
             }
         }
 
-        Ok(NativeFunc::new(self.store.clone(), self.exported.clone()))
+        Ok(TypedFunction::new(
+            self.store.clone(),
+            self.exported.clone(),
+        ))
     }
 
     #[track_caller]

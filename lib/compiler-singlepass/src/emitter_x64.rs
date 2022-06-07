@@ -198,6 +198,7 @@ pub trait EmitterX64 {
     fn emit_test_gpr_64(&mut self, reg: GPR);
 
     fn emit_ud2(&mut self);
+    fn emit_ud1_payload(&mut self, payload: u8);
     fn emit_ret(&mut self);
     fn emit_call_label(&mut self, label: Label);
     fn emit_call_location(&mut self, loc: Location);
@@ -1852,6 +1853,10 @@ impl EmitterX64 for AssemblerX64 {
 
     fn emit_ud2(&mut self) {
         dynasm!(self ; ud2);
+    }
+    fn emit_ud1_payload(&mut self, payload: u8) {
+        assert!(payload & 0xf0 == 0);
+        dynasm!(self ; ud1 Rd((payload>>3)&1), Rd(payload&7));
     }
     fn emit_ret(&mut self) {
         dynasm!(self ; ret);

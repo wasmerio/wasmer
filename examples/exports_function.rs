@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(result.to_vec(), vec![Value::I32(3)]);
 
     // That was fun. But what if we can get rid of the `Value`s? Well,
-    // that's possible with the `NativeFunction` API. The function
+    // that's possible with the `TypedFunction` API. The function
     // will use native Rust values.
     //
     // Note that `native` takes 2 generic parameters: `Args` and

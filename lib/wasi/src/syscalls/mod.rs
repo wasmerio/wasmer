@@ -222,8 +222,7 @@ pub fn clock_res_get(
     trace!("wasi::clock_res_get");
     let memory = thread.memory();
 
-    let out_addr = resolution.deref(memory);
-    let t_out = wasi_try!(platform_clock_res_get(clock_id, out_addr));
+    let t_out = wasi_try!(platform_clock_res_get(clock_id));
     wasi_try_mem!(resolution.write(memory, t_out as __wasi_timestamp_t));
     __WASI_ESUCCESS
 }
