@@ -305,6 +305,7 @@
 <span id="303">303</span>
 <span id="304">304</span>
 <span id="305">305</span>
+<span id="306">306</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Universal compilation.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::CodeMemory</span>;
@@ -471,6 +472,7 @@
 
 <span class="kw">impl</span> <span class="ident">UniversalEngineInner</span> {
     <span class="doccomment">/// Gets the compiler associated to this engine.</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compiler</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">compiler</span>()
     }

@@ -410,6 +410,7 @@
 <span id="408">408</span>
 <span id="409">409</span>
 <span id="410">410</span>
+<span id="411">411</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
@@ -520,6 +521,7 @@
 
     <span class="doccomment">/// Enable compiler internal verification.</span>
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">long</span>)]</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
     <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// LLVM debug directory, where IR and object files will be written to.</span>
