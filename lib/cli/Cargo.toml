@@ -55,6 +55,9 @@ cfg-if = "1.0"
 fern = { version = "0.6", features = ["colored"], optional = true }
 log = { version = "0.4", optional = true }
 tempfile = "3"
+# For self-updates
+reqwest = { version = "0.11.10", features = ["blocking", ] }
+serde_json = "1.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
